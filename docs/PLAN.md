@@ -331,7 +331,7 @@ runs the sorting program against it; a box visibly gets pushed.
 - [x] 1.2 `core/iotable.py`: `Tag`, `IOTable`, change callbacks, thread-safe get/set
       *Done when:* unit tests for set/get/callback and for kind-based write restriction (PLC cannot write
       a DI).
-- [ ] 1.3 `core/component.py` base class + registry decorator `@register("belt_conveyor")`
+- [x] 1.3 `core/component.py` base class + registry decorator `@register("belt_conveyor")`
       *Done when:* registering a duplicate type name raises; loader resolves type strings to classes.
 - [ ] 1.4 Components: `belt_conveyor`, `photo_eye`, `pusher`, `box_emitter`, `part_remover`,
       `pushbutton`, `pilot_light`, `selector_switch`, each with unit tests
