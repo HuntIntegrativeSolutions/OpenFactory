@@ -61,16 +61,22 @@ def _number(value: float) -> str:
 
 
 def io_list_rows(
-    scene: Scene, encoding: Encoding | None = None, *, scene_path: str | Path | None = None
+    scene: Scene,
+    encoding: Encoding | None = None,
+    *,
+    scene_path: str | Path | None = None,
+    write_lock: bool = True,
 ) -> list[dict[str, str]]:
     """Rows for :func:`io_list_csv`. ``encoding`` defaults to the scene's analog encoding.
 
-    With ``scene_path``, addresses honor and update the scene's lockfile (ADR-0004).
+    With ``scene_path``, addresses honor the scene's lockfile (ADR-0004) and, with ``write_lock``,
+    create or update it.
     """
     enc: Encoding = encoding or scene.plc.analog_encoding
     table = build_iotable(scene)
     rows = []
-    for a in scene_register_map(scene, enc, scene_path=scene_path).assignments:
+    register_map = scene_register_map(scene, enc, scene_path=scene_path, write=write_lock)
+    for a in register_map.assignments:
         tag = table.tag(a.tag)
         analog = tag.kind in ("AI", "AO")
         lo, hi = tag.range or (None, None)
@@ -93,13 +99,17 @@ def io_list_rows(
 
 
 def io_list_csv(
-    scene: Scene, encoding: Encoding | None = None, *, scene_path: str | Path | None = None
+    scene: Scene,
+    encoding: Encoding | None = None,
+    *,
+    scene_path: str | Path | None = None,
+    write_lock: bool = True,
 ) -> str:
     """The I/O list as CSV text (UTF-8, ``\\n`` line endings, header row first)."""
     buf = _io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=COLUMNS, lineterminator="\n")
     writer.writeheader()
-    writer.writerows(io_list_rows(scene, encoding, scene_path=scene_path))
+    writer.writerows(io_list_rows(scene, encoding, scene_path=scene_path, write_lock=write_lock))
     return buf.getvalue()
 
 

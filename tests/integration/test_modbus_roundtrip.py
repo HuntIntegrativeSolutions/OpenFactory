@@ -78,10 +78,10 @@ def test_coil_write_reaches_iotable_and_sim_driven_di_reads_back(scene):
         rr = await client.read_discrete_inputs(di, count=1, device_id=1)
         assert rr.bits[0] is True
 
-        scene.world.spawn("short", (0.3, 0.2, 0.3), (1.5, 0.1, 0.0))  # box at the photo eye
+        scene.world.spawn("tall", (0.3, 0.4, 0.3), (1.5, 0.2, 0.0))  # tall box at the eye
         scene.step(DT)
         scene.step(DT)  # 20 ms debounce
-        rr = await client.read_discrete_inputs(0, count=4, device_id=1)
+        rr = await client.read_discrete_inputs(0, count=server.map.size["di"], device_id=1)
         assert rr.bits[pe] is True
         print(f"coil CO:{co} -> CONV_01_RUN_DO=True; DI:{di} running=True; DI:{pe} PE_01=True")
 
@@ -98,9 +98,12 @@ def test_fc05_is_idempotent_and_out_of_range_writes_are_rejected(scene):
         assert changes.count("CONV_01_RUN_DO") == 1
         wr = await client.write_coil(server.map.size["co"], True, device_id=1)  # one past the end
         assert wr.isError() and wr.exception_code == 2
-        wr = await client.write_coils(1, [True, True, True], device_id=1)  # runs past the end
+        last = server.map.size["co"] - 1
+        wr = await client.write_coils(last - 1, [True, True, True], device_id=1)  # past the end
         assert wr.isError() and wr.exception_code == 2
-        assert scene.io.get("CYL_01_EXT_DO") is False  # all or nothing
+        assert not any(  # all or nothing
+            scene.io.get(server.map.at["co"][a].tag) for a in (last - 1, last)
+        )
         rr = await client.read_input_registers(0, count=1, device_id=1)  # no AI tags in scene
         assert rr.isError()
 

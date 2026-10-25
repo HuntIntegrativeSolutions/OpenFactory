@@ -112,9 +112,14 @@ PE_00 = {
 }
 
 
+#: The Milestone 1 five-component sorter, so these tests do not move when the example grows.
+BASE_IDS = ("CONV_01", "PE_01", "CYL_01", "EMT_01", "REM_01")
+
+
 def scene_copy(tmp_path, extra_components=(), edit=None):
     """A copy of the example scene in tmp_path (tests never write next to the shipped scene)."""
     data = yaml.safe_load(EXAMPLE.read_text(encoding="utf-8"))
+    data["components"] = [c for c in data["components"] if c["id"] in BASE_IDS]
     data["components"] += list(extra_components)
     if edit:
         edit(data)
@@ -132,7 +137,7 @@ def test_first_run_writes_lockfile_with_the_packed_allocation(tmp_path):
     m = scene_register_map(load_scene(path), scene_path=path)
     lock = lockfile_path(path)
     assert lock.name == "sorter.modbus.yaml" and lock.is_file()
-    assert labels(m) == labels(allocate(load(EXAMPLE).io.tags(), "float32"))
+    assert labels(m) == labels(allocate(build_iotable(load_scene(path)).tags(), "float32"))
     assert read_lock(lock) == AddressLock("float32", {a.tag: a.address for a in m.assignments})
 
 

@@ -74,7 +74,15 @@ def test_registries_are_independent(registry):
 
 def test_loader_resolves_type_strings_to_classes(stub_registry):
     loaded = build(load_scene(EXAMPLE), stub_registry)
-    assert [c.id for c in loaded.components] == ["CONV_01", "PE_01", "CYL_01", "EMT_01", "REM_01"]
+    assert [c.id for c in loaded.components] == [
+        "CONV_01",
+        "PE_01",
+        "CYL_01",
+        "EMT_01",
+        "REM_01",
+        "CONV_02",
+        "REM_02",
+    ]
     for comp in loaded.components:
         assert type(comp) is stub_registry.resolve(comp.config.type)
         assert comp.type == comp.config.type
@@ -150,7 +158,7 @@ def test_geometry_default(stub_registry):
     assert pe.geometry() == {
         "id": "PE_01",
         "type": "photo_eye",
-        "position": [1.5, 0.15, 0.0],
+        "position": [1.5, 0.3, 0.0],
         "rotation_deg": 0.0,
     }
     assert pe.state() == {}

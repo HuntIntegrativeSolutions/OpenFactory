@@ -192,8 +192,8 @@ components:
       running: CONV_01_RUN_DI    # feedback
   - id: PE_01
     type: photo_eye
-    description: Infeed Box Present Photo Eye
-    position: [1.5, 0.15, 0]
+    description: Infeed Tall Box Photo Eye
+    position: [1.5, 0.3, 0]      # above short boxes (0.2 m), below tall ones (0.4 m)
     beam_length: 0.6
     io:
       detect: PE_01_DI
@@ -221,8 +221,10 @@ components:
     type: part_remover
     position: [4.1, 0, 0]
     size: [0.3, 1.0, 1.0]
+  # The shipped scene adds CONV_02, a divert lane alongside CONV_01 that the pusher moves tall
+  # boxes onto, and REM_02 at its end.
 connections:                     # optional; which conveyor feeds which
-  - {from: CONV_01, to: CONV_02} # (illustrative: this example has a single conveyor)
+  - {from: CONV_01, to: CONV_02} # (illustrative: in this scene CONV_02 is fed by the pusher)
 ```
 
 Rules:

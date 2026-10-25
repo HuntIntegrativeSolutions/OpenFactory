@@ -31,7 +31,15 @@ def _component(data: dict, cid: str) -> dict:
 def test_loads_example_scene():
     scene = load_scene(EXAMPLE)
     assert scene.scene.name == "sorting-by-height"
-    assert [c.id for c in scene.components] == ["CONV_01", "PE_01", "CYL_01", "EMT_01", "REM_01"]
+    assert [c.id for c in scene.components] == [
+        "CONV_01",
+        "PE_01",
+        "CYL_01",
+        "EMT_01",
+        "REM_01",
+        "CONV_02",
+        "REM_02",
+    ]
     assert scene.plc.protocol == "modbus_tcp"
     assert scene.plc.role == "server"
     assert scene.plc.bind is None and scene.plc.port is None  # openfactory.toml supplies these
@@ -49,6 +57,8 @@ def test_example_tag_bindings_and_kinds():
         "CYL_01_EXT_DI",
         "CYL_01_RET_DI",
         "EMT_01_EN_DO",
+        "CONV_02_RUN_DO",
+        "CONV_02_RUN_DI",
     }
     speed = bindings["CONV_01_SPD_AO"]
     assert speed.kind == "AO"
@@ -178,10 +188,8 @@ def test_committed_json_schema_is_current():
 
 
 def _two_conveyors(example_data: dict) -> dict:
-    conv2 = copy.deepcopy(_component(example_data, "CONV_01"))
-    conv2.update(id="CONV_02", position=[4, 0, 0])
-    conv2["io"] = {"run": "CONV_02_RUN_DO"}
-    example_data["components"].append(conv2)
+    """The example already has two conveyors: CONV_01 and the divert lane CONV_02."""
+    assert _component(example_data, "CONV_02")["type"] == "belt_conveyor"
     return example_data
 
 

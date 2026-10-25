@@ -40,7 +40,7 @@ def scene():
 def test_header_and_row_count(scene):
     header, rows = parse(io_list_csv(scene))
     assert tuple(header) == COLUMNS
-    assert len(rows) == len(scene.tag_bindings()) == 8
+    assert len(rows) == len(scene.tag_bindings()) == 10
 
 
 def test_passes_io_validate_checks(scene):
@@ -57,7 +57,7 @@ def test_passes_io_validate_checks(scene):
 
 
 def test_rows_are_decodable(scene):
-    rows = {r["tag"]: r for r in io_list_rows(scene)}
+    rows = {r["tag"]: r for r in io_list_rows(scene, scene_path=EXAMPLE, write_lock=False)}
     speed = rows["CONV_01_SPD_AO"]
     assert speed["io_type"] == "AO" and speed["dtype"] == "float32"
     assert speed["modbus_address"] == "HR:0-1"
@@ -99,7 +99,8 @@ def test_csv_honors_the_lockfile_like_the_server(tmp_path):
     scene_path = tmp_path / EXAMPLE.name
     text = EXAMPLE.read_text(encoding="utf-8")
     scene_path.write_text(text, encoding="utf-8")
-    io_list_csv(load_scene(scene_path), scene_path=scene_path)  # first export writes the lockfile
+    first = io_list_rows(load_scene(scene_path), scene_path=scene_path)  # writes the lockfile
+    before = {r["tag"]: r["modbus_address"] for r in first}
     scene_path.write_text(
         text + "  - id: PE_00\n    type: photo_eye\n    description: Infeed Entry Photo Eye\n"
         "    position: [0.6, 0.15, 0]\n    beam_length: 0.6\n    io:\n      detect: PE_00_DI\n",
@@ -107,7 +108,8 @@ def test_csv_honors_the_lockfile_like_the_server(tmp_path):
     )
     scene = load_scene(scene_path)
     rows = {r["tag"]: r["modbus_address"] for r in io_list_rows(scene, scene_path=scene_path)}
-    assert rows["PE_01_DI"] == "DI:3" and rows["PE_00_DI"] == "DI:4"
+    assert {tag: rows[tag] for tag in before} == before  # nothing renumbered
+    assert rows["PE_00_DI"] == f"DI:{len([t for t in before if t.endswith('_DI')])}"
     loaded = load(scene_path)
     register_map = scene_register_map(scene, scene_path=scene_path, write=False)
     server = ModbusServer(loaded.io, "float32", Endpoint(port=1502), register_map)
