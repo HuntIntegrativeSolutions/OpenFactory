@@ -316,7 +316,7 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
 - [x] `web/` scaffold: `npm create vite@latest` (vanilla-ts), add `three`, `@dimforge/rapier3d-compat`,
       `@types/three`; `npm run build` succeeds
       *Done when:* `web/dist/index.html` exists after build.
-- [ ] `THIRD_PARTY.md` listing every dependency and license (regenerate with `pip-licenses` and
+- [x] `THIRD_PARTY.md` listing every dependency and license (regenerate with `pip-licenses` and
       `license-checker`)
 
 ### Milestone 1 — Walking skeleton: one scene, Modbus, browser (target 2–3 weeks of sessions)
