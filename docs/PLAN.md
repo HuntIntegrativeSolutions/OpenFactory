@@ -247,6 +247,9 @@ Rules:
   per-scene overrides of the server's listen address, and a PLC's own address is only ever a named
   `plc.connection` resolved from `openfactory.toml`. Precedence: CLI flag > scene override >
   `openfactory.local.toml` > `openfactory.toml` > built-in defaults.
+- `plc.bind` accepts loopback addresses only (`127.0.0.0/8` or `::1`); any other value, including a
+  hostname, fails at load with a message pointing to the `--bind` CLI flag. A scene file, which may
+  come from anyone, can never open a server to the network (§6.4).
 - The authoritative, machine-readable form is `web/public/scene.schema.json`, generated from
   `src/openfactory/core/schema.py`.
 
@@ -353,6 +356,10 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
 - Bind to loopback unless `--bind` given. No authentication on Modbus (protocol has none); OPC UA
   anonymous by default with a documented switch to username/password. Say plainly in docs: this is a lab
   tool, keep it off plant networks.
+- Only an operator action opens the network: the `--bind` CLI flag, or a `bind` the operator wrote in
+  their own `openfactory.toml` / `openfactory.local.toml`. A scene's `plc.bind` override is restricted
+  to loopback (`127.0.0.0/8`, `::1`) and fails at load otherwise, so opening a shared scene file never
+  exposes a server.
 
 ---
 

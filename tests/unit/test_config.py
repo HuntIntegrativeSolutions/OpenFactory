@@ -50,3 +50,42 @@ def test_endpoint_precedence():
     assert resolve_endpoint(configured, scene) == Endpoint(bind="127.0.0.1", port=1502)
     assert resolve_endpoint(configured, scene, cli_port=502).port == 502
     assert resolve_endpoint(configured, scene, cli_bind="0.0.0.0").bind == "0.0.0.0"
+
+
+# --- scene plc.bind is loopback only (PLAN §6.4) ------------------------------------------------
+
+
+@pytest.mark.parametrize("bind", ["127.0.0.1", "127.0.0.2", "127.255.255.254", "::1"])
+def test_scene_bind_override_accepts_loopback(bind):
+    configured = Endpoint(bind="127.0.0.1", port=5020)
+    assert resolve_endpoint(configured, PlcConfig(bind=bind)).bind == bind
+
+
+@pytest.mark.parametrize(
+    "bind", ["0.0.0.0", "192.168.1.10", "10.0.0.5", "::", "fe80::1", "localhost", "my-host", ""]
+)
+def test_scene_bind_override_rejects_anything_else(bind):
+    with pytest.raises(ValidationError, match="not a loopback address") as err:
+        PlcConfig(bind=bind)
+    assert "--bind" in str(err.value)  # the message names the CLI flag that does allow it
+
+
+def test_scene_file_with_network_bind_fails_at_load(tmp_path):
+    from openfactory.core.schema import load_scene
+
+    example = Path(__file__).resolve().parents[2] / "scenes" / "sorting-by-height.yaml"
+    text = example.read_text(encoding="utf-8").replace(
+        "  role: server                  # server | client\n",
+        "  role: server\n  bind: 0.0.0.0\n",
+    )
+    assert "bind: 0.0.0.0" in text
+    path = tmp_path / "open.yaml"
+    path.write_text(text, encoding="utf-8")
+    with pytest.raises(ValidationError, match=r"plc\.bind '0\.0\.0\.0' is not a loopback.*--bind"):
+        load_scene(path)
+
+
+def test_cli_bind_still_opens_the_network():
+    configured = Endpoint(bind="127.0.0.1", port=5020)
+    plc = PlcConfig(bind="127.0.0.2")
+    assert resolve_endpoint(configured, plc, cli_bind="0.0.0.0").bind == "0.0.0.0"

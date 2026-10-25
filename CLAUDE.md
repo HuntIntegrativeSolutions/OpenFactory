@@ -123,8 +123,8 @@ OpenFactory/
 - All protocol servers bind to `127.0.0.1` by default. `--bind 0.0.0.0` is an explicit opt-in.
 - Never hardcode IP addresses in scenes. Connection settings live in `openfactory.toml` (machine-specific
   values in the git-ignored `openfactory.local.toml`). A scene's `plc` block selects `protocol` and
-  `role`; `plc.bind` / `plc.port` are optional listen-address overrides, and PLC addresses are named
-  `plc.connection` entries resolved from `openfactory.toml`.
+  `role`; `plc.bind` (loopback only) / `plc.port` are optional listen-address overrides, and PLC
+  addresses are named `plc.connection` entries resolved from `openfactory.toml`.
 
 ### Testing and commits
 - `uv run pytest` must pass before any commit. `npm test` in `web/` for viewer changes.

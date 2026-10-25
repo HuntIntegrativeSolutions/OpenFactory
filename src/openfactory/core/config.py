@@ -9,7 +9,9 @@ server on ``127.0.0.1``: Modbus 5020, OPC UA 4840, web 8000). Unknown keys are e
 scenes.
 
 :func:`resolve_endpoint` applies the full precedence for one server: CLI flag, then the scene's
-optional ``plc.bind`` / ``plc.port`` override, then the settings files, then the defaults.
+optional ``plc.bind`` / ``plc.port`` override, then the settings files, then the defaults. The scene
+schema already restricts ``plc.bind`` to loopback addresses (PLAN §6.4), so only the CLI flag or the
+operator's own settings files can open a server to the network.
 """
 
 from __future__ import annotations

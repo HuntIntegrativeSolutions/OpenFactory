@@ -20,6 +20,7 @@ Not a safety-rated simulation. OpenFactory is a training and demo tool.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import re
 import sys
@@ -28,7 +29,14 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 SCHEMA_VERSION = "0.1"
 TAG_MAX_LEN = 40
@@ -179,7 +187,8 @@ class PlcConfig(StrictModel):
     role: Literal["server", "client"] = "server"
     bind: str | None = Field(
         None,
-        description="Optional listen-address override for openfactory.toml. Never a PLC's IP.",
+        description="Optional listen-address override for openfactory.toml. Loopback only "
+        "(127.0.0.0/8 or ::1); listening on a network needs the --bind CLI flag. Never a PLC's IP.",
     )
     port: int | None = Field(
         None, ge=1, le=65535, description="Optional port override for openfactory.toml."
@@ -191,6 +200,24 @@ class PlcConfig(StrictModel):
     connection: str | None = Field(
         None, description="Named connection resolved from openfactory.toml (Logix client role)."
     )
+
+    @field_validator("bind")
+    @classmethod
+    def _bind_is_loopback(cls, value: str | None) -> str | None:
+        """A scene file must not open a server to the network (PLAN §6.4); only the CLI can."""
+        if value is None:
+            return value
+        try:
+            loopback = ipaddress.ip_address(value).is_loopback
+        except ValueError:
+            loopback = False
+        if not loopback:
+            raise ValueError(
+                f"plc.bind {value!r} is not a loopback address (127.0.0.0/8 or ::1). A scene may "
+                "only move the server within this machine; to listen on a network interface, pass "
+                "--bind on the command line (for example: openfactory run SCENE --bind 0.0.0.0)"
+            )
+        return value
 
 
 # --- Components (Milestone 1 types, PLAN §5) -------------------------------------------------

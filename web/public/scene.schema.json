@@ -698,7 +698,7 @@
             }
           ],
           "default": null,
-          "description": "Optional listen-address override for openfactory.toml. Never a PLC's IP.",
+          "description": "Optional listen-address override for openfactory.toml. Loopback only (127.0.0.0/8 or ::1); listening on a network needs the --bind CLI flag. Never a PLC's IP.",
           "title": "Bind"
         },
         "port": {
