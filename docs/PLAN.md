@@ -313,7 +313,7 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
       *Done when:* `git log` shows the foundation commit.
 - [x] `pyproject.toml` with `uv`, `ruff`, `pytest`; `src/openfactory/__init__.py` with `__version__`
       *Done when:* `uv run pytest` runs (zero tests collected is fine) and `uv run ruff check .` passes.
-- [ ] `web/` scaffold: `npm create vite@latest` (vanilla-ts), add `three`, `@dimforge/rapier3d-compat`,
+- [x] `web/` scaffold: `npm create vite@latest` (vanilla-ts), add `three`, `@dimforge/rapier3d-compat`,
       `@types/three`; `npm run build` succeeds
       *Done when:* `web/dist/index.html` exists after build.
 - [ ] `THIRD_PARTY.md` listing every dependency and license (regenerate with `pip-licenses` and
