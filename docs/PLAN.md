@@ -391,13 +391,18 @@ runs the sorting program against it; a box visibly gets pushed.
       photo eye at the expected time ± 1 tick.
 - [x] 1.6 `core/scheduler.py`: fixed 50 Hz with accumulator; `--as-fast-as-possible`
       *Done when:* 10 simulated seconds complete in < 0.5 s wall time in fast mode; realtime drift < 1%.
-- [ ] 1.7 `protocols/modbus.py`: pymodbus 3.16.x async server bound to IOTable, allocation per §6.1.
+- [x] 1.7 `protocols/modbus.py`: pymodbus 3.16.x async server bound to IOTable, allocation per §6.1.
       Bind through `SimDevice(action=hook)`; `ModbusSlaveContext` no longer exists and the legacy
       datablocks do not give live reads. Always pass `address=("127.0.0.1", port)` explicitly. Hook must
       be idempotent (FC05 can invoke it twice). See `docs/research/libraries.md` "pymodbus 3.x datastore
       binding".
       *Done when:* `tests/integration/test_modbus_roundtrip.py` uses pymodbus client to write a coil and
       sees `CONV_01_RUN_DO` change; reads a DI after the sim trips it.
+      *Note (2026-10-25):* allocation sorts by kind, then tag name, so addresses are stable across runs
+      (CLAUDE.md), but adding a tag that sorts earlier renumbers the later tags in its table. §6.1's
+      "adding a tag never renumbers existing ones" and its pinned `address:` override cannot both hold
+      today: an `io` binding is a plain tag string, so there is nowhere to pin. Not built; needs a
+      schema decision (for example a `{tag, address}` binding form) before PLC programs depend on it.
 - [ ] 1.8 `export/io_list_csv.py`: columns `tag,kind,dtype,description,component,modbus_address`
       *Done when:* output validates with HIS Controls `/io-validate` skill.
 - [ ] 1.9 `server/app.py`: FastAPI, `/api/scene`, `/ws/state`, `/ws/events`, static `web/dist`
