@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+uv.lock.bak
+
+# Node / web
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Local config and secrets
+openfactory.local.toml
+.env
+
+# Tooling output
+tools/screenshots/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
