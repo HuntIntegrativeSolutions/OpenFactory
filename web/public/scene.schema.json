@@ -229,7 +229,7 @@
             }
           ],
           "default": null,
-          "description": "Emitter enable (always enabled when unbound)",
+          "description": "Emitter enable",
           "title": "Enable",
           "x-io-kind": "DO"
         }

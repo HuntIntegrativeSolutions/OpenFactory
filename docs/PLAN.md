@@ -403,8 +403,13 @@ runs the sorting program against it; a box visibly gets pushed.
       "adding a tag never renumbers existing ones" and its pinned `address:` override cannot both hold
       today: an `io` binding is a plain tag string, so there is nowhere to pin. Not built; needs a
       schema decision (for example a `{tag, address}` binding form) before PLC programs depend on it.
-- [ ] 1.8 `export/io_list_csv.py`: columns `tag,kind,dtype,description,component,modbus_address`
+- [x] 1.8 `export/io_list_csv.py`: columns `tag,kind,dtype,description,component,modbus_address`
       *Done when:* output validates with HIS Controls `/io-validate` skill.
+      *Note (2026-10-25):* `/io-validate` requires `io_type` (not `kind`) and an `address` column, so the
+      CSV uses `io_type` and adds `address`, left blank because a simulated point has no physical PLC
+      I/O address. It also adds `modbus_encoding`, `units`, `range_min`, and `range_max` so the
+      register map can be decoded from the CSV alone. Final columns: `tag,io_type,dtype,description,
+      component,address,modbus_address,modbus_encoding,units,range_min,range_max`.
 - [ ] 1.9 `server/app.py`: FastAPI, `/api/scene`, `/ws/state`, `/ws/events`, static `web/dist`
       *Done when:* `curl /api/scene` returns resolved geometry; a websocket client receives ≥ 15 frames/s.
 - [ ] 1.10 CLI `openfactory run|validate|export` via `typer`

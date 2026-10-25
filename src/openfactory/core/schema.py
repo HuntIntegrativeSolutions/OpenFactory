@@ -212,7 +212,7 @@ class PartSpec(StrictModel):
 
 
 class BoxEmitterIO(IOModel):
-    enable: DoTag | None = port("DO", "Emitter enable (always enabled when unbound)")
+    enable: DoTag | None = port("DO", "Emitter enable")
 
 
 class BoxEmitter(ComponentBase):
