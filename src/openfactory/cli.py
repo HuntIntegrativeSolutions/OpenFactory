@@ -122,14 +122,15 @@ async def _serve(
     if modbus is not None:
         tasks.append(asyncio.create_task(modbus.serve_forever()))
         await modbus.wait_ready()
-    if web is not None:
-        tasks.append(asyncio.create_task(web.serve()))
-        while not web.started:
-            if tasks[-1].done():
-                await tasks[-1]  # surfaces a bind error
-            await asyncio.sleep(0.02)
+    # The simulation starts before the viewer server, so the API never shows a sim not yet running.
     runtime.start(duration)
     try:
+        if web is not None:
+            tasks.append(asyncio.create_task(web.serve()))
+            while not web.started:
+                if tasks[-1].done():
+                    await tasks[-1]  # surfaces a bind error
+                await asyncio.sleep(0.02)
         while runtime.running and not stop.is_set() and not (web and web.should_exit):
             await asyncio.sleep(0.05)
     finally:
