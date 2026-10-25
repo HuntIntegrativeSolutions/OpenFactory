@@ -309,7 +309,7 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
 ### Milestone 0 — Project foundation (this week)
 - [x] Project folder, `CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, `LICENSE`, `.gitignore`
 - [x] `docs/PLAN.md` (this file), `docs/research/libraries.md`, `docs/adr/ADR-0001-stack.md`
-- [ ] `git init`, first commit, `main` branch protected locally by convention
+- [x] `git init`, first commit, `main` branch protected locally by convention
       *Done when:* `git log` shows the foundation commit.
 - [ ] `pyproject.toml` with `uv`, `ruff`, `pytest`; `src/openfactory/__init__.py` with `__version__`
       *Done when:* `uv run pytest` runs (zero tests collected is fine) and `uv run ruff check .` passes.
