@@ -328,7 +328,7 @@ runs the sorting program against it; a box visibly gets pushed.
       *Why:* the schema is the contract between every other part. Get it right first.
       *Done when:* `tests/unit/test_schema.py` loads the example scene, rejects an unknown key, rejects a
       bad tag name.
-- [ ] 1.2 `core/iotable.py`: `Tag`, `IOTable`, change callbacks, thread-safe get/set
+- [x] 1.2 `core/iotable.py`: `Tag`, `IOTable`, change callbacks, thread-safe get/set
       *Done when:* unit tests for set/get/callback and for kind-based write restriction (PLC cannot write
       a DI).
 - [ ] 1.3 `core/component.py` base class + registry decorator `@register("belt_conveyor")`
