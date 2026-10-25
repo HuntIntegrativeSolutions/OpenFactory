@@ -93,6 +93,8 @@ API calls for PLAN 1.12 (all present in the 0.21.0 typings):
 | Eclipse Tahu | not checked | EPL-2.0 | https://github.com/eclipse/tahu | Sparkplug B reference implementations and `.proto`. |
 | FastAPI | 0.162.0 (2026-10-23), Python ≥ 3.10 | MIT | https://pypi.org/project/fastapi/ ; https://fastapi.tiangolo.com/ | HTTP + WebSocket. Serves the built viewer as static files. Pre-1.0: pin the minor version. |
 | uvicorn | 0.54.0 (2026-09-25), Python ≥ 3.10 | BSD-3-Clause | https://pypi.org/project/uvicorn/ | ASGI server for FastAPI. |
+| websockets | 17.3 (2026-10-19), Python ≥ 3.11 | BSD-3-Clause | https://pypi.org/project/websockets/ | WebSocket protocol for uvicorn (`ws="websockets-sansio"`; the legacy `websockets` implementation warns as deprecated) and the sync test client. Added for PLAN 1.9. |
+| httpx | 0.28.1 (2024-12-06), Python ≥ 3.8 | BSD-3-Clause | https://pypi.org/project/httpx/ | Dev only: HTTP client for server tests. Pulls in certifi (MPL-2.0, on the allowlist). Added for PLAN 1.9. |
 | pydantic v2 | 2.14.1 (2026-10-11), Python ≥ 3.10 | MIT | https://pypi.org/project/pydantic/ ; https://docs.pydantic.dev/ | Scene schema with JSON Schema export. |
 | typer | 0.27.3 (2026-10-06), Python ≥ 3.10 | MIT | https://pypi.org/project/typer/ ; https://typer.tiangolo.com/ | CLI. Pre-1.0: pin the minor version. |
 | uv | not checked | MIT/Apache-2.0 | https://github.com/astral-sh/uv | Fast Python env and dependency management. |

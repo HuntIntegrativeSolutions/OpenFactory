@@ -61,13 +61,17 @@ file before relying on an entry for a distribution decision.
 | tzdata | 2026.5 | Apache-2.0 | https://github.com/python/tzdata |
 | uvicorn | 0.54.0 | BSD-3-Clause | https://uvicorn.dev/ |
 | wait_for2 | 0.4.1 | Apache-2.0 | https://github.com/Traktormaster/wait-for2 |
+| websockets | 17.3 | BSD-3-Clause | https://github.com/python-websockets/websockets |
 
 ## Python development tools (not distributed)
 
 | Package | Version | License | Source |
 |---------|---------|---------|--------|
+| certifi | 2026.10.23 | Mozilla Public License 2.0 (MPL 2.0) | https://github.com/certifi/python-certifi |
 | coverage | 7.17.0 | Apache-2.0 | https://github.com/coveragepy/coveragepy |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 | https://greenlet.readthedocs.io |
+| httpcore | 1.0.9 | BSD-3-Clause | https://www.encode.io/httpcore/ |
+| httpx | 0.28.1 | BSD License | https://github.com/encode/httpx |
 | iniconfig | 2.3.1 | MIT | https://github.com/pytest-dev/iniconfig |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
 | playwright | 1.64.1 | Apache-2.0 | https://github.com/Microsoft/playwright-python |

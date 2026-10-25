@@ -450,7 +450,7 @@ runs the sorting program against it; a box visibly gets pushed.
       I/O address. It also adds `modbus_encoding`, `units`, `range_min`, and `range_max` so the
       register map can be decoded from the CSV alone. Final columns: `tag,io_type,dtype,description,
       component,address,modbus_address,modbus_encoding,units,range_min,range_max`.
-- [ ] 1.9 `server/app.py`: FastAPI, `/api/scene`, `/ws/state`, `/ws/events`, static `web/dist`
+- [x] 1.9 `server/app.py`: FastAPI, `/api/scene`, `/ws/state`, `/ws/events`, static `web/dist`
       *Done when:* `curl /api/scene` returns resolved geometry; a websocket client receives ≥ 15 frames/s.
 - [ ] 1.10 CLI `openfactory run|validate|export` via `typer`
       *Done when:* `openfactory --help` lists the three; `validate` exits 1 on a bad scene.
