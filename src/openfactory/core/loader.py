@@ -11,6 +11,8 @@ Behavior spec
 3. resolves each component's ``type`` string through the registry and instantiates it.
 
 Components are kept in scene-file order, which is also their step order (PLAN §3.2).
+:meth:`LoadedScene.step` is one simulation tick: the kinematic model moves parts first, then each
+component steps in scene order.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from pathlib import Path
 
 from openfactory.core.component import REGISTRY, Component, ComponentRegistry
 from openfactory.core.iotable import IOTable, Tag
+from openfactory.core.kinematics import KinematicModel
 from openfactory.core.schema import Scene, load_scene
 from openfactory.core.world import World
 
@@ -31,6 +34,19 @@ class LoadedScene:
     io: IOTable
     world: World
     components: list[Component]
+    kinematics: KinematicModel
+    #: Number of completed ticks.
+    tick: int = 0
+    #: Simulated seconds elapsed (sum of step dt).
+    time: float = 0.0
+
+    def step(self, dt: float) -> None:
+        """One tick: move parts, then step components in scene order. Never reads the clock."""
+        self.kinematics.step(dt)
+        for comp in self.components:
+            comp.step(dt)
+        self.tick += 1
+        self.time += dt
 
     def component(self, component_id: str) -> Component:
         for comp in self.components:
@@ -65,7 +81,8 @@ def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScen
     io = build_iotable(scene)
     world = World(seed=scene.scene.seed)
     components = [registry.resolve(c.type)(c, io, world) for c in scene.components]
-    return LoadedScene(scene, io, world, components)
+    kinematics = KinematicModel(world, components, scene.connections)
+    return LoadedScene(scene, io, world, components, kinematics)
 
 
 def load(path: str | Path, registry: ComponentRegistry | None = None) -> LoadedScene:

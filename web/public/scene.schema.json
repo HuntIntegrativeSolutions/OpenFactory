@@ -237,6 +237,32 @@
       "title": "BoxEmitterIO",
       "type": "object"
     },
+    "Connection": {
+      "additionalProperties": false,
+      "description": "One conveyor feeding another: parts leaving ``from``'s discharge end land on ``to``'s infeed.\n\nThe handoff bridges any gap, height step, or turn between the two, like a transfer plate.",
+      "properties": {
+        "from": {
+          "description": "Upstream conveyor id.",
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Downstream conveyor id.",
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "Connection",
+      "type": "object"
+    },
     "NoIO": {
       "additionalProperties": false,
       "description": "A component with no PLC-visible ports.",
@@ -1056,6 +1082,14 @@
       },
       "minItems": 1,
       "title": "Components",
+      "type": "array"
+    },
+    "connections": {
+      "description": "Which conveyor feeds which. Loops (recirculation) are allowed; each conveyor feeds at most one downstream conveyor.",
+      "items": {
+        "$ref": "#/$defs/Connection"
+      },
+      "title": "Connections",
       "type": "array"
     }
   },

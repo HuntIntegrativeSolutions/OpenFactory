@@ -7,8 +7,10 @@ The world caps the scene at :data:`MAX_PARTS` (PLAN §5, box_emitter); :meth:`Wo
 ``None`` at the cap so an emitter simply skips that spawn. Part ids are sequential (``P000001``…) so
 runs are reproducible. Removed parts are counted by name for scene statistics.
 
-Part motion is not simulated here. The headless kinematic model (PLAN 1.5) or the browser physics
-(PLAN 1.12, mirrored back to the core) updates :attr:`Part.position`.
+Part motion is not simulated here. The headless kinematic model (``core/kinematics.py``) or the
+browser physics (PLAN 1.12, mirrored back to the core) updates :attr:`Part.position`,
+:attr:`Part.carrier`, and :attr:`Part.vy`. Parts that fall out of the scene are counted in
+:attr:`World.lost` by name.
 
 Randomness: :meth:`World.rng` gives each component its own ``random.Random`` seeded from the scene
 seed and the component id as a string, so results do not depend on ``PYTHONHASHSEED`` or on the
@@ -35,6 +37,14 @@ class Part:
     size: Vec3
     position: Vec3
     source: str = ""
+    #: Id of the conveyor the part rests on, or None while it falls.
+    carrier: str | None = None
+    #: Vertical velocity in m/s (negative is down) while falling.
+    vy: float = 0.0
+
+    @property
+    def bottom(self) -> float:
+        return self.position[1] - self.size[1] / 2
 
     def aabb(self) -> tuple[Vec3, Vec3]:
         """Axis-aligned bounds (min corner, max corner)."""
@@ -50,6 +60,7 @@ class World:
     parts: dict[str, Part] = field(default_factory=dict)
     spawned: int = 0
     removed: Counter[str] = field(default_factory=Counter)
+    lost: Counter[str] = field(default_factory=Counter)
 
     def rng(self, component_id: str) -> random.Random:
         """A deterministic random generator owned by one component."""
@@ -65,7 +76,13 @@ class World:
         return part
 
     def remove(self, part_id: str) -> Part:
-        """Remove a part and count it by name."""
+        """Remove a part (a part remover took it) and count it by name."""
         part = self.parts.pop(part_id)
         self.removed[part.name] += 1
+        return part
+
+    def lose(self, part_id: str) -> Part:
+        """Remove a part that fell out of the scene and count it by name."""
+        part = self.parts.pop(part_id)
+        self.lost[part.name] += 1
         return part

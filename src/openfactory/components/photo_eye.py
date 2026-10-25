@@ -3,11 +3,11 @@
 Behavior spec
 -------------
 The beam is a line segment ``beam_length`` long through the component origin, along local z (across
-the flow). Each step the raw beam state is *blocked* when any part's box intersects that segment.
-``detect`` (DI) follows the raw state through a 20 ms debounce on both edges: a change must be seen
-on consecutive steps for at least 20 ms, measured from the first step that saw it, before ``detect``
-changes. At the default 50 Hz step that is one tick of delay; a block or a gap shorter than the
-debounce never reaches the PLC.
+the flow). Each step the raw beam state is *blocked* when any part's box touches that segment
+(within 1 nm, so float drift cannot miss an exact touch). ``detect`` (DI) follows the raw state
+through a 20 ms debounce on both edges: a change must be seen on consecutive steps for at least
+20 ms, measured from the first step that saw it, before ``detect`` changes. At the default 50 Hz
+step that is one tick of delay; a block or a gap shorter than the debounce never reaches the PLC.
 
 Geometry: the origin is the beam midpoint.
 """
@@ -21,6 +21,8 @@ from openfactory.core.geometry import segment_hits_aabb, to_world
 
 DEBOUNCE_S = 0.020
 _EPS = 1e-9
+#: Contact tolerance in meters, so float drift in part positions cannot miss an exact touch.
+_TOUCH_M = 1e-9
 
 
 @register("photo_eye")
@@ -36,7 +38,13 @@ class PhotoEye(Component):
 
     def beam_blocked(self) -> bool:
         p0, p1 = self.beam
-        return any(segment_hits_aabb(p0, p1, *part.aabb()) for part in self.world.parts.values())
+        for part in self.world.parts.values():
+            lo, hi = part.aabb()
+            lo = (lo[0] - _TOUCH_M, lo[1] - _TOUCH_M, lo[2] - _TOUCH_M)
+            hi = (hi[0] + _TOUCH_M, hi[1] + _TOUCH_M, hi[2] + _TOUCH_M)
+            if segment_hits_aabb(p0, p1, lo, hi):
+                return True
+        return False
 
     def step(self, dt: float) -> None:
         self.blocked = self.beam_blocked()

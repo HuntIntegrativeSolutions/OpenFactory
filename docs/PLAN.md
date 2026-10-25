@@ -221,6 +221,8 @@ components:
     type: part_remover
     position: [4.1, 0, 0]
     size: [0.3, 1.0, 1.0]
+connections:                     # optional; which conveyor feeds which
+  - {from: CONV_01, to: CONV_02} # (illustrative: this example has a single conveyor)
 ```
 
 Rules:
@@ -228,6 +230,11 @@ Rules:
 - Unbound optional `io` keys are allowed; the component uses its default.
 - `position` is the component's local origin, documented per type in §5.
 - The loader rejects unknown keys (pydantic `extra="forbid"`) so typos surface immediately.
+- `connections` (optional) lists conveyor handoffs: parts leaving `from`'s discharge end land on
+  `to`'s infeed, bridging any gap, height step, or turn like a transfer plate. Both ends must be
+  conveyors, a conveyor cannot feed itself, and each conveyor feeds at most one other; several may
+  feed the same conveyor (a merge), and loops (recirculation) are allowed. Collinear conveyors that
+  touch still need a connection for the headless model to hand parts across.
 - Optional keys not shown in the example:
   - `box_emitter.jitter_s` (default 0): uniform ± jitter added to each `interval_s`; must be smaller
     than `interval_s`.
@@ -377,7 +384,7 @@ runs the sorting program against it; a box visibly gets pushed.
       `pushbutton`, `pilot_light`, `selector_switch`, each with unit tests
       *Why:* this is the minimum set for a classic sorter. Keep behavior simple and documented.
       *Done when:* each `step()` is covered; `pusher` limit switches verified across a full cycle.
-- [ ] 1.5 `core/kinematics.py`: headless part motion (position along conveyor axis, transfer between
+- [x] 1.5 `core/kinematics.py`: headless part motion (position along conveyor axis, transfer between
       connected conveyors, photo-eye intersection, remover). No Rapier.
       *Why:* CI and PLC logic tests must run without a browser.
       *Done when:* `tests/unit/test_kinematics.py` moves a part down two chained conveyors and trips a

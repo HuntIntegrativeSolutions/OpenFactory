@@ -312,6 +312,20 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
 }
 
 
+#: Component types that carry parts on their top surface (PLAN §5). Connections join these.
+CARRIER_TYPES = frozenset({"belt_conveyor"})
+
+
+class Connection(StrictModel):
+    """One conveyor feeding another: parts leaving ``from``'s discharge end land on ``to``'s infeed.
+
+    The handoff bridges any gap, height step, or turn between the two, like a transfer plate.
+    """
+
+    from_: ComponentId = Field(alias="from", description="Upstream conveyor id.")
+    to: ComponentId = Field(description="Downstream conveyor id.")
+
+
 @dataclass(frozen=True)
 class TagBinding:
     """One tag declared by a scene: which component port it is bound to, and its port metadata."""
@@ -339,6 +353,11 @@ class Scene(StrictModel):
     scene: SceneMeta
     plc: PlcConfig = PlcConfig()
     components: list[Component] = Field(min_length=1)
+    connections: list[Connection] = Field(
+        default_factory=list,
+        description="Which conveyor feeds which. Loops (recirculation) are allowed; "
+        "each conveyor feeds at most one downstream conveyor.",
+    )
 
     @model_validator(mode="after")
     def _unique_ids_and_tags(self) -> Scene:
@@ -347,6 +366,25 @@ class Scene(StrictModel):
             if comp.id in seen_ids:
                 raise ValueError(f"duplicate component id {comp.id!r}")
             seen_ids.add(comp.id)
+        types = {c.id: c.type for c in self.components}
+        downstream: dict[str, str] = {}
+        for conn in self.connections:
+            for end in (conn.from_, conn.to):
+                if end not in types:
+                    raise ValueError(f"connection references unknown component {end!r}")
+                if types[end] not in CARRIER_TYPES:
+                    raise ValueError(
+                        f"connection end {end!r} is a {types[end]}, not a conveyor "
+                        f"({', '.join(sorted(CARRIER_TYPES))})"
+                    )
+            if conn.from_ == conn.to:
+                raise ValueError(f"conveyor {conn.from_!r} cannot feed itself")
+            if conn.from_ in downstream:
+                raise ValueError(
+                    f"conveyor {conn.from_!r} feeds both {downstream[conn.from_]!r} and "
+                    f"{conn.to!r}; a conveyor has one discharge"
+                )
+            downstream[conn.from_] = conn.to
         owners: dict[str, str] = {}
         for binding in self.tag_bindings():
             where = f"{binding.component_id}.io.{binding.port.name}"

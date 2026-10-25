@@ -172,3 +172,51 @@ def test_committed_json_schema_is_current():
     assert schema.JSON_SCHEMA_PATH.read_text(encoding="utf-8") == schema.scene_json_schema(), (
         "run: uv run python -m openfactory.core.schema"
     )
+
+
+# --- connections -------------------------------------------------------------------------------
+
+
+def _two_conveyors(example_data: dict) -> dict:
+    conv2 = copy.deepcopy(_component(example_data, "CONV_01"))
+    conv2.update(id="CONV_02", position=[4, 0, 0])
+    conv2["io"] = {"run": "CONV_02_RUN_DO"}
+    example_data["components"].append(conv2)
+    return example_data
+
+
+def test_connections_accepted_including_loops(example_data):
+    data = _two_conveyors(example_data)
+    data["connections"] = [
+        {"from": "CONV_01", "to": "CONV_02"},
+        {"from": "CONV_02", "to": "CONV_01"},
+    ]
+    scene = Scene.model_validate(data)
+    assert [(c.from_, c.to) for c in scene.connections] == [
+        ("CONV_01", "CONV_02"),
+        ("CONV_02", "CONV_01"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("connections", "message"),
+    [
+        ([{"from": "CONV_01", "to": "CONV_02", "speed": 1}], "Extra inputs are not permitted"),
+        ([{"from_": "CONV_01", "to": "CONV_02"}], "Extra inputs are not permitted"),
+        ([{"from": "CONV_01", "to": "CONV_09"}], "unknown component 'CONV_09'"),
+        ([{"from": "CONV_01", "to": "PE_01"}], "is a photo_eye, not a conveyor"),
+        ([{"from": "CONV_01", "to": "CONV_01"}], "cannot feed itself"),
+        (
+            [{"from": "CONV_01", "to": "CONV_02"}, {"from": "CONV_01", "to": "CONV_01X"}],
+            "feeds both",
+        ),
+    ],
+)
+def test_bad_connections_rejected(example_data, connections, message):
+    data = _two_conveyors(example_data)
+    conv3 = copy.deepcopy(_component(data, "CONV_02"))
+    conv3.update(id="CONV_01X", io={"run": "CONV_01X_RUN_DO"})
+    data["components"].append(conv3)
+    data["connections"] = connections
+    with pytest.raises(ValidationError, match=message):
+        Scene.model_validate(data)
