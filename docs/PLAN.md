@@ -389,7 +389,7 @@ runs the sorting program against it; a box visibly gets pushed.
       *Why:* CI and PLC logic tests must run without a browser.
       *Done when:* `tests/unit/test_kinematics.py` moves a part down two chained conveyors and trips a
       photo eye at the expected time ± 1 tick.
-- [ ] 1.6 `core/scheduler.py`: fixed 50 Hz with accumulator; `--as-fast-as-possible`
+- [x] 1.6 `core/scheduler.py`: fixed 50 Hz with accumulator; `--as-fast-as-possible`
       *Done when:* 10 simulated seconds complete in < 0.5 s wall time in fast mode; realtime drift < 1%.
 - [ ] 1.7 `protocols/modbus.py`: pymodbus 3.16.x async server bound to IOTable, allocation per §6.1.
       Bind through `SimDevice(action=hook)`; `ModbusSlaveContext` no longer exists and the legacy
