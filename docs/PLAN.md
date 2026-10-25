@@ -351,8 +351,19 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
   (`scene_register_map`).
 
 ### 6.2 Logix (pycomm3) mapping
-- Scene `plc.protocol: logix` with `plc.path: "192.168.1.10/1/0"` (device alias file, never in the scene
-  itself; the scene references `plc.connection: bench_l33er` resolved from `openfactory.toml`).
+- Scene `plc.protocol: logix`, `plc.role: client`, and `plc.connection: bench_l33er`. The name is
+  resolved from `[connections.bench_l33er]` in `openfactory.toml` (or the git-ignored
+  `openfactory.local.toml`), which holds the CIP path; a scene never contains an IP address:
+  ```yaml
+  # scenes/x.yaml
+  plc: {protocol: logix, role: client, connection: bench_l33er}
+  ```
+  ```toml
+  # openfactory.local.toml
+  [connections.bench_l33er]
+  protocol = "logix"
+  path = "192.0.2.10/1/0"   # IP / backplane port / slot (documentation address range)
+  ```
 - Tag name in the PLC equals the OpenFactory tag name by default. Optional `plc_tag:` per binding for
   mapping into a UDT (`Sim.CONV_01.RUN`).
 - Poll DO/AO with one `read()` of all tags every 50 ms; write DI/AI with one batched `write()` on change.
@@ -473,6 +484,15 @@ runs the sorting program against it; a box visibly gets pushed.
 - [ ] 1.15 CI: GitHub Actions running `pytest`, `ruff`, `npm run build`, and the headless parity test
 
 ### Milestone 2 — Rockwell and Ignition paths, discrete library complete (target 3–4 weeks)
+- [ ] 2.0 Headless part-to-part queueing along the flow axis in `core/kinematics.py`: a carried part
+      stops at the back face of the part ahead of it on the same belt (and across a connection
+      handoff) instead of overlapping it, so parts accumulate behind a stopped belt or a raised
+      stopper and release in order. Parity with Rapier's box-on-box contacts as for 1.12.
+      *Why:* the Milestone 1 model lets parts overlap on a stopped belt (kinematics docstring,
+      "Limits"), so a photo eye sees one long block instead of a queue and a buffer cannot count.
+      Required before the `buffer-and-release` scene (2.7) and the `stopper` component (2.5).
+      *Done when:* five parts sent onto a stopped belt queue nose to tail with gaps ≥ 0 m, a photo
+      eye at the queue sees each gap when the belt restarts, and the parity test covers a queue.
 - [ ] 2.1 Research spike: Logix Emulate connectivity, options (a)–(d) in §2.4. Write
       `docs/research/logix-emulate.md` and ADR-0002.
 - [ ] 2.2 `protocols/logix.py` with pycomm3, batched read/write, heartbeat, reconnect with backoff

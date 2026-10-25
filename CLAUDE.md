@@ -93,6 +93,9 @@ OpenFactory/
 2. Check `docs/adr/` for a decision that already covers your question before proposing a new approach.
 3. For any new protocol work, query `ai-memory-vendor-docs` and `deep-research` MCP first. Do not guess
    register maps or CIP service codes.
+4. On a drive without symlink support (WSL `/mnt/e`), set up uv and npm as in `CONTRIBUTING.md`,
+   "Required setup on drives without symlink support" (`UV_PROJECT_ENVIRONMENT`, `UV_LINK_MODE=copy`,
+   npm `bin-links=false`) before running any `uv` or `npm` command.
 
 ### Scene files
 - Every scene is valid against the JSON Schema. Run `openfactory validate scenes/<name>.yaml` before
