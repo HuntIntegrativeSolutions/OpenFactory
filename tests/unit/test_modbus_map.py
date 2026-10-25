@@ -1,14 +1,26 @@
-"""Register allocation and analog encoding (PLAN §6.1, ADR-0003), no network."""
+"""Register allocation, address lockfile, and analog encoding (PLAN §6.1, ADR-0003/0004)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
+import yaml
 
 from openfactory.core.iotable import Tag
-from openfactory.core.loader import load
-from openfactory.protocols.modbus import allocate, decode, encode
+from openfactory.core.loader import build, build_iotable, load
+from openfactory.core.schema import load_scene
+from openfactory.protocols.modbus import (
+    AddressError,
+    AddressLock,
+    allocate,
+    decode,
+    encode,
+    lock_text,
+    lockfile_path,
+    read_lock,
+    scene_register_map,
+)
 
 EXAMPLE = Path(__file__).resolve().parents[2] / "scenes" / "sorting-by-height.yaml"
 
@@ -86,3 +98,177 @@ def test_hook_never_raises():
     assert asyncio.run(server._hook(23, 0, 0, 1, [0, 0], None)) == ExcCodes.ILLEGAL_FUNCTION
     # an internal failure is reported to the client as a device failure, not raised
     assert asyncio.run(server._hook(3, 0, 0, 1, None, None)) == ExcCodes.DEVICE_FAILURE
+
+
+# --- address lockfile and pins (ADR-0004) ---------------------------------------------------------
+
+PE_00 = {
+    "id": "PE_00",
+    "type": "photo_eye",
+    "description": "Infeed Entry Photo Eye",
+    "position": [0.6, 0.15, 0.0],
+    "beam_length": 0.6,
+    "io": {"detect": "PE_00_DI"},
+}
+
+
+def scene_copy(tmp_path, extra_components=(), edit=None):
+    """A copy of the example scene in tmp_path (tests never write next to the shipped scene)."""
+    data = yaml.safe_load(EXAMPLE.read_text(encoding="utf-8"))
+    data["components"] += list(extra_components)
+    if edit:
+        edit(data)
+    path = tmp_path / "sorter.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    return path
+
+
+def labels(register_map):
+    return {a.tag: a.label for a in register_map.assignments}
+
+
+def test_first_run_writes_lockfile_with_the_packed_allocation(tmp_path):
+    path = scene_copy(tmp_path)
+    m = scene_register_map(load_scene(path), scene_path=path)
+    lock = lockfile_path(path)
+    assert lock.name == "sorter.modbus.yaml" and lock.is_file()
+    assert labels(m) == labels(allocate(load(EXAMPLE).io.tags(), "float32"))
+    assert read_lock(lock) == AddressLock("float32", {a.tag: a.address for a in m.assignments})
+
+
+def test_adding_a_tag_does_not_renumber_existing_ones(tmp_path):
+    path = scene_copy(tmp_path)
+    before = labels(scene_register_map(load_scene(path), scene_path=path))
+    assert before["PE_01_DI"] == "DI:3"
+
+    # PE_00_DI sorts before PE_01_DI: a fresh allocation would move PE_01_DI to DI:4
+    path = scene_copy(tmp_path, [PE_00])
+    fresh = labels(allocate(build_iotable(load_scene(path)).tags(), "float32"))
+    assert fresh["PE_00_DI"] == "DI:3" and fresh["PE_01_DI"] == "DI:4"
+
+    after = labels(scene_register_map(load_scene(path), scene_path=path))
+    assert {tag: after[tag] for tag in before} == before  # nothing renumbered
+    assert after["PE_00_DI"] == "DI:4"  # appended after the highest used address
+    assert "  PE_00_DI: 4\n" in lockfile_path(path).read_text(encoding="utf-8")
+    print(f"before {before}\nafter  {after}")
+
+
+def test_new_analog_tag_appends_after_highest_register(tmp_path):
+    path = scene_copy(tmp_path)
+    scene_register_map(load_scene(path), scene_path=path)
+    conv0 = {
+        "id": "CONV_00",
+        "type": "belt_conveyor",
+        "description": "Pre-Infeed Belt Conveyor",
+        "position": [-2.0, 0.0, 0.0],
+        "length": 2.0,
+        "width": 0.5,
+        "speed_mps": 0.5,
+        "io": {"run": "CONV_00_RUN_DO", "speed": "CONV_00_SPD_AO"},
+    }
+    path = scene_copy(tmp_path, [conv0])
+    after = labels(scene_register_map(load_scene(path), scene_path=path))
+    assert after["CONV_01_SPD_AO"] == "HR:0-1" and after["CONV_00_SPD_AO"] == "HR:2-3"
+    assert after["CONV_01_RUN_DO"] == "CO:0" and after["CONV_00_RUN_DO"] == "CO:3"
+
+
+def test_lockfile_is_rewritten_only_when_it_changes(tmp_path):
+    path = scene_copy(tmp_path)
+    scene_register_map(load_scene(path), scene_path=path)
+    lock = lockfile_path(path)
+    text, mtime = lock.read_text(encoding="utf-8"), lock.stat().st_mtime_ns
+    for _ in range(2):
+        scene_register_map(load_scene(path), scene_path=path)
+    assert lock.read_text(encoding="utf-8") == text and lock.stat().st_mtime_ns == mtime
+
+
+def test_removed_tag_keeps_its_address_reserved_and_gets_it_back(tmp_path):
+    path = scene_copy(tmp_path)
+    scene_register_map(load_scene(path), scene_path=path)
+
+    def drop_pe(data):
+        data["components"] = [c for c in data["components"] if c["id"] != "PE_01"]
+
+    path = scene_copy(tmp_path, [PE_00], edit=drop_pe)
+    m = scene_register_map(load_scene(path), scene_path=path)
+    assert labels(m)["PE_00_DI"] == "DI:4"  # DI:3 stays reserved for the removed PE_01_DI
+    assert m.retired == {"PE_01_DI": 3}
+    assert "  PE_01_DI: 3  # not in scene\n" in lockfile_path(path).read_text(encoding="utf-8")
+
+    path = scene_copy(tmp_path, [PE_00])  # PE_01 comes back
+    assert labels(scene_register_map(load_scene(path), scene_path=path))["PE_01_DI"] == "DI:3"
+
+
+def test_pinned_address_overrides_allocation_and_is_locked(tmp_path):
+    def pin(data):
+        conv = data["components"][0]
+        conv["io"]["run"] = {"tag": "CONV_01_RUN_DO", "address": 10}
+
+    path = scene_copy(tmp_path, edit=pin)
+    scene = load_scene(path)
+    assert {b.name: b.address for b in scene.tag_bindings()}["CONV_01_RUN_DO"] == 10
+    m = scene_register_map(scene, scene_path=path)
+    assert labels(m)["CONV_01_RUN_DO"] == "CO:10"
+    # allocation never fills holes: the others append after the highest used address
+    assert labels(m)["CYL_01_EXT_DO"] == "CO:11" and labels(m)["EMT_01_EN_DO"] == "CO:12"
+    assert read_lock(lockfile_path(path)).addresses["CONV_01_RUN_DO"] == 10
+    assert build(scene).component("CONV_01").bindings["run"] == "CONV_01_RUN_DO"
+
+
+def test_pin_overrides_an_existing_lockfile_entry(tmp_path):
+    path = scene_copy(tmp_path)
+    scene_register_map(load_scene(path), scene_path=path)
+
+    def pin(data):
+        data["components"][0]["io"]["run"] = {"tag": "CONV_01_RUN_DO", "address": 7}
+
+    path = scene_copy(tmp_path, edit=pin)
+    after = labels(scene_register_map(load_scene(path), scene_path=path))
+    assert after["CONV_01_RUN_DO"] == "CO:7" and after["CYL_01_EXT_DO"] == "CO:1"
+
+
+@pytest.mark.parametrize(
+    ("pins", "lock", "message"),
+    [
+        ({"CONV_01_RUN_DO": 1, "CYL_01_EXT_DO": 1}, None, "both use CO:1"),
+        ({"CONV_01_RUN_DO": 1}, {"CYL_01_EXT_DO": 1}, "both use CO:1"),
+        ({"CONV_01_SPD_AO": 65535}, None, "outside 0-65535"),  # float32 needs two registers
+        ({"CONV_01_SPD_AO": 4}, {"CONV_01_SPD_AO_X": 5}, "no _DI/_DO/_AI/_AO suffix"),
+        ({"NOPE_DO": 0}, None, "unknown tag"),
+    ],
+)
+def test_conflicting_addresses_are_rejected(pins, lock, message):
+    tags = load(EXAMPLE).io.tags()
+    with pytest.raises(AddressError, match=message):
+        allocate(tags, "float32", pins=pins, lock=AddressLock("float32", lock or {}))
+
+
+def test_pinned_float32_pair_cannot_straddle_another_tag():
+    tags = [Tag.new("A_AO", "AO"), Tag.new("B_AO", "AO")]
+    with pytest.raises(AddressError, match="both use HR:3"):
+        allocate(tags, "float32", pins={"A_AO": 2, "B_AO": 3})
+    m = allocate(tags, "int16_scaled", pins={"A_AO": 2, "B_AO": 3})
+    assert [a.label for a in m.assignments] == ["HR:2", "HR:3"]
+
+
+def test_lockfile_for_other_encoding_is_an_error(tmp_path):
+    path = scene_copy(tmp_path)
+    scene_register_map(load_scene(path), scene_path=path)
+    with pytest.raises(AddressError, match="written for float32 but the scene uses int16_scaled"):
+        scene_register_map(load_scene(path), "int16_scaled", scene_path=path)
+
+
+def test_malformed_lockfile_is_an_error(tmp_path):
+    lock = tmp_path / "x.modbus.yaml"
+    lock.write_text("encoding: float32\ncoils:\n  PE_01_DI: 0\n", encoding="utf-8")
+    with pytest.raises(AddressError, match="listed under coils"):
+        read_lock(lock)
+    lock.write_text("coils: {}\n", encoding="utf-8")
+    with pytest.raises(AddressError, match="no valid 'encoding'"):
+        read_lock(lock)
+    assert read_lock(tmp_path / "missing.modbus.yaml") is None
+
+
+def test_shipped_lockfile_matches_the_shipped_scene():
+    m = scene_register_map(load_scene(EXAMPLE), scene_path=EXAMPLE, write=False)
+    assert lockfile_path(EXAMPLE).read_text(encoding="utf-8") == lock_text(m, EXAMPLE.name)

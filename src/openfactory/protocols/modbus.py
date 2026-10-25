@@ -2,8 +2,7 @@
 
 Behavior spec
 -------------
-**Register map.** :func:`allocate` assigns every tag in the I/O table to one Modbus table, sorted by
-kind and then by tag name, packed from address 0 with no gaps:
+**Register map.** :func:`allocate` assigns every tag in the I/O table to one Modbus table by kind:
 
 ========  ==========================  ======================  ==================================
 Kind      Table                       Function codes          Width
@@ -18,6 +17,16 @@ Addresses are zero-based protocol addresses. Analog encoding is per scene (ADR-0
 IEEE-754 with the high word at the lower address; ``int16_scaled`` is 0–32767 over the tag's range,
 clamped both ways. The same :class:`RegisterMap` drives the server and the exported I/O CSV.
 
+**Address stability (ADR-0004).** Within each table an address comes from, in order: a binding that
+pins it (``{tag, address}`` in the scene), the scene's lockfile (``<scene>.modbus.yaml``, committed
+next to the scene), or allocation, which appends the remaining tags in tag-name order after the
+highest address already used in that table. With no lockfile and no pins that is the plain packed
+allocation from 0. :func:`scene_register_map` writes the lockfile on first use and rewrites it only
+when its content changes. The lockfile only grows: a tag removed from the scene keeps its line,
+marked ``# not in scene``, so its address is never given to another tag and comes back if the tag
+is re-added; deleting the line frees it. A lockfile written for the other analog encoding, two tags
+on overlapping addresses, or an address past 65535 is an error (:class:`AddressError`).
+
 **Live binding.** The server is one pymodbus ``SimDevice`` (id 0 answers every unit id) with four
 separate tables and an ``action`` hook (``docs/research/libraries.md``, "pymodbus 3.x datastore
 binding"; verified against the pymodbus 3.16.1 source). On every read the hook refills the whole
@@ -28,9 +37,11 @@ allocation returns ILLEGAL ADDRESS (2), a NaN or infinite float returns ILLEGAL 
 any other failure is logged and returns SERVER DEVICE FAILURE (4). A write to part of a float32 pair
 (FC06, or FC16 starting mid-pair) is merged with the tag's current other word.
 
-Bit reads past the last allocated bit but inside its final 16-bit word return False (pymodbus hands
-the hook a word count for bit reads); bit writes past the allocation are rejected. Tables with no
-tags still answer at address 0 only with ILLEGAL ADDRESS.
+Unallocated addresses inside a table (holes left by pins or retired lockfile entries) read as 0 or
+False, and a write that touches one is rejected with ILLEGAL ADDRESS. Bit reads past the last
+allocated bit but inside its final 16-bit word return False (pymodbus hands the hook a word count
+for bit reads); bit writes past the allocation are rejected. Tables with no tags still answer at
+address 0 only with ILLEGAL ADDRESS.
 
 The server always binds the address it is given; callers resolve it with
 :func:`openfactory.core.config.resolve_endpoint` (default ``127.0.0.1:5020``).
@@ -42,10 +53,12 @@ import asyncio
 import logging
 import math
 import struct
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Literal
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
+import yaml
 from pymodbus.constants import ExcCodes
 from pymodbus.server import ModbusTcpServer
 from pymodbus.simulator import DataType, SimData, SimDevice
@@ -53,6 +66,9 @@ from pymodbus.simulator.simutils import SimUtils
 
 from openfactory.core.config import Endpoint
 from openfactory.core.iotable import IOTable, Tag, Writer
+
+if TYPE_CHECKING:
+    from openfactory.core.schema import Scene
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +90,16 @@ FC_TABLE: dict[int, Table] = {
     16: "hr",
 }
 RAW_MAX = 32767
+#: Highest zero-based address in a Modbus table.
+ADDRESS_MAX = 65535
+#: Lockfile section names, in file order (ADR-0004).
+LOCK_SECTION: dict[Table, str] = {
+    "di": "discrete_inputs",
+    "co": "coils",
+    "ir": "input_registers",
+    "hr": "holding_registers",
+}
+LOCKFILE_SUFFIX = ".modbus.yaml"
 
 
 # --- encoding ------------------------------------------------------------------------------------
@@ -130,6 +156,8 @@ class Assignment:
 class RegisterMap:
     encoding: Encoding
     assignments: list[Assignment] = field(default_factory=list)
+    #: Locked addresses of tags no longer in the scene, kept reserved (ADR-0004).
+    retired: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.by_tag = {a.tag: a for a in self.assignments}
@@ -147,17 +175,172 @@ class RegisterMap:
         return "\n".join(lines)
 
 
-def allocate(tags: Iterable[Tag], encoding: Encoding) -> RegisterMap:
-    """Sorted by kind (DI, DO, AI, AO), then tag name; packed from 0 in each table."""
-    width = 2 if encoding == "float32" else 1
-    next_free: dict[Table, int] = dict.fromkeys(("di", "co", "ir", "hr"), 0)
-    out = []
-    for tag in sorted(tags, key=lambda t: (KIND_ORDER.index(t.kind), t.name)):
-        table = TABLE_FOR_KIND[tag.kind]
-        w = width if tag.kind in ("AI", "AO") else 1
-        out.append(Assignment(tag.name, tag.kind, table, next_free[table], w))
-        next_free[table] += w
-    return RegisterMap(encoding, out)
+class AddressError(ValueError):
+    """A pinned or locked Modbus address cannot be honored (ADR-0004)."""
+
+
+@dataclass(frozen=True)
+class AddressLock:
+    """The content of a ``<scene>.modbus.yaml`` lockfile (ADR-0004)."""
+
+    encoding: Encoding
+    #: Tag name -> zero-based address. The table follows from the tag's kind suffix.
+    addresses: dict[str, int] = field(default_factory=dict)
+
+
+def _kind_of(tag_name: str) -> str:
+    kind = tag_name.rsplit("_", 1)[-1]
+    if kind not in TABLE_FOR_KIND:
+        raise AddressError(f"{tag_name!r} has no _DI/_DO/_AI/_AO suffix")
+    return kind
+
+
+def _width(kind: str, encoding: Encoding) -> int:
+    return 2 if kind in ("AI", "AO") and encoding == "float32" else 1
+
+
+def allocate(
+    tags: Iterable[Tag],
+    encoding: Encoding,
+    *,
+    pins: Mapping[str, int] | None = None,
+    lock: AddressLock | None = None,
+) -> RegisterMap:
+    """Assign every tag an address: pinned, then locked, then appended (ADR-0004).
+
+    Without ``pins`` or ``lock`` this is sorted by kind (DI, DO, AI, AO), then tag name, packed from
+    0 in each table. Locked entries for tags not in ``tags`` keep their addresses reserved.
+    """
+    pins = dict(pins or {})
+    if lock is not None and lock.encoding != encoding:
+        raise AddressError(
+            f"the address lockfile was written for {lock.encoding} but the scene uses {encoding}; "
+            "analog addresses would change. Set plc.analog_encoding back, or delete the lockfile "
+            "to re-allocate and update the PLC program to the new map"
+        )
+    locked = dict(lock.addresses) if lock else {}
+    ordered = sorted(tags, key=lambda t: (KIND_ORDER.index(t.kind), t.name))
+    present = {t.name for t in ordered}
+    unknown = sorted(set(pins) - present)
+    if unknown:
+        raise AddressError(f"pinned address for unknown tag(s): {', '.join(unknown)}")
+    used: dict[Table, dict[int, str]] = {t: {} for t in ("di", "co", "ir", "hr")}
+    chosen: dict[str, int] = {}
+
+    def claim(name: str, address: int, source: str) -> None:
+        kind = _kind_of(name)
+        table, width = TABLE_FOR_KIND[kind], _width(kind, encoding)
+        if address < 0 or address + width - 1 > ADDRESS_MAX:
+            raise AddressError(f"{name}: {source} address {address} is outside 0-{ADDRESS_MAX}")
+        for addr in range(address, address + width):
+            other = used[table].get(addr)
+            if other is not None:
+                raise AddressError(
+                    f"{name} ({source}) and {other} both use {TABLE_LABEL[table]}:{addr}; "
+                    "change the pin or delete the conflicting line from the lockfile"
+                )
+        for addr in range(address, address + width):
+            used[table][addr] = name
+        chosen[name] = address
+
+    for name, address in sorted(pins.items()):
+        claim(name, address, "pinned")
+    for name, address in sorted(locked.items(), key=lambda kv: (kv[1], kv[0])):
+        if name not in chosen:
+            claim(name, address, "locked")
+    for tag in ordered:
+        if tag.name not in chosen:
+            table = TABLE_FOR_KIND[tag.kind]
+            claim(tag.name, max(used[table], default=-1) + 1, "allocated")
+
+    out = [
+        Assignment(t.name, t.kind, TABLE_FOR_KIND[t.kind], chosen[t.name], _width(t.kind, encoding))
+        for t in ordered
+    ]
+    out.sort(key=lambda a: (KIND_ORDER.index(a.kind), a.address))
+    retired = {name: addr for name, addr in chosen.items() if name not in present}
+    return RegisterMap(encoding, out, retired)
+
+
+# --- lockfile (ADR-0004) -------------------------------------------------------------------------
+
+
+def lockfile_path(scene_path: str | Path) -> Path:
+    """``scenes/<name>.yaml`` -> ``scenes/<name>.modbus.yaml``."""
+    return Path(scene_path).with_suffix(LOCKFILE_SUFFIX)
+
+
+def read_lock(path: str | Path) -> AddressLock | None:
+    """Parse a lockfile, or return None when it does not exist."""
+    path = Path(path)
+    if not path.is_file():
+        return None
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict) or data.get("encoding") not in ("float32", "int16_scaled"):
+        raise AddressError(f"{path}: not an OpenFactory address lockfile (no valid 'encoding')")
+    addresses: dict[str, int] = {}
+    for table, section in LOCK_SECTION.items():
+        for name, address in (data.get(section) or {}).items():
+            if TABLE_FOR_KIND[_kind_of(name)] != table:
+                raise AddressError(f"{path}: {name} is listed under {section}")
+            if not isinstance(address, int) or isinstance(address, bool):
+                raise AddressError(f"{path}: {name} has a non-integer address {address!r}")
+            addresses[name] = address
+    unknown = set(data) - {"encoding", *LOCK_SECTION.values()}
+    if unknown:
+        raise AddressError(f"{path}: unknown key(s) {', '.join(sorted(unknown))}")
+    return AddressLock(data["encoding"], addresses)
+
+
+def lock_text(register_map: RegisterMap, scene_file: str = "the scene") -> str:
+    """The lockfile for a register map, as written to disk (deterministic)."""
+    lines = [
+        f"# Modbus address lockfile for {scene_file} (ADR-0004). Generated by OpenFactory;",
+        "# commit it with the scene. Existing tags keep these zero-based addresses; new tags are",
+        "# appended after the highest address in their table. A line marked 'not in scene'",
+        "# reserves the address of a removed tag; delete the line to free it.",
+        f"encoding: {register_map.encoding}",
+    ]
+    entries: dict[Table, list[tuple[int, str, bool]]] = {t: [] for t in LOCK_SECTION}
+    for a in register_map.assignments:
+        entries[a.table].append((a.address, a.tag, True))
+    for name, address in register_map.retired.items():
+        entries[TABLE_FOR_KIND[_kind_of(name)]].append((address, name, False))
+    for table, section in LOCK_SECTION.items():
+        rows = sorted(entries[table])
+        if not rows:
+            lines.append(f"{section}: {{}}")
+            continue
+        lines.append(f"{section}:")
+        lines += [
+            f"  {name}: {address}" + ("" if live else "  # not in scene")
+            for address, name, live in rows
+        ]
+    return "\n".join(lines) + "\n"
+
+
+def scene_register_map(
+    scene: Scene,
+    encoding: Encoding | None = None,
+    *,
+    scene_path: str | Path | None = None,
+    write: bool = True,
+) -> RegisterMap:
+    """The register map for a scene: pins from its bindings, plus its lockfile when ``scene_path``
+    is given. With ``write``, the lockfile is created or updated if its content changed."""
+    from openfactory.core.loader import build_iotable  # runtime import: loader is heavier
+
+    enc: Encoding = encoding or scene.plc.analog_encoding
+    pins = {b.name: b.address for b in scene.tag_bindings() if b.address is not None}
+    path = lockfile_path(scene_path) if scene_path is not None else None
+    lock = read_lock(path) if path is not None else None
+    register_map = allocate(build_iotable(scene).tags(), enc, pins=pins, lock=lock)
+    if path is not None and write:
+        text = lock_text(register_map, Path(scene_path).name)  # type: ignore[arg-type]
+        if not path.is_file() or path.read_text(encoding="utf-8") != text:
+            path.write_text(text, encoding="utf-8")
+            log.info("wrote Modbus address lockfile %s", path)
+    return register_map
 
 
 # --- server --------------------------------------------------------------------------------------
@@ -178,11 +361,19 @@ def _block(table: Table, size: int) -> list[SimData]:
 class ModbusServer:
     """Modbus TCP server whose registers are the I/O table."""
 
-    def __init__(self, io: IOTable, encoding: Encoding, endpoint: Endpoint) -> None:
+    def __init__(
+        self,
+        io: IOTable,
+        encoding: Encoding,
+        endpoint: Endpoint,
+        register_map: RegisterMap | None = None,
+    ) -> None:
         self.io = io
         self.encoding = encoding
         self.endpoint = endpoint
-        self.map = allocate(io.tags(), encoding)
+        self.map = register_map or allocate(io.tags(), encoding)
+        if self.map.encoding != encoding:
+            raise ValueError(f"register map is {self.map.encoding}, server encoding is {encoding}")
         self.device = SimDevice(
             id=0,
             simdata=(
@@ -251,6 +442,8 @@ class ModbusServer:
         end = address + len(set_values)
         if address < 0 or end > self.map.size[table]:
             return ExcCodes.ILLEGAL_ADDRESS
+        if any(addr not in self.map.at[table] for addr in range(address, end)):
+            return ExcCodes.ILLEGAL_ADDRESS  # a hole between allocated tags (ADR-0004)
         if table == "co":
             updates = {
                 self.map.at["co"][address + i].tag: bool(v) for i, v in enumerate(set_values)

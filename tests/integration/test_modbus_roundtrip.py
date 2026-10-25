@@ -14,7 +14,7 @@ from pymodbus.client import AsyncModbusTcpClient
 from openfactory.core.config import Endpoint
 from openfactory.core.iotable import IOTable, Tag, Writer
 from openfactory.core.loader import LoadedScene, load
-from openfactory.protocols.modbus import ModbusServer
+from openfactory.protocols.modbus import ModbusServer, allocate
 
 EXAMPLE = Path(__file__).resolve().parents[2] / "scenes" / "sorting-by-height.yaml"
 DT = 0.02
@@ -30,11 +30,13 @@ def run_against(
     io: IOTable,
     encoding: str,
     scenario: Callable[[AsyncModbusTcpClient, ModbusServer], Awaitable[None]],
+    register_map=None,
 ) -> None:
     """Start the server on an ephemeral loopback port, run the scenario with a client, stop."""
 
     async def main() -> None:
-        server = ModbusServer(io, encoding, Endpoint(bind="127.0.0.1", port=free_port()))
+        endpoint = Endpoint(bind="127.0.0.1", port=free_port())
+        server = ModbusServer(io, encoding, endpoint, register_map)
         task = asyncio.create_task(server.serve_forever())
         try:
             await server.wait_ready()
@@ -194,3 +196,19 @@ def test_server_binds_the_endpoint_it_is_given(scene):
         assert client.connected
 
     run_against(scene.io, "float32", scenario)
+
+
+def test_pinned_addresses_and_holes_on_the_wire(scene):
+    """ADR-0004: a pinned coil answers at its pin; a write into the hole before it is rejected."""
+    register_map = allocate(scene.io.tags(), "float32", pins={"CONV_01_RUN_DO": 8})
+
+    async def scenario(client, server):
+        assert server.map.by_tag["CONV_01_RUN_DO"].address == 8
+        assert not (await client.write_coil(8, True, device_id=1)).isError()
+        assert scene.io.get("CONV_01_RUN_DO") is True
+        wr = await client.write_coil(5, True, device_id=1)  # CO:5 is unallocated
+        assert wr.isError() and wr.exception_code == 2
+        rr = await client.read_coils(0, count=16, device_id=1)
+        assert rr.bits[8] is True and rr.bits[5] is False
+
+    run_against(scene.io, "float32", scenario, register_map)

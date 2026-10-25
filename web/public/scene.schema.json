@@ -81,11 +81,18 @@
       "additionalProperties": false,
       "properties": {
         "run": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDoTag"
+            }
+          ],
           "description": "Run command",
-          "maxLength": 40,
-          "pattern": "^[A-Z][A-Z0-9_]*_DO$",
           "title": "Run",
-          "type": "string",
           "x-io-kind": "DO"
         },
         "speed": {
@@ -94,6 +101,9 @@
               "maxLength": 40,
               "pattern": "^[A-Z][A-Z0-9_]*_AO$",
               "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedAoTag"
             },
             {
               "type": "null"
@@ -115,6 +125,9 @@
               "maxLength": 40,
               "pattern": "^[A-Z][A-Z0-9_]*_DI$",
               "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDiTag"
             },
             {
               "type": "null"
@@ -223,6 +236,9 @@
               "maxLength": 40,
               "pattern": "^[A-Z][A-Z0-9_]*_DO$",
               "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDoTag"
             },
             {
               "type": "null"
@@ -462,11 +478,18 @@
       "additionalProperties": false,
       "properties": {
         "detect": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDiTag"
+            }
+          ],
           "description": "Part detected",
-          "maxLength": 40,
-          "pattern": "^[A-Z][A-Z0-9_]*_DI$",
           "title": "Detect",
-          "type": "string",
           "x-io-kind": "DI"
         }
       },
@@ -549,11 +572,18 @@
       "additionalProperties": false,
       "properties": {
         "on": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDoTag"
+            }
+          ],
           "description": "Light on command",
-          "maxLength": 40,
-          "pattern": "^[A-Z][A-Z0-9_]*_DO$",
           "title": "On",
-          "type": "string",
           "x-io-kind": "DO"
         }
       },
@@ -561,6 +591,78 @@
         "on"
       ],
       "title": "PilotLightIO",
+      "type": "object"
+    },
+    "PinnedAoTag": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*_AO$",
+          "title": "Tag",
+          "type": "string"
+        },
+        "address": {
+          "description": "Zero-based Modbus address (ADR-0004).",
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Address",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tag",
+        "address"
+      ],
+      "title": "PinnedAoTag",
+      "type": "object"
+    },
+    "PinnedDiTag": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+          "title": "Tag",
+          "type": "string"
+        },
+        "address": {
+          "description": "Zero-based Modbus address (ADR-0004).",
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Address",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tag",
+        "address"
+      ],
+      "title": "PinnedDiTag",
+      "type": "object"
+    },
+    "PinnedDoTag": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+          "title": "Tag",
+          "type": "string"
+        },
+        "address": {
+          "description": "Zero-based Modbus address (ADR-0004).",
+          "maximum": 65535,
+          "minimum": 0,
+          "title": "Address",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tag",
+        "address"
+      ],
+      "title": "PinnedDoTag",
       "type": "object"
     },
     "PlcConfig": {
@@ -724,11 +826,18 @@
       "additionalProperties": false,
       "properties": {
         "pressed": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDiTag"
+            }
+          ],
           "description": "Pushbutton pressed",
-          "maxLength": 40,
-          "pattern": "^[A-Z][A-Z0-9_]*_DI$",
           "title": "Pressed",
-          "type": "string",
           "x-io-kind": "DI"
         }
       },
@@ -812,11 +921,18 @@
       "additionalProperties": false,
       "properties": {
         "extend": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDoTag"
+            }
+          ],
           "description": "Extend command",
-          "maxLength": 40,
-          "pattern": "^[A-Z][A-Z0-9_]*_DO$",
           "title": "Extend",
-          "type": "string",
           "x-io-kind": "DO"
         },
         "extended": {
@@ -825,6 +941,9 @@
               "maxLength": 40,
               "pattern": "^[A-Z][A-Z0-9_]*_DI$",
               "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDiTag"
             },
             {
               "type": "null"
@@ -841,6 +960,9 @@
               "maxLength": 40,
               "pattern": "^[A-Z][A-Z0-9_]*_DI$",
               "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDiTag"
             },
             {
               "type": "null"
@@ -984,11 +1106,18 @@
       "additionalProperties": false,
       "properties": {
         "pos_a": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDiTag"
+            }
+          ],
           "description": "Selector in position A",
-          "maxLength": 40,
-          "pattern": "^[A-Z][A-Z0-9_]*_DI$",
           "title": "Pos A",
-          "type": "string",
           "x-io-kind": "DI"
         },
         "pos_b": {
@@ -997,6 +1126,9 @@
               "maxLength": 40,
               "pattern": "^[A-Z][A-Z0-9_]*_DI$",
               "type": "string"
+            },
+            {
+              "$ref": "#/$defs/PinnedDiTag"
             },
             {
               "type": "null"

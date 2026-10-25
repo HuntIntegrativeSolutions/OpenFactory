@@ -25,7 +25,13 @@ from collections.abc import Callable
 from typing import Any, ClassVar, TypeVar
 
 from openfactory.core.iotable import IOTable, Tag, Value, Writer
-from openfactory.core.schema import PLC_WRITES, ComponentBase, PortSpec, port_specs
+from openfactory.core.schema import (
+    PLC_WRITES,
+    ComponentBase,
+    PortSpec,
+    binding_tag,
+    port_specs,
+)
 from openfactory.core.world import World
 
 
@@ -44,7 +50,7 @@ class Component(ABC):
         self.ports: dict[str, PortSpec] = port_specs(type(io_model))
         #: Port name → bound tag name, for bound ports only.
         self.bindings: dict[str, str] = {
-            name: getattr(io_model, name)
+            name: binding_tag(getattr(io_model, name))
             for name in self.ports
             if getattr(io_model, name) is not None
         }

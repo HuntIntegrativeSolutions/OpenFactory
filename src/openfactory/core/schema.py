@@ -12,7 +12,8 @@ The tag's kind comes from its suffix (``_DI``, ``_DO``, ``_AI``, ``_AO``) and mu
 direction: inputs from the PLC are DO/AO, outputs to the PLC are DI/AI. Analog ports declare their
 engineering range here (for example belt speed 0–100 %), which ``int16_scaled`` encoding needs
 (ADR-0003). Port metadata lives in each field's ``json_schema_extra`` under ``x-io-kind``,
-``x-range``, and ``x-units`` so the exported JSON Schema carries it too.
+``x-range``, and ``x-units`` so the exported JSON Schema carries it too. A binding is either the tag
+name or ``{tag: NAME, address: N}``, which pins the tag's Modbus address (ADR-0004).
 
 Not a safety-rated simulation. OpenFactory is a training and demo tool.
 """
@@ -39,17 +40,63 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 JSON_SCHEMA_PATH = REPO_ROOT / "web" / "public" / "scene.schema.json"
 
 
-def _tag_type(kind: str) -> Any:
+def _tag_name(kind: str) -> Any:
     return Annotated[
         str,
         StringConstraints(pattern=rf"^[A-Z][A-Z0-9_]*_{kind}$", max_length=TAG_MAX_LEN),
     ]
 
 
-DiTag = _tag_type("DI")
-DoTag = _tag_type("DO")
-AiTag = _tag_type("AI")
-AoTag = _tag_type("AO")
+class StrictModel(BaseModel):
+    """Base for every scene model: unknown keys are errors (PLAN §4)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class PinnedTag(StrictModel):
+    """A binding that pins its tag's Modbus address instead of letting allocation choose (ADR-0004).
+
+    Written ``{tag: CONV_01_RUN_DO, address: 12}``. The address is zero-based in the tag's table
+    (coils for DO, discrete inputs for DI, holding registers for AO, input registers for AI); for a
+    float32 analog tag it is the first of the two registers.
+    """
+
+    tag: str
+    address: int = Field(ge=0, le=65535, description="Zero-based Modbus address (ADR-0004).")
+
+
+class PinnedDiTag(PinnedTag):
+    tag: _tag_name("DI")  # type: ignore[valid-type]
+
+
+class PinnedDoTag(PinnedTag):
+    tag: _tag_name("DO")  # type: ignore[valid-type]
+
+
+class PinnedAiTag(PinnedTag):
+    tag: _tag_name("AI")  # type: ignore[valid-type]
+
+
+class PinnedAoTag(PinnedTag):
+    tag: _tag_name("AO")  # type: ignore[valid-type]
+
+
+#: A port binding: a tag name, or a tag with a pinned Modbus address.
+DiTag = _tag_name("DI") | PinnedDiTag
+DoTag = _tag_name("DO") | PinnedDoTag
+AiTag = _tag_name("AI") | PinnedAiTag
+AoTag = _tag_name("AO") | PinnedAoTag
+
+
+def binding_tag(value: str | PinnedTag) -> str:
+    """The tag name of a port binding, plain or pinned."""
+    return value.tag if isinstance(value, PinnedTag) else value
+
+
+def binding_address(value: str | PinnedTag) -> int | None:
+    """The pinned Modbus address of a port binding, or None when allocation chooses."""
+    return value.address if isinstance(value, PinnedTag) else None
+
 
 ComponentId = Annotated[
     str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]*$", max_length=TAG_MAX_LEN)
@@ -80,12 +127,6 @@ def port(
         extra["x-units"] = units or ""
     default: Any = ... if required else None
     return Field(default, description=description, json_schema_extra=extra)
-
-
-class StrictModel(BaseModel):
-    """Base for every scene model: unknown keys are errors (PLAN §4)."""
-
-    model_config = ConfigDict(extra="forbid")
 
 
 class IOModel(StrictModel):
@@ -334,6 +375,8 @@ class TagBinding:
     kind: str
     component_id: str
     port: PortSpec
+    #: Pinned Modbus address (ADR-0004), or None when allocation chooses.
+    address: int | None = None
 
     @property
     def description(self) -> str:
@@ -402,9 +445,13 @@ class Scene(StrictModel):
         for comp in self.components:
             io = comp.io  # type: ignore[attr-defined]
             for name, spec in port_specs(type(io)).items():
-                tag = getattr(io, name)
-                if tag is not None:
-                    out.append(TagBinding(tag, spec.kind, comp.id, spec))
+                value = getattr(io, name)
+                if value is not None:
+                    out.append(
+                        TagBinding(
+                            binding_tag(value), spec.kind, comp.id, spec, binding_address(value)
+                        )
+                    )
         return out
 
 

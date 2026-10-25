@@ -315,8 +315,8 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
 
 ## 6. Protocol Design
 
-### 6.1 Modbus TCP register map (generated, deterministic)
-- Sort tags by kind then name. Allocate:
+### 6.1 Modbus TCP register map (generated, deterministic, locked)
+- A new scene sorts tags by kind then name and allocates:
   - DI → discrete inputs (FC02) from 0
   - DO → coils (FC01/05/15) from 0
   - AI → input registers (FC04) from 0, float32 as two registers big-endian word order (configurable)
@@ -328,8 +328,13 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
 - Write the map into the exported CSV (`modbus_address` column) and print it at startup.
 - Listen address and port come from `openfactory.toml` `[modbus]` (default `127.0.0.1:5020`), overridden
   by the scene's optional `plc.bind` / `plc.port`, then by `--bind` / `--port` on the command line.
-- Address stability: adding a tag never renumbers existing ones *within a scene version*. The scene file
-  may pin `address:` on a tag to override allocation.
+- Address stability (ADR-0004): the first run writes `scenes/<name>.modbus.yaml`, a lockfile mapping
+  every tag to its address, committed with the scene. Later runs keep those addresses and append new
+  tags after the highest used address in each table, so adding a tag never renumbers existing ones.
+  A removed tag's line stays (marked `# not in scene`) so its address is not reused. A binding may
+  pin an address, `run: {tag: CONV_01_RUN_DO, address: 12}`, which overrides the lockfile and
+  allocation. The server, the startup printout, and the CSV export share one resolver
+  (`scene_register_map`).
 
 ### 6.2 Logix (pycomm3) mapping
 - Scene `plc.protocol: logix` with `plc.path: "192.168.1.10/1/0"` (device alias file, never in the scene
@@ -401,8 +406,8 @@ runs the sorting program against it; a box visibly gets pushed.
       *Note (2026-10-25):* allocation sorts by kind, then tag name, so addresses are stable across runs
       (CLAUDE.md), but adding a tag that sorts earlier renumbers the later tags in its table. §6.1's
       "adding a tag never renumbers existing ones" and its pinned `address:` override cannot both hold
-      today: an `io` binding is a plain tag string, so there is nowhere to pin. Not built; needs a
-      schema decision (for example a `{tag, address}` binding form) before PLC programs depend on it.
+      today: an `io` binding is a plain tag string, so there is nowhere to pin. *Resolved by ADR-0004:*
+      a per-scene address lockfile and a `{tag, address}` binding form.
 - [x] 1.8 `export/io_list_csv.py`: columns `tag,kind,dtype,description,component,modbus_address`
       *Done when:* output validates with HIS Controls `/io-validate` skill.
       *Note (2026-10-25):* `/io-validate` requires `io_type` (not `kind`) and an `address` column, so the

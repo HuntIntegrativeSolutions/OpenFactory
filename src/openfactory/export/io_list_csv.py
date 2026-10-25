@@ -4,7 +4,7 @@ Behavior spec
 -------------
 :func:`io_list_csv` turns a scene into the HIS Controls I/O list format consumed by
 ``/io-validate``, ``/io-to-l5x``, and ``/io-to-ignition-tags``. One row per bound tag, in Modbus
-register-map order (kind, then tag name), with these columns:
+register-map order (kind, then address), with these columns:
 
 - ``tag``: tag name (``AREA_EQUIP_NNN_SUFFIX``).
 - ``io_type``: DI, DO, AI, or AO.
@@ -13,9 +13,12 @@ register-map order (kind, then tag name), with these columns:
 - ``component``: owning component id.
 - ``address``: physical PLC I/O address. Blank, because a simulated point has none; the engineer
   fills it when the I/O list is reused for a real panel.
-- ``modbus_address``: zero-based Modbus address from the same allocation the server uses, for
-  example ``CO:0``, ``DI:3``, ``HR:0-1`` (DI discrete inputs, CO coils, IR input registers, HR
-  holding registers).
+- ``modbus_address``: zero-based Modbus address from the same register map the server uses
+  (:func:`~openfactory.protocols.modbus.scene_register_map`: pinned, then lockfile, then
+  allocated; ADR-0004), for example ``CO:0``, ``DI:3``, ``HR:0-1`` (DI discrete inputs, CO coils,
+  IR input registers, HR holding registers). Exporting from a scene file reads its
+  ``<scene>.modbus.yaml`` lockfile and creates or updates it, because the CSV is what a PLC
+  program is written against.
 - ``modbus_encoding``: ``bit``, ``float32 high word first``, or ``int16_scaled 0-32767``
   (ADR-0003).
 - ``units``, ``range_min``, ``range_max``: engineering units and the values at raw 0 and raw 32767
@@ -34,7 +37,7 @@ from pathlib import Path
 
 from openfactory.core.loader import build_iotable
 from openfactory.core.schema import Scene, load_scene
-from openfactory.protocols.modbus import Encoding, allocate
+from openfactory.protocols.modbus import Encoding, scene_register_map
 
 COLUMNS = (
     "tag",
@@ -57,12 +60,17 @@ def _number(value: float) -> str:
     return f"{value:g}"
 
 
-def io_list_rows(scene: Scene, encoding: Encoding | None = None) -> list[dict[str, str]]:
-    """Rows for :func:`io_list_csv`. ``encoding`` defaults to the scene's analog encoding."""
+def io_list_rows(
+    scene: Scene, encoding: Encoding | None = None, *, scene_path: str | Path | None = None
+) -> list[dict[str, str]]:
+    """Rows for :func:`io_list_csv`. ``encoding`` defaults to the scene's analog encoding.
+
+    With ``scene_path``, addresses honor and update the scene's lockfile (ADR-0004).
+    """
     enc: Encoding = encoding or scene.plc.analog_encoding
     table = build_iotable(scene)
     rows = []
-    for a in allocate(table.tags(), enc).assignments:
+    for a in scene_register_map(scene, enc, scene_path=scene_path).assignments:
         tag = table.tag(a.tag)
         analog = tag.kind in ("AI", "AO")
         lo, hi = tag.range or (None, None)
@@ -84,12 +92,14 @@ def io_list_rows(scene: Scene, encoding: Encoding | None = None) -> list[dict[st
     return rows
 
 
-def io_list_csv(scene: Scene, encoding: Encoding | None = None) -> str:
+def io_list_csv(
+    scene: Scene, encoding: Encoding | None = None, *, scene_path: str | Path | None = None
+) -> str:
     """The I/O list as CSV text (UTF-8, ``\\n`` line endings, header row first)."""
     buf = _io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=COLUMNS, lineterminator="\n")
     writer.writeheader()
-    writer.writerows(io_list_rows(scene, encoding))
+    writer.writerows(io_list_rows(scene, encoding, scene_path=scene_path))
     return buf.getvalue()
 
 
@@ -101,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
             "usage: python -m openfactory.export.io_list_csv SCENE.yaml [OUT.csv]", file=sys.stderr
         )
         return 2
-    text = io_list_csv(load_scene(args[0]))
+    text = io_list_csv(load_scene(args[0]), scene_path=args[0])
     if len(args) == 2:
         Path(args[1]).write_text(text, encoding="utf-8")
         print(f"wrote {args[1]}")

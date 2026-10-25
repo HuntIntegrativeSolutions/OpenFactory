@@ -13,7 +13,7 @@ from openfactory.core.config import Endpoint
 from openfactory.core.loader import load
 from openfactory.core.schema import load_scene
 from openfactory.export.io_list_csv import COLUMNS, io_list_csv, io_list_rows, main
-from openfactory.protocols.modbus import ModbusServer
+from openfactory.protocols.modbus import ModbusServer, lockfile_path, scene_register_map
 
 EXAMPLE = Path(__file__).resolve().parents[2] / "scenes" / "sorting-by-height.yaml"
 
@@ -83,9 +83,32 @@ def test_csv_addresses_match_the_server_allocation(scene, encoding):
 
 
 def test_cli_writes_file(tmp_path, capsys):
+    scene_path = tmp_path / EXAMPLE.name  # a copy: the CLI writes the lockfile next to the scene
+    scene_path.write_text(EXAMPLE.read_text(encoding="utf-8"), encoding="utf-8")
     out = tmp_path / "io.csv"
-    assert main([str(EXAMPLE), str(out)]) == 0
+    assert main([str(scene_path), str(out)]) == 0
     assert out.read_text(encoding="utf-8") == io_list_csv(load_scene(EXAMPLE))
-    assert main([str(EXAMPLE)]) == 0
+    assert lockfile_path(scene_path).is_file()
+    assert main([str(scene_path)]) == 0
     assert capsys.readouterr().out.endswith(io_list_csv(load_scene(EXAMPLE)))
     assert main([]) == 2
+
+
+def test_csv_honors_the_lockfile_like_the_server(tmp_path):
+    """Adding a tag that sorts early: CSV and server both keep the locked addresses (ADR-0004)."""
+    scene_path = tmp_path / EXAMPLE.name
+    text = EXAMPLE.read_text(encoding="utf-8")
+    scene_path.write_text(text, encoding="utf-8")
+    io_list_csv(load_scene(scene_path), scene_path=scene_path)  # first export writes the lockfile
+    scene_path.write_text(
+        text + "  - id: PE_00\n    type: photo_eye\n    description: Infeed Entry Photo Eye\n"
+        "    position: [0.6, 0.15, 0]\n    beam_length: 0.6\n    io:\n      detect: PE_00_DI\n",
+        encoding="utf-8",
+    )
+    scene = load_scene(scene_path)
+    rows = {r["tag"]: r["modbus_address"] for r in io_list_rows(scene, scene_path=scene_path)}
+    assert rows["PE_01_DI"] == "DI:3" and rows["PE_00_DI"] == "DI:4"
+    loaded = load(scene_path)
+    register_map = scene_register_map(scene, scene_path=scene_path, write=False)
+    server = ModbusServer(loaded.io, "float32", Endpoint(port=1502), register_map)
+    assert rows == {a.tag: a.label for a in server.map.assignments}

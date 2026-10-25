@@ -116,8 +116,10 @@ OpenFactory/
 - Follow ISA-101 colors from `~/.claude/rules/ignition-conventions.md` for status indication.
 
 ### Protocols
-- Modbus register map is generated from the scene, documented in the exported I/O CSV, and stable across
-  runs (sorted by tag name, then allocated). Never hand-assign addresses.
+- Modbus register map is generated from the scene, documented in the exported I/O CSV, and locked in
+  `scenes/<name>.modbus.yaml` (ADR-0004): commit the lockfile with the scene and never change an
+  address in it by hand (deleting a `# not in scene` line to free an address is fine). To fix an
+  address, pin it in the binding (`{tag: X_DO, address: N}`).
 - All protocol servers bind to `127.0.0.1` by default. `--bind 0.0.0.0` is an explicit opt-in.
 - Never hardcode IP addresses in scenes. Connection settings live in `openfactory.toml` (machine-specific
   values in the git-ignored `openfactory.local.toml`). A scene's `plc` block selects `protocol` and
