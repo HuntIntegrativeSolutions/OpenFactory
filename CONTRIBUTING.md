@@ -34,14 +34,36 @@ commit with `git commit -s`.
 
 ```bash
 # Python core
-uv sync
+uv sync --all-extras
 uv run pytest
 
 # Web viewer
 cd web
 npm install
+npm test
 npm run dev
 ```
+
+### Required setup on drives without symlink support (WSL `/mnt/<drive>`, some network shares)
+
+Some filesystems refuse symbolic links. This repository's home on WSL (`/mnt/e/…`, a Windows drive)
+is one of them; the check recorded in `docs/research/symlink-result.txt` failed. Both toolchains need
+a small adjustment there:
+
+- **uv** cannot create `.venv` inside the repository, because a virtualenv symlinks its Python
+  interpreter. Keep the environment on the Linux filesystem and copy packages instead of linking them.
+  Export these before any `uv` command (for example in `~/.bashrc`):
+
+  ```bash
+  export UV_PROJECT_ENVIRONMENT=$HOME/.venvs/openfactory
+  export UV_LINK_MODE=copy
+  ```
+
+- **npm** cannot create `node_modules/.bin` links. `web/.npmrc` sets `bin-links=false`, and the npm
+  scripts in `web/package.json` call each tool through `node ./node_modules/<tool>/…`, so `npm run`
+  and `npm test` work the same on every filesystem. Use the npm scripts rather than `npx`.
+
+On a native Linux or macOS filesystem the variables are optional; everything else stays the same.
 
 See `docs/PLAN.md` for the roadmap and `CLAUDE.md` for the conventions that AI-assisted contributions follow.
 Human contributors should follow the same conventions.

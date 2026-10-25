@@ -119,7 +119,10 @@ OpenFactory/
 - Modbus register map is generated from the scene, documented in the exported I/O CSV, and stable across
   runs (sorted by tag name, then allocated). Never hand-assign addresses.
 - All protocol servers bind to `127.0.0.1` by default. `--bind 0.0.0.0` is an explicit opt-in.
-- Never hardcode IP addresses in scenes. Connection settings live in `openfactory.toml`.
+- Never hardcode IP addresses in scenes. Connection settings live in `openfactory.toml` (machine-specific
+  values in the git-ignored `openfactory.local.toml`). A scene's `plc` block selects `protocol` and
+  `role`; `plc.bind` / `plc.port` are optional listen-address overrides, and PLC addresses are named
+  `plc.connection` entries resolved from `openfactory.toml`.
 
 ### Testing and commits
 - `uv run pytest` must pass before any commit. `npm test` in `web/` for viewer changes.

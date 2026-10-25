@@ -1,0 +1,33 @@
+# OpenFactory connection settings.
+#
+# Connection settings live here, never in scene files (CLAUDE.md). For machine-specific values,
+# create openfactory.local.toml next to this file (it is git-ignored); any key it sets wins.
+#
+# Precedence, highest first:
+#   1. CLI flags (--bind / --port)
+#   2. the scene's optional plc.bind / plc.port overrides (listen address only, never a PLC's IP)
+#   3. openfactory.local.toml
+#   4. this file
+#   5. built-in defaults (the values shown here)
+#
+# OpenFactory is a lab and training tool. Keep every server on loopback unless you mean to expose
+# it, and keep it off plant networks (PLAN §6.4).
+
+[modbus]
+bind = "127.0.0.1"   # listen address for the Modbus TCP server
+port = 5020          # 502 needs root/admin rights; OpenPLC Slave Devices accept any port
+
+[opcua]
+bind = "127.0.0.1"
+port = 4840
+
+[web]
+bind = "127.0.0.1"   # viewer and WebSocket server
+port = 8000
+
+# Named PLC connections, used by scenes with `plc.role: client` and `plc.connection: <name>`.
+# Example (192.0.2.0/24 is a documentation-only address range):
+#
+# [connections.bench_l33er]
+# protocol = "logix"
+# path = "192.0.2.10/1/0"   # IP / backplane port / slot

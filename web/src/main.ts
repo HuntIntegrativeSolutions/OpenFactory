@@ -2,8 +2,7 @@
 // Renders an empty scene on the ISA-101 dark background and lazy-loads Rapier so the
 // build proves both dependencies bundle. Scene loading arrives in PLAN task 1.11.
 import * as THREE from "three";
-
-const ISA101_BACKGROUND = 0x1f2a36;
+import { ISA101 } from "./isa101";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("#app element missing from index.html");
@@ -13,7 +12,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(ISA101_BACKGROUND);
+scene.background = new THREE.Color(ISA101.background);
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
 camera.position.set(4, 3, 6);
 camera.lookAt(0, 0, 0);

@@ -176,8 +176,7 @@ scene:
 plc:
   protocol: modbus_tcp          # modbus_tcp | logix | opcua | none
   role: server                  # server | client
-  bind: 127.0.0.1
-  port: 5020
+  # bind / port: optional overrides; defaults come from openfactory.toml
 components:
   - id: CONV_01
     type: belt_conveyor
@@ -236,6 +235,11 @@ Rules:
   - `selector_switch.positions` (2 or 3, default 2) and `selector_switch.initial` (`a`, `center`, or
     `b`, default `a`; `center` needs 3 positions).
   - `pushbutton.mode` (`momentary` or `maintained`) and `color` on pushbuttons and pilot lights.
+- Connection settings live in `openfactory.toml` (git-ignored overrides in `openfactory.local.toml`),
+  never in scenes. The `plc` block selects `protocol` and `role`; `bind` and `port` are optional
+  per-scene overrides of the server's listen address, and a PLC's own address is only ever a named
+  `plc.connection` resolved from `openfactory.toml`. Precedence: CLI flag > scene override >
+  `openfactory.local.toml` > `openfactory.toml` > built-in defaults.
 - The authoritative, machine-readable form is `web/public/scene.schema.json`, generated from
   `src/openfactory/core/schema.py`.
 
@@ -315,6 +319,8 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
   `range`, the same raw-count convention as a 1756-IF8 4–20 mA channel. OpenPLC v3 does no float
   decoding on its Slave Devices path, so OpenPLC examples use `int16_scaled` (ADR-0003).
 - Write the map into the exported CSV (`modbus_address` column) and print it at startup.
+- Listen address and port come from `openfactory.toml` `[modbus]` (default `127.0.0.1:5020`), overridden
+  by the scene's optional `plc.bind` / `plc.port`, then by `--bind` / `--port` on the command line.
 - Address stability: adding a tag never renumbers existing ones *within a scene version*. The scene file
   may pin `address:` on a tag to override allocation.
 

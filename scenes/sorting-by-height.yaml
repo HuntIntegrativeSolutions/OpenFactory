@@ -10,8 +10,8 @@ scene:
 plc:
   protocol: modbus_tcp          # modbus_tcp | logix | opcua | none
   role: server                  # server | client
-  bind: 127.0.0.1
-  port: 5020
+  # bind/port come from openfactory.toml ([modbus], default 127.0.0.1:5020); plc.bind and
+  # plc.port are optional per-scene overrides.
 components:
   - id: CONV_01
     type: belt_conveyor

@@ -136,8 +136,13 @@ class SceneMeta(StrictModel):
 class PlcConfig(StrictModel):
     protocol: Literal["modbus_tcp", "logix", "opcua", "none"] = "none"
     role: Literal["server", "client"] = "server"
-    bind: str = Field("127.0.0.1", description="Listen address. Loopback unless explicitly opened.")
-    port: int = Field(5020, ge=1, le=65535)
+    bind: str | None = Field(
+        None,
+        description="Optional listen-address override for openfactory.toml. Never a PLC's IP.",
+    )
+    port: int | None = Field(
+        None, ge=1, le=65535, description="Optional port override for openfactory.toml."
+    )
     analog_encoding: Literal["float32", "int16_scaled"] = Field(
         "float32",
         description="Modbus analog encoding for every AI/AO tag in the scene (ADR-0003).",

@@ -20,6 +20,9 @@ openfactory.local.toml
 # Tooling output
 tools/screenshots/
 *.log
+.coverage
+logs/
+data/
 
 # OS
 .DS_Store

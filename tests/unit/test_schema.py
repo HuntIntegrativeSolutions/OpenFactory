@@ -33,7 +33,8 @@ def test_loads_example_scene():
     assert scene.scene.name == "sorting-by-height"
     assert [c.id for c in scene.components] == ["CONV_01", "PE_01", "CYL_01", "EMT_01", "REM_01"]
     assert scene.plc.protocol == "modbus_tcp"
-    assert scene.plc.port == 5020
+    assert scene.plc.role == "server"
+    assert scene.plc.bind is None and scene.plc.port is None  # openfactory.toml supplies these
     assert scene.plc.analog_encoding == "float32"
 
 
