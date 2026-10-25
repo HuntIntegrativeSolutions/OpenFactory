@@ -411,3 +411,55 @@ def test_rotated_pusher_pushes_along_its_own_axis():
     extend_until_extended(loaded, part)
     assert part.position[0] == pytest.approx(0.7 + 0.5 + 0.15)
     assert part.position[2] == pytest.approx(0.0)
+
+
+# --- loader warning: touching conveyors without a connection (housekeeping 5) --------------------
+
+
+def test_touching_conveyors_without_connection_warn(caplog):
+    with caplog.at_level("WARNING", logger="openfactory.core.loader"):
+        loaded = scene(conveyor("CONV_01", (0, 0, 0)), conveyor("CONV_02", (2, 0, 0)))
+    assert len(loaded.warnings) == 1
+    message = loaded.warnings[0]
+    assert "CONV_01 and CONV_02 touch end to end but no connection joins them" in message
+    assert "{from: CONV_01, to: CONV_02}" in message
+    assert message in caplog.text
+    print(f"warning: {message}")
+    # not inferred: the part still falls off CONV_01's discharge
+    up_to_speed(loaded)
+    part = place_moving(loaded, "CONV_01", x=1.995)
+    loaded.step(DT)
+    assert part.carrier is None
+
+
+def test_touching_through_a_turn_and_within_5_mm_also_warns():
+    loaded = scene(
+        conveyor("CONV_01", (0, 0, 0)),
+        conveyor("CONV_02", (2.004, 0, 0), rotation=90),
+    )
+    assert [w.split(" touch")[0] for w in loaded.warnings] == ["conveyors CONV_01 and CONV_02"]
+
+
+@pytest.mark.parametrize(
+    ("second", "connections"),
+    [
+        ((2, 0, 0), [("CONV_01", "CONV_02")]),  # joined
+        ((2.5, 0, 0), []),  # a 0.5 m gap: not touching
+        ((2, -0.1, 0), []),  # 0.1 m lower: a drop, not touching
+        ((2, 0, 0.6), []),  # side by side offset
+    ],
+)
+def test_no_warning_when_joined_or_not_touching(second, connections):
+    loaded = scene(
+        conveyor("CONV_01", (0, 0, 0)), conveyor("CONV_02", second), connections=connections
+    )
+    assert loaded.warnings == []
+
+
+def test_shipped_scene_has_no_warnings():
+    from pathlib import Path
+
+    from openfactory.core.loader import load
+
+    example = Path(__file__).resolve().parents[2] / "scenes" / "sorting-by-height.yaml"
+    assert load(example).warnings == []

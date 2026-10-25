@@ -11,6 +11,12 @@ Behavior spec
 3. resolves each component's ``type`` string through the registry and instantiates it.
 
 Components are kept in scene-file order, which is also their step order (PLAN §3.2).
+
+Scene lint: when one conveyor's discharge end (center of the end at belt-top height) is within
+5 mm of another conveyor's infeed origin and no ``connections`` entry joins them, :func:`build`
+logs a warning and records it in :attr:`LoadedScene.warnings`. The headless model does not hand
+parts across touching belts on its own (PLAN §4), so such a scene usually forgot a connection.
+The connection is never inferred: the scene author decides.
 :meth:`LoadedScene.step` is one simulation tick: the kinematic model moves parts first, then each
 component steps in scene order.
 """
@@ -18,14 +24,22 @@ component steps in scene order.
 from __future__ import annotations
 
 import importlib
-from dataclasses import dataclass
+import logging
+import math
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from openfactory.core.component import REGISTRY, Component, ComponentRegistry
+from openfactory.core.geometry import to_world
 from openfactory.core.iotable import IOTable, Tag
 from openfactory.core.kinematics import KinematicModel
-from openfactory.core.schema import Scene, load_scene
+from openfactory.core.schema import CARRIER_TYPES, Scene, load_scene
 from openfactory.core.world import World
+
+log = logging.getLogger(__name__)
+
+#: Discharge-to-infeed distance under which two conveyors count as touching end to end.
+TOUCH_M = 0.005
 
 
 @dataclass
@@ -39,6 +53,8 @@ class LoadedScene:
     tick: int = 0
     #: Simulated seconds elapsed (sum of step dt).
     time: float = 0.0
+    #: Scene lint warnings found while building (also logged).
+    warnings: list[str] = field(default_factory=list)
 
     def step(self, dt: float) -> None:
         """One tick: move parts, then step components in scene order. Never reads the clock."""
@@ -73,6 +89,25 @@ def build_iotable(scene: Scene) -> IOTable:
     return table
 
 
+def lint(scene: Scene) -> list[str]:
+    """Warnings for a valid scene that is probably not what its author meant."""
+    carriers = [c for c in scene.components if c.type in CARRIER_TYPES]
+    joined = {(c.from_, c.to) for c in scene.connections}
+    out = []
+    for up in carriers:
+        end = to_world(up.position, up.rotation_deg, (up.length, 0.0, 0.0))  # type: ignore[attr-defined]
+        for down in carriers:
+            if down.id == up.id or (up.id, down.id) in joined:
+                continue
+            if math.dist(end, down.position) <= TOUCH_M:
+                out.append(
+                    f"conveyors {up.id} and {down.id} touch end to end but no connection joins "
+                    f"them; parts will fall off {up.id}'s discharge. Add "
+                    f"'{{from: {up.id}, to: {down.id}}}' to connections if {up.id} feeds {down.id}"
+                )
+    return out
+
+
 def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScene:
     """Instantiate a validated scene. Uses the default registry unless one is given."""
     if registry is None:
@@ -82,7 +117,10 @@ def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScen
     world = World(seed=scene.scene.seed)
     components = [registry.resolve(c.type)(c, io, world) for c in scene.components]
     kinematics = KinematicModel(world, components, scene.connections, scene.scene.friction)
-    return LoadedScene(scene, io, world, components, kinematics)
+    warnings = lint(scene)
+    for warning in warnings:
+        log.warning("%s: %s", scene.scene.name, warning)
+    return LoadedScene(scene, io, world, components, kinematics, warnings=warnings)
 
 
 def load(path: str | Path, registry: ComponentRegistry | None = None) -> LoadedScene:

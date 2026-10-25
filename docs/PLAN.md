@@ -236,7 +236,9 @@ Rules:
   `to`'s infeed, bridging any gap, height step, or turn like a transfer plate. Both ends must be
   conveyors, a conveyor cannot feed itself, and each conveyor feeds at most one other; several may
   feed the same conveyor (a merge), and loops (recirculation) are allowed. Collinear conveyors that
-  touch still need a connection for the headless model to hand parts across.
+  touch still need a connection for the headless model to hand parts across; the loader warns (it
+  never infers the connection) when one conveyor's discharge end is within 5 mm of another's infeed
+  and no connection joins them.
 - Optional keys not shown in the example:
   - `scene.friction` (default 0.8, μ between belts and parts): the viewer gives belt and part
     colliders this friction, and the headless model caps part acceleration on a belt at μ × 9.81 m/s²,
