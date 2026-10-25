@@ -1,12 +1,19 @@
-// OpenFactory viewer (PLAN 1.11): loads the scene from the core, builds one mesh per component from
-// its type's builder (web/src/components/), streams /ws/state into component status, parts, and a
-// HUD, and publishes window.__openfactory for tools/screenshot.py (PLAN 1.13). Orbit with the
-// mouse; click a pushbutton to press it or a selector to turn it. Status colors are ISA-101
+// OpenFactory viewer (PLAN 1.11, 1.12): loads the scene from the core, builds one mesh per
+// component from its type's builder (web/src/components/), streams /ws/state into component status,
+// parts, and a HUD, and publishes window.__openfactory for tools/screenshot.py (PLAN 1.13). Orbit
+// with the mouse; click a pushbutton to press it or a selector to turn it. Status colors are ISA-101
 // (green running/active, grey stopped/idle). Geometry comes only from the scene JSON.
+//
+// Physics (PLAN 1.12): Rapier loads lazily and runs web/src/physics.ts at the core's dt. Each core
+// frame sets belt speeds and pusher strokes and adds or removes parts (the core decides which
+// exist); parts render at their Rapier poses; photo-eye beam edges go upstream on /ws/events as
+// {type: "sensor"} events. In Milestone 1 the core records them; its kinematic model still drives
+// the PLC-visible tags (PLAN §8).
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { EventLink, fetchScene, streamState, type SceneDocument, type StateFrame } from "./api";
+import { loadRapier, PlantPhysics } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { cssColor, ISA101 } from "./isa101";
 import { PartMeshes } from "./parts";
@@ -19,6 +26,8 @@ window.__openfactory = {
   simTime: 0,
   tick: 0,
   error: null,
+  physics: "loading",
+  sensorEvents: 0,
 };
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -131,11 +140,49 @@ function wireClicks(doc: SceneDocument, events: EventLink): void {
 }
 
 let lastFrame: StateFrame | null = null;
+let physics: PlantPhysics | null = null;
+let events: EventLink | null = null;
+
+/** Feed one core frame into the physics world: belt speeds, plate strokes, part set. */
+function syncPhysics(frame: StateFrame): void {
+  if (!physics) return;
+  for (const view of views) {
+    const state = frame.components[view.id] ?? {};
+    if (view.type === "belt_conveyor") physics.setBelt(view.id, Number(state.speed_mps ?? 0));
+    if (view.type === "pusher") physics.setPusher(view.id, Number(state.position_m ?? 0));
+  }
+  const alive = new Set(frame.parts.map((p) => p.id));
+  for (const id of physics.partIds()) if (!alive.has(id)) physics.removePart(id);
+  for (const p of frame.parts) physics.addPart(p.id, p.size, p.position);
+}
+
+let accumulator = 0;
+let lastTime = performance.now();
+
+/** Fixed steps at the core's dt, at most 5 per rendered frame; beam edges go upstream. */
+function stepPhysics(dt: number): void {
+  const now = performance.now();
+  accumulator = Math.min(accumulator + (now - lastTime) / 1000, 5 * dt);
+  lastTime = now;
+  if (!physics) return;
+  while (accumulator >= dt) {
+    accumulator -= dt;
+    for (const edge of physics.step()) {
+      events?.send({ t: lastFrame?.t ?? 0, type: "sensor", id: edge.id, value: edge.blocked });
+      window.__openfactory.sensorEvents = Number(window.__openfactory.sensorEvents) + 1;
+    }
+  }
+  for (const id of physics.partIds()) {
+    const pose = physics.part(id);
+    if (pose) parts.setPose(id, pose.position, pose.rotation);
+  }
+}
 
 function onFrame(doc: SceneDocument, frame: StateFrame): void {
   lastFrame = frame;
   for (const view of views) view.update(frame.components[view.id] ?? {});
   parts.update(frame.parts);
+  syncPhysics(frame);
   const status = window.__openfactory;
   status.frames += 1;
   status.simTime = frame.t;
@@ -149,12 +196,23 @@ function onFrame(doc: SceneDocument, frame: StateFrame): void {
     `running: ${running.map((v) => v.id).join(", ") || "none"}`;
 }
 
+let sceneDt = 0.02;
+
 async function start(): Promise<void> {
   const doc = await fetchScene();
   buildScene(doc);
+  sceneDt = doc.dt;
   window.__openfactory.scene = doc.scene.name;
   window.__openfactory.components = doc.components.length;
-  wireClicks(doc, new EventLink());
+  events = new EventLink();
+  wireClicks(doc, events);
+  try {
+    const R = await loadRapier();
+    physics = new PlantPhysics(R, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
+    window.__openfactory.physics = `rapier ${R.version()}`;
+  } catch (err) {
+    window.__openfactory.physics = `off: ${String(err)}`; // parts follow the core positions instead
+  }
   streamState((frame) => onFrame(doc, frame));
 }
 
@@ -165,6 +223,7 @@ start().catch((err: unknown) => {
 
 renderer.setAnimationLoop(() => {
   controls.update();
+  stepPhysics(sceneDt);
   parts.animate();
   renderer.render(scene, camera);
   labels.render(scene, camera);

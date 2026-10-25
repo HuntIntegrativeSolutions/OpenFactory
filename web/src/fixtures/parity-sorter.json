@@ -1,0 +1,552 @@
+{
+ "generator": "tools/parity_trace.py",
+ "scene": {
+  "openfactory": "0.1",
+  "scene": {
+   "name": "sorting-by-height",
+   "description": "Two-lane box sorter. Tall boxes diverted by pusher, short boxes pass through.",
+   "author": "HIS Controls",
+   "seed": 42,
+   "units": "meters",
+   "friction": 0.8
+  },
+  "plc": {
+   "protocol": "modbus_tcp",
+   "role": "server"
+  },
+  "dt": 0.02,
+  "components": [
+   {
+    "id": "CONV_01",
+    "type": "belt_conveyor",
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "length": 4.0,
+    "width": 0.5,
+    "description": "Infeed Belt Conveyor — Sorting Line"
+   },
+   {
+    "id": "PE_01",
+    "type": "photo_eye",
+    "position": [
+     1.5,
+     0.3,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "beam_length": 0.6,
+    "description": "Infeed Tall Box Photo Eye"
+   },
+   {
+    "id": "CYL_01",
+    "type": "pusher",
+    "position": [
+     2.5,
+     0.1,
+     -0.3
+    ],
+    "rotation_deg": 0.0,
+    "stroke": 0.5,
+    "plate_width": 0.3,
+    "plate_height": 0.15,
+    "description": "Tall Box Divert Pusher"
+   },
+   {
+    "id": "EMT_01",
+    "type": "box_emitter",
+    "position": [
+     0.2,
+     0.3,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "tall",
+      "size": [
+       0.3,
+       0.4,
+       0.3
+      ],
+      "weight": 0.5
+     },
+     {
+      "name": "short",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 0.5
+     }
+    ],
+    "description": "Infeed Box Source"
+   },
+   {
+    "id": "REM_01",
+    "type": "part_remover",
+    "position": [
+     4.1,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "size": [
+     0.3,
+     1.0,
+     1.0
+    ],
+    "description": "Sorting Line Discharge Part Remover"
+   },
+   {
+    "id": "CONV_02",
+    "type": "belt_conveyor",
+    "position": [
+     2.0,
+     0.0,
+     0.5
+    ],
+    "rotation_deg": 0.0,
+    "length": 1.5,
+    "width": 0.5,
+    "description": "Divert Lane Belt Conveyor — Tall Boxes"
+   },
+   {
+    "id": "REM_02",
+    "type": "part_remover",
+    "position": [
+     3.65,
+     0.0,
+     0.5
+    ],
+    "rotation_deg": 0.0,
+    "size": [
+     0.3,
+     1.0,
+     0.5
+    ],
+    "description": "Divert Lane Discharge Part Remover"
+   }
+  ],
+  "connections": [],
+  "tags": [
+   {
+    "name": "CONV_01_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_01",
+    "description": "Infeed Belt Conveyor — Sorting Line — Run command"
+   },
+   {
+    "name": "CONV_01_SPD_AO",
+    "kind": "AO",
+    "dtype": "float32",
+    "owner": "CONV_01",
+    "description": "Infeed Belt Conveyor — Sorting Line — Speed command"
+   },
+   {
+    "name": "CONV_01_RUN_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "CONV_01",
+    "description": "Infeed Belt Conveyor — Sorting Line — Running feedback"
+   },
+   {
+    "name": "PE_01_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "PE_01",
+    "description": "Infeed Tall Box Photo Eye — Part detected"
+   },
+   {
+    "name": "CYL_01_EXT_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CYL_01",
+    "description": "Tall Box Divert Pusher — Extend command"
+   },
+   {
+    "name": "CYL_01_EXT_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "CYL_01",
+    "description": "Tall Box Divert Pusher — Extended limit switch"
+   },
+   {
+    "name": "CYL_01_RET_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "CYL_01",
+    "description": "Tall Box Divert Pusher — Retracted limit switch"
+   },
+   {
+    "name": "EMT_01_EN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "EMT_01",
+    "description": "Infeed Box Source — Emitter enable"
+   },
+   {
+    "name": "CONV_02_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_02",
+    "description": "Divert Lane Belt Conveyor — Tall Boxes — Run command"
+   },
+   {
+    "name": "CONV_02_RUN_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "CONV_02",
+    "description": "Divert Lane Belt Conveyor — Tall Boxes — Running feedback"
+   }
+  ],
+  "warnings": []
+ },
+ "dt": 0.02,
+ "ticks": 1000,
+ "friction": 0.8,
+ "inputs": [
+  {
+   "tick": 1,
+   "belts": {
+    "CONV_01": 0.0,
+    "CONV_02": 0.0
+   },
+   "pushers": {
+    "CYL_01": 0.0
+   }
+  },
+  {
+   "tick": 2,
+   "belts": {
+    "CONV_01": 0.033333,
+    "CONV_02": 0.033333
+   },
+   "spawn": [
+    {
+     "id": "P000001",
+     "name": "short",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.2,
+      0.3,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 3,
+   "belts": {
+    "CONV_01": 0.066667,
+    "CONV_02": 0.066667
+   }
+  },
+  {
+   "tick": 4,
+   "belts": {
+    "CONV_01": 0.1,
+    "CONV_02": 0.1
+   }
+  },
+  {
+   "tick": 5,
+   "belts": {
+    "CONV_01": 0.133333,
+    "CONV_02": 0.133333
+   }
+  },
+  {
+   "tick": 6,
+   "belts": {
+    "CONV_01": 0.166667,
+    "CONV_02": 0.166667
+   }
+  },
+  {
+   "tick": 7,
+   "belts": {
+    "CONV_01": 0.2,
+    "CONV_02": 0.2
+   }
+  },
+  {
+   "tick": 8,
+   "belts": {
+    "CONV_01": 0.233333,
+    "CONV_02": 0.233333
+   }
+  },
+  {
+   "tick": 9,
+   "belts": {
+    "CONV_01": 0.266667,
+    "CONV_02": 0.266667
+   }
+  },
+  {
+   "tick": 10,
+   "belts": {
+    "CONV_01": 0.3,
+    "CONV_02": 0.3
+   }
+  },
+  {
+   "tick": 11,
+   "belts": {
+    "CONV_01": 0.333333,
+    "CONV_02": 0.333333
+   }
+  },
+  {
+   "tick": 12,
+   "belts": {
+    "CONV_01": 0.366667,
+    "CONV_02": 0.366667
+   }
+  },
+  {
+   "tick": 13,
+   "belts": {
+    "CONV_01": 0.4,
+    "CONV_02": 0.4
+   }
+  },
+  {
+   "tick": 14,
+   "belts": {
+    "CONV_01": 0.433333,
+    "CONV_02": 0.433333
+   }
+  },
+  {
+   "tick": 15,
+   "belts": {
+    "CONV_01": 0.466667,
+    "CONV_02": 0.466667
+   }
+  },
+  {
+   "tick": 16,
+   "belts": {
+    "CONV_01": 0.5,
+    "CONV_02": 0.5
+   }
+  },
+  {
+   "tick": 152,
+   "spawn": [
+    {
+     "id": "P000002",
+     "name": "tall",
+     "size": [
+      0.3,
+      0.4,
+      0.3
+     ],
+     "position": [
+      0.2,
+      0.3,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 302,
+   "spawn": [
+    {
+     "id": "P000003",
+     "name": "tall",
+     "size": [
+      0.3,
+      0.4,
+      0.3
+     ],
+     "position": [
+      0.2,
+      0.3,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 388,
+   "remove": [
+    "P000001"
+   ]
+  },
+  {
+   "tick": 452,
+   "spawn": [
+    {
+     "id": "P000004",
+     "name": "short",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.2,
+      0.3,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 534,
+   "remove": [
+    "P000002"
+   ]
+  },
+  {
+   "tick": 602,
+   "spawn": [
+    {
+     "id": "P000005",
+     "name": "tall",
+     "size": [
+      0.3,
+      0.4,
+      0.3
+     ],
+     "position": [
+      0.2,
+      0.3,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 684,
+   "remove": [
+    "P000003"
+   ]
+  },
+  {
+   "tick": 752,
+   "spawn": [
+    {
+     "id": "P000006",
+     "name": "short",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.2,
+      0.3,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 837,
+   "remove": [
+    "P000004"
+   ]
+  },
+  {
+   "tick": 902,
+   "spawn": [
+    {
+     "id": "P000007",
+     "name": "short",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.2,
+      0.3,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 984,
+   "remove": [
+    "P000005"
+   ]
+  }
+ ],
+ "edges": {
+  "PE_01": [
+   [
+    273,
+    true
+   ],
+   [
+    304,
+    false
+   ],
+   [
+    423,
+    true
+   ],
+   [
+    454,
+    false
+   ],
+   [
+    723,
+    true
+   ],
+   [
+    754,
+    false
+   ]
+  ]
+ },
+ "checkpoints": {
+  "P000001": {
+   "1": 92,
+   "2": 192,
+   "3": 292
+  },
+  "P000002": {
+   "1": 238,
+   "2": 338,
+   "3": 439
+  },
+  "P000003": {
+   "1": 388,
+   "2": 488,
+   "3": 589
+  },
+  "P000004": {
+   "1": 541,
+   "2": 641,
+   "3": 742
+  },
+  "P000005": {
+   "1": 688,
+   "2": 788,
+   "3": 889
+  },
+  "P000006": {
+   "1": 841,
+   "2": 941
+  },
+  "P000007": {
+   "1": 991
+  }
+ }
+}

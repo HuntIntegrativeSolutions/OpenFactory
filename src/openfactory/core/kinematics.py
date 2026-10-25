@@ -7,22 +7,25 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
 - **Carried:** the part moves along its conveyor's local +x, resting on the belt top. Its speed
   (:attr:`Part.v_flow`) follows the conveyor's current ``surface_speed``, but friction limits how
   fast: the speed changes by at most ``friction × 9.81 m/s² × dt`` per step (scene
-  ``scene.friction``, default 0.8), speeding up and slowing down alike. A part that lands on a
-  running belt therefore slips for ``v / (μ·g)`` seconds (64 ms at 0.5 m/s and μ = 0.8) before it
-  moves with the belt, as in the viewer's Rapier physics. The speed is updated before the position
-  (semi-implicit Euler, like Rapier). When its center passes the discharge end (local x > length) it
-  either hands off to the conveyor that end feeds (scene ``connections``), landing on the downstream
-  infeed with the overshoot carried over, its speed kept, its lateral offset kept (clamped to the
-  belt width), and its height snapped to the new belt top, or, with no connection, it leaves the
-  belt and starts to fall. A collinear chain therefore hands off with no jump in position, and a
-  connection bridges any gap, step, or turn like a transfer plate. A part whose center ends up off
-  either end or beyond either belt edge (local |z| > width / 2) also starts to fall.
+  ``scene.friction``, default 0.8), speeding up and slowing down alike. A part at rest on a running
+  belt therefore slips for ``v / (μ·g)`` seconds (64 ms at 0.5 m/s and μ = 0.8) before it moves with
+  the belt, as in the viewer's Rapier physics (a dropped part gets a head start from its landing
+  impact, below). The speed is updated before the position (semi-implicit Euler, like Rapier). When
+  its center passes the discharge end (local x > length) it either hands off to the conveyor that
+  end feeds (scene ``connections``), landing on the downstream infeed with the overshoot carried
+  over, its speed kept, its lateral offset kept (clamped to the belt width), and its height snapped
+  to the new belt top, or, with no connection, it leaves the belt and starts to fall. A collinear
+  chain therefore hands off with no jump in position, and a connection bridges any gap, step, or
+  turn like a transfer plate. A part whose center ends up off either end or beyond either belt edge
+  (local |z| > width / 2) also starts to fall.
 - **Falling:** gravity (9.81 m/s², semi-implicit Euler). A falling part lands on the highest
   conveyor whose belt top it crosses during the step and whose footprint (0 ≤ local x ≤ length,
-  |local z| ≤ width / 2) holds the part's center, with zero speed along the belt (falling parts have
-  no horizontal motion). A part spawned exactly at rest on a belt lands in its first step. A part
-  that falls more than 2 m below the lowest belt top is removed from the world and counted in
-  :attr:`World.lost`.
+  |local z| ≤ width / 2) holds the part's center. Landing is an impact: the normal impulse that
+  stops the fall (m·|vy|) lets friction set the along-belt speed to the belt's, limited to ±μ·|vy|,
+  at once (as Rapier's contact solver does), so a box dropped 0.1 m onto a 0.5 m/s belt at μ 0.8
+  lands moving with it; any remainder follows the μ·g ramp. Falling parts have no horizontal motion.
+  A part spawned exactly at rest on a belt lands in its first step. A part that falls more than 2 m
+  below the lowest belt top is removed from the world and counted in :attr:`World.lost`.
 
 - **Pushed:** a pusher's plate (``plate_width`` × ``plate_height``, its face at local
   z = :attr:`Pusher.position`) moves parts along its local +z. Each step, if the plate advanced
@@ -38,11 +41,11 @@ parts first, then components step in scene order. Photo eyes and removers theref
 part positions, while parts move at the belt speed the conveyors reached, and are pushed by the
 plate travel the pushers made, on the previous tick.
 
-Limits (deliberate, for a deterministic CI model): slip is modeled only as the μ·g acceleration
-cap (no tipping, no bounce on landing), no part-to-part collisions (parts overlap on a stopped belt;
-PLAN task 2.0), part boxes keep their world-axis orientation through turns, falling parts drop
-straight down, and a pusher only pushes along its own axis: a part conveyed sideways into an
-extended plate passes through it.
+Limits (deliberate, for a deterministic CI model): slip is modeled only as the μ·g acceleration cap
+plus the μ·|vy| grab on landing (no tipping, no bounce, no soft-contact spreading of the impact as
+in Rapier), no part-to-part collisions (parts overlap on a stopped belt; PLAN task 2.0), part boxes
+keep their world-axis orientation through turns, falling parts drop straight down, and a pusher only
+pushes along its own axis: a part conveyed sideways into an extended plate passes through it.
 """
 
 from __future__ import annotations
@@ -179,8 +182,12 @@ class KinematicModel:
         x, y, z = part.position
         if landing is not None:
             part.position = (x, self._top(landing) + part.size[1] / 2, z)
+            # Impact friction: the normal impulse that stops the fall (m·|vy|) lets friction change
+            # the along-belt speed by up to μ·|vy| at once, as Rapier's contact solver does.
+            grab = self.max_accel / GRAVITY * abs(vy)
+            target = landing.surface_speed  # type: ignore[attr-defined]
+            part.v_flow = max(-grab, min(grab, target))
             part.vy = 0.0
-            part.v_flow = 0.0
             part.carrier = landing.id
             return
         part.position = (x, y + vy * dt, z)

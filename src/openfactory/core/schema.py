@@ -184,8 +184,9 @@ class SceneMeta(StrictModel):
         0.8,
         gt=0,
         le=2,
-        description="Belt-to-part friction coefficient (mu). Caps part acceleration on a belt at "
-        "mu x 9.81 m/s2 in the headless model; the viewer gives belts and parts this friction.",
+        description="Belt-to-part friction coefficient (mu). In the headless model it caps part "
+        "acceleration on a belt at mu x 9.81 m/s2 and limits the belt speed a landing part takes "
+        "at impact to mu x its fall speed; the viewer gives belts and parts this friction.",
     )
 
 

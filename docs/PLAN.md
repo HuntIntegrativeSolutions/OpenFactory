@@ -241,8 +241,9 @@ Rules:
   and no connection joins them.
 - Optional keys not shown in the example:
   - `scene.friction` (default 0.8, μ between belts and parts): the viewer gives belt and part
-    colliders this friction, and the headless model caps part acceleration on a belt at μ × 9.81 m/s²,
-    so the two agree on how long a part slips after landing.
+    colliders this friction. The headless model caps a carried part's acceleration at μ × 9.81 m/s²
+    and, on landing, lets friction change its belt-direction speed by up to μ × |fall speed| at once
+    (the impact impulse), so the two models agree on when parts reach belt speed (PLAN 1.12 parity).
   - `box_emitter.jitter_s` (default 0): uniform ± jitter added to each `interval_s`; must be smaller
     than `interval_s`.
   - `box_emitter.io.enable` is optional; when unbound the emitter is always enabled.
@@ -428,7 +429,11 @@ runs the sorting program against it; a box visibly gets pushed.
       of about 1.5 ticks at μ 0.8 and 0.5 m/s and worse at lower μ, which would eat most of 1.12's
       2-tick parity budget. `kinematics.py` now caps part acceleration at `scene.friction` × 9.81 m/s²
       in both directions, so parity is tested at the scene's own friction. Re-run: tick 259 against
-      259 on paper (landing + ⌈(2.55 m + v²/2μg) / (v·dt)⌉ + debounce).
+      259 on paper (landing + ⌈(2.55 m + v²/2μg) / (v·dt)⌉ + debounce). 1.12's parity replay then
+      showed Rapier parts consistently 1–2 ticks *ahead*: a landing impact lets friction change the
+      belt-direction speed by μ·|vy| at once. The headless model now does the same on landing (tick
+      258 against 258 on paper, v0 = μ·g·dt for a part placed at rest), and parity tightened from
+      worst 2 to worst 1 tick at μ 0.8 and from 3 to 2 ticks at μ 0.3.
 - [x] 1.6 `core/scheduler.py`: fixed 50 Hz with accumulator; `--as-fast-as-possible`
       *Done when:* 10 simulated seconds complete in < 0.5 s wall time in fast mode; realtime drift < 1%.
 - [x] 1.7 `protocols/modbus.py`: pymodbus 3.16.x async server bound to IOTable, allocation per §6.1.
@@ -467,7 +472,7 @@ runs the sorting program against it; a box visibly gets pushed.
       sends `press` / `select` on `/ws/events`. Parts are drawn at the core's kinematic positions
       (eased between 20 Hz frames) until 1.12 gives them Rapier bodies. A bound but unwritten speed
       AO reads 0 %, so a demo needs `--force CONV_01_SPD_AO=100` as well as the run coil.
-- [ ] 1.12 Viewer physics: Rapier world, parts as dynamic boxes, conveyor top as
+- [x] 1.12 Viewer physics: Rapier world, parts as dynamic boxes, conveyor top as
       `kinematicVelocityBased` body with `setLinvel` **and `setTranslation(home)` reset every step**
       (otherwise the belt drifts; contact surface velocity is Rust-only), pusher as
       `kinematicPositionBased`; sensor beam as a sensor collider with collision events; events sent
@@ -475,6 +480,16 @@ runs the sorting program against it; a box visibly gets pushed.
       (μ·g); `kinematics.py` models the same ramp from `scene.friction`, and parity is tested at it.
       *Done when:* with PLC coil forced on, a box travels the belt and a photo-eye event arrives in the
       core; parity test against `kinematics.py` within 2 ticks.
+      *Note (2026-10-25):* `web/src/physics.ts` is DOM-free, so the viewer and a node replay run the
+      same code. Parity (`tests/integration/test_kinematic_parity.py`): `tools/parity_trace.py`
+      records the core's per-tick inputs (belt speeds, plate strokes, spawns, removals) and its
+      raw photo-eye edges and belt checkpoints for 20 s of the sorter, committed as
+      `web/src/fixtures/parity-*.json` with a freshness check; `physics.parity.test.ts` replays them
+      through Rapier. Worst |Δ| 1 tick at the scene's μ 0.8, 2 ticks at μ 0.3. Getting there took
+      one model change in `kinematics.py`, landing impact friction (see the 1.5 parity note).
+      M1 decision: the core records browser sensor events (`/api/status`, `/api/events`) but its
+      kinematic model still drives the PLC-visible tags (§8); switching authority to the browser is
+      a later decision.
 - [x] 1.13 `tools/screenshot.py`: launches server + Playwright, waits N sim seconds, saves PNG
       *Why:* this is how the AI verifies visual work. Build it early and use it every time.
       *Done when (added 2026-10-25, the task had none):* `uv run python tools/screenshot.py

@@ -11,8 +11,10 @@ What it does:
 2. Starts ``openfactory run SCENE`` on two free loopback ports (Modbus and viewer), passing any
    ``--force TAG=VALUE`` through, so a scene can be shown running without a PLC.
 3. Opens the viewer in Playwright's headless Chromium with SwiftShader WebGL and waits until the
-   viewer reports ``window.__openfactory.ready`` and a simulation time of at least ``--seconds``
-   (it waits on the viewer's own flag, never on a fixed sleep).
+   viewer reports ``window.__openfactory.ready``, a simulation time of at least ``--seconds``, and
+   (with ``--min-sensor-events N``) at least N photo-eye events sent from its Rapier physics to the
+   core (it waits on the viewer's own flags, never on a fixed sleep). It then prints the viewer's
+   physics backend and the core's ``/api/status`` counts of events received.
 4. Saves a PNG (default ``tools/screenshots/<scene>-<N>s.png``, git-ignored) and checks it is not
    blank: at least 2 % of pixels must differ from the ISA-101 background ``#1F2A36`` and at most
    90 % may be near-black. A failed check, a viewer error, or a timeout exits 1.
@@ -165,6 +167,7 @@ def screenshot(
     out: Path,
     forces: list[str],
     size: tuple[int, int],
+    min_sensor_events: int = 0,
     timeout: float = 60.0,
 ) -> dict[str, object]:
     from playwright.sync_api import sync_playwright
@@ -192,9 +195,9 @@ def screenshot(
             page.goto(f"http://127.0.0.1:{web_port}/")
             try:
                 page.wait_for_function(
-                    "s => window.__openfactory && (window.__openfactory.error || "
-                    "(window.__openfactory.ready && window.__openfactory.simTime >= s))",
-                    arg=seconds,
+                    "([s, n]) => { const v = window.__openfactory; return v && (v.error || "
+                    "(v.ready && v.simTime >= s && (v.sensorEvents || 0) >= n)); }",
+                    arg=[seconds, min_sensor_events],
                     timeout=timeout * 1000,
                 )
             except Exception as exc:
@@ -206,7 +209,12 @@ def screenshot(
             out.parent.mkdir(parents=True, exist_ok=True)
             page.screenshot(path=str(out))
             browser.close()
-        return {"status": status, "console": console}
+        import json
+        import urllib.request
+
+        with urllib.request.urlopen(f"http://127.0.0.1:{web_port}/api/status", timeout=5) as res:
+            core = json.load(res)
+        return {"status": status, "console": console, "core": core}
     finally:
         proc.terminate()
         with contextlib.suppress(subprocess.TimeoutExpired):
@@ -223,13 +231,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="append", default=[], metavar="TAG=VALUE")
     parser.add_argument("--size", default="1280x720", help="viewport WIDTHxHEIGHT")
     parser.add_argument("--build", action="store_true", help="run npm run build first")
+    parser.add_argument(
+        "--min-sensor-events",
+        type=int,
+        default=0,
+        metavar="N",
+        help="also wait until the viewer physics has sent N photo-eye events to the core",
+    )
     args = parser.parse_args(argv)
     width, height = (int(v) for v in args.size.lower().split("x"))
     out = args.out or DEFAULT_DIR / f"{args.scene.stem}-{args.seconds:g}s.png"
     if args.build:
         build_viewer()
     result = screenshot(
-        args.scene.resolve(), seconds=args.seconds, out=out, forces=args.force, size=(width, height)
+        args.scene.resolve(),
+        seconds=args.seconds,
+        out=out,
+        forces=args.force,
+        size=(width, height),
+        min_sensor_events=args.min_sensor_events,
     )
     ok, summary = check_image(out)
     status = result["status"]
@@ -238,6 +258,11 @@ def main(argv: list[str] | None = None) -> int:
         f"viewer: scene {status['scene']}, {status['components']} components, "
         f"{status['frames']} frames, t = {status['simTime']:.2f} s"
     )
+    print(
+        f"viewer physics: {status.get('physics')}, sensor events sent: {status.get('sensorEvents')}"
+    )
+    core = result["core"]
+    print(f"core /api/status: t = {core['t']:.2f} s, events received {core['events']}")  # type: ignore[index]
     print(summary)
     for line in result["console"]:  # type: ignore[union-attr]
         if line.startswith(("error", "pageerror", "warning")):

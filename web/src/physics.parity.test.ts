@@ -1,0 +1,88 @@
+// PLAN 1.12 parity: replay the headless model's inputs (tools/parity_trace.py) through the
+// Rapier plant and require every photo-eye edge and belt checkpoint to agree within 2 ticks.
+// tests/integration/test_kinematic_parity.py checks the traces are current, runs this file, and
+// reads the measured deltas from the "PARITY_REPORT {json}" line each trace prints.
+import { describe, expect, it } from "vitest";
+import type { SceneDocument, Vec3 } from "./api";
+import sorter from "./fixtures/parity-sorter.json";
+import sorterMu03 from "./fixtures/parity-sorter-mu0.3.json";
+import { loadRapier, PlantPhysics } from "./physics";
+
+interface Trace {
+  scene: SceneDocument;
+  dt: number;
+  ticks: number;
+  friction: number;
+  inputs: {
+    tick: number;
+    belts?: Record<string, number>;
+    pushers?: Record<string, number>;
+    spawn?: { id: string; size: Vec3; position: Vec3 }[];
+    remove?: string[];
+  }[];
+  edges: Record<string, [number, boolean][]>;
+  checkpoints: Record<string, Record<string, number>>;
+}
+
+const TOLERANCE_TICKS = 2;
+const TRACES: Record<string, Trace> = {
+  "parity-sorter": sorter as unknown as Trace,
+  "parity-sorter-mu0.3": sorterMu03 as unknown as Trace,
+};
+
+function load(name: string): Trace {
+  return TRACES[name];
+}
+
+async function replay(trace: Trace) {
+  const R = await loadRapier();
+  const physics = new PlantPhysics(R, { components: trace.scene.components, friction: trace.friction, dt: trace.dt });
+  const byTick = new Map(trace.inputs.map((entry) => [entry.tick, entry]));
+  const edges: Record<string, [number, boolean][]> = Object.fromEntries(Object.keys(trace.edges).map((id) => [id, []]));
+  const checkpoints: Record<string, Record<string, number>> = {};
+  const marks = Object.keys(Object.values(trace.checkpoints)[0] ?? {}).map(Number);
+  let maxDrift = 0;
+  for (let k = 1; k <= trace.ticks; k++) {
+    const input = byTick.get(k);
+    for (const [id, v] of Object.entries(input?.belts ?? {})) physics.setBelt(id, v);
+    for (const [id, s] of Object.entries(input?.pushers ?? {})) physics.setPusher(id, s);
+    for (const id of input?.remove ?? []) physics.removePart(id);
+    for (const p of input?.spawn ?? []) physics.addPart(p.id, p.size, p.position);
+    for (const edge of physics.step()) edges[edge.id]?.push([k, edge.blocked]);
+    for (const id of physics.partIds()) {
+      const x = physics.part(id)!.position[0];
+      const seen = (checkpoints[id] ??= {});
+      for (const m of marks) if (seen[String(m)] === undefined && x >= m) seen[String(m)] = k;
+    }
+  }
+  for (const id of physics.partIds()) maxDrift = Math.max(maxDrift, Math.abs(physics.part(id)!.position[2]));
+  physics.free();
+  return { edges, checkpoints, maxDrift };
+}
+
+describe.each(Object.keys(TRACES))("Rapier vs kinematics.py parity (%s)", (name) => {
+  it(`agrees within ${TOLERANCE_TICKS} ticks on every photo-eye edge and belt checkpoint`, async () => {
+    const trace = load(name);
+    const got = await replay(trace);
+    const rows: { what: string; kinematic: number; rapier: number | null; delta: number | null }[] = [];
+    for (const [eye, expected] of Object.entries(trace.edges)) {
+      expected.forEach(([tick, blocked], i) => {
+        const match = got.edges[eye][i];
+        const ok = match && match[1] === blocked;
+        rows.push({ what: `${eye} ${blocked ? "blocked" : "clear"} #${i + 1}`, kinematic: tick, rapier: ok ? match[0] : null, delta: ok ? match[0] - tick : null });
+      });
+      expect(got.edges[eye].length, `${eye} edge count`).toBe(expected.length);
+    }
+    for (const [part, marks] of Object.entries(trace.checkpoints)) {
+      for (const [x, tick] of Object.entries(marks)) {
+        const r = got.checkpoints[part]?.[x] ?? null;
+        rows.push({ what: `${part} x>=${x}`, kinematic: tick, rapier: r, delta: r === null ? null : r - tick });
+      }
+    }
+    const worst = Math.max(...rows.map((r) => (r.delta === null ? Infinity : Math.abs(r.delta))));
+    const summary = { trace: name, friction: trace.friction, comparisons: rows.length, worstDeltaTicks: worst, rows };
+    console.info(`PARITY_REPORT ${JSON.stringify(summary)}`);
+    console.info(`${name} (mu ${trace.friction}): ${rows.length} comparisons, worst |delta| = ${worst} ticks`);
+    for (const row of rows) expect(Math.abs(row.delta ?? Infinity), row.what).toBeLessThanOrEqual(TOLERANCE_TICKS);
+  });
+});

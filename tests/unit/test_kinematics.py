@@ -93,15 +93,17 @@ def test_part_travels_two_chained_conveyors_and_trips_photo_eye_on_time():
     part = place(loaded, x=0.3)
     start = loaded.tick
 
-    # Expected, on paper: the part lands in its first tick at rest, then friction accelerates it
-    # at mu*g = 7.85 m/s^2 to the belt's 0.5 m/s, which costs v^2 / (2 mu g) = 0.016 m against
-    # moving at belt speed from the start. Its leading edge (center + 0.15) reaches the beam at
-    # x = 3.0 when the center has moved d = 2.85 - 0.3 = 2.55 m:
-    # moving ticks = ceil((d + v^2/(2 mu g)) / (v dt)) = ceil(256.6) = 257;
-    # + 1 landing tick + 1 tick debounce = 259.
-    lag = SPEED**2 / (2 * ACCEL)
+    # Expected, on paper: the part lands in its first tick (falling one step, |vy| = g dt), and
+    # the landing impact lets friction give it v0 = mu |vy| = mu g dt = 0.157 m/s at once. Friction
+    # then accelerates it at mu*g = 7.85 m/s^2 to the belt's 0.5 m/s, which costs
+    # (v - v0)^2 / (2 mu g) = 0.0075 m against moving at belt speed from the start. Its leading
+    # edge (center + 0.15) reaches the beam at x = 3.0 when the center has moved
+    # d = 2.85 - 0.3 = 2.55 m: moving ticks = ceil((d + (v - v0)^2/(2 mu g)) / (v dt))
+    # = ceil(255.75) = 256; + 1 landing tick + 1 tick debounce = 258.
+    v0 = ACCEL * DT
+    lag = (SPEED - v0) ** 2 / (2 * ACCEL)
     expected = 1 + math.ceil(round((3.0 - BOX[0] / 2 - 0.3 + lag) / (SPEED * DT), 9)) + 1
-    assert expected == 259
+    assert expected == 258
 
     tripped_at = None
     carriers = []
@@ -279,9 +281,8 @@ def test_part_reaches_belt_speed_in_friction_limited_time(mu, expected_ticks):
     """On paper: t = v / (mu g); at 0.5 m/s that is 64 ms (mu 0.8), 170 ms (0.3), 510 ms (0.1)."""
     loaded = scene(conveyor("CONV_01", (0, 0, 0)), friction=mu)
     up_to_speed(loaded)
-    part = place(loaded, x=0.3)
-    loaded.step(DT)  # lands at rest
-    assert part.carrier == "CONV_01" and part.v_flow == 0.0
+    part = place_moving(loaded, "CONV_01", x=0.3)
+    part.v_flow = 0.0  # carried, at rest on the running belt (no landing impact)
     ticks = 0
     speeds = []
     while part.v_flow < SPEED:
@@ -295,6 +296,23 @@ def test_part_reaches_belt_speed_in_friction_limited_time(mu, expected_ticks):
     steps = [b - a for a, b in zip([0.0, *speeds], speeds, strict=False)]
     assert all(s == pytest.approx(mu * 9.81 * DT) for s in steps[:-1])
     print(f"mu={mu}: belt speed after {ticks} ticks ({ticks * DT:.2f} s)")
+
+
+@pytest.mark.parametrize(("mu", "full_speed"), [(0.8, True), (0.1, False)])
+def test_landing_impact_lets_friction_grab_the_belt_speed(mu, full_speed):
+    """A dropped part's impact impulse m|vy| allows mu|vy| of along-belt speed at once."""
+    loaded = scene(conveyor("CONV_01", (0, 0, 0)), friction=mu)
+    up_to_speed(loaded)
+    part = loaded.world.spawn("tall", (0.3, 0.4, 0.3), (0.5, 0.3, 0.0))  # bottom 0.1 m up
+    while part.carrier is None:
+        vy_before = part.vy
+        loaded.step(DT)
+    impact = abs(vy_before - 9.81 * DT)  # fall speed in the landing step, about 1.4 m/s
+    assert impact == pytest.approx(math.sqrt(2 * 9.81 * 0.1), rel=0.15)
+    if full_speed:  # 0.8 x 1.4 m/s > 0.5 m/s: lands moving with the belt
+        assert part.v_flow == SPEED
+    else:  # 0.1 x 1.4 m/s = 0.14 m/s, then the mu g ramp
+        assert part.v_flow == pytest.approx(mu * impact)
 
 
 def test_part_slides_on_when_belt_stops_faster_than_friction_allows():

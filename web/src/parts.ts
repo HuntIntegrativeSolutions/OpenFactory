@@ -1,7 +1,7 @@
-// Parts drawn from the core's state frames (PLAN 1.11): one box per part id, created when a part
-// first appears and removed when the core removes it. Frames arrive at 20 Hz and the screen
-// renders faster, so each mesh eases toward its latest core position. PLAN 1.12 replaces these
-// positions with Rapier bodies; the core still decides which parts exist.
+// Parts drawn from the core's state frames: one box per part id, created when a part first
+// appears and removed when the core removes it (the core decides which parts exist). With viewer
+// physics (PLAN 1.12) each mesh takes its Rapier body's pose via setPose(); without it (Rapier
+// failed to load) meshes ease toward the core's kinematic positions between 20 Hz frames.
 import * as THREE from "three";
 import type { PartState } from "./api";
 import { NEUTRAL } from "./components/types";
@@ -10,7 +10,7 @@ const EASE = 0.35;
 
 export class PartMeshes {
   readonly group = new THREE.Group();
-  private meshes = new Map<string, { mesh: THREE.Mesh; target: THREE.Vector3 }>();
+  private meshes = new Map<string, { mesh: THREE.Mesh; target: THREE.Vector3; physics: boolean }>();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
 
   private material(name: string): THREE.MeshStandardMaterial {
@@ -38,7 +38,7 @@ export class PartMeshes {
           new THREE.LineBasicMaterial({ color: 0x3f3428 }),
         );
         mesh.add(edges);
-        entry = { mesh, target: new THREE.Vector3(...p.position) };
+        entry = { mesh, target: new THREE.Vector3(...p.position), physics: false };
         this.meshes.set(p.id, entry);
         this.group.add(mesh);
       }
@@ -53,9 +53,20 @@ export class PartMeshes {
     }
   }
 
+  /** Pose from the physics world; once set, the mesh no longer eases toward the core position. */
+  setPose(id: string, position: [number, number, number], rotation: [number, number, number, number]): void {
+    const entry = this.meshes.get(id);
+    if (!entry) return;
+    entry.mesh.position.set(...position);
+    entry.mesh.quaternion.set(...rotation);
+    entry.physics = true;
+  }
+
   /** Call once per rendered frame. */
   animate(): void {
-    for (const { mesh, target } of this.meshes.values()) mesh.position.lerp(target, EASE);
+    for (const { mesh, target, physics } of this.meshes.values()) {
+      if (!physics) mesh.position.lerp(target, EASE);
+    }
   }
 
   get count(): number {
