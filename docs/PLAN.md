@@ -323,7 +323,7 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
 Goal: `openfactory run scenes/sorting-by-height.yaml` serves Modbus on 5020 and a viewer on 8000; OpenPLC
 runs the sorting program against it; a box visibly gets pushed.
 
-- [ ] 1.1 `core/schema.py`: pydantic models for §4, `extra="forbid"`, JSON Schema export to
+- [x] 1.1 `core/schema.py`: pydantic models for §4, `extra="forbid"`, JSON Schema export to
       `web/public/scene.schema.json`
       *Why:* the schema is the contract between every other part. Get it right first.
       *Done when:* `tests/unit/test_schema.py` loads the example scene, rejects an unknown key, rejects a

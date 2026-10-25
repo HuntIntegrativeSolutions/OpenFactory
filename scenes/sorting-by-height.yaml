@@ -1,0 +1,59 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# Source: docs/PLAN.md §4 (scene format v0.1). REM_01 gains a description, which CLAUDE.md requires.
+openfactory: "0.1"
+scene:
+  name: sorting-by-height
+  description: Two-lane box sorter. Tall boxes diverted by pusher, short boxes pass through.
+  author: HIS Controls
+  seed: 42
+  units: meters
+plc:
+  protocol: modbus_tcp          # modbus_tcp | logix | opcua | none
+  role: server                  # server | client
+  bind: 127.0.0.1
+  port: 5020
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Infeed Belt Conveyor — Sorting Line
+    position: [0, 0, 0]          # x (along flow), y (up), z
+    rotation_deg: 0
+    length: 4.0
+    width: 0.5
+    speed_mps: 0.5               # surface speed at 100 % speed command
+    io:
+      run: CONV_01_RUN_DO
+      speed: CONV_01_SPD_AO      # optional; 0-100 %
+      running: CONV_01_RUN_DI    # feedback
+  - id: PE_01
+    type: photo_eye
+    description: Infeed Box Present Photo Eye
+    position: [1.5, 0.15, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_01_DI
+  - id: CYL_01
+    type: pusher
+    description: Tall Box Divert Pusher
+    position: [2.5, 0.1, -0.3]
+    stroke: 0.5
+    extend_time_s: 0.4
+    io:
+      extend: CYL_01_EXT_DO
+      extended: CYL_01_EXT_DI
+      retracted: CYL_01_RET_DI
+  - id: EMT_01
+    type: box_emitter
+    description: Infeed Box Source
+    position: [0.2, 0.3, 0]
+    interval_s: 3.0
+    parts:
+      - {name: tall, size: [0.3, 0.4, 0.3], weight: 0.5}
+      - {name: short, size: [0.3, 0.2, 0.3], weight: 0.5}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_01
+    type: part_remover
+    description: Sorting Line Discharge Part Remover
+    position: [4.1, 0, 0]
+    size: [0.3, 1.0, 1.0]
