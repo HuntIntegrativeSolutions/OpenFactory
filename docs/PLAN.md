@@ -459,9 +459,14 @@ runs the sorting program against it; a box visibly gets pushed.
       `--as-fast-as-possible` needs `--duration` and implies `--headless`. `--bind` applies to every
       server; `--port` is Modbus and `--web-port` the viewer. `--force TAG=VALUE` sets a DO/AO at
       startup as if the PLC wrote it, for demos and the viewer tasks without a PLC.
-- [ ] 1.11 Viewer: load scene JSON, build primitive meshes per component type, orbit camera, dark ISA-101
+- [x] 1.11 Viewer: load scene JSON, build primitive meshes per component type, orbit camera, dark ISA-101
       background, status colors (running green `#22C55E`, stopped grey `#9CA3AF`, alarm red `#EF4444`)
       *Done when:* Playwright screenshot of the sorter scene shows two conveyors, a pusher, a photo eye.
+      *Note (2026-10-25):* builders live in `web/src/components/` (one per M1 type plus a grey
+      fallback for unknown types); id labels via `CSS2DRenderer`; clicking a pushbutton or selector
+      sends `press` / `select` on `/ws/events`. Parts are drawn at the core's kinematic positions
+      (eased between 20 Hz frames) until 1.12 gives them Rapier bodies. A bound but unwritten speed
+      AO reads 0 %, so a demo needs `--force CONV_01_SPD_AO=100` as well as the run coil.
 - [ ] 1.12 Viewer physics: Rapier world, parts as dynamic boxes, conveyor top as
       `kinematicVelocityBased` body with `setLinvel` **and `setTranslation(home)` reset every step**
       (otherwise the belt drifts; contact surface velocity is Rust-only), pusher as
