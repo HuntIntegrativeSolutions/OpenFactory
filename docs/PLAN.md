@@ -470,8 +470,15 @@ runs the sorting program against it; a box visibly gets pushed.
       (μ·g); `kinematics.py` models the same ramp from `scene.friction`, and parity is tested at it.
       *Done when:* with PLC coil forced on, a box travels the belt and a photo-eye event arrives in the
       core; parity test against `kinematics.py` within 2 ticks.
-- [ ] 1.13 `tools/screenshot.py`: launches server + Playwright, waits N sim seconds, saves PNG
+- [x] 1.13 `tools/screenshot.py`: launches server + Playwright, waits N sim seconds, saves PNG
       *Why:* this is how the AI verifies visual work. Build it early and use it every time.
+      *Done when (added 2026-10-25, the task had none):* `uv run python tools/screenshot.py
+      scenes/sorting-by-height.yaml --seconds 3 --force CONV_01_RUN_DO=1` exits 0 with a PNG that
+      passes the tool's own non-blank check (≥ 2 % non-background pixels, ≤ 90 % near-black) and,
+      looked at, shows every scene component; `tests/integration/test_screenshot.py` runs it in CI.
+      The tool waits on the viewer's `window.__openfactory` ready flag and sim time, never a sleep.
+      Built before 1.11, so the viewer gained the minimum it needs: scene fetch, one neutral grey
+      placeholder box per component, a HUD, and the `/ws/state` stream.
 - [ ] 1.14 `examples/openplc/sorting-by-height.st` + `docs/guides/openplc-quickstart.md` with the Slave
       Devices settings (IP, port 5020, start addresses, sizes). Use `analog_encoding: int16_scaled` for
       this scene (see §6.1); OpenPLC delivers raw 16-bit words with no float decoding. OpenPLC polls at
