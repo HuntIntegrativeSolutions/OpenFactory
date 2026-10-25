@@ -180,6 +180,13 @@ class SceneMeta(StrictModel):
     author: str | None = None
     seed: int = Field(0, description="Seed for all random behavior (emitter jitter, part choice).")
     units: Literal["meters"] = "meters"
+    friction: float = Field(
+        0.8,
+        gt=0,
+        le=2,
+        description="Belt-to-part friction coefficient (mu). Caps part acceleration on a belt at "
+        "mu x 9.81 m/s2 in the headless model; the viewer gives belts and parts this friction.",
+    )
 
 
 class PlcConfig(StrictModel):

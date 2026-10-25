@@ -9,8 +9,8 @@ runs are reproducible. Removed parts are counted by name for scene statistics.
 
 Part motion is not simulated here. The headless kinematic model (``core/kinematics.py``) or the
 browser physics (PLAN 1.12, mirrored back to the core) updates :attr:`Part.position`,
-:attr:`Part.carrier`, and :attr:`Part.vy`. Parts that fall out of the scene are counted in
-:attr:`World.lost` by name.
+:attr:`Part.carrier`, :attr:`Part.vy`, and :attr:`Part.v_flow`. Parts that fall out of the scene are
+counted in :attr:`World.lost` by name.
 
 Randomness: :meth:`World.rng` gives each component its own ``random.Random`` seeded from the scene
 seed and the component id as a string, so results do not depend on ``PYTHONHASHSEED`` or on the
@@ -41,6 +41,8 @@ class Part:
     carrier: str | None = None
     #: Vertical velocity in m/s (negative is down) while falling.
     vy: float = 0.0
+    #: Speed in m/s along the carrier's flow axis (local +x) while carried.
+    v_flow: float = 0.0
 
     @property
     def bottom(self) -> float:

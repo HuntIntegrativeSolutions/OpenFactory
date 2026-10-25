@@ -1017,6 +1017,14 @@
           "default": "meters",
           "title": "Units",
           "type": "string"
+        },
+        "friction": {
+          "default": 0.8,
+          "description": "Belt-to-part friction coefficient (mu). Caps part acceleration on a belt at mu x 9.81 m/s2 in the headless model; the viewer gives belts and parts this friction.",
+          "exclusiveMinimum": 0,
+          "maximum": 2,
+          "title": "Friction",
+          "type": "number"
         }
       },
       "required": [

@@ -81,7 +81,7 @@ def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScen
     io = build_iotable(scene)
     world = World(seed=scene.scene.seed)
     components = [registry.resolve(c.type)(c, io, world) for c in scene.components]
-    kinematics = KinematicModel(world, components, scene.connections)
+    kinematics = KinematicModel(world, components, scene.connections, scene.scene.friction)
     return LoadedScene(scene, io, world, components, kinematics)
 
 

@@ -236,6 +236,9 @@ Rules:
   feed the same conveyor (a merge), and loops (recirculation) are allowed. Collinear conveyors that
   touch still need a connection for the headless model to hand parts across.
 - Optional keys not shown in the example:
+  - `scene.friction` (default 0.8, μ between belts and parts): the viewer gives belt and part
+    colliders this friction, and the headless model caps part acceleration on a belt at μ × 9.81 m/s²,
+    so the two agree on how long a part slips after landing.
   - `box_emitter.jitter_s` (default 0): uniform ± jitter added to each `interval_s`; must be smaller
     than `interval_s`.
   - `box_emitter.io.enable` is optional; when unbound the emitter is always enabled.
@@ -401,6 +404,12 @@ runs the sorting program against it; a box visibly gets pushed.
       *Why:* CI and PLC logic tests must run without a browser.
       *Done when:* `tests/unit/test_kinematics.py` moves a part down two chained conveyors and trips a
       photo eye at the expected time ± 1 tick.
+      *Parity note (2026-10-25):* as first built (commit `0bf7ff6`) parts took the belt speed instantly
+      and tripped at tick 257 against 257 on paper. Rapier accelerates a part by friction (μ·g), a lag
+      of about 1.5 ticks at μ 0.8 and 0.5 m/s and worse at lower μ, which would eat most of 1.12's
+      2-tick parity budget. `kinematics.py` now caps part acceleration at `scene.friction` × 9.81 m/s²
+      in both directions, so parity is tested at the scene's own friction. Re-run: tick 259 against
+      259 on paper (landing + ⌈(2.55 m + v²/2μg) / (v·dt)⌉ + debounce).
 - [x] 1.6 `core/scheduler.py`: fixed 50 Hz with accumulator; `--as-fast-as-possible`
       *Done when:* 10 simulated seconds complete in < 0.5 s wall time in fast mode; realtime drift < 1%.
 - [x] 1.7 `protocols/modbus.py`: pymodbus 3.16.x async server bound to IOTable, allocation per §6.1.
@@ -434,7 +443,7 @@ runs the sorting program against it; a box visibly gets pushed.
       (otherwise the belt drifts; contact surface velocity is Rust-only), pusher as
       `kinematicPositionBased`; sensor beam as a sensor collider with collision events; events sent
       upstream. Draw the belt mesh at `home`, not at the body translation. Part ramp is friction-limited
-      (μ·g), so `kinematics.py` models the same ramp or parity is tested at scene friction.
+      (μ·g); `kinematics.py` models the same ramp from `scene.friction`, and parity is tested at it.
       *Done when:* with PLC coil forced on, a box travels the belt and a photo-eye event arrives in the
       core; parity test against `kinematics.py` within 2 ticks.
 - [ ] 1.13 `tools/screenshot.py`: launches server + Playwright, waits N sim seconds, saves PNG

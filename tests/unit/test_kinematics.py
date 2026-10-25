@@ -13,6 +13,8 @@ from openfactory.core.schema import Scene
 DT = 0.02
 SPEED = 0.5
 BOX = (0.3, 0.2, 0.3)
+MU = 0.8  # scene default friction
+ACCEL = MU * 9.81  # friction-limited part acceleration, m/s^2
 
 
 def conveyor(cid, position, length=2.0, rotation=0.0):
@@ -29,12 +31,16 @@ def conveyor(cid, position, length=2.0, rotation=0.0):
     }
 
 
-def scene(*components, connections=()):
+def scene(*components, connections=(), friction=MU):
     loaded = build(
         Scene.model_validate(
             {
                 "openfactory": "0.1",
-                "scene": {"name": "kinematics-test", "description": "Kinematics test"},
+                "scene": {
+                    "name": "kinematics-test",
+                    "description": "Kinematics test",
+                    "friction": friction,
+                },
                 "components": list(components),
                 "connections": [{"from": a, "to": b} for a, b in connections],
             }
@@ -55,8 +61,15 @@ def up_to_speed(loaded):
 
 
 def place(loaded, x, y=0.1, z=0.0, size=BOX):
-    """A part at rest on the belt (bottom at y=0 for a 0.2 m box at y=0.1)."""
+    """A part at rest on the belt (bottom at y=0 for a 0.2 m box at y=0.1); lands next step."""
     return loaded.world.spawn("short", size, (x, y, z))
+
+
+def place_moving(loaded, carrier, x, z=0.0):
+    """A part already riding ``carrier`` at belt speed (no landing, no friction ramp)."""
+    part = place(loaded, x, z=z)
+    part.carrier, part.v_flow = carrier, SPEED
+    return part
 
 
 # --- Done when: two chained conveyors trip a photo eye at the expected time ± 1 tick ------------
@@ -80,11 +93,15 @@ def test_part_travels_two_chained_conveyors_and_trips_photo_eye_on_time():
     part = place(loaded, x=0.3)
     start = loaded.tick
 
-    # Expected, on paper: the part lands in its first tick, then moves v*dt = 0.01 m per tick.
-    # Its leading edge (center + 0.15) reaches the beam at x = 3.0 when the center reaches 2.85:
-    # 0.3 + 0.01 * (k - 1) >= 2.85  ->  k = 256 ticks raw blocked, + 1 tick debounce = 257.
-    expected = 1 + math.ceil(round((3.0 - BOX[0] / 2 - 0.3) / (SPEED * DT), 9)) + 1
-    assert expected == 257
+    # Expected, on paper: the part lands in its first tick at rest, then friction accelerates it
+    # at mu*g = 7.85 m/s^2 to the belt's 0.5 m/s, which costs v^2 / (2 mu g) = 0.016 m against
+    # moving at belt speed from the start. Its leading edge (center + 0.15) reaches the beam at
+    # x = 3.0 when the center has moved d = 2.85 - 0.3 = 2.55 m:
+    # moving ticks = ceil((d + v^2/(2 mu g)) / (v dt)) = ceil(256.6) = 257;
+    # + 1 landing tick + 1 tick debounce = 259.
+    lag = SPEED**2 / (2 * ACCEL)
+    expected = 1 + math.ceil(round((3.0 - BOX[0] / 2 - 0.3 + lag) / (SPEED * DT), 9)) + 1
+    assert expected == 259
 
     tripped_at = None
     carriers = []
@@ -107,8 +124,10 @@ def test_collinear_handoff_has_no_position_jump():
         connections=[("CONV_01", "CONV_02")],
     )
     up_to_speed(loaded)
-    part = place(loaded, x=1.8)
-    loaded.step(DT)  # lands
+    part = place(loaded, x=1.7)
+    for _ in range(6):  # lands, then 4 ticks of friction ramp to belt speed
+        loaded.step(DT)
+    assert part.v_flow == SPEED
     xs = []
     for _ in range(40):
         loaded.step(DT)
@@ -128,10 +147,9 @@ def test_connection_bridges_gap_and_height_step():
         connections=[("CONV_01", "CONV_02")],
     )
     up_to_speed(loaded)
-    part = place(loaded, x=1.995, z=0.05)
-    loaded.step(DT)  # lands at x = 1.995
+    part = place_moving(loaded, "CONV_01", x=1.995, z=0.05)
     loaded.step(DT)  # 2.005: past the discharge end -> onto CONV_02's infeed
-    assert part.carrier == "CONV_02"
+    assert part.carrier == "CONV_02" and part.v_flow == SPEED  # speed carried over
     # overshoot carried over, height snapped to the lower belt, 0.05 m lateral offset kept relative
     # to CONV_02's centerline (z = 0.1)
     assert part.position == pytest.approx((2.5 + 0.005, -0.1 + 0.1, 0.1 + 0.05))
@@ -145,8 +163,7 @@ def test_connection_through_a_90_degree_turn():
         connections=[("CONV_01", "CONV_02")],
     )
     up_to_speed(loaded)
-    part = place(loaded, x=1.995)
-    loaded.step(DT)
+    part = place_moving(loaded, "CONV_01", x=1.995)
     loaded.step(DT)
     assert part.carrier == "CONV_02"
     before = part.position
@@ -161,8 +178,7 @@ def test_connection_through_a_90_degree_turn():
 def test_unconnected_discharge_part_falls_and_is_lost():
     loaded = scene(conveyor("CONV_01", (0, 0, 0)))
     up_to_speed(loaded)
-    part = place(loaded, x=1.995)
-    loaded.step(DT)
+    part = place_moving(loaded, "CONV_01", x=1.995)
     loaded.step(DT)
     assert part.carrier is None  # left the belt
     for _ in range(100):
@@ -253,3 +269,52 @@ def test_emitter_parts_drop_onto_belt_and_travel():
     assert len(xs) == 3
     assert all(p.carrier == "CONV_01" for p in loaded.world.parts.values())
     assert xs[-1] > xs[0] + 0.9  # first part has travelled about a meter further than the last
+
+
+# --- friction-limited acceleration (scene.friction) --------------------------------------------
+
+
+@pytest.mark.parametrize(("mu", "expected_ticks"), [(0.8, 4), (0.3, 9), (0.1, 26)])
+def test_part_reaches_belt_speed_in_friction_limited_time(mu, expected_ticks):
+    """On paper: t = v / (mu g); at 0.5 m/s that is 64 ms (mu 0.8), 170 ms (0.3), 510 ms (0.1)."""
+    loaded = scene(conveyor("CONV_01", (0, 0, 0)), friction=mu)
+    up_to_speed(loaded)
+    part = place(loaded, x=0.3)
+    loaded.step(DT)  # lands at rest
+    assert part.carrier == "CONV_01" and part.v_flow == 0.0
+    ticks = 0
+    speeds = []
+    while part.v_flow < SPEED:
+        loaded.step(DT)
+        ticks += 1
+        speeds.append(part.v_flow)
+        assert ticks < 100
+    assert expected_ticks == math.ceil(round(SPEED / (mu * 9.81) / DT, 9))
+    assert ticks == expected_ticks
+    # constant mu*g acceleration until the last (partial) step
+    steps = [b - a for a, b in zip([0.0, *speeds], speeds, strict=False)]
+    assert all(s == pytest.approx(mu * 9.81 * DT) for s in steps[:-1])
+    print(f"mu={mu}: belt speed after {ticks} ticks ({ticks * DT:.2f} s)")
+
+
+def test_part_slides_on_when_belt_stops_faster_than_friction_allows():
+    # the belt coasts down at 0.5 m/s per 0.3 s = 1.67 m/s^2; mu 0.1 only allows 0.98 m/s^2
+    for mu, slides in ((0.8, False), (0.1, True)):
+        loaded = scene(conveyor("CONV_01", (0, 0, 0), length=4.0), friction=mu)
+        up_to_speed(loaded)
+        part = place_moving(loaded, "CONV_01", x=0.5)
+        loaded.io.set("CONV_01_RUN_DO", False, Writer.PLC)
+        belt = loaded.component("CONV_01")
+        for _ in range(10):
+            loaded.step(DT)
+        # kinematics runs before the conveyor steps, so the part tracks last tick's belt speed
+        last_tick_belt = belt.surface_speed + SPEED / 0.3 * DT
+        assert (part.v_flow > last_tick_belt + 1e-9) is slides
+
+
+def test_scene_friction_default_and_bounds():
+    base = {"openfactory": "0.1", "components": [conveyor("CONV_01", (0, 0, 0))]}
+    meta = {"name": "f", "description": "Friction"}
+    assert Scene.model_validate({**base, "scene": meta}).scene.friction == 0.8
+    with pytest.raises(ValueError, match="greater than 0"):
+        Scene.model_validate({**base, "scene": {**meta, "friction": 0}})
