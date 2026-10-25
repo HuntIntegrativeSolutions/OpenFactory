@@ -8,6 +8,8 @@ true only in position ``a`` and ``pos_b`` (DI) only in position ``b``, so both a
 The switch starts at ``initial``; its outputs are written from the first step. A viewer action calls
 :meth:`SelectorSwitch.set_position`, possibly from the server thread; the newest request is applied
 on the next step. Asking a two-position switch for ``center`` raises ``ValueError``.
+
+Geometry: the origin is the center of the switch face.
 """
 
 from __future__ import annotations

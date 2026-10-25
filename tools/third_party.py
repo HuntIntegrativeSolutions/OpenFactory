@@ -7,6 +7,9 @@ Usage (from the repo root, after ``uv sync --all-extras`` and ``npm install`` in
 ``--license-checker`` is the path to license-checker 25.0.1's bin script, installed anywhere outside
 ``web/`` (for example ``npm install --prefix /tmp/lc license-checker@25.0.1``). It is not a project
 dependency because it is only needed to refresh this file.
+
+Exits 1 if any package declares a license outside the ADR-0001 allowlist (:data:`ALLOWED_FAMILIES`,
+plus LGPL for the dynamically imported packages in :data:`LGPL_DYNAMIC`).
 """
 
 from __future__ import annotations
@@ -46,7 +49,52 @@ file before relying on an entry for a distribution decision.
 - **OpenPLC Runtime (GPL-3.0)** is not a dependency. It runs as a separate process and
   talks to OpenFactory over Modbus TCP only.
 - Dev and build tools are listed for completeness; they are not distributed.
+- `tools/third_party.py` fails if any license falls outside the ADR-0001 allowlist: MIT,
+  MIT-0, BSD, ISC, PSF-2.0, Apache-2.0, MPL-2.0, or LGPL used dynamically (asyncua only).
 """
+
+
+#: License families allowed by ADR-0001 (as amended 2026-10-25).
+ALLOWED_FAMILIES = ("MIT", "MIT-0", "BSD", "ISC", "PSF-2.0", "Apache-2.0", "MPL-2.0")
+#: LGPL is allowed only for these packages, which OpenFactory imports dynamically and never vendors.
+LGPL_DYNAMIC = {"asyncua"}
+#: Licenses of runtime packages not installed on Linux (environment markers), checked by hand
+#: against PyPI metadata. Re-verify when the pinned version changes.
+REVIEWED = {"colorama": ("0.4.6", "BSD License")}
+
+_FAMILY_PATTERNS = [
+    ("MIT-0", r"^MIT-0$|MIT No Attribution"),
+    ("MIT", r"^MIT( License)?$|^Expat"),
+    ("BSD", r"^0BSD$|^BSD$|^BSD-[23]-Clause|BSD License"),  # not BSD-4-Clause
+    ("ISC", r"^ISC"),
+    ("PSF-2.0", r"^PSF-2\.0$|Python Software Foundation"),
+    ("Apache-2.0", r"^Apache-2\.0$|Apache Software License|^Apache License,? (Version )?2"),
+    ("MPL-2.0", r"^MPL-2\.0$|Mozilla Public License 2"),
+    ("LGPL", r"LGPL|Lesser General Public License"),
+]
+
+
+def license_family(term: str) -> str | None:
+    term = term.strip().strip("()").strip()
+    for family, pattern in _FAMILY_PATTERNS:
+        if re.search(pattern, term):
+            return family
+    return None
+
+
+def license_problem(package: str, expression: str) -> str | None:
+    """None if the declared license is allowed, else a reason.
+
+    ``AND`` terms must all be allowed. ``OR``, ``;`` (several trove classifiers), and ``/``
+    (license-checker arrays) list alternatives, so one allowed alternative is enough.
+    """
+    for conjunct in re.split(r"\s+AND\s+", expression.strip().strip("()")):
+        options = [o for o in re.split(r"\s+OR\s+|;|\s/\s", conjunct) if o.strip()]
+        families = {license_family(o) for o in options}
+        allowed = set(ALLOWED_FAMILIES) | ({"LGPL"} if norm(package) in LGPL_DYNAMIC else set())
+        if not families & allowed:
+            return f"{package}: {conjunct.strip()!r} is not in the ADR-0001 allowlist"
+    return None
 
 
 def norm(name: str) -> str:
@@ -111,7 +159,12 @@ def main() -> int:
         (py_runtime if key in runtime else py_dev).append(row)
     for key, (version, marker) in sorted(runtime.items()):
         if key not in installed:  # platform-specific, not installed on the generating host
-            py_runtime.append((key, version, f"not installed here ({marker}); check PyPI", ""))
+            reviewed_version, reviewed_license = REVIEWED.get(key, ("", ""))
+            if reviewed_version == version:
+                lic = f"{reviewed_license} (reviewed on PyPI; installed only when {marker})"
+            else:
+                lic = f"UNKNOWN: not installed here ({marker}); review it and add to REVIEWED"
+            py_runtime.append((key, version, lic, ""))
     py_runtime.sort(key=lambda r: norm(r[0]))
 
     npm_prod = npm_licenses(args.license_checker, production=True)
@@ -132,8 +185,11 @@ def main() -> int:
             )
         return rows
 
-    unknown = [r for r in py_runtime + py_dev if "UNKNOWN" in r[2]]
-    unknown += [r for r in npm_rows(npm_all) if "UNKNOWN" in r[2] or "UNLICENSED" in r[2]]
+    problems = [
+        p
+        for name, _version, lic, _url in py_runtime + py_dev + npm_rows(npm_all)
+        if (p := license_problem(name, lic.split(" (reviewed")[0]))
+    ]
 
     lines = [
         *HEADER.splitlines(),
@@ -159,9 +215,13 @@ def main() -> int:
         f"wrote {OUT}: {len(py_runtime)} Python runtime, {len(py_dev)} Python dev, "
         f"{len(npm_prod)} web runtime, {len(npm_all) - len(npm_prod)} web build"
     )
-    if unknown:
-        print("packages without a recognized license:", *unknown, sep="\n  ", file=sys.stderr)
+    if problems:
+        print("licenses outside the ADR-0001 allowlist:", *problems, sep="\n  ", file=sys.stderr)
         return 1
+    print(
+        f"all licenses within the ADR-0001 allowlist: {', '.join(ALLOWED_FAMILIES)}, "
+        f"LGPL (dynamic only: {', '.join(sorted(LGPL_DYNAMIC))})"
+    )
     return 0
 
 

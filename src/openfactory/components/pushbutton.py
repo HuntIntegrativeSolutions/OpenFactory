@@ -11,6 +11,8 @@ applied on the next :meth:`step`, so PLC-visible changes always happen at a step
 
 Several presses between two steps count as one for a momentary button. For a maintained button each
 press toggles, so an even number of presses between two steps cancels out.
+
+Geometry: the origin is the center of the button face.
 """
 
 from __future__ import annotations

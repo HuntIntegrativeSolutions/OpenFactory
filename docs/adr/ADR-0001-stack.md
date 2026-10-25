@@ -21,8 +21,11 @@ satisfies none of these.
    core decides what the PLC sees.
 4. **A headless kinematic model in Python** mirrors the browser physics closely enough for CI and PLC-logic
    tests without a browser.
-5. **Licenses:** Apache-2.0 for code, CC-BY-4.0 for assets and docs. All runtime dependencies are MIT, BSD,
-   Apache, MPL, or LGPL (dynamic use only).
+5. **Licenses:** Apache-2.0 for code, CC-BY-4.0 for assets and docs. All runtime dependencies are
+   OSI-approved permissive licenses (MIT, MIT-0, BSD, ISC, PSF-2.0, Apache-2.0, MPL-2.0) or LGPL used
+   dynamically. `tools/third_party.py` enforces this list when it regenerates `THIRD_PARTY.md`.
+   *(Amended 2026-10-25: the original list omitted MIT-0, ISC, and PSF-2.0, which arrive
+   transitively through cffi, typer, and pydantic.)*
 
 ## Alternatives considered
 

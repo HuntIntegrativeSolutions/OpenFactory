@@ -5,6 +5,8 @@ Behavior spec
 A panel indicator with no PLC-visible outputs. It is lit while ``on`` (DO) is true; the viewer shows
 it in its configured ``color``. Each step samples the command, so the lit state seen by the viewer
 changes at a step boundary.
+
+Geometry: the origin is the center of the lens.
 """
 
 from __future__ import annotations

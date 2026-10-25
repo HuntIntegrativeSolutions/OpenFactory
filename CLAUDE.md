@@ -95,8 +95,8 @@ OpenFactory/
    register maps or CIP service codes.
 
 ### Scene files
-- Every scene is valid against the JSON Schema. Run `python -m openfactory.tools.validate scenes/<name>.yaml`
-  before committing.
+- Every scene is valid against the JSON Schema. Run `openfactory validate scenes/<name>.yaml` before
+  committing (the CLI arrives in PLAN task 1.10; until then `uv run pytest tests/unit/test_schema.py`).
 - Tag names follow HIS Controls convention: `AREA_EQUIP_NNN_SUFFIX`, all caps, underscores, ≤ 40 chars.
   Suffixes: `_DI`, `_DO`, `_AI`, `_AO`.
 - Every component has an `id`, a `type`, a `position`, and a `description` (ISA-5.1 style, see

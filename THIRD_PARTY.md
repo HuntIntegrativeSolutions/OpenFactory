@@ -20,6 +20,8 @@ file before relying on an entry for a distribution decision.
 - **OpenPLC Runtime (GPL-3.0)** is not a dependency. It runs as a separate process and
   talks to OpenFactory over Modbus TCP only.
 - Dev and build tools are listed for completeness; they are not distributed.
+- `tools/third_party.py` fails if any license falls outside the ADR-0001 allowlist: MIT,
+  MIT-0, BSD, ISC, PSF-2.0, Apache-2.0, MPL-2.0, or LGPL used dynamically (asyncua only).
 ## Python runtime (core and optional extras)
 
 | Package | Version | License | Source |
@@ -31,7 +33,7 @@ file before relying on an entry for a distribution decision.
 | asyncua | 2.1.0 | GNU Lesser General Public License v3 or later (LGPLv3+) | http://freeopcua.github.io/ |
 | cffi | 2.1.1 | MIT-0 | https://cffi.readthedocs.io/en/latest/whatsnew.html |
 | click | 8.5.0 | BSD-3-Clause | https://github.com/pallets/click/ |
-| colorama | 0.4.6 | not installed here (sys_platform == 'win32'); check PyPI |  |
+| colorama | 0.4.6 | BSD License (reviewed on PyPI; installed only when sys_platform == 'win32') |  |
 | cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause | https://github.com/pyca/cryptography |
 | fastapi | 0.162.0 | MIT | https://github.com/fastapi/fastapi |
 | h11 | 0.16.0 | MIT License | https://github.com/python-hyper/h11 |

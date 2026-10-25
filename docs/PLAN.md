@@ -229,6 +229,15 @@ Rules:
 - Unbound optional `io` keys are allowed; the component uses its default.
 - `position` is the component's local origin, documented per type in §5.
 - The loader rejects unknown keys (pydantic `extra="forbid"`) so typos surface immediately.
+- Optional keys not shown in the example:
+  - `box_emitter.jitter_s` (default 0): uniform ± jitter added to each `interval_s`; must be smaller
+    than `interval_s`.
+  - `box_emitter.io.enable` is optional; when unbound the emitter is always enabled.
+  - `selector_switch.positions` (2 or 3, default 2) and `selector_switch.initial` (`a`, `center`, or
+    `b`, default `a`; `center` needs 3 positions).
+  - `pushbutton.mode` (`momentary` or `maintained`) and `color` on pushbuttons and pilot lights.
+- The authoritative, machine-readable form is `web/public/scene.schema.json`, generated from
+  `src/openfactory/core/schema.py`.
 
 ---
 
@@ -263,6 +272,31 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `transmitter` | — | pv (AI) | Generic 4–20 mA style scaling of any process variable with noise and fault injection. | 3 |
 | `vfd_motor` | run, speed (AO) | running, speed_fb (AI), fault | Drives a conveyor or pump; trip on overload. | 3 |
 
+#### Milestone 1 behavior as built
+
+The full behavior spec for each type is in its module docstring (`src/openfactory/components/`). The
+choices that go beyond the table above:
+
+- **`belt_conveyor`**: origin is the center of the infeed end at belt top-surface height; flow is local
+  +x. `running` follows the `run` command in the same tick (contactor auxiliary contact). Surface
+  speed ramps linearly, 0.3 s for a full-scale change, in both directions, so a stopped belt coasts.
+  Unbound `speed` means 100 %; the speed command is clamped to 0–100 %.
+- **`photo_eye`**: origin is the beam midpoint; the beam spans local z. A part blocks it when its box
+  intersects the beam segment. The 20 ms debounce applies to both edges and is measured from the
+  first step that sees the change (one tick of delay at 50 Hz).
+- **`pusher`**: origin is the center of the retracted push-plate face; extends along local +z.
+  Single-solenoid spring return: `extend` off retracts at the same speed, and a command change
+  mid-stroke reverses immediately.
+- **`box_emitter`**: origin is the spawn point (part center). Spawns at once on enable, then every
+  `interval_s ± jitter_s`; unbound `enable` means always enabled; disabling resets the timer; spawns
+  over the 200-part cap are skipped and counted.
+- **`part_remover`**: origin is the center of its volume. Removes a part when the part's *center* is
+  inside the (rotatable) volume, and counts removals by part name.
+- **`pushbutton`**, **`selector_switch`**: origin is the center of the button or switch face. Viewer actions are queued and
+  applied on the next step, so PLC-visible changes land on step boundaries. Momentary pushbuttons
+  pulse 300 ms; a re-press restarts the pulse.
+- **`pilot_light`**: origin is the lens center; lit while `on` is true.
+
 Every component implements `fault_inject(kind)` from Milestone 2 so instructors can break sensors
 (stuck on, stuck off, noisy) during training.
 
@@ -279,7 +313,7 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
 - Analog encoding is per scene: `plc.analog_encoding: float32 | int16_scaled`. Default `float32`
   (two registers, high word first). `int16_scaled` uses one register, 0–32767 for 0–100 % of the tag's
   `range`, the same raw-count convention as a 1756-IF8 4–20 mA channel. OpenPLC v3 does no float
-  decoding on its Slave Devices path, so OpenPLC examples use `int16_scaled` (ADR-0003 to record).
+  decoding on its Slave Devices path, so OpenPLC examples use `int16_scaled` (ADR-0003).
 - Write the map into the exported CSV (`modbus_address` column) and print it at startup.
 - Address stability: adding a tag never renumbers existing ones *within a scene version*. The scene file
   may pin `address:` on a tag to override allocation.
@@ -436,6 +470,7 @@ runs the sorting program against it; a box visibly gets pushed.
 | LGPL in asyncua | License questions from adopters | `THIRD_PARTY.md` explains dynamic import; offer `open62541` binding as alternative later |
 | Performance with many parts | Demo looks bad | Cap parts at 200; instanced meshes; profile in 2.9 |
 | Clean-room doubt | Legal exposure | CONTRIBUTING policy, DCO sign-off, never open `04_Software` from this project |
+| Analog range is per port type, not per tag | Milestone 3 transmitters and tanks need their own engineering ranges (for example 0–2 m level, 0–150 °C), which `int16_scaled` scaling (ADR-0003) depends on | Add a per-tag range override in the scene before Milestone 3 component work starts |
 
 ---
 
