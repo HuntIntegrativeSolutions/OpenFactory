@@ -24,14 +24,25 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   that falls more than 2 m below the lowest belt top is removed from the world and counted in
   :attr:`World.lost`.
 
-Tick order (:meth:`openfactory.core.loader.LoadedScene.step`): the kinematic model moves parts
-first, then components step in scene order. Photo eyes and removers therefore see this tick's part
-positions, while parts move at the belt speed the conveyors reached on the previous tick.
+- **Pushed:** a pusher's plate (``plate_width`` × ``plate_height``, its face at local
+  z = :attr:`Pusher.position`) moves parts along its local +z. Each step, if the plate advanced
+  from z0 to z1 since the last step, every part whose footprint overlaps the plate (local x and y
+  ranges) and that lies at least partly ahead of the old face (part back face < z1 and front face
+  > z0) is displaced along +z so its back face sits on the new face. A plate reaching a part
+  mid-step therefore pushes it only by the remaining travel. Retracting plates do not pull parts.
+  A part pushed until its center is past a belt edge falls as above, and lands on whatever belt is
+  below (in the shipped sorter, the divert lane alongside).
+
+Tick order (:meth:`openfactory.core.loader.LoadedScene.step`): the kinematic model pushes and moves
+parts first, then components step in scene order. Photo eyes and removers therefore see this tick's
+part positions, while parts move at the belt speed the conveyors reached, and are pushed by the
+plate travel the pushers made, on the previous tick.
 
 Limits (deliberate, for a deterministic CI model): slip is modeled only as the μ·g acceleration
 cap (no tipping, no bounce on landing), no part-to-part collisions (parts overlap on a stopped belt;
 PLAN task 2.0), part boxes keep their world-axis orientation through turns, falling parts drop
-straight down, and the pusher does not move parts yet.
+straight down, and a pusher only pushes along its own axis: a part conveyed sideways into an
+extended plate passes through it.
 """
 
 from __future__ import annotations
@@ -40,7 +51,7 @@ import math
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
-from openfactory.core.geometry import to_local, to_world
+from openfactory.core.geometry import rotate_y, to_local, to_world
 from openfactory.core.schema import CARRIER_TYPES, Connection
 from openfactory.core.world import Part, World
 
@@ -72,6 +83,9 @@ class KinematicModel:
         self.downstream: dict[str, str] = {c.from_: c.to for c in connections}
         tops = [self._top(c) for c in self.carriers.values()]
         self.lost_below = (min(tops) if tops else 0.0) - FALL_LIMIT_M
+        self.pushers: list[Component] = [c for c in components if c.type == "pusher"]
+        #: Plate position (m out from retracted) each pusher had when parts were last pushed.
+        self._plate_seen: dict[str, float] = {c.id: self._plate(c) for c in self.pushers}
 
     # -- geometry helpers ------------------------------------------------------------------------
 
@@ -87,6 +101,11 @@ class KinematicModel:
     def _world(carrier: Component, local: tuple[float, float, float]) -> tuple[float, float, float]:
         return to_world(carrier.config.position, carrier.config.rotation_deg, local)
 
+    @staticmethod
+    def _plate(pusher: Component) -> float:
+        """Plate travel in meters (0 = retracted); 0 for a stand-in without one (test stubs)."""
+        return float(getattr(pusher, "position", 0.0))
+
     def _holds(self, carrier: Component, point: tuple[float, float, float]) -> bool:
         x, _, z = self._local(carrier, point)
         cfg = carrier.config
@@ -95,6 +114,8 @@ class KinematicModel:
     # -- stepping --------------------------------------------------------------------------------
 
     def step(self, dt: float) -> None:
+        for pusher in self.pushers:
+            self._push(pusher)
         for part in list(self.world.parts.values()):
             if part.carrier is not None:
                 self._convey(part, dt)
@@ -123,6 +144,26 @@ class KinematicModel:
             part.carrier = None  # off the end or the side: falls from here
             part.vy = 0.0
             part.v_flow = 0.0
+
+    def _push(self, pusher: Component) -> None:
+        """Displace parts ahead of the plate by the plate's advance since the last step."""
+        z0 = self._plate_seen[pusher.id]
+        z1 = self._plate(pusher)
+        self._plate_seen[pusher.id] = z1
+        if z1 <= z0 + _EPS:
+            return
+        cfg = pusher.config
+        rot = cfg.rotation_deg
+        # the plate's local axes in world coordinates, to project world-aligned part boxes onto
+        axes = [rotate_y(axis, rot) for axis in ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))]
+        for part in self.world.parts.values():
+            lx, ly, lz = to_local(cfg.position, rot, part.position)
+            hx, hy, hz = (sum(abs(a[i]) * part.size[i] / 2 for i in range(3)) for a in axes)
+            if abs(lx) >= cfg.plate_width / 2 + hx or abs(ly) >= cfg.plate_height / 2 + hy:
+                continue  # beside, above, or below the plate
+            back, front = lz - hz, lz + hz
+            if back < z1 and front > z0:
+                part.position = to_world(cfg.position, rot, (lx, ly, z1 + hz))
 
     def _fall(self, part: Part, dt: float) -> None:
         vy = part.vy - GRAVITY * dt

@@ -7,10 +7,11 @@ at ``stroke / extend_time_s``; while it is off, the plate retracts at the same s
 change mid-stroke reverses direction immediately. ``retracted`` (DI) is true only at position 0 and
 ``extended`` (DI) only at full stroke; both are false mid-stroke. The pusher starts retracted, and
 its limit switches are written from the first step. Moving parts it contacts is done by the
-kinematic model (PLAN 1.5) and viewer physics, which read :attr:`Pusher.position`.
+kinematic model (``core/kinematics.py``) and viewer physics, which read :attr:`Pusher.position`.
 
 Geometry: the origin is the center of the retracted push-plate face; the plate extends along
-local +z.
+local +z. The plate is ``plate_width`` (local x, default 0.3 m) by ``plate_height`` (y, default
+0.15 m), centered on the origin.
 """
 
 from __future__ import annotations
@@ -49,4 +50,9 @@ class Pusher(Component):
         return {"position_m": self.position, "extending": bool(self.read("extend", default=False))}
 
     def geometry(self) -> dict[str, Any]:
-        return {**super().geometry(), "stroke": self.config.stroke}
+        return {
+            **super().geometry(),
+            "stroke": self.config.stroke,
+            "plate_width": self.config.plate_width,
+            "plate_height": self.config.plate_height,
+        }

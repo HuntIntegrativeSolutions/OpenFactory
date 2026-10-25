@@ -901,6 +901,20 @@
           "title": "Extend Time S",
           "type": "number"
         },
+        "plate_width": {
+          "default": 0.3,
+          "description": "Push plate width along local x, meters.",
+          "exclusiveMinimum": 0,
+          "title": "Plate Width",
+          "type": "number"
+        },
+        "plate_height": {
+          "default": 0.15,
+          "description": "Push plate height along y, centered on the origin, meters.",
+          "exclusiveMinimum": 0,
+          "title": "Plate Height",
+          "type": "number"
+        },
         "io": {
           "$ref": "#/$defs/PusherIO"
         }

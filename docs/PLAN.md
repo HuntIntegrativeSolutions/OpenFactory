@@ -247,6 +247,7 @@ Rules:
   - `selector_switch.positions` (2 or 3, default 2) and `selector_switch.initial` (`a`, `center`, or
     `b`, default `a`; `center` needs 3 positions).
   - `pushbutton.mode` (`momentary` or `maintained`) and `color` on pushbuttons and pilot lights.
+  - `pusher.plate_width` (local x, default 0.3 m) and `pusher.plate_height` (default 0.15 m).
 - Connection settings live in `openfactory.toml` (git-ignored overrides in `openfactory.local.toml`),
   never in scenes. The `plc` block selects `protocol` and `role`; `bind` and `port` are optional
   per-scene overrides of the server's listen address, and a PLC's own address is only ever a named
@@ -305,7 +306,10 @@ choices that go beyond the table above:
   first step that sees the change (one tick of delay at 50 Hz).
 - **`pusher`**: origin is the center of the retracted push-plate face; extends along local +z.
   Single-solenoid spring return: `extend` off retracts at the same speed, and a command change
-  mid-stroke reverses immediately.
+  mid-stroke reverses immediately. The plate is `plate_width` × `plate_height` (default 0.3 × 0.15 m).
+  In the headless model an advancing plate pushes every part whose footprint overlaps it, so the
+  part's back face rides on the plate face (one tick behind the plate, swept, never pulled back); a
+  part pushed past a belt edge falls onto whatever is below.
 - **`box_emitter`**: origin is the spawn point (part center). Spawns at once on enable, then every
   `interval_s ± jitter_s`; unbound `enable` means always enabled; disabling resets the timer; spawns
   over the 200-part cap are skipped and counted.

@@ -318,3 +318,96 @@ def test_scene_friction_default_and_bounds():
     assert Scene.model_validate({**base, "scene": meta}).scene.friction == 0.8
     with pytest.raises(ValueError, match="greater than 0"):
         Scene.model_validate({**base, "scene": {**meta, "friction": 0}})
+
+
+# --- pusher moves parts (housekeeping 4) ---------------------------------------------------------
+
+
+def pusher(position=(1.0, 0.1, -0.3), rotation=0.0, **extra):
+    return {
+        "id": "CYL_01",
+        "type": "pusher",
+        "description": "Divert Pusher",
+        "position": list(position),
+        "rotation_deg": rotation,
+        "stroke": 0.5,
+        "extend_time_s": 0.4,  # 1.25 m/s, 0.025 m per tick
+        "io": {"extend": "CYL_01_EXT_DO", "extended": "CYL_01_EXT_DI"},
+        **extra,
+    }
+
+
+def extend_until_extended(loaded, part, max_ticks=40):
+    loaded.io.set("CYL_01_EXT_DO", True, Writer.PLC)
+    zs = []
+    for _ in range(max_ticks):
+        loaded.step(DT)
+        zs.append(part.position[2])
+        if loaded.io.get("CYL_01_EXT_DI"):
+            break
+    loaded.step(DT)  # kinematics sees the last plate move one tick later
+    zs.append(part.position[2])
+    return zs
+
+
+def test_plate_pushes_part_by_its_own_travel_and_off_the_belt_edge():
+    loaded = scene(conveyor("CONV_01", (0, 0, 0)), pusher())
+    for comp in loaded.components:
+        if comp.type == "belt_conveyor":
+            loaded.io.set(comp.bindings["run"], False, Writer.PLC)  # stopped belt: x stays put
+    part = place(loaded, x=1.0)  # back face at z = -0.15, 0.15 ahead of the retracted plate
+    loaded.step(DT)
+    zs = extend_until_extended(loaded, part)
+    # the plate (face at -0.3 + s) reaches the back face after 0.15 m = 6 ticks, then moves the part
+    # 0.025 m per tick: the part's back face rides on the plate face
+    moved = [b - a for a, b in zip([0.0, *zs], zs, strict=False)]
+    assert all(m == pytest.approx(0.0, abs=1e-12) for m in moved[:7])
+    assert all(m == pytest.approx(0.025) for m in moved[7:-1])
+    assert part.position[2] == pytest.approx(-0.3 + 0.5 + 0.15)  # back face on the extended face
+    assert part.position[0] == pytest.approx(1.0)
+    assert part.carrier is None  # center 0.35 > half-width 0.25: off the edge, falling
+
+
+def test_plate_misses_parts_beside_above_or_behind_it():
+    loaded = scene(
+        conveyor("CONV_01", (0, 0, 0), length=4.0),
+        conveyor("CONV_09", (0, 0.3, 0), length=4.0),  # an upper deck over the same footprint
+        pusher(plate_width=0.3),  # plate x 0.85..1.15, y 0.025..0.175
+    )
+    for tag in ("CONV_01_RUN_DO", "CONV_09_RUN_DO"):
+        loaded.io.set(tag, False, Writer.PLC)
+    beside = place(loaded, x=1.5)  # x range 1.35..1.65
+    above = place(loaded, x=1.0, y=0.4)  # on the upper deck, y 0.3..0.5
+    behind = loaded.world.spawn("short", BOX, (1.0, 0.1, -0.6))  # behind the plate face
+    loaded.step(DT)
+    assert above.carrier == "CONV_09"
+    start = {p.id: p.position[2] for p in (beside, above, behind)}
+    extend_until_extended(loaded, beside)
+    assert {p.id: p.position[2] for p in (beside, above, behind)} == start
+
+
+def test_retracting_plate_does_not_pull():
+    loaded = scene(conveyor("CONV_01", (0, 0, 0)), pusher())
+    loaded.io.set("CONV_01_RUN_DO", False, Writer.PLC)
+    part = place(loaded, x=1.0, z=0.0)
+    loaded.step(DT)
+    extend_until_extended(loaded, part)
+    z = part.position[2]
+    loaded.io.set("CYL_01_EXT_DO", False, Writer.PLC)
+    for _ in range(30):
+        loaded.step(DT)
+    assert part.position[2] == pytest.approx(z) or part.id not in loaded.world.parts
+
+
+def test_rotated_pusher_pushes_along_its_own_axis():
+    # rotation 90 deg: local +z points along world +x; plate face starts at x = 0.7
+    loaded = scene(
+        conveyor("CONV_01", (0, 0, 0), length=4.0),
+        pusher(position=(0.7, 0.1, 0.0), rotation=90),
+    )
+    loaded.io.set("CONV_01_RUN_DO", False, Writer.PLC)
+    part = place(loaded, x=1.0)
+    loaded.step(DT)
+    extend_until_extended(loaded, part)
+    assert part.position[0] == pytest.approx(0.7 + 0.5 + 0.15)
+    assert part.position[2] == pytest.approx(0.0)

@@ -277,6 +277,10 @@ class Pusher(ComponentBase):
     type: Literal["pusher"]
     stroke: PositiveFloat
     extend_time_s: PositiveFloat
+    plate_width: PositiveFloat = Field(0.3, description="Push plate width along local x, meters.")
+    plate_height: PositiveFloat = Field(
+        0.15, description="Push plate height along y, centered on the origin, meters."
+    )
     io: PusherIO
 
 
