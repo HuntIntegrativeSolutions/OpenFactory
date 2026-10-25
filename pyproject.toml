@@ -1,0 +1,53 @@
+[project]
+name = "openfactory"
+dynamic = ["version"]
+description = "Open-source 3D factory and process simulator for PLC training, prototyping, and demos."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "HIS Controls (Hunt Integrative Solutions, LLC)" }]
+requires-python = ">=3.11"
+# Pins follow docs/research/libraries.md (verified 2026-10-25).
+dependencies = [
+    "pydantic~=2.14.1",
+    "pyyaml~=6.0.3",
+    "typer~=0.27.3",
+    "fastapi~=0.162.0",
+    "uvicorn~=0.54.0",
+    "pymodbus~=3.16.1",
+]
+
+[project.optional-dependencies]
+logix = ["pycomm3==1.2.16"]
+opcua = ["asyncua==2.1.0"] # LGPL-3.0, imported dynamically; see THIRD_PARTY.md
+
+[dependency-groups]
+dev = [
+    "pytest~=9.1.1",
+    "pytest-cov~=7.1.0",
+    "ruff~=0.17.2",
+    "playwright~=1.64.1",
+    "pip-licenses~=5.5.5",
+]
+
+[build-system]
+requires = ["hatchling~=1.32"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/openfactory/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openfactory"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
