@@ -333,7 +333,7 @@ runs the sorting program against it; a box visibly gets pushed.
       a DI).
 - [x] 1.3 `core/component.py` base class + registry decorator `@register("belt_conveyor")`
       *Done when:* registering a duplicate type name raises; loader resolves type strings to classes.
-- [ ] 1.4 Components: `belt_conveyor`, `photo_eye`, `pusher`, `box_emitter`, `part_remover`,
+- [x] 1.4 Components: `belt_conveyor`, `photo_eye`, `pusher`, `box_emitter`, `part_remover`,
       `pushbutton`, `pilot_light`, `selector_switch`, each with unit tests
       *Why:* this is the minimum set for a classic sorter. Keep behavior simple and documented.
       *Done when:* each `step()` is covered; `pusher` limit switches verified across a full cycle.
