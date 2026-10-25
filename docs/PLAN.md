@@ -452,8 +452,13 @@ runs the sorting program against it; a box visibly gets pushed.
       component,address,modbus_address,modbus_encoding,units,range_min,range_max`.
 - [x] 1.9 `server/app.py`: FastAPI, `/api/scene`, `/ws/state`, `/ws/events`, static `web/dist`
       *Done when:* `curl /api/scene` returns resolved geometry; a websocket client receives ≥ 15 frames/s.
-- [ ] 1.10 CLI `openfactory run|validate|export` via `typer`
+- [x] 1.10 CLI `openfactory run|validate|export` via `typer`
       *Done when:* `openfactory --help` lists the three; `validate` exits 1 on a bad scene.
+      *Note (2026-10-25):* as built, `run` prints the Modbus register map at the default INFO log
+      level (`-q` hides it), writes or updates the ADR-0004 lockfile, and ends with a run summary.
+      `--as-fast-as-possible` needs `--duration` and implies `--headless`. `--bind` applies to every
+      server; `--port` is Modbus and `--web-port` the viewer. `--force TAG=VALUE` sets a DO/AO at
+      startup as if the PLC wrote it, for demos and the viewer tasks without a PLC.
 - [ ] 1.11 Viewer: load scene JSON, build primitive meshes per component type, orbit camera, dark ISA-101
       background, status colors (running green `#22C55E`, stopped grey `#9CA3AF`, alarm red `#EF4444`)
       *Done when:* Playwright screenshot of the sorter scene shows two conveyors, a pusher, a photo eye.

@@ -18,6 +18,9 @@ dependencies = [
     "pymodbus~=3.16.1",
 ]
 
+[project.scripts]
+openfactory = "openfactory.cli:main"
+
 [project.optional-dependencies]
 logix = ["pycomm3==1.2.16"]
 opcua = ["asyncua==2.1.0"] # LGPL-3.0, imported dynamically; see THIRD_PARTY.md
