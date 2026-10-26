@@ -89,7 +89,8 @@ def upload_program(page: Any, url: str, program: Path, timeout: float = 300.0) -
         log = page.request.get(f"{url}/compilation-logs").text()
         if "Compilation finished successfully" in log:
             return log
-        if "finished with errors" in log or "error" in log.strip().splitlines()[-1:][0].lower():
+        last = (log.strip().splitlines() or [""])[-1]
+        if "finished with errors" in log or "error" in last.lower():
             raise RuntimeError(f"compile failed:\n{log}")
         if time.monotonic() > deadline:
             raise TimeoutError(f"compile did not finish:\n{log}")
