@@ -25,10 +25,13 @@ spec = importlib.util.spec_from_file_location("parity_trace", REPO / "tools" / "
 parity_trace = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(parity_trace)
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("node") is None or not (WEB / "node_modules" / "vitest").is_dir(),
-    reason="node and web/node_modules are needed for the Rapier replay",
-)
+
+@pytest.fixture(autouse=True)
+def _node_and_vitest(prerequisite):
+    prerequisite(
+        shutil.which("node") is not None and (WEB / "node_modules" / "vitest").is_dir(),
+        "node and web/node_modules are needed for the Rapier replay (npm ci in web/)",
+    )
 
 
 def test_committed_traces_match_the_kinematic_model():

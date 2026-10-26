@@ -22,9 +22,11 @@ def scene(tmp_path) -> Path:
     return path
 
 
-pytestmark = pytest.mark.skipif(
-    not (REPO / "web" / "dist" / "index.html").is_file(), reason="viewer not built (npm run build)"
-)
+@pytest.fixture(autouse=True)
+def _viewer_built(prerequisite):
+    prerequisite(
+        (REPO / "web" / "dist" / "index.html").is_file(), "viewer not built (npm run build)"
+    )
 
 
 def test_screenshot_of_running_sorter_is_not_blank(tmp_path, scene, capsys):

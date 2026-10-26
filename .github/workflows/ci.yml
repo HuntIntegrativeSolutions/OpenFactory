@@ -1,0 +1,56 @@
+# OpenFactory CI (PLAN 1.15). The steps live in tools/ci_local.sh so a local run is identical:
+# ruff, pytest, npm run build, npm test, the screenshot runner with its non-blank check, and
+# tools/parity_trace.py --check. With CI=true (set by Actions) the viewer, screenshot, and parity
+# tests fail instead of skipping when web/dist, node, or Chromium is missing.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: lint, test, build, screenshot, parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.11
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Set up Node 22 (Vite 8 needs 20.19+ or 22.12+)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Install Playwright Chromium and its system libraries
+        run: uv run playwright install --with-deps chromium
+
+      - name: CI steps (tools/ci_local.sh)
+        run: bash tools/ci_local.sh
+
+      - name: Keep the CI screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-screenshot
+          path: tools/screenshots/ci-sorting-by-height.png
+          if-no-files-found: ignore

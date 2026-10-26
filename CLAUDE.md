@@ -134,6 +134,7 @@ OpenFactory/
 
 ### Testing and commits
 - `uv run pytest` must pass before any commit. `npm test` in `web/` for viewer changes.
+  `bash tools/ci_local.sh` runs exactly what CI runs (`.github/workflows/ci.yml`).
 - Commit messages: imperative, conventional prefix (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
 - Each PR or commit that closes a PLAN task ticks its checkbox in `docs/PLAN.md` in the same commit.
 
