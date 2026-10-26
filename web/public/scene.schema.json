@@ -325,6 +325,7 @@
     },
     "DiTagSpec": {
       "additionalProperties": false,
+      "description": "A DI binding, optionally conditioned before the PLC sees it (PLAN 2.17).\n\nApplied in this order: ``combine`` the ``from`` ports (``or`` / ``and``), then ``invert``\n(NO/NC), then ``on_delay_s`` / ``off_delay_s``. Delays count from the first tick that sees\nthe change, like a TON / TOF in a PLC.",
       "properties": {
         "tag": {
           "maxLength": 40,
@@ -346,6 +347,62 @@
           "default": null,
           "description": "Pinned zero-based Modbus address (ADR-0004).",
           "title": "Address"
+        },
+        "invert": {
+          "default": false,
+          "description": "Normally closed: the PLC sees the opposite state.",
+          "title": "Invert",
+          "type": "boolean"
+        },
+        "on_delay_s": {
+          "default": 0.0,
+          "description": "Turn on only after true this long.",
+          "minimum": 0,
+          "title": "On Delay S",
+          "type": "number"
+        },
+        "off_delay_s": {
+          "default": 0.0,
+          "description": "Turn off only after false this long.",
+          "minimum": 0,
+          "title": "Off Delay S",
+          "type": "number"
+        },
+        "combine": {
+          "anyOf": [
+            {
+              "enum": [
+                "or",
+                "and"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Combine several DI ports into this one tag (with `from`).",
+          "title": "Combine"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 80,
+                "pattern": "^[A-Z][A-Z0-9_]*\\.[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Ports combined into this tag, as COMPONENT.port; must include this port.",
+          "title": "From"
         }
       },
       "required": [
@@ -377,6 +434,12 @@
           "default": null,
           "description": "Pinned zero-based Modbus address (ADR-0004).",
           "title": "Address"
+        },
+        "invert": {
+          "default": false,
+          "description": "The component acts on the opposite of what the PLC writes.",
+          "title": "Invert",
+          "type": "boolean"
         },
         "initial": {
           "anyOf": [

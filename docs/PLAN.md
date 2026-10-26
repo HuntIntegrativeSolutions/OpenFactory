@@ -247,7 +247,9 @@ Rules:
 - Tag names are globally unique, match `^[A-Z][A-Z0-9_]{0,39}$`, end in `_DI|_DO|_AI|_AO`.
 - Unbound optional `io` keys are allowed; the component uses its default.
 - A binding is a tag name or a mapping `{tag: NAME, address: N, initial: V}`; both keys are
-  optional. `address` pins the tag's Modbus address (§6.1, ADR-0004). `initial`, on DO and AO tags
+  optional. DI bindings may also carry signal transforms, `invert`, `on_delay_s`, `off_delay_s`,
+  and `combine: or|and` with `from: [A.port, B.port]`; DO bindings may carry `invert`; an AI port
+  may bind a `_DI` tag with `window: [lo, hi]` (PLAN 2.17). `address` pins the tag's Modbus address (§6.1, ADR-0004). `initial`, on DO and AO tags
   only, seeds the I/O table at startup before any PLC write: `true`/`false` for a DO, an
   engineering value inside the port's range for an AO (a value outside it fails at load). The
   PLC's first write replaces it, and `openfactory run --force TAG=VALUE` overrides it. Without
@@ -755,7 +757,7 @@ runs the sorting program against it; a box visibly gets pushed.
       appear in the exported CSV with the composite instance's id as prefix, the JSON Schema
       validates composite definitions, and a recursive composite is rejected at load with a clear
       message. Ship it in a scene (`buffer-and-release` from 2.7 should be rebuilt on it).
-- [ ] 2.17 Binding-level signal transforms. A binding may be `{tag: X, invert: true}` (NO/NC),
+- [x] 2.17 Binding-level signal transforms. A binding may be `{tag: X, invert: true}` (NO/NC),
       `{tag: X, on_delay_s: 0.2, off_delay_s: 0}`, `{tag: X, combine: or, from: [PE_01.detect,
       PE_02.detect]}` for a DI fed by several outputs, and for distance sensors `{tag: X, window:
       [0.1, 0.4]}`. Transforms are applied in the I/O table layer so every protocol sees the same
@@ -765,6 +767,17 @@ runs the sorting program against it; a box visibly gets pushed.
       between components and protocols.
       *Done when:* an inverted photo eye reads true with no part present over Modbus, an OR-combined
       input follows either eye, delays are verified to the tick, and the CSV shows the transform.
+      *Note (2026-10-26):* the binding syntax is as above. `from` lists `COMPONENT.port` entries and
+      must include the binding's own port; `window` goes on an AI port and binds a `_DI` tag.
+      Order: combine (or window), then invert, then delays, each delay counted from the first tick
+      that sees the change. Components record raw port values. Transformed DI ports are written by
+      `core/transforms.py` `TransformStage`, which runs after all components each tick and is
+      primed at load, so an inverted eye reads true before the first tick. `invert` on a DO makes
+      the component act on the opposite of the PLC's write. The I/O CSV gained a `transform`
+      column, for example `NC (inverted); on-delay 0.2 s` or `or(PE_01.detect, PE_02.detect)`.
+      Measured: on-delay 0.2 s with the eye's detect changing at tick 6 gives the tag at tick 16;
+      off-delay 0.1 s, detect at 31, tag at 36. `window` is tested at the stage level only: no
+      Milestone 2 component has an AI output yet (a distance sensor arrives with 2.5).
 - [ ] 2.18 Self-contained scene bundle: `openfactory bundle scene.yaml` writes `scene.ofz` (zip)
       holding the scene, its composites, referenced meshes, lockfiles, PLC script, and a manifest with
       the schema version; `openfactory run scene.ofz` works directly.

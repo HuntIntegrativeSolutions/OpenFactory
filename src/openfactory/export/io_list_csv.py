@@ -23,6 +23,8 @@ register-map order (kind, then address), with these columns:
   (ADR-0003).
 - ``units``, ``range_min``, ``range_max``: engineering units and the values at raw 0 and raw 32767
   (analog tags only).
+- ``transform``: the binding's signal conditioning (PLAN 2.17), for example
+  ``or(PE_01.detect, PE_02.detect); NC (inverted); on-delay 0.2 s``; empty when there is none.
 
 PLAN 1.8 lists ``kind`` and no ``address`` column; ``/io-validate`` requires ``io_type`` and
 ``address``, so those two names follow the validator (see the note under task 1.8).
@@ -51,6 +53,7 @@ COLUMNS = (
     "units",
     "range_min",
     "range_max",
+    "transform",
 )
 
 ENCODING_LABEL = {"float32": "float32 high word first", "int16_scaled": "int16_scaled 0-32767"}
@@ -76,6 +79,7 @@ def io_list_rows(
     table = build_iotable(scene)
     rows = []
     register_map = scene_register_map(scene, enc, scene_path=scene_path, write=write_lock)
+    transforms = {b.name: b.transform.describe() for b in scene.tag_bindings()}
     for a in register_map.assignments:
         tag = table.tag(a.tag)
         analog = tag.kind in ("AI", "AO")
@@ -93,6 +97,7 @@ def io_list_rows(
                 "units": (tag.units or "") if analog else "",
                 "range_min": _number(lo) if analog and lo is not None else "",
                 "range_max": _number(hi) if analog and hi is not None else "",
+                "transform": transforms.get(tag.name, ""),
             }
         )
     return rows

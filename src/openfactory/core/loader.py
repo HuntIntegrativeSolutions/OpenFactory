@@ -19,7 +19,8 @@ logs a warning and records it in :attr:`LoadedScene.warnings`. The headless mode
 parts across touching belts on its own (PLAN §4), so such a scene usually forgot a connection.
 The connection is never inferred: the scene author decides.
 :meth:`LoadedScene.step` is one simulation tick: the kinematic model moves parts first, then each
-component steps in scene order.
+component steps in scene order, then binding transforms (PLAN 2.17) write their conditioned DI tags
+from the components' raw values.
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ from openfactory.core.geometry import to_world
 from openfactory.core.iotable import IOTable, Tag
 from openfactory.core.kinematics import KinematicModel
 from openfactory.core.schema import CARRIER_TYPES, Scene, load_scene
+from openfactory.core.transforms import TransformStage
 from openfactory.core.world import World
 
 log = logging.getLogger(__name__)
@@ -56,12 +58,17 @@ class LoadedScene:
     time: float = 0.0
     #: Scene lint warnings found while building (also logged).
     warnings: list[str] = field(default_factory=list)
+    #: Binding-level signal transforms (PLAN 2.17), applied after the components each tick.
+    transforms: TransformStage | None = None
 
     def step(self, dt: float) -> None:
-        """One tick: move parts, then step components in scene order. Never reads the clock."""
+        """One tick: move parts, step components in scene order, then write transformed tags.
+        Never reads the clock."""
         self.kinematics.step(dt)
         for comp in self.components:
             comp.step(dt)
+        if self.transforms is not None:
+            self.transforms.step(dt)
         self.tick += 1
         self.time += dt
 
@@ -122,7 +129,11 @@ def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScen
     warnings = lint(scene)
     for warning in warnings:
         log.warning("%s: %s", scene.scene.name, warning)
-    return LoadedScene(scene, io, world, components, kinematics, warnings=warnings)
+    transforms = TransformStage.build(io, components, scene.tag_bindings())
+    transforms.prime()
+    return LoadedScene(
+        scene, io, world, components, kinematics, warnings=warnings, transforms=transforms
+    )
 
 
 def load(path: str | Path, registry: ComponentRegistry | None = None) -> LoadedScene:

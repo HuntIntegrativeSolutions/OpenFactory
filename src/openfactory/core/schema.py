@@ -79,19 +79,72 @@ class TagSpec(StrictModel):
     )
 
 
+PortRef = Annotated[
+    str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]*\.[a-z][a-z0-9_]*$", max_length=80)
+]
+
+
 class DiTagSpec(TagSpec):
+    """A DI binding, optionally conditioned before the PLC sees it (PLAN 2.17).
+
+    Applied in this order: ``combine`` the ``from`` ports (``or`` / ``and``), then ``invert``
+    (NO/NC), then ``on_delay_s`` / ``off_delay_s``. Delays count from the first tick that sees
+    the change, like a TON / TOF in a PLC.
+    """
+
     tag: _tag_name("DI")  # type: ignore[valid-type]
+    invert: bool = Field(False, description="Normally closed: the PLC sees the opposite state.")
+    on_delay_s: float = Field(0.0, ge=0, description="Turn on only after true this long.")
+    off_delay_s: float = Field(0.0, ge=0, description="Turn off only after false this long.")
+    combine: Literal["or", "and"] | None = Field(
+        None, description="Combine several DI ports into this one tag (with `from`)."
+    )
+    from_: list[PortRef] | None = Field(
+        None,
+        alias="from",
+        min_length=2,
+        description="Ports combined into this tag, as COMPONENT.port; must include this port.",
+    )
+
+    @model_validator(mode="after")
+    def _combine_needs_from(self) -> DiTagSpec:
+        if (self.combine is None) != (self.from_ is None):
+            raise ValueError(
+                "`combine` and `from` go together: combine: or, from: [A.port, B.port]"
+            )
+        return self
 
 
 class DoTagSpec(TagSpec):
     tag: _tag_name("DO")  # type: ignore[valid-type]
+    invert: bool = Field(
+        False, description="The component acts on the opposite of what the PLC writes."
+    )
     initial: bool | None = Field(
         None, description="Value at startup, before any PLC write (default false)."
     )
 
 
 class AiTagSpec(TagSpec):
-    tag: _tag_name("AI")  # type: ignore[valid-type]
+    """An AI binding. With ``window: [lo, hi]`` the port feeds a DI tag instead, true while the
+    value is inside the window (a distance sensor's switching window, PLAN 2.17)."""
+
+    tag: Annotated[
+        str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]*_(?:AI|DI)$", max_length=TAG_MAX_LEN)
+    ]
+    window: tuple[float, float] | None = Field(
+        None, description="[lo, hi] in the port's units: bind a _DI tag, true inside the window."
+    )
+
+    @model_validator(mode="after")
+    def _window_means_di(self) -> AiTagSpec:
+        if (self.window is not None) != self.tag.endswith("_DI"):
+            raise ValueError(
+                f"{self.tag}: an AI port binds an _AI tag, or a _DI tag with window: [lo, hi]"
+            )
+        if self.window is not None and self.window[0] > self.window[1]:
+            raise ValueError(f"{self.tag}: window [lo, hi] needs lo <= hi")
+        return self
 
 
 class AoTagSpec(TagSpec):
@@ -123,6 +176,49 @@ def binding_address(value: str | TagSpec) -> int | None:
 def binding_initial(value: str | TagSpec) -> bool | float | None:
     """The startup value of a DO/AO port binding, or None for the kind's default."""
     return getattr(value, "initial", None)
+
+
+@dataclass(frozen=True)
+class Transform:
+    """Signal conditioning on one binding (PLAN 2.17); all defaults mean "none"."""
+
+    invert: bool = False
+    on_delay_s: float = 0.0
+    off_delay_s: float = 0.0
+    combine: str | None = None
+    sources: tuple[str, ...] = ()  # COMPONENT.port, for combine
+    window: tuple[float, float] | None = None
+
+    def __bool__(self) -> bool:
+        return self != Transform()
+
+    def describe(self) -> str:
+        """Human-readable form for the I/O list CSV, e.g. ``or(PE_01.detect, PE_02.detect); NC``."""
+        parts = []
+        if self.combine:
+            parts.append(f"{self.combine}({', '.join(self.sources)})")
+        if self.window is not None:
+            parts.append(f"window {self.window[0]:g}..{self.window[1]:g}")
+        if self.invert:
+            parts.append("NC (inverted)")
+        if self.on_delay_s:
+            parts.append(f"on-delay {self.on_delay_s:g} s")
+        if self.off_delay_s:
+            parts.append(f"off-delay {self.off_delay_s:g} s")
+        return "; ".join(parts)
+
+
+def binding_transform(value: str | TagSpec) -> Transform:
+    if not isinstance(value, TagSpec):
+        return Transform()
+    return Transform(
+        invert=getattr(value, "invert", False),
+        on_delay_s=getattr(value, "on_delay_s", 0.0),
+        off_delay_s=getattr(value, "off_delay_s", 0.0),
+        combine=getattr(value, "combine", None),
+        sources=tuple(getattr(value, "from_", None) or ()),
+        window=getattr(value, "window", None),
+    )
 
 
 ComponentId = Annotated[
@@ -437,6 +533,8 @@ class TagBinding:
     address: int | None = None
     #: Startup value for a DO/AO tag, or None for False / 0.
     initial: bool | float | None = None
+    #: Signal conditioning applied in the I/O layer (PLAN 2.17).
+    transform: Transform = Transform()
 
     @property
     def description(self) -> str:
@@ -497,6 +595,25 @@ class Scene(StrictModel):
                     "tag names are globally unique"
                 )
             owners[binding.name] = where
+            sources = binding.transform.sources
+            if sources:
+                host = f"{binding.component_id}.{binding.port.name}"
+                if host not in sources:
+                    raise ValueError(
+                        f"{where}: `from` must list this port ({host}) among the ports it combines"
+                    )
+                for ref in sources:
+                    cid, _, port_name = ref.partition(".")
+                    comp = next((c for c in self.components if c.id == cid), None)
+                    if comp is None:
+                        raise ValueError(f"{where}: `from` names unknown component {cid!r}")
+                    ports = port_specs(type(comp.io))  # type: ignore[attr-defined]
+                    if port_name not in ports or ports[port_name].kind != "DI":
+                        di_ports = ", ".join(n for n, p in ports.items() if p.kind == "DI")
+                        raise ValueError(
+                            f"{where}: `from` entry {ref!r} is not a DI port of {cid} "
+                            f"(DI ports: {di_ports})"
+                        )
             rng = binding.port.range
             if (
                 isinstance(binding.initial, float)
@@ -517,14 +634,16 @@ class Scene(StrictModel):
             for name, spec in port_specs(type(io)).items():
                 value = getattr(io, name)
                 if value is not None:
+                    transform = binding_transform(value)
                     out.append(
                         TagBinding(
                             binding_tag(value),
-                            spec.kind,
+                            "DI" if transform.window is not None else spec.kind,
                             comp.id,
                             spec,
                             binding_address(value),
                             binding_initial(value),
+                            transform,
                         )
                     )
         return out

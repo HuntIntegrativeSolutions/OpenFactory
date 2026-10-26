@@ -11,7 +11,11 @@ scene model (``config``), the shared :class:`~openfactory.core.iotable.IOTable`,
 
 Components read inputs with :meth:`Component.read` and write outputs with :meth:`Component.write`.
 An unbound optional port reads as the caller's default, and writes to it are dropped, so behavior
-code never branches on whether a port is wired. :meth:`Component.step` advances the component by
+code never branches on whether a port is wired. Every write is also kept in :attr:`Component.raw`.
+An output port whose binding carries a signal transform (PLAN 2.17: invert, delays, combine,
+window) is not written to its tag here: :class:`~openfactory.core.transforms.TransformStage` writes
+the conditioned value after all components have stepped. An input port bound with ``invert: true``
+reads the opposite of what the PLC wrote. :meth:`Component.step` advances the component by
 ``dt`` seconds and must be deterministic: no clock reads, randomness only from ``world.rng``.
 
 Concrete types register themselves with ``@register("belt_conveyor")``. Registering a name twice
@@ -30,6 +34,7 @@ from openfactory.core.schema import (
     ComponentBase,
     PortSpec,
     binding_tag,
+    binding_transform,
     port_specs,
 )
 from openfactory.core.world import World
@@ -54,6 +59,17 @@ class Component(ABC):
             for name in self.ports
             if getattr(io_model, name) is not None
         }
+        transforms = {name: binding_transform(getattr(io_model, name)) for name in self.bindings}
+        #: Output ports whose tag the transform stage writes instead of this component.
+        self.conditioned: set[str] = {
+            name for name, t in transforms.items() if t and self.ports[name].kind not in PLC_WRITES
+        }
+        #: Input ports bound NC (``invert: true``).
+        self.inverted: set[str] = {
+            name for name, t in transforms.items() if t.invert and self.ports[name].kind == "DO"
+        }
+        #: Last value written to each output port, before any transform.
+        self.raw: dict[str, Value] = {}
 
     @property
     def type(self) -> str:
@@ -78,13 +94,17 @@ class Component(ABC):
         """Current value of an input port, or ``default`` when the port is unbound."""
         self._check_port(port, plc_writes=True)
         tag = self.bindings.get(port)
-        return default if tag is None else self.io.get(tag)
+        if tag is None:
+            return default
+        value = self.io.get(tag)
+        return (not value) if port in self.inverted else value
 
     def write(self, port: str, value: Value) -> None:
         """Set an output port. A write to an unbound port is dropped."""
         self._check_port(port, plc_writes=False)
+        self.raw[port] = value
         tag = self.bindings.get(port)
-        if tag is not None:
+        if tag is not None and port not in self.conditioned:
             self.io.set(tag, value, Writer.SIM)
 
     def _check_port(self, port: str, *, plc_writes: bool) -> None:
