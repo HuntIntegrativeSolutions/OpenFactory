@@ -3,22 +3,26 @@
 Behavior spec
 -------------
 - ``openfactory run SCENE`` loads the scene, writes or updates its Modbus address lockfile
-  (ADR-0004), starts the Modbus TCP server when ``plc.protocol`` is ``modbus_tcp``, starts the
-  viewer and API server (PLAN 1.9) unless ``--headless``, and steps the simulation at 50 Hz in
-  real time until Ctrl+C or ``--duration`` simulated seconds. Logging is at INFO by default, so
-  the register map and listen addresses print at startup; ``--quiet`` shows warnings only.
+  (ADR-0004, ``<scene>.<encoding>.modbus.yaml``), starts the Modbus TCP server when
+  ``plc.protocol`` is ``modbus_tcp``, starts the viewer and API server (PLAN 1.9) unless
+  ``--headless``, and steps the simulation at 50 Hz in real time until Ctrl+C or ``--duration``
+  simulated seconds. Logging is at INFO by default, so the register map and listen addresses print
+  at startup; ``--quiet`` shows warnings only.
   ``--as-fast-as-possible`` steps with no sleeping (for CI and PLC-logic tests), needs
   ``--duration``, and implies ``--headless``. ``--force TAG=VALUE`` sets a PLC-written tag (DO or
   AO) at startup, as if the PLC had written it, so a scene can be demonstrated without a PLC; a
-  real PLC overwrites it on its next write. At the end it prints a one-line run summary.
+  real PLC overwrites it on its next write. ``--analog-encoding float32|int16_scaled`` overrides
+  the scene's ``plc.analog_encoding`` for this run and selects that encoding's lockfile; the other
+  encoding's lockfile is left alone. At the end it prints a one-line run summary.
 - Listen addresses follow ``openfactory.toml`` precedence (:mod:`openfactory.core.config`).
   ``--bind`` applies to every server and is the only way to leave loopback from the command line;
   ``--port`` is the Modbus port and ``--web-port`` the viewer port.
 - ``openfactory validate SCENE...`` checks each scene: schema, component build, loader warnings,
-  and the Modbus register map against its lockfile (read only). A directory is expanded to its
-  ``*.yaml`` scenes, skipping ``*.modbus.yaml`` lockfiles. Exit code 1 if any scene fails.
-- ``openfactory export SCENE [-o OUT]`` writes the I/O list CSV (PLAN 1.8) to OUT or stdout, and
-  creates or updates the lockfile like ``run``.
+  and the Modbus register map against each of its lockfiles that exists (read only). A directory
+  is expanded to its ``*.yaml`` scenes, skipping ``*.modbus.yaml`` lockfiles. Exit code 1 if any
+  scene fails.
+- ``openfactory export SCENE [-o OUT] [--analog-encoding ENC]`` writes the I/O list CSV (PLAN 1.8)
+  to OUT or stdout, and creates or updates that encoding's lockfile like ``run``.
 
 Not a safety-rated simulation. OpenFactory is a training and demo tool.
 """
@@ -31,7 +35,7 @@ import logging
 import signal
 import time
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, get_args
 
 import typer
 import uvicorn
@@ -45,6 +49,7 @@ from openfactory.core.schema import PLC_WRITES, Scene, load_scene
 from openfactory.protocols.modbus import (
     LOCKFILE_SUFFIX,
     AddressError,
+    Encoding,
     ModbusServer,
     lockfile_path,
     scene_register_map,
@@ -60,6 +65,16 @@ app = typer.Typer(
     add_completion=False,
     pretty_exceptions_enable=False,
 )
+
+ENCODINGS: tuple[str, ...] = get_args(Encoding)
+AnalogEncoding = Annotated[
+    str | None,
+    typer.Option(
+        "--analog-encoding",
+        help=f"Modbus analog encoding ({' | '.join(ENCODINGS)}); overrides the scene's "
+        "plc.analog_encoding and selects <scene>.<encoding>.modbus.yaml.",
+    ),
+]
 
 _TRUE = {"1", "true", "on", "yes"}
 _FALSE = {"0", "false", "off", "no"}
@@ -79,6 +94,14 @@ def _load(path: Path) -> tuple[Scene, LoadedScene]:
         raise ValueError(f"{path} is a Modbus address lockfile, not a scene")
     scene = load_scene(path)
     return scene, build(scene)
+
+
+def _encoding(value: str | None) -> Encoding | None:
+    if value is not None and value not in ENCODINGS:
+        raise typer.BadParameter(
+            f"{value!r}: expected one of {', '.join(ENCODINGS)}", param_hint="--analog-encoding"
+        )
+    return value  # type: ignore[return-value]
 
 
 def _apply_forces(loaded: LoadedScene, forces: list[str]) -> None:
@@ -171,10 +194,12 @@ def run(
         list[str] | None,
         typer.Option(help="TAG=VALUE: set a DO/AO tag at startup as if the PLC wrote it."),
     ] = None,
+    analog_encoding: AnalogEncoding = None,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings only.")] = False,
 ) -> None:
     """Run a scene: Modbus server, viewer, and the 50 Hz simulation."""
     _setup_logging(quiet)
+    encoding = _encoding(analog_encoding)
     if as_fast_as_possible and duration is None:
         raise typer.BadParameter("--as-fast-as-possible needs --duration", param_hint="--duration")
     headless = headless or as_fast_as_possible
@@ -193,13 +218,13 @@ def run(
     modbus = None
     if parsed.plc.protocol == "modbus_tcp":
         try:
-            register_map = scene_register_map(parsed, scene_path=scene)
+            register_map = scene_register_map(parsed, encoding, scene_path=scene)
         except AddressError as exc:
             typer.echo(f"error: {scene}: {exc}", err=True)
             raise typer.Exit(1) from None
         endpoint = resolve_endpoint(settings.modbus, parsed.plc, cli_bind=bind, cli_port=port)
         modbus = ModbusServer(loaded.io, register_map.encoding, endpoint, register_map)
-        log.info("address lockfile: %s", lockfile_path(scene))
+        log.info("address lockfile: %s", lockfile_path(scene, register_map.encoding))
     elif parsed.plc.protocol != "none":
         log.warning(
             "plc.protocol %s is not implemented yet; running without a PLC server",
@@ -249,19 +274,27 @@ def validate(
     for path in files:
         try:
             parsed, loaded = _load(path)
-            register_map = scene_register_map(parsed, scene_path=path, write=False)
+            # The scene's own encoding, plus any other encoding that has a lockfile (ADR-0004).
+            encodings = [parsed.plc.analog_encoding] + [
+                e
+                for e in ENCODINGS
+                if e != parsed.plc.analog_encoding and lockfile_path(path, e).is_file()  # type: ignore[arg-type]
+            ]
+            for enc in encodings:
+                scene_register_map(parsed, enc, scene_path=path, write=False)  # type: ignore[arg-type]
         except (OSError, ValueError, ValidationError) as exc:
             failed += 1
             typer.echo(f"FAIL {path}\n{_indent(str(exc))}")
             continue
         typer.echo(
             f"OK   {path}: {len(loaded.components)} components, {len(loaded.io)} tags, "
-            f"Modbus {register_map.encoding}"
+            f"Modbus {', '.join(encodings)}"
         )
         for warning in loaded.warnings:
             typer.echo(f"     warning: {warning}")
-        if parsed.plc.protocol == "modbus_tcp" and not lockfile_path(path).is_file():
-            typer.echo(f"     note: no {lockfile_path(path).name} yet; 'run' or 'export' writes it")
+        own = lockfile_path(path, parsed.plc.analog_encoding)
+        if parsed.plc.protocol == "modbus_tcp" and not own.is_file():
+            typer.echo(f"     note: no {own.name} yet; 'run' or 'export' writes it")
     if not files:
         typer.echo("no scenes given")
         raise typer.Exit(1)
@@ -280,13 +313,15 @@ def export(
     output: Annotated[
         Path | None, typer.Option("--output", "-o", help="CSV file (default: stdout).")
     ] = None,
+    analog_encoding: AnalogEncoding = None,
 ) -> None:
     """Export the I/O list CSV with Modbus addresses (updates the address lockfile)."""
     from openfactory.export.io_list_csv import io_list_csv
 
+    encoding = _encoding(analog_encoding)
     try:
         parsed, _ = _load(scene)
-        text = io_list_csv(parsed, scene_path=scene)
+        text = io_list_csv(parsed, encoding, scene_path=scene)
     except (OSError, ValueError, ValidationError) as exc:
         typer.echo(f"error: {scene}: {exc}", err=True)
         raise typer.Exit(1) from None

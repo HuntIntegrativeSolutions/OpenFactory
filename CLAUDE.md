@@ -122,7 +122,8 @@ OpenFactory/
 
 ### Protocols
 - Modbus register map is generated from the scene, documented in the exported I/O CSV, and locked in
-  `scenes/<name>.modbus.yaml` (ADR-0004): commit the lockfile with the scene and never change an
+  `scenes/<name>.<encoding>.modbus.yaml` (ADR-0004, one per analog encoding; `--analog-encoding`
+  on `run`/`export` selects it): commit the lockfile with the scene and never change an
   address in it by hand (deleting a `# not in scene` line to free an address is fine). To fix an
   address, pin it in the binding (`{tag: X_DO, address: N}`).
 - All protocol servers bind to `127.0.0.1` by default. `--bind 0.0.0.0` is an explicit opt-in.

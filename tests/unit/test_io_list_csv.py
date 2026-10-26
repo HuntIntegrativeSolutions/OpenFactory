@@ -88,7 +88,7 @@ def test_cli_writes_file(tmp_path, capsys):
     out = tmp_path / "io.csv"
     assert main([str(scene_path), str(out)]) == 0
     assert out.read_text(encoding="utf-8") == io_list_csv(load_scene(EXAMPLE))
-    assert lockfile_path(scene_path).is_file()
+    assert lockfile_path(scene_path, "float32").is_file()
     assert main([str(scene_path)]) == 0
     assert capsys.readouterr().out.endswith(io_list_csv(load_scene(EXAMPLE)))
     assert main([]) == 2

@@ -16,6 +16,7 @@ from openfactory.protocols.modbus import (
     allocate,
     decode,
     encode,
+    legacy_lockfile_path,
     lock_text,
     lockfile_path,
     read_lock,
@@ -135,8 +136,8 @@ def labels(register_map):
 def test_first_run_writes_lockfile_with_the_packed_allocation(tmp_path):
     path = scene_copy(tmp_path)
     m = scene_register_map(load_scene(path), scene_path=path)
-    lock = lockfile_path(path)
-    assert lock.name == "sorter.modbus.yaml" and lock.is_file()
+    lock = lockfile_path(path, "float32")
+    assert lock.name == "sorter.float32.modbus.yaml" and lock.is_file()
     assert labels(m) == labels(allocate(build_iotable(load_scene(path)).tags(), "float32"))
     assert read_lock(lock) == AddressLock("float32", {a.tag: a.address for a in m.assignments})
 
@@ -154,7 +155,7 @@ def test_adding_a_tag_does_not_renumber_existing_ones(tmp_path):
     after = labels(scene_register_map(load_scene(path), scene_path=path))
     assert {tag: after[tag] for tag in before} == before  # nothing renumbered
     assert after["PE_00_DI"] == "DI:4"  # appended after the highest used address
-    assert "  PE_00_DI: 4\n" in lockfile_path(path).read_text(encoding="utf-8")
+    assert "  PE_00_DI: 4\n" in lockfile_path(path, "float32").read_text(encoding="utf-8")
     print(f"before {before}\nafter  {after}")
 
 
@@ -180,7 +181,7 @@ def test_new_analog_tag_appends_after_highest_register(tmp_path):
 def test_lockfile_is_rewritten_only_when_it_changes(tmp_path):
     path = scene_copy(tmp_path)
     scene_register_map(load_scene(path), scene_path=path)
-    lock = lockfile_path(path)
+    lock = lockfile_path(path, "float32")
     text, mtime = lock.read_text(encoding="utf-8"), lock.stat().st_mtime_ns
     for _ in range(2):
         scene_register_map(load_scene(path), scene_path=path)
@@ -198,7 +199,9 @@ def test_removed_tag_keeps_its_address_reserved_and_gets_it_back(tmp_path):
     m = scene_register_map(load_scene(path), scene_path=path)
     assert labels(m)["PE_00_DI"] == "DI:4"  # DI:3 stays reserved for the removed PE_01_DI
     assert m.retired == {"PE_01_DI": 3}
-    assert "  PE_01_DI: 3  # not in scene\n" in lockfile_path(path).read_text(encoding="utf-8")
+    assert "  PE_01_DI: 3  # not in scene\n" in lockfile_path(path, "float32").read_text(
+        encoding="utf-8"
+    )
 
     path = scene_copy(tmp_path, [PE_00])  # PE_01 comes back
     assert labels(scene_register_map(load_scene(path), scene_path=path))["PE_01_DI"] == "DI:3"
@@ -216,7 +219,7 @@ def test_pinned_address_overrides_allocation_and_is_locked(tmp_path):
     assert labels(m)["CONV_01_RUN_DO"] == "CO:10"
     # allocation never fills holes: the others append after the highest used address
     assert labels(m)["CYL_01_EXT_DO"] == "CO:11" and labels(m)["EMT_01_EN_DO"] == "CO:12"
-    assert read_lock(lockfile_path(path)).addresses["CONV_01_RUN_DO"] == 10
+    assert read_lock(lockfile_path(path, "float32")).addresses["CONV_01_RUN_DO"] == 10
     assert build(scene).component("CONV_01").bindings["run"] == "CONV_01_RUN_DO"
 
 
@@ -256,11 +259,50 @@ def test_pinned_float32_pair_cannot_straddle_another_tag():
     assert [a.label for a in m.assignments] == ["HR:2", "HR:3"]
 
 
-def test_lockfile_for_other_encoding_is_an_error(tmp_path):
+def test_float32_and_int16_scaled_lockfiles_coexist(tmp_path):
+    """ADR-0004 amendment: one lockfile per encoding; neither run touches the other's file."""
     path = scene_copy(tmp_path)
-    scene_register_map(load_scene(path), scene_path=path)
-    with pytest.raises(AddressError, match="written for float32 but the scene uses int16_scaled"):
+    f32 = labels(scene_register_map(load_scene(path), "float32", scene_path=path))
+    f32_lock = lockfile_path(path, "float32")
+    f32_text, f32_mtime = f32_lock.read_text(encoding="utf-8"), f32_lock.stat().st_mtime_ns
+
+    i16 = labels(scene_register_map(load_scene(path), "int16_scaled", scene_path=path))
+    i16_lock = lockfile_path(path, "int16_scaled")
+    assert i16_lock.name == "sorter.int16_scaled.modbus.yaml" and i16_lock.is_file()
+    assert f32_lock.read_text(encoding="utf-8") == f32_text  # untouched
+    assert f32_lock.stat().st_mtime_ns == f32_mtime
+    assert f32["CONV_01_SPD_AO"] == "HR:0-1" and i16["CONV_01_SPD_AO"] == "HR:0"
+    assert read_lock(i16_lock).encoding == "int16_scaled"
+
+    # Each encoding grows on its own: add a tag, run float32 only, then int16_scaled.
+    i16_text = i16_lock.read_text(encoding="utf-8")
+    path = scene_copy(tmp_path, [PE_00])
+    f32_after = labels(scene_register_map(load_scene(path), "float32", scene_path=path))
+    assert i16_lock.read_text(encoding="utf-8") == i16_text  # float32 run left it alone
+    i16_after = labels(scene_register_map(load_scene(path), "int16_scaled", scene_path=path))
+    assert {t: f32_after[t] for t in f32} == f32 and {t: i16_after[t] for t in i16} == i16
+    assert f32_after["PE_00_DI"] == i16_after["PE_00_DI"] == "DI:4"
+    print(f"float32      {f32_after}\nint16_scaled {i16_after}")
+
+
+def test_hand_renamed_lockfile_is_an_error(tmp_path):
+    path = scene_copy(tmp_path)
+    scene_register_map(load_scene(path), "float32", scene_path=path)
+    lockfile_path(path, "float32").rename(lockfile_path(path, "int16_scaled"))
+    with pytest.raises(AddressError, match="written for float32 but this map is int16_scaled"):
         scene_register_map(load_scene(path), "int16_scaled", scene_path=path)
+    tags = load(EXAMPLE).io.tags()
+    with pytest.raises(AddressError, match="written for float32"):
+        allocate(tags, "int16_scaled", lock=AddressLock("float32", {}))
+
+
+def test_pre_amendment_lockfile_name_is_an_error_naming_the_rename(tmp_path):
+    path = scene_copy(tmp_path)
+    scene_register_map(load_scene(path), scene_path=path, write=True)
+    lockfile_path(path, "float32").rename(legacy_lockfile_path(path))
+    with pytest.raises(AddressError, match=r"git mv .*sorter\.modbus\.yaml .*sorter\.float32"):
+        scene_register_map(load_scene(path), scene_path=path)
+    assert not lockfile_path(path, "float32").exists()  # nothing re-allocated behind its back
 
 
 def test_malformed_lockfile_is_an_error(tmp_path):
@@ -276,4 +318,6 @@ def test_malformed_lockfile_is_an_error(tmp_path):
 
 def test_shipped_lockfile_matches_the_shipped_scene():
     m = scene_register_map(load_scene(EXAMPLE), scene_path=EXAMPLE, write=False)
-    assert lockfile_path(EXAMPLE).read_text(encoding="utf-8") == lock_text(m, EXAMPLE.name)
+    assert lockfile_path(EXAMPLE, "float32").read_text(encoding="utf-8") == lock_text(
+        m, EXAMPLE.name
+    )

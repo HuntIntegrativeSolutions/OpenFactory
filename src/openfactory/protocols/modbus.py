@@ -18,14 +18,17 @@ IEEE-754 with the high word at the lower address; ``int16_scaled`` is 0–32767 
 clamped both ways. The same :class:`RegisterMap` drives the server and the exported I/O CSV.
 
 **Address stability (ADR-0004).** Within each table an address comes from, in order: a binding that
-pins it (``{tag, address}`` in the scene), the scene's lockfile (``<scene>.modbus.yaml``, committed
-next to the scene), or allocation, which appends the remaining tags in tag-name order after the
-highest address already used in that table. With no lockfile and no pins that is the plain packed
-allocation from 0. :func:`scene_register_map` writes the lockfile on first use and rewrites it only
-when its content changes. The lockfile only grows: a tag removed from the scene keeps its line,
-marked ``# not in scene``, so its address is never given to another tag and comes back if the tag
-is re-added; deleting the line frees it. A lockfile written for the other analog encoding, two tags
-on overlapping addresses, or an address past 65535 is an error (:class:`AddressError`).
+pins it (``{tag, address}`` in the scene), the scene's lockfile for the analog encoding in use
+(``<scene>.<encoding>.modbus.yaml``, committed next to the scene), or allocation, which appends the
+remaining tags in tag-name order after the highest address already used in that table. With no
+lockfile and no pins that is the plain packed allocation from 0. :func:`scene_register_map` writes
+the lockfile on first use and rewrites it only when its content changes. Each encoding has its own
+lockfile, so a ``float32`` map and an ``int16_scaled`` map of the same scene coexist and never
+change each other's addresses. The lockfile only grows: a tag removed from the scene keeps its
+line, marked ``# not in scene``, so its address is never given to another tag and comes back if the
+tag is re-added; deleting the line frees it. A lockfile whose content names the other encoding (a
+hand-renamed file), a lockfile under the pre-amendment name ``<scene>.modbus.yaml``, two tags on
+overlapping addresses, or an address past 65535 is an error (:class:`AddressError`).
 
 **Live binding.** The server is one pymodbus ``SimDevice`` (id 0 answers every unit id) with four
 separate tables and an ``action`` hook (``docs/research/libraries.md``, "pymodbus 3.x datastore
@@ -181,7 +184,7 @@ class AddressError(ValueError):
 
 @dataclass(frozen=True)
 class AddressLock:
-    """The content of a ``<scene>.modbus.yaml`` lockfile (ADR-0004)."""
+    """The content of a ``<scene>.<encoding>.modbus.yaml`` lockfile (ADR-0004)."""
 
     encoding: Encoding
     #: Tag name -> zero-based address. The table follows from the tag's kind suffix.
@@ -214,9 +217,9 @@ def allocate(
     pins = dict(pins or {})
     if lock is not None and lock.encoding != encoding:
         raise AddressError(
-            f"the address lockfile was written for {lock.encoding} but the scene uses {encoding}; "
-            "analog addresses would change. Set plc.analog_encoding back, or delete the lockfile "
-            "to re-allocate and update the PLC program to the new map"
+            f"the address lockfile was written for {lock.encoding} but this map is {encoding}; "
+            "each encoding has its own lockfile (<scene>.<encoding>.modbus.yaml), so this one was "
+            "probably renamed by hand. Rename it back to match its 'encoding' line"
         )
     locked = dict(lock.addresses) if lock else {}
     ordered = sorted(tags, key=lambda t: (KIND_ORDER.index(t.kind), t.name))
@@ -265,9 +268,28 @@ def allocate(
 # --- lockfile (ADR-0004) -------------------------------------------------------------------------
 
 
-def lockfile_path(scene_path: str | Path) -> Path:
-    """``scenes/<name>.yaml`` -> ``scenes/<name>.modbus.yaml``."""
-    return Path(scene_path).with_suffix(LOCKFILE_SUFFIX)
+def lockfile_path(scene_path: str | Path, encoding: Encoding) -> Path:
+    """``scenes/<name>.yaml`` -> ``scenes/<name>.<encoding>.modbus.yaml`` (ADR-0004)."""
+    path = Path(scene_path)
+    return path.with_name(f"{path.stem}.{encoding}{LOCKFILE_SUFFIX}")
+
+
+def legacy_lockfile_path(scene_path: str | Path) -> Path:
+    """The lockfile name before the ADR-0004 amendment: ``scenes/<name>.modbus.yaml``."""
+    path = Path(scene_path)
+    return path.with_name(f"{path.stem}{LOCKFILE_SUFFIX}")
+
+
+def _check_no_legacy_lock(scene_path: str | Path) -> None:
+    legacy = legacy_lockfile_path(scene_path)
+    if not legacy.is_file():
+        return
+    lock = read_lock(legacy)
+    target = lockfile_path(scene_path, lock.encoding) if lock else legacy
+    raise AddressError(
+        f"{legacy} uses the old lockfile name; lockfiles are now per analog encoding "
+        f"(ADR-0004). Rename it, keeping its addresses: git mv {legacy} {target}"
+    )
 
 
 def read_lock(path: str | Path) -> AddressLock | None:
@@ -326,13 +348,18 @@ def scene_register_map(
     scene_path: str | Path | None = None,
     write: bool = True,
 ) -> RegisterMap:
-    """The register map for a scene: pins from its bindings, plus its lockfile when ``scene_path``
-    is given. With ``write``, the lockfile is created or updated if its content changed."""
+    """The register map for a scene in ``encoding`` (default: the scene's ``plc.analog_encoding``):
+    pins from its bindings, plus that encoding's lockfile when ``scene_path`` is given. With
+    ``write``, the lockfile is created or updated if its content changed. Lockfiles of other
+    encodings are never read or written."""
     from openfactory.core.loader import build_iotable  # runtime import: loader is heavier
 
     enc: Encoding = encoding or scene.plc.analog_encoding
     pins = {b.name: b.address for b in scene.tag_bindings() if b.address is not None}
-    path = lockfile_path(scene_path) if scene_path is not None else None
+    path = None
+    if scene_path is not None:
+        _check_no_legacy_lock(scene_path)
+        path = lockfile_path(scene_path, enc)
     lock = read_lock(path) if path is not None else None
     register_map = allocate(build_iotable(scene).tags(), enc, pins=pins, lock=lock)
     if path is not None and write:

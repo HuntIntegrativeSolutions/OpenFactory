@@ -14,6 +14,7 @@ from typer.testing import CliRunner
 from openfactory.cli import app
 from openfactory.core.schema import load_scene
 from openfactory.export.io_list_csv import io_list_csv
+from openfactory.protocols.modbus import lockfile_path
 
 EXAMPLE = Path(__file__).resolve().parents[2] / "scenes" / "sorting-by-height.yaml"
 runner = CliRunner()
@@ -61,7 +62,7 @@ def test_validate_ok_and_bad_scene_exit_codes(tmp_path):
 def test_validate_directory_skips_lockfiles_and_rejects_a_lockfile():
     result = runner.invoke(app, ["validate", str(EXAMPLE.parent)])
     assert result.exit_code == 0 and ".modbus.yaml" not in result.output
-    lock = EXAMPLE.with_suffix(".modbus.yaml")
+    lock = lockfile_path(EXAMPLE, "float32")
     result = runner.invoke(app, ["validate", str(lock)])
     assert result.exit_code == 1 and "address lockfile, not a scene" in result.output
 
@@ -75,7 +76,7 @@ def test_validate_reports_warnings_and_lockfile_conflicts(tmp_path, scene_copy):
     )
     result = runner.invoke(app, ["validate", str(two)])
     assert result.exit_code == 0 and "warning: conveyors CONV_01 and CONV_02 touch" in result.output
-    lock = scene_copy.with_suffix(".modbus.yaml")
+    lock = lockfile_path(scene_copy, "float32")
     lock.write_text("encoding: int16_scaled\n", encoding="utf-8")
     result = runner.invoke(app, ["validate", str(scene_copy)])
     assert result.exit_code == 1 and "written for int16_scaled" in result.output
@@ -89,7 +90,7 @@ def test_export_writes_csv_and_lockfile(tmp_path, scene_copy):
     result = runner.invoke(app, ["export", str(scene_copy), "-o", str(out)])
     assert result.exit_code == 0, result.output
     assert out.read_text(encoding="utf-8") == io_list_csv(load_scene(EXAMPLE))
-    assert scene_copy.with_suffix(".modbus.yaml").is_file()
+    assert lockfile_path(scene_copy, "float32").is_file()
     stdout = runner.invoke(app, ["export", str(scene_copy)])
     assert stdout.output.startswith("tag,io_type,dtype")
 
@@ -125,7 +126,7 @@ def test_run_fast_headless_prints_register_map_and_summary(scene_copy):
     assert "forced CONV_01_RUN_DO = True" in out
     assert "ran 500 ticks (10.00 s simulated)" in out
     assert "viewer:" not in out  # fast mode implies headless
-    assert scene_copy.with_suffix(".modbus.yaml").is_file()
+    assert lockfile_path(scene_copy, "float32").is_file()
 
 
 def test_run_quiet_hides_the_map(scene_copy):
@@ -167,3 +168,25 @@ def test_run_bad_scene_exits_1(tmp_path):
     bad.write_text("openfactory: '0.1'\n")
     result = runner.invoke(app, ["run", str(bad), "--headless", "--duration", "0"])
     assert result.exit_code == 1 and "error:" in result.output
+
+
+def test_run_with_analog_encoding_selects_its_own_lockfile(scene_copy):
+    """--analog-encoding int16_scaled writes <scene>.int16_scaled.modbus.yaml; float32 untouched."""
+    runner.invoke(app, ["export", str(scene_copy), "-o", str(scene_copy.with_suffix(".csv"))])
+    f32 = lockfile_path(scene_copy, "float32")
+    f32_text = f32.read_text(encoding="utf-8")
+    args = ["run", str(scene_copy), "--as-fast-as-possible", "--duration", "1"]
+    result = runner.invoke(
+        app, [*args, "--port", str(free_port()), "--analog-encoding", "int16_scaled"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Modbus register map (int16_scaled, zero-based addresses):" in result.output
+    assert "  HR:0       CONV_01_SPD_AO" in result.output
+    assert lockfile_path(scene_copy, "int16_scaled").is_file()
+    assert f32.read_text(encoding="utf-8") == f32_text
+    bad = runner.invoke(app, [*args, "--analog-encoding", "float64"])
+    assert bad.exit_code != 0 and "float32, int16_scaled" in re.sub(r"[\s│]+", " ", bad.output)
+    csv = runner.invoke(app, ["export", str(scene_copy), "--analog-encoding", "int16_scaled"])
+    assert "CONV_01_SPD_AO" in csv.output and ",HR:0,int16_scaled 0-32767," in csv.output
+    validated = runner.invoke(app, ["validate", str(scene_copy)])
+    assert validated.exit_code == 0 and "Modbus float32, int16_scaled" in validated.output

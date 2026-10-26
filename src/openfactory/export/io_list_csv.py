@@ -16,9 +16,9 @@ register-map order (kind, then address), with these columns:
 - ``modbus_address``: zero-based Modbus address from the same register map the server uses
   (:func:`~openfactory.protocols.modbus.scene_register_map`: pinned, then lockfile, then
   allocated; ADR-0004), for example ``CO:0``, ``DI:3``, ``HR:0-1`` (DI discrete inputs, CO coils,
-  IR input registers, HR holding registers). Exporting from a scene file reads its
-  ``<scene>.modbus.yaml`` lockfile and creates or updates it, because the CSV is what a PLC
-  program is written against.
+  IR input registers, HR holding registers). Exporting from a scene file reads the lockfile for
+  the export's analog encoding, ``<scene>.<encoding>.modbus.yaml``, and creates or updates it,
+  because the CSV is what a PLC program is written against.
 - ``modbus_encoding``: ``bit``, ``float32 high word first``, or ``int16_scaled 0-32767``
   (ADR-0003).
 - ``units``, ``range_min``, ``range_max``: engineering units and the values at raw 0 and raw 32767

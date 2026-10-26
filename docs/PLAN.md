@@ -343,8 +343,11 @@ Every component implements `fault_inject(kind)` from Milestone 2 so instructors 
 - Write the map into the exported CSV (`modbus_address` column) and print it at startup.
 - Listen address and port come from `openfactory.toml` `[modbus]` (default `127.0.0.1:5020`), overridden
   by the scene's optional `plc.bind` / `plc.port`, then by `--bind` / `--port` on the command line.
-- Address stability (ADR-0004): the first run writes `scenes/<name>.modbus.yaml`, a lockfile mapping
-  every tag to its address, committed with the scene. Later runs keep those addresses and append new
+- Address stability (ADR-0004): the first run in an analog encoding writes
+  `scenes/<name>.<encoding>.modbus.yaml`, a lockfile mapping every tag to its address, committed with
+  the scene. A float32 and an int16_scaled lockfile coexist; the encoding in use is the scene's
+  `plc.analog_encoding` unless `openfactory run` / `export` is given `--analog-encoding` (CLI flag >
+  scene), and only that encoding's lockfile is read or written. Later runs keep those addresses and append new
   tags after the highest used address in each table, so adding a tag never renumbers existing ones.
   A removed tag's line stays (marked `# not in scene`) so its address is not reused. A binding may
   pin an address, `run: {tag: CONV_01_RUN_DO, address: 12}`, which overrides the lockfile and
