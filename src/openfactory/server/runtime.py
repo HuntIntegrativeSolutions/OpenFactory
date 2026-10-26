@@ -27,6 +27,10 @@ Viewer events (PLAN §3.3, ``/ws/events``) go through :meth:`Runtime.apply_event
 
 Every event is recorded in :attr:`Runtime.events` (the last 1000) and counted by type and id.
 
+With a ``controller`` (:class:`~openfactory.pyplc.ScriptPlc`, PLAN 2.10) the runtime scans it at
+the simulated time before every tick, under the same lock. An exception from the script is kept
+in :attr:`Runtime.fault` and stops the run.
+
 For the live parity check (``tools/parity_trace.py --live``), the runtime also records the core's
 own raw photo-eye beam edges, ``{"id", "blocked", "tick"}`` after the tick that changed them, in
 :attr:`Runtime.sensor_edges` (the last 1000). These are the undebounced beam states the parity
@@ -36,6 +40,7 @@ traces compare, not the debounced DI the PLC reads.
 from __future__ import annotations
 
 import threading
+import traceback
 from collections import Counter, deque
 from typing import Any, Literal
 
@@ -44,6 +49,7 @@ from pydantic import BaseModel, ConfigDict
 from openfactory.core.geometry import rotate_y
 from openfactory.core.loader import LoadedScene
 from openfactory.core.scheduler import DEFAULT_RATE_HZ, RunStats, Scheduler
+from openfactory.pyplc import ScriptPlc
 
 EVENT_LOG_SIZE = 1000
 
@@ -61,9 +67,18 @@ class ViewerEvent(BaseModel):
 
 class Runtime:
     def __init__(
-        self, loaded: LoadedScene, *, rate_hz: float = DEFAULT_RATE_HZ, realtime: bool = True
+        self,
+        loaded: LoadedScene,
+        *,
+        rate_hz: float = DEFAULT_RATE_HZ,
+        realtime: bool = True,
+        controller: ScriptPlc | None = None,
     ) -> None:
         self.loaded = loaded
+        #: A scripted stand-in PLC (PLAN 2.10), scanned before every tick.
+        self.controller = controller
+        #: Traceback of a controller exception; the run stops when one is set.
+        self.fault: str | None = None
         self.lock = threading.Lock()
         self.scheduler = Scheduler(self._step, rate_hz, realtime=realtime)
         self.snapshot: dict[str, Any] = self._take_snapshot()
@@ -79,6 +94,13 @@ class Runtime:
 
     def _step(self, dt: float) -> None:
         with self.lock:
+            if self.controller is not None:
+                try:
+                    self.controller.scan(self.loaded.time)
+                except Exception:  # a faulted program stops the run, it never hangs it
+                    self.fault = traceback.format_exc()
+                    self.scheduler.stop()
+                    return
             self.loaded.step(dt)
             for eye in self._eyes:
                 blocked = bool(eye.blocked)  # type: ignore[attr-defined]

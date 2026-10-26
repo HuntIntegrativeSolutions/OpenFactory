@@ -11,7 +11,9 @@ Behavior spec
   ``--as-fast-as-possible`` steps with no sleeping (for CI and PLC-logic tests), needs
   ``--duration``, and implies ``--headless``. ``--force TAG=VALUE`` sets a PLC-written tag (DO or
   AO) at startup, as if the PLC had written it, so a scene can be demonstrated without a PLC; a
-  real PLC overwrites it on its next write. ``--analog-encoding float32|int16_scaled`` overrides
+  real PLC overwrites it on its next write. ``--script FILE.py`` runs a stand-in PLC written in
+  Python (``step(io, t)`` every tick, :mod:`openfactory.pyplc`); a script exception stops the run
+  with exit code 1. ``--analog-encoding float32|int16_scaled`` overrides
   the scene's ``plc.analog_encoding`` for this run and selects that encoding's lockfile; the other
   encoding's lockfile is left alone. At the end it prints a one-line run summary: ticks, parts
   spawned, removed and lost by part name, and removed per part remover.
@@ -196,6 +198,12 @@ def run(
         typer.Option(help="TAG=VALUE: set a DO/AO tag at startup as if the PLC wrote it."),
     ] = None,
     analog_encoding: AnalogEncoding = None,
+    script: Annotated[
+        Path | None,
+        typer.Option(
+            help="Python file defining step(io, t): a stand-in PLC scanned every tick (PLAN 2.10)."
+        ),
+    ] = None,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings only.")] = False,
 ) -> None:
     """Run a scene: Modbus server, viewer, and the 50 Hz simulation."""
@@ -231,7 +239,22 @@ def run(
             "plc.protocol %s is not implemented yet; running without a PLC server",
             parsed.plc.protocol,
         )
-    runtime = Runtime(loaded, realtime=not as_fast_as_possible)
+    controller = None
+    if script is not None:
+        from openfactory.pyplc import ScriptPlc
+
+        try:
+            controller = ScriptPlc(script, loaded.io)
+        except Exception as exc:  # noqa: BLE001 - any error loading user code is reported
+            typer.echo(f"error: {script}: {type(exc).__name__}: {exc}", err=True)
+            raise typer.Exit(1) from None
+        log.info("scripted PLC: %s (step(io, t) every tick)", script)
+        if modbus is not None:
+            log.warning(
+                "--script writes the PLC outputs every tick; a PLC connected over Modbus would "
+                "fight it. Use the Modbus server for reading (an HMI) only."
+            )
+    runtime = Runtime(loaded, realtime=not as_fast_as_possible, controller=controller)
     web = None
     if not headless:
         web_endpoint = Endpoint(bind=bind or settings.web.bind, port=web_port or settings.web.port)
@@ -239,6 +262,12 @@ def run(
         log.info("viewer: http://%s:%d/", web_endpoint.bind, web_endpoint.port)
     wall = time.perf_counter()
     asyncio.run(_serve(runtime, modbus, web, duration))
+    if runtime.fault is not None:
+        typer.echo(
+            f"error: --script {script} faulted at t = {loaded.time:.2f} s:\n{runtime.fault}",
+            err=True,
+        )
+        raise typer.Exit(1)
     world = loaded.world
     removers = {
         c.id: dict(c.removed)  # type: ignore[attr-defined]

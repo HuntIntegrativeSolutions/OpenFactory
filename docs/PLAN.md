@@ -669,7 +669,7 @@ runs the sorting program against it; a box visibly gets pushed.
       spike branch swapping Rapier for `jolt-physics` on the sorter, compare parity trace, frame time at
       200 parts, bundle size, and API ergonomics. Write ADR-0005 either way. Do not switch on a hunch;
       switch if parity tightens or frame time halves.
-- [ ] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
+- [x] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
       `def step(io, t)` that reads DI/AI and writes DO/AO through the same writer-side rules a protocol
       server obeys. Ship `examples/pyplc/sorting-by-height.py`.
       *Why:* every scene can then be demonstrated and tested in CI without any PLC, a sales engineer
@@ -678,6 +678,18 @@ runs the sorting program against it; a box visibly gets pushed.
       2026-10-25 to demo the divert; it should be a feature.
       *Done when:* the sorter scene runs 60 s headless under the script with the same sort result as
       1.14 under OpenPLC.
+      *Note (2026-10-26):* `src/openfactory/pyplc.py`: `PlcIO` (read any tag, write DO/AO only,
+      `TagWriteError` on a DI/AI write, as over Modbus), IEC-style `TON` and `R_TRIG` timed on
+      simulated `t`, and `ScriptPlc`. The runtime scans the script before every tick, under the
+      step lock. A script exception stops the run, and `run` exits 1 with the traceback. An
+      optional `init(io)` runs once. `--script` still starts the Modbus server, for an HMI to
+      read, but warns that a PLC writing over Modbus would fight the script.
+      `examples/pyplc/sorting-by-height.py` is a line-for-line port of the OpenPLC ST program.
+      `tests/unit/test_pyplc.py` checks it against the ST file: the same tags in the logic, the
+      same 1 s permissive, and 100 % = 32767 raw. The ST divert delay equals the script's 2.08 s
+      less OpenPLC's 0.10 s polling latency, which a script does not have. 60 s headless, both
+      real time and `--as-fast-as-possible`: spawned 20, REM_01 {short: 9}, REM_02 {tall: 9},
+      lost {}. That is identical to 1.14 under OpenPLC.
 - [ ] 2.11 Exercise checks: a scene may declare `checks:` (for example `parts_reached: {REM_02: tall}`,
       `none_lost: true`, `max_cycle_s: 12`) evaluated by `openfactory test scene.yaml --script|--plc`
       with a pass/fail report.

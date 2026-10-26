@@ -106,7 +106,8 @@ OpenFactory/
   `~/.claude/rules/code-quality.md`).
 - Scenes must be runnable headless for CI:
   `openfactory run scenes/x.yaml --as-fast-as-possible --duration 10` (fast mode implies
-  `--headless`; `--force TAG=VALUE` stands in for a PLC).
+  `--headless`; `--force TAG=VALUE` sets fixed outputs, and `--script examples/pyplc/x.py`
+  runs a Python stand-in PLC, `step(io, t)` every tick, PLAN 2.10).
 
 ### Components
 - One Python module per component type. Each exposes `inputs`, `outputs`, `step(dt)`, and `state()`.
