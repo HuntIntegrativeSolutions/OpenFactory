@@ -19,10 +19,9 @@ Viewer events (PLAN §3.3, ``/ws/events``) go through :meth:`Runtime.apply_event
 - ``{"type": "press", "id": PB}`` presses a pushbutton (applied on the next tick);
 - ``{"type": "select", "id": SS, "value": "a" | "center" | "b"}`` turns a selector switch;
 - ``{"type": "sensor", "id": PE, "value": bool}`` and ``{"type": "part", "id": ...}`` are reports
-  from the browser physics. In Milestone 1 the headless kinematic model stays authoritative for
-  every PLC-visible tag (PLAN §8, "keep kinematics authoritative for sensors"), so these are
-  recorded with the core's time and tick, counted, and exposed for parity checks, but do not
-  change tags.
+  from the browser physics. The headless model is authoritative for PLC tags through Milestone 2;
+  browser sensor events are parity-only (PLAN §3.3). So these are recorded with the core's time
+  and tick, counted, and exposed for parity checks, but never change tags.
 
 Every event is recorded in :attr:`Runtime.events` (the last 1000) and counted by type and id.
 """

@@ -160,6 +160,12 @@ fresh with a narrow component model is less work than bending a robotics simulat
 - Viewer never computes PLC-visible logic. If a sensor reading can be derived from Rapier contacts in the
   browser, the browser reports it and the core *decides* whether the tag changes (debounce, fault
   injection).
+- Sensor authority (decided 2026-10-25):
+  The headless model is authoritative for PLC tags through Milestone 2; browser sensor events are parity-only.
+  The core's kinematic model (`core/kinematics.py`) writes every DI the PLC reads. The core records
+  each browser `sensor` event with the tick it arrived (`/api/events`) and never applies it to a
+  tag; the events feed parity checks only (PLAN 1.12). Handing a sensor to the browser is
+  revisited no earlier than Milestone 3.
 
 ---
 
@@ -499,9 +505,7 @@ runs the sorting program against it; a box visibly gets pushed.
       `web/src/fixtures/parity-*.json` with a freshness check; `physics.parity.test.ts` replays them
       through Rapier. Worst |Δ| 1 tick at the scene's μ 0.8, 2 ticks at μ 0.3. Getting there took
       one model change in `kinematics.py`, landing impact friction (see the 1.5 parity note).
-      M1 decision: the core records browser sensor events (`/api/status`, `/api/events`) but its
-      kinematic model still drives the PLC-visible tags (§8); switching authority to the browser is
-      a later decision.
+      Sensor authority is settled in §3.3: The headless model is authoritative for PLC tags through Milestone 2; browser sensor events are parity-only.
 - [x] 1.13 `tools/screenshot.py`: launches server + Playwright, waits N sim seconds, saves PNG
       *Why:* this is how the AI verifies visual work. Build it early and use it every time.
       *Done when (added 2026-10-25, the task had none):* `uv run python tools/screenshot.py

@@ -7,8 +7,8 @@
 // Physics (PLAN 1.12): Rapier loads lazily and runs web/src/physics.ts at the core's dt. Each core
 // frame sets belt speeds and pusher strokes and adds or removes parts (the core decides which
 // exist); parts render at their Rapier poses; photo-eye beam edges go upstream on /ws/events as
-// {type: "sensor"} events. In Milestone 1 the core records them; its kinematic model still drives
-// the PLC-visible tags (PLAN §8).
+// {type: "sensor"} events. The core records them with its tick and never applies them (PLAN §3.3):
+// The headless model is authoritative for PLC tags through Milestone 2; browser sensor events are parity-only.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
