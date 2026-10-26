@@ -78,9 +78,8 @@ def test_check_image(tmp_path, pixels, ok, word):
     assert passed is ok and summary.startswith(word)
 
 
-def test_real_playwright_png_decodes():
+def test_real_playwright_png_decodes(prerequisite):
     shots = sorted((TOOL.parent / "screenshots").glob("*.png"))
-    if not shots:
-        pytest.skip("no screenshot taken yet")
+    prerequisite(bool(shots), "no screenshot taken yet (tools/ci_local.sh takes one before pytest)")
     stats = screenshot.image_stats(shots[0])
     assert stats["width"] > 0 and 0 <= stats["foreground"] <= 1

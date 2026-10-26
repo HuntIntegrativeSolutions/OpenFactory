@@ -90,7 +90,7 @@ def test_bad_initial_values_are_rejected(data, cid, port, value, message):
         Scene.model_validate(bad)
 
 
-def test_force_overrides_initial(tmp_path):
+def test_force_overrides_initial(tmp_path, strip_ansi):
     from typer.testing import CliRunner
 
     from openfactory.cli import app
@@ -111,8 +111,8 @@ def test_force_overrides_initial(tmp_path):
             "CONV_01_SPD_AO=25",
         ],
     )
-    assert result.exit_code == 0, result.output
-    assert "forced CONV_01_SPD_AO = 25.0" in result.output
+    assert result.exit_code == 0, strip_ansi(result.output)
+    assert "forced CONV_01_SPD_AO = 25.0" in strip_ansi(result.output)
 
 
 def test_json_schema_offers_initial_on_do_and_ao_only():
