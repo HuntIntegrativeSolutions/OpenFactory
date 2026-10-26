@@ -102,6 +102,15 @@ class KinematicModel:
         self.downstream: dict[str, str] = {c.from_: c.to for c in connections}
         #: Belts from the end of a chain: 0 feeds nothing, 1 feeds a 0, ... (loops capped).
         self._rank: dict[str, int] = {c: self._chain_rank(c) for c in self.carriers}
+        #: |cos|, |sin| of each belt's rotation, for part extents along and across its flow.
+        self._axes: dict[str, tuple[float, float]] = {
+            cid: (
+                abs(math.cos(math.radians(c.config.rotation_deg))),
+                abs(math.sin(math.radians(c.config.rotation_deg))),
+            )
+            for cid, c in self.carriers.items()
+        }
+        self._boxes: dict[str, dict[str, tuple[float, float, float, float, float, float]]] = {}
         tops = [self._top(c) for c in self.carriers.values()]
         self.lost_below = (min(tops) if tops else 0.0) - FALL_LIMIT_M
         self.pushers: list[Component] = [c for c in components if c.type == "pusher"]
@@ -149,17 +158,24 @@ class KinematicModel:
             self._push(pusher)
         parts = list(self.world.parts.values())
         falling = [p for p in parts if p.carrier is None]  # a part leaving a belt falls next tick
+        # Each carried part's belt-local box, computed once per tick and updated as it moves, so
+        # the queueing check (_room_ahead) is plain arithmetic: belt -> part id -> box.
+        self._boxes = {c: {} for c in self.carriers}
+        for part in parts:
+            if part.carrier is not None:
+                self._record(part)
         # Leaders move before the parts behind them (PLAN 2.0): downstream belts first, then
         # the part furthest along each belt, so a follower is limited by where its leader is now.
         carried = sorted(
             (p for p in parts if p.carrier is not None),
-            key=lambda p: (
-                self._rank[p.carrier],
-                -self._local(self.carriers[p.carrier], p.position)[0],
-            ),  # type: ignore[index]
+            key=lambda p: (self._rank[p.carrier], -self._boxes[p.carrier][p.id][0]),  # type: ignore[index]
         )
         for part in carried:
+            before = part.carrier
             self._convey(part, dt)
+            self._boxes[before].pop(part.id, None)  # type: ignore[index]
+            if part.carrier is not None:
+                self._record(part)  # its new box, on whichever belt now carries it
         for part in falling:
             self._fall(part, dt)
 
@@ -228,28 +244,31 @@ class KinematicModel:
 
     def _extent(self, part: Part, carrier: Component) -> tuple[float, float]:
         """Half-extents of a part's world-axis box along a carrier's flow (x) and across it (z)."""
-        r = math.radians(carrier.config.rotation_deg)
-        c, s = abs(math.cos(r)), abs(math.sin(r))
+        c, s = self._axes[carrier.id]
         sx, _, sz = part.size
         return (c * sx + s * sz) / 2, (s * sx + c * sz) / 2
+
+    def _record(self, part: Part) -> None:
+        """Cache a carried part's box in its belt's frame: (x, z, half_x, half_z, y, height)."""
+        carrier = self.carriers[part.carrier]  # type: ignore[index]
+        x, _, z = self._local(carrier, part.position)
+        half_x, half_z = self._extent(part, carrier)
+        self._boxes[carrier.id][part.id] = (x, z, half_x, half_z, part.position[1], part.size[1])
 
     def _room_ahead(self, part: Part, carrier: Component, x: float, z: float) -> float:
         """Largest local x the part's center may reach this step without overlapping a carried
         part ahead of it, on its own belt or on the belt it feeds (mapped past this belt's end)."""
         half_x, half_z = self._extent(part, carrier)
+        y, height = part.position[1], part.size[1]
         room = math.inf
-        frames = [(carrier, 0.0)]
+        frames = [(carrier.id, 0.0)]
         if carrier.id in self.downstream:
-            frames.append((self.carriers[self.downstream[carrier.id]], carrier.config.length))
-        for belt, offset in frames:
-            for other in self.world.parts.values():
-                if other is part or other.carrier != belt.id:
-                    continue
-                if abs(other.position[1] - part.position[1]) >= (other.size[1] + part.size[1]) / 2:
-                    continue  # above or below: no contact
-                ox, _, oz = self._local(belt, other.position)
+            frames.append((self.downstream[carrier.id], carrier.config.length))
+        for belt_id, offset in frames:
+            for pid, (ox, oz, o_half_x, o_half_z, oy, oh) in self._boxes[belt_id].items():
+                if pid == part.id or abs(oy - y) >= (oh + height) / 2:
+                    continue  # itself, or above or below: no contact
                 ox += offset
-                o_half_x, o_half_z = self._extent(other, belt)
                 if ox <= x or abs(oz - z) >= half_z + o_half_z - _EPS:
                     continue  # behind, or beside on the same or the next belt
                 room = min(room, ox - o_half_x - half_x)

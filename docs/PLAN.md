@@ -270,6 +270,8 @@ Rules:
     colliders this friction. The headless model caps a carried part's acceleration at μ × 9.81 m/s²
     and, on landing, lets friction change its belt-direction speed by up to μ × |fall speed| at once
     (the impact impulse), so the two models agree on when parts reach belt speed (PLAN 1.12 parity).
+    A part straddling a connection seam rests on both belts by overlap share, and each pulls with up
+    to its share of μ·g (PLAN 2.0), so a part crossing onto a faster belt speeds up as Rapier's does.
   - `box_emitter.jitter_s` (default 0): uniform ± jitter added to each `interval_s`; must be smaller
     than `interval_s`.
   - `box_emitter.io.enable` is optional; when unbound the emitter is always enabled.
