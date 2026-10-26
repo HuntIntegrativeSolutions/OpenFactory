@@ -509,6 +509,11 @@ runs the sorting program against it; a box visibly gets pushed.
       `web/src/fixtures/parity-*.json` with a freshness check; `physics.parity.test.ts` replays them
       through Rapier. Worst |Δ| 1 tick at the scene's μ 0.8, 2 ticks at μ 0.3. Getting there took
       one model change in `kinematics.py`, landing impact friction (see the 1.5 parity note).
+      Live check (housekeeping 5, informational, not a gate): `uv run python tools/parity_trace.py
+      --live` runs the built viewer against the core and prints browser-vs-core photo-eye ticks
+      from `GET /api/parity`. First run under SwiftShader: the browser stepped 432 physics ticks
+      while the core advanced 718, so live deltas reached 46 ticks and some browser edges had no
+      core match (the viewer steps on wall-clock time, capped at 5 steps per rendered frame).
       Sensor authority is settled in §3.3: The headless model is authoritative for PLC tags through Milestone 2; browser sensor events are parity-only.
 - [x] 1.13 `tools/screenshot.py`: launches server + Playwright, waits N sim seconds, saves PNG
       *Why:* this is how the AI verifies visual work. Build it early and use it every time.

@@ -115,6 +115,9 @@ def test_event_websocket_records_and_rejects(served):
     assert events[-1]["id"] == "PE_01" and events[-1]["value"] is True
     assert events[-1]["core_tick"] > 0
     assert runtime.event_counts["sensor:PE_01"] == 1
+    parity = httpx.get(f"http://{host}/api/parity").json()
+    assert set(parity) == {"tick", "dt", "core", "viewer"}
+    assert [e["id"] for e in parity["viewer"]] == ["PE_01"] and isinstance(parity["core"], list)
 
 
 def test_root_without_a_viewer_build_explains_how_to_build(served):

@@ -34,7 +34,9 @@ import subprocess
 import sys
 import time
 import zlib
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
 WEB = REPO / "web"
@@ -160,16 +162,16 @@ def wait_for_api(port: int, proc: subprocess.Popen[str], timeout: float = 30.0) 
             time.sleep(0.1)
 
 
-def screenshot(
+@contextlib.contextmanager
+def running_viewer(
     scene: Path,
     *,
-    seconds: float,
-    out: Path,
     forces: list[str],
-    size: tuple[int, int],
-    min_sensor_events: int = 0,
-    timeout: float = 60.0,
-) -> dict[str, object]:
+    size: tuple[int, int] = (1280, 720),
+) -> Iterator[tuple[Any, int, list[str]]]:
+    """Start ``openfactory run SCENE`` on free loopback ports and open its viewer in headless
+    Chromium (SwiftShader WebGL). Yields ``(page, web_port, console)``; stops both on exit.
+    Shared with ``tools/parity_trace.py --live``."""
     from playwright.sync_api import sync_playwright
 
     if not (WEB / "dist" / "index.html").is_file():
@@ -193,34 +195,63 @@ def screenshot(
             page.on("console", lambda m: console.append(f"{m.type}: {m.text}"))
             page.on("pageerror", lambda e: console.append(f"pageerror: {e}"))
             page.goto(f"http://127.0.0.1:{web_port}/")
-            try:
-                page.wait_for_function(
-                    "([s, n]) => { const v = window.__openfactory; return v && (v.error || "
-                    "(v.ready && v.simTime >= s && (v.sensorEvents || 0) >= n)); }",
-                    arg=[seconds, min_sensor_events],
-                    timeout=timeout * 1000,
-                )
-            except Exception as exc:
-                raise TimeoutError(f"viewer not ready: {exc}\n" + "\n".join(console)) from None
-            status = page.evaluate("() => window.__openfactory")
-            if status.get("error"):
-                raise RuntimeError(f"viewer error: {status['error']}\n" + "\n".join(console))
-            page.wait_for_timeout(200)  # let the last frame paint
-            out.parent.mkdir(parents=True, exist_ok=True)
-            page.screenshot(path=str(out))
+            yield page, web_port, console
             browser.close()
-        import json
-        import urllib.request
-
-        with urllib.request.urlopen(f"http://127.0.0.1:{web_port}/api/status", timeout=5) as res:
-            core = json.load(res)
-        return {"status": status, "console": console, "core": core}
     finally:
         proc.terminate()
         with contextlib.suppress(subprocess.TimeoutExpired):
             proc.wait(10)
         if proc.poll() is None:
             proc.kill()
+
+
+def wait_for_viewer(
+    page: Any, console: list[str], *, seconds: float, min_sensor_events: int = 0, timeout: float
+) -> dict[str, Any]:
+    """Wait until the viewer is ready at sim time >= ``seconds`` with ``min_sensor_events`` sent;
+    return ``window.__openfactory``. Raises on a viewer error or timeout."""
+    try:
+        page.wait_for_function(
+            "([s, n]) => { const v = window.__openfactory; return v && (v.error || "
+            "(v.ready && v.simTime >= s && (v.sensorEvents || 0) >= n)); }",
+            arg=[seconds, min_sensor_events],
+            timeout=timeout * 1000,
+        )
+    except Exception as exc:
+        raise TimeoutError(f"viewer not ready: {exc}\n" + "\n".join(console)) from None
+    status = page.evaluate("() => window.__openfactory")
+    if status.get("error"):
+        raise RuntimeError(f"viewer error: {status['error']}\n" + "\n".join(console))
+    return status
+
+
+def get_json(web_port: int, path: str) -> Any:
+    import json
+    import urllib.request
+
+    with urllib.request.urlopen(f"http://127.0.0.1:{web_port}{path}", timeout=5) as res:
+        return json.load(res)
+
+
+def screenshot(
+    scene: Path,
+    *,
+    seconds: float,
+    out: Path,
+    forces: list[str],
+    size: tuple[int, int],
+    min_sensor_events: int = 0,
+    timeout: float = 60.0,
+) -> dict[str, object]:
+    with running_viewer(scene, forces=forces, size=size) as (page, web_port, console):
+        status = wait_for_viewer(
+            page, console, seconds=seconds, min_sensor_events=min_sensor_events, timeout=timeout
+        )
+        page.wait_for_timeout(200)  # let the last frame paint
+        out.parent.mkdir(parents=True, exist_ok=True)
+        page.screenshot(path=str(out))
+        core = get_json(web_port, "/api/status")
+    return {"status": status, "console": console, "core": core}
 
 
 def main(argv: list[str] | None = None) -> int:

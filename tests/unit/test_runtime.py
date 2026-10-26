@@ -82,3 +82,25 @@ def test_background_thread_runs_and_stops():
     runtime._thread.join(5)  # noqa: SLF001
     assert not runtime.running and runtime.stats.ticks == 50
     assert runtime.snapshot["tick"] == 50
+
+
+def test_runtime_records_core_beam_edges_and_parity_view():
+    """Housekeeping 5: raw photo-eye edges with ticks, next to browser sensor events."""
+    from openfactory.core.iotable import Writer
+    from openfactory.core.loader import load
+
+    loaded = load(EXAMPLE)
+    for tag in ("CONV_01_RUN_DO", "EMT_01_EN_DO"):
+        loaded.io.set(tag, True, Writer.PLC)
+    runtime = Runtime(loaded)
+    for _ in range(320):
+        runtime._step(0.02)
+    core = runtime.parity()["core"]
+    assert core[:2] == [
+        {"id": "PE_01", "blocked": True, "tick": 273},  # the parity trace's first tall-box edges
+        {"id": "PE_01", "blocked": False, "tick": 304},
+    ]
+    runtime.apply_event({"type": "sensor", "id": "PE_01", "value": True, "tick": 275})
+    viewer = runtime.parity()["viewer"]
+    assert viewer[0]["tick"] == 275 and viewer[0]["core_tick"] == 320
+    assert runtime.loaded.io.get("PE_01_DI") is False  # parity-only: the event changed no tag

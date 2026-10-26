@@ -24,6 +24,11 @@ Viewer events (PLAN §3.3, ``/ws/events``) go through :meth:`Runtime.apply_event
   and tick, counted, and exposed for parity checks, but never change tags.
 
 Every event is recorded in :attr:`Runtime.events` (the last 1000) and counted by type and id.
+
+For the live parity check (``tools/parity_trace.py --live``), the runtime also records the core's
+own raw photo-eye beam edges, ``{"id", "blocked", "tick"}`` after the tick that changed them, in
+:attr:`Runtime.sensor_edges` (the last 1000). These are the undebounced beam states the parity
+traces compare, not the debounced DI the PLC reads.
 """
 
 from __future__ import annotations
@@ -63,12 +68,22 @@ class Runtime:
         self.event_counts: Counter[str] = Counter()
         self.stats: RunStats | None = None
         self._thread: threading.Thread | None = None
+        self._eyes = [c for c in loaded.components if c.type == "photo_eye"]
+        self._beam = {c.id: bool(getattr(c, "blocked", False)) for c in self._eyes}
+        self.sensor_edges: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
 
     # -- simulation thread -----------------------------------------------------------------------
 
     def _step(self, dt: float) -> None:
         with self.lock:
             self.loaded.step(dt)
+            for eye in self._eyes:
+                blocked = bool(eye.blocked)  # type: ignore[attr-defined]
+                if blocked != self._beam[eye.id]:
+                    self._beam[eye.id] = blocked
+                    self.sensor_edges.append(
+                        {"id": eye.id, "blocked": blocked, "tick": self.loaded.tick}
+                    )
             self.snapshot = self._take_snapshot()
 
     def _take_snapshot(self) -> dict[str, Any]:
@@ -160,6 +175,16 @@ class Runtime:
             )
             self.event_counts[f"{event.type}:{event.id}"] += 1
         return event
+
+    def parity(self) -> dict[str, Any]:
+        """Core beam edges and browser sensor events, for ``tools/parity_trace.py --live``."""
+        with self.lock:
+            return {
+                "tick": self.loaded.tick,
+                "dt": self.scheduler.dt,
+                "core": list(self.sensor_edges),
+                "viewer": [e for e in self.events if e["type"] == "sensor"],
+            }
 
     def status(self) -> dict[str, Any]:
         snap = self.snapshot

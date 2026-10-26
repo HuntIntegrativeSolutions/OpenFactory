@@ -28,6 +28,8 @@ window.__openfactory = {
   error: null,
   physics: "loading",
   sensorEvents: 0,
+  physicsSteps: 0,
+  firstTick: null,
 };
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -158,6 +160,7 @@ function syncPhysics(frame: StateFrame): void {
 
 let accumulator = 0;
 let lastTime = performance.now();
+let stepsSinceFrame = 0; // physics steps since the last core frame, for the tick estimate
 
 /** Fixed steps at the core's dt, at most 5 per rendered frame; beam edges go upstream. */
 function stepPhysics(dt: number): void {
@@ -167,8 +170,13 @@ function stepPhysics(dt: number): void {
   if (!physics) return;
   while (accumulator >= dt) {
     accumulator -= dt;
+    stepsSinceFrame += 1;
+    window.__openfactory.physicsSteps = Number(window.__openfactory.physicsSteps) + 1;
+    // tick: the core tick this browser step stands for (last frame's tick + steps since), so
+    // tools/parity_trace.py --live can compare it with the core's own beam edge.
+    const tick = (lastFrame?.tick ?? 0) + stepsSinceFrame;
     for (const edge of physics.step()) {
-      events?.send({ t: lastFrame?.t ?? 0, type: "sensor", id: edge.id, value: edge.blocked });
+      events?.send({ t: lastFrame?.t ?? 0, tick, type: "sensor", id: edge.id, value: edge.blocked });
       window.__openfactory.sensorEvents = Number(window.__openfactory.sensorEvents) + 1;
     }
   }
@@ -180,6 +188,7 @@ function stepPhysics(dt: number): void {
 
 function onFrame(doc: SceneDocument, frame: StateFrame): void {
   lastFrame = frame;
+  stepsSinceFrame = 0;
   for (const view of views) view.update(frame.components[view.id] ?? {});
   parts.update(frame.parts);
   syncPhysics(frame);
@@ -187,6 +196,7 @@ function onFrame(doc: SceneDocument, frame: StateFrame): void {
   status.frames += 1;
   status.simTime = frame.t;
   status.tick = frame.tick;
+  status.firstTick ??= frame.tick;
   status.parts = parts.count;
   status.ready = true;
   const running = views.filter((v) => v.type === "belt_conveyor" && frame.components[v.id]?.running);

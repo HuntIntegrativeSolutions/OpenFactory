@@ -10,6 +10,8 @@ Behavior spec
 - ``GET /api/state``: the latest state snapshot (same shape as a ``/ws/state`` frame).
 - ``GET /api/status``: sim time and tick, part counts, and viewer events received by type and id.
 - ``GET /api/events``: the most recent viewer events with the core time they arrived.
+- ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
+  sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
 - ``WS /ws/state``: sends the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines,
   so slow sends do not lower the rate. The simulation runs at its own 50 Hz; a frame is whatever
   snapshot is current when it is sent, so the viewer interpolates.
@@ -76,6 +78,10 @@ def create_app(runtime: Runtime, web_dist: Path | None = WEB_DIST) -> FastAPI:
     @app.get("/api/events")
     def events(limit: int = 100) -> list[dict[str, Any]]:
         return list(runtime.events)[-limit:] if limit > 0 else []
+
+    @app.get("/api/parity")
+    def parity() -> dict[str, Any]:
+        return runtime.parity()
 
     @app.websocket("/ws/state")
     async def ws_state(ws: WebSocket) -> None:
