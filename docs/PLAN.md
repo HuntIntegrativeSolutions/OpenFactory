@@ -789,10 +789,19 @@ runs the sorting program against it; a box visibly gets pushed.
       scene.
       *Why:* OpenFactory's claim is that an AI assistant can author and operate scenes. Give it the
       ground truth in one file instead of making it reverse-engineer the YAML and the lockfile.
-- [ ] 2.20 `openfactory lint scene.yaml`: unbound required ports, DO/AO tags no PLC-side could ever
+- [x] 2.20 `openfactory lint scene.yaml`: unbound required ports, DO/AO tags no PLC-side could ever
       write (not in any lockfile or script), DI/AI tags nothing reads, touching conveyors without a
       connection (from Milestone 1), composites exposing no I/O, components outside the floor bounds,
       overlapping footprints. Exit 1 on errors, 0 with warnings; CI runs it on every shipped scene.
+      *Note (2026-10-26):* `src/openfactory/lint.py`, `openfactory lint SCENE... [--script F.py]`.
+      Errors: E100 the scene does not load (this covers an unbound required port, reported as
+      `Field required` with its path), E101 a lockfile conflict. Warnings: W201 a DO/AO in no
+      lockfile and written by no script, W202 a DI/AI in no lockfile and read by no script,
+      W203 conveyors touching end to end without a connection, W204 outside the viewer's
+      40 m × 40 m floor, W205 conveyor footprints overlapping at the same height (connected
+      pairs exempt). Scripts are scanned as text, never run. The composites check waits for
+      2.16. `tools/ci_local.sh` step 3 runs `openfactory lint scenes`; the shipped sorter has
+      0 errors and 0 warnings.
 
 ### Milestone 3 — Process simulation (target 3–4 weeks)
 - [ ] 3.1 Flow network solver (`core/flownet.py`): directed graph of sources, pipes, valves, pumps,

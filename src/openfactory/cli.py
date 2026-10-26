@@ -1,4 +1,4 @@
-"""``openfactory`` command line (PLAN task 1.10): ``run``, ``validate``, ``export``.
+"""``openfactory`` command line (PLAN task 1.10): ``run``, ``validate``, ``lint``, ``export``.
 
 Behavior spec
 -------------
@@ -24,6 +24,8 @@ Behavior spec
   and the Modbus register map against each of its lockfiles that exists (read only). A directory
   is expanded to its ``*.yaml`` scenes, skipping ``*.modbus.yaml`` lockfiles. Exit code 1 if any
   scene fails.
+- ``openfactory lint SCENE... [--script FILE.py]`` reports likely scene mistakes
+  (:mod:`openfactory.lint`, PLAN 2.20) and exits 1 only on errors.
 - ``openfactory export SCENE [-o OUT] [--analog-encoding ENC]`` writes the I/O list CSV (PLAN 1.8)
   to OUT or stdout, and creates or updates that encoding's lockfile like ``run``.
 
@@ -337,6 +339,38 @@ def validate(
         raise typer.Exit(1)
     if failed:
         typer.echo(f"{failed} of {len(files)} scene(s) failed")
+        raise typer.Exit(1)
+
+
+@app.command()
+def lint(
+    scenes: Annotated[
+        list[Path],
+        typer.Argument(help="Scene files or directories of scenes.", metavar="SCENE..."),
+    ],
+    script: Annotated[
+        list[Path] | None,
+        typer.Option(help="Stand-in PLC script(s) whose io[...] writes and reads count (2.10)."),
+    ] = None,
+) -> None:
+    """Lint scenes for likely mistakes (PLAN 2.20). Exit 1 on errors, 0 with only warnings."""
+    from openfactory.lint import lint_scene
+
+    _setup_logging(quiet=True)
+    files = _scene_files(scenes)
+    if not files:
+        typer.echo("no scenes given")
+        raise typer.Exit(1)
+    errors = warnings = 0
+    for path in files:
+        findings = lint_scene(path, script or [])
+        errors += sum(f.level == "error" for f in findings)
+        warnings += sum(f.level == "warning" for f in findings)
+        typer.echo(f"{'FAIL' if any(f.level == 'error' for f in findings) else 'OK  '} {path}")
+        for finding in findings:
+            typer.echo(_indent(str(finding)))
+    typer.echo(f"{len(files)} scene(s): {errors} error(s), {warnings} warning(s)")
+    if errors:
         raise typer.Exit(1)
 
 

@@ -99,7 +99,8 @@ OpenFactory/
 
 ### Scene files
 - Every scene is valid against the JSON Schema. Run `uv run openfactory validate scenes/<name>.yaml`
-  (or `uv run openfactory validate scenes`) before committing; it exits 1 on any failure.
+  (or `uv run openfactory validate scenes`) before committing; it exits 1 on any failure. Then
+  `uv run openfactory lint scenes` (PLAN 2.20): errors exit 1, and fix warnings or say why not.
 - Tag names follow HIS Controls convention: `AREA_EQUIP_NNN_SUFFIX`, all caps, underscores, ≤ 40 chars.
   Suffixes: `_DI`, `_DO`, `_AI`, `_AO`.
 - Every component has an `id`, a `type`, a `position`, and a `description` (ISA-5.1 style, see

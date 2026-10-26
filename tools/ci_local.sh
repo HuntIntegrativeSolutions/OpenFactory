@@ -9,7 +9,7 @@
 #   1. uv sync --frozen --all-extras (exact versions from uv.lock, logix and opcua extras included,
 #      so a local run never strips them from the dev venv)
 #   2. ruff check and ruff format --check
-#   3. scene JSON Schema is current; every shipped scene validates
+#   3. scene JSON Schema is current; every shipped scene validates and lints with no errors
 #   4. npm ci, npm run build (web/dist must exist afterwards), npm test
 #   5. Playwright's Chromium is present (installed by the workflow; never installed here)
 #   6. tools/screenshot.py on the shipped scene, with its non-blank PNG check (before pytest, so
@@ -51,6 +51,7 @@ step "scene schema and shipped scenes"
 uv run python -m openfactory.core.schema --check
 echo "web/public/scene.schema.json is current"
 uv run openfactory validate scenes
+uv run openfactory lint scenes
 
 step "web: npm ci, npm run build, npm test"
 node --version
