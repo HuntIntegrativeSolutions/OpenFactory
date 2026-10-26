@@ -19,6 +19,8 @@
   (scenes/sorting-by-height.int16_scaled.modbus.yaml) and the exported I/O list CSV
   (openfactory export ... --analog-encoding int16_scaled). OpenPLC places a Slave Device's points
   from address 100 onward, so a zero-based Modbus address N maps to %IX100.N, %QX100.N, or %QW100+N.
+  Digital addresses (DI, CO) are identical in the float32 and int16_scaled lockfiles (ADR-0004
+  decision 8); only the holding registers differ (float32 uses two per tag).
 
   Timing: PE_01 trips when a tall box's leading edge reaches x = 1.5 m; the plate starts pushing
   best when the box center is near x = 2.39 m, 2.08 s later at 0.5 m/s (the headless sorter test,
@@ -37,20 +39,20 @@
 *)
 PROGRAM sorter
   VAR
-    (* Discrete inputs from the simulator (Modbus DI:0..4) *)
-    CONV_01_RUN_DI AT %IX100.0 : BOOL;  (* Infeed Belt Conveyor - running feedback *)
-    CONV_02_RUN_DI AT %IX100.1 : BOOL;  (* Divert Lane Belt Conveyor - running feedback *)
-    CYL_01_EXT_DI AT %IX100.2 : BOOL;   (* Tall Box Divert Pusher - extended limit *)
-    CYL_01_RET_DI AT %IX100.3 : BOOL;   (* Tall Box Divert Pusher - retracted limit *)
-    PE_01_DI AT %IX100.4 : BOOL;        (* Infeed Tall Box Photo Eye - beam blocked *)
-    (* Coils to the simulator (Modbus CO:0..3) *)
-    CONV_01_RUN_DO AT %QX100.0 : BOOL;  (* Infeed Belt Conveyor - run command *)
-    CONV_02_RUN_DO AT %QX100.1 : BOOL;  (* Divert Lane Belt Conveyor - run command *)
-    CYL_01_EXT_DO AT %QX100.2 : BOOL;   (* Tall Box Divert Pusher - extend solenoid *)
-    EMT_01_EN_DO AT %QX100.3 : BOOL;    (* Infeed Box Source - enable *)
+    (* Discrete inputs from the simulator (Modbus DI:0..4, same in every encoding) *)
+    CONV_01_RUN_DI AT %IX100.0 : BOOL;  (* DI:0 Infeed Belt Conveyor - running feedback *)
+    CYL_01_EXT_DI AT %IX100.1 : BOOL;   (* DI:1 Tall Box Divert Pusher - extended limit *)
+    CYL_01_RET_DI AT %IX100.2 : BOOL;   (* DI:2 Tall Box Divert Pusher - retracted limit *)
+    PE_01_DI AT %IX100.3 : BOOL;        (* DI:3 Infeed Tall Box Photo Eye - beam blocked *)
+    CONV_02_RUN_DI AT %IX100.4 : BOOL;  (* DI:4 Divert Lane Belt Conveyor - running feedback *)
+    (* Coils to the simulator (Modbus CO:0..3, same in every encoding) *)
+    CONV_01_RUN_DO AT %QX100.0 : BOOL;  (* CO:0 Infeed Belt Conveyor - run command *)
+    CYL_01_EXT_DO AT %QX100.1 : BOOL;   (* CO:1 Tall Box Divert Pusher - extend solenoid *)
+    EMT_01_EN_DO AT %QX100.2 : BOOL;    (* CO:2 Infeed Box Source - enable *)
+    CONV_02_RUN_DO AT %QX100.3 : BOOL;  (* CO:3 Divert Lane Belt Conveyor - run command *)
     (* Holding registers to the simulator (Modbus HR:0..1), int16_scaled: 0..32767 = 0..100 % *)
-    CONV_01_SPD_AO AT %QW100 : INT;     (* Infeed Belt Conveyor - speed command *)
-    CONV_02_SPD_AO AT %QW101 : INT;     (* Divert Lane Belt Conveyor - speed command *)
+    CONV_01_SPD_AO AT %QW100 : INT;     (* HR:0 Infeed Belt Conveyor - speed command *)
+    CONV_02_SPD_AO AT %QW101 : INT;     (* HR:1 Divert Lane Belt Conveyor - speed command *)
   END_VAR
   VAR
     SPEED_RAW : INT := 32767;           (* 100 % speed reference, raw counts *)

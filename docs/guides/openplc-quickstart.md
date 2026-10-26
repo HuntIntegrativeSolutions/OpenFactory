@@ -79,16 +79,20 @@ The run command prints the register map. It must match this table:
 | Tag | Modbus address | OpenPLC location | What it is |
 |-----|----------------|------------------|------------|
 | `CONV_01_RUN_DI` | DI:0 | `%IX100.0` | Infeed belt running feedback |
-| `CONV_02_RUN_DI` | DI:1 | `%IX100.1` | Divert lane belt running feedback |
-| `CYL_01_EXT_DI` | DI:2 | `%IX100.2` | Pusher extended limit |
-| `CYL_01_RET_DI` | DI:3 | `%IX100.3` | Pusher retracted limit |
-| `PE_01_DI` | DI:4 | `%IX100.4` | Tall-box photo eye, beam blocked |
+| `CYL_01_EXT_DI` | DI:1 | `%IX100.1` | Pusher extended limit |
+| `CYL_01_RET_DI` | DI:2 | `%IX100.2` | Pusher retracted limit |
+| `PE_01_DI` | DI:3 | `%IX100.3` | Tall-box photo eye, beam blocked |
+| `CONV_02_RUN_DI` | DI:4 | `%IX100.4` | Divert lane belt running feedback |
 | `CONV_01_RUN_DO` | CO:0 | `%QX100.0` | Infeed belt run command |
-| `CONV_02_RUN_DO` | CO:1 | `%QX100.1` | Divert lane belt run command |
-| `CYL_01_EXT_DO` | CO:2 | `%QX100.2` | Pusher extend solenoid |
-| `EMT_01_EN_DO` | CO:3 | `%QX100.3` | Box source enable |
+| `CYL_01_EXT_DO` | CO:1 | `%QX100.1` | Pusher extend solenoid |
+| `EMT_01_EN_DO` | CO:2 | `%QX100.2` | Box source enable |
+| `CONV_02_RUN_DO` | CO:3 | `%QX100.3` | Divert lane belt run command |
 | `CONV_01_SPD_AO` | HR:0 | `%QW100` | Infeed belt speed, 0 to 32767 = 0 to 100 % |
 | `CONV_02_SPD_AO` | HR:1 | `%QW101` | Divert lane belt speed, same scaling |
+
+The digital addresses (DI and CO) are the same as in the scene's float32 lockfile: a new
+encoding's lockfile copies them from the existing one (ADR-0004 decision 8). The analog addresses
+differ, because float32 uses two registers per tag.
 
 Addresses are zero-based. OpenPLC places a Slave Device's points from address 100 onward. The
 Slave Devices page says so: "Slave devices are attached to address 100 onward (i.e. %IX100.0,
@@ -126,13 +130,13 @@ Results on the test host:
 
 | Address tried | From the container (TCP) | As OpenPLC Slave Device IP | Use it? |
 |---|---|---|---|
-| `host.docker.internal` (resolved to `192.168.65.254`) | connects; reply `00010000000401020108` | **fails**: runtime log repeats `Connection failed on MB device OpenFactory: Invalid argument` | no |
-| WSL address from `hostname -I` (`172.18.206.163`) | connects; reply `00010000000401020108` | **works**: coils and registers are written within one poll | **yes** |
+| `host.docker.internal` (resolved to `192.168.65.254`) | inconsistent: connected on 2026-10-25, `[Errno 101] Network is unreachable` on 2026-10-26 | **fails**: runtime log repeats `Connection failed on MB device OpenFactory: Invalid argument` | no |
+| WSL address from `hostname -I` (`172.18.206.163`) | connects; reply `00010000000401020104` | **works**: coils and registers are written within one poll | **yes** |
 
-In the reply, `0108` means one data byte, `0x08`: DI:3, the pusher's retracted limit, is on, as it
+In the reply, `0104` means one data byte, `0x04`: DI:2, the pusher's retracted limit, is on, as it
 should be at rest.
 
-`host.docker.internal` is reachable, but OpenPLC's Modbus master accepts only a numeric IPv4
+Even when `host.docker.internal` is reachable, OpenPLC's Modbus master accepts only a numeric IPv4
 address in the Slave Device's IP field and does not resolve host names. Use the WSL address, the
 first address `hostname -I` prints. On Linux with Docker Engine (not tested here), the host's
 address on the `docker0` bridge (often `172.17.0.1`) or its LAN address should work the same way;

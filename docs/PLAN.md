@@ -376,7 +376,9 @@ composite can produce the behavior.
   `scenes/<name>.<encoding>.modbus.yaml`, a lockfile mapping every tag to its address, committed with
   the scene. A float32 and an int16_scaled lockfile coexist; the encoding in use is the scene's
   `plc.analog_encoding` unless `openfactory run` / `export` is given `--analog-encoding` (CLI flag >
-  scene), and only that encoding's lockfile is read or written. Later runs keep those addresses and append new
+  scene), and only that encoding's lockfile is read or written. A new encoding's lockfile copies the
+  discrete-input and coil tables of an existing one, so digital addresses match across encodings
+  (ADR-0004 decision 8). Later runs keep those addresses and append new
   tags after the highest used address in each table, so adding a tag never renumbers existing ones.
   A removed tag's line stays (marked `# not in scene`) so its address is not reused. A binding may
   pin an address, `run: {tag: CONV_01_RUN_DO, address: 12}`, which overrides the lockfile and

@@ -5,15 +5,15 @@
 encoding: int16_scaled
 discrete_inputs:
   CONV_01_RUN_DI: 0
-  CONV_02_RUN_DI: 1
-  CYL_01_EXT_DI: 2
-  CYL_01_RET_DI: 3
-  PE_01_DI: 4
+  CYL_01_EXT_DI: 1
+  CYL_01_RET_DI: 2
+  PE_01_DI: 3
+  CONV_02_RUN_DI: 4
 coils:
   CONV_01_RUN_DO: 0
-  CONV_02_RUN_DO: 1
-  CYL_01_EXT_DO: 2
-  EMT_01_EN_DO: 3
+  CYL_01_EXT_DO: 1
+  EMT_01_EN_DO: 2
+  CONV_02_RUN_DO: 3
 input_registers: {}
 holding_registers:
   CONV_01_SPD_AO: 0

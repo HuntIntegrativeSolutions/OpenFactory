@@ -1,6 +1,6 @@
 # ADR-0004: Modbus address lockfile per scene, with optional pinned addresses
 
-**Status:** Accepted, 2026-10-25. Amended 2026-10-25: one lockfile per analog encoding (decision 7).
+**Status:** Accepted, 2026-10-25. Amended 2026-10-25: one lockfile per analog encoding (decision 7). Amended 2026-10-26: digital tables shared across encodings (decision 8).
 **Deciders:** HIS Controls (T. Hunt), Claude Opus 5.5
 **Resolves:** the conflict noted under PLAN task 1.7, where §6.1 promised that adding a tag never
 renumbers existing ones and allowed pinning addresses, but allocation (sorted by kind, then tag name,
@@ -54,10 +54,18 @@ so there was also nowhere to pin an address.
    `--analog-encoding float32|int16_scaled`. Each lockfile grows independently under decisions 2
    to 4, and pins apply to both. Why: one scene serves PLCs that need different encodings (OpenPLC
    v3 reads only raw 16-bit words, ADR-0003; a Click or Ignition device reads float32), and a
-   committed float32 lockfile must not block, or be rewritten by, an `int16_scaled` run. A newly
-   created lockfile allocates from scratch, so its discrete tables can differ from the other
-   encoding's when that one has grown by appending. Compare the two lockfiles if both PLCs must
-   share coil and discrete-input addresses, and pin the tags where they must match.
+   committed float32 lockfile must not block, or be rewritten by, an `int16_scaled` run.
+8. **Digital addresses are shared across encodings (amendment, 2026-10-26).** When the lockfile
+   for an encoding is created and a lockfile for another encoding already exists, the new one
+   starts from that lockfile's `discrete_inputs` and `coils` entries, retired (`# not in scene`)
+   lines included. Pins still win. The analog tables are allocated afresh, because register
+   widths differ by encoding. An existing lockfile is never reseeded. Why: discrete-input and
+   coil widths do not depend on the encoding, so a PLC program's digital I/O should not move when
+   it changes encoding. Before this, the shipped sorter had PE_01_DI at DI:3 in float32 but DI:4 in
+   int16_scaled, because the float32 map had grown by appending while the int16_scaled one was
+   allocated sorted. After creation the two lockfiles grow independently (decisions 2 to 4).
+   Adding the same tags to both through runs of the same scene appends them in the same order,
+   so they stay equal, but nothing enforces it. Compare the two files in review.
 
 ## Consequences
 

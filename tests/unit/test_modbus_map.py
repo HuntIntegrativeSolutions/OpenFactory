@@ -321,3 +321,49 @@ def test_shipped_lockfile_matches_the_shipped_scene():
     assert lockfile_path(EXAMPLE, "float32").read_text(encoding="utf-8") == lock_text(
         m, EXAMPLE.name
     )
+
+
+def test_new_encoding_lockfile_copies_digital_tables_from_the_other(tmp_path):
+    """ADR-0004 decision 8: digital addresses are identical across encodings."""
+    path = scene_copy(tmp_path)
+    scene_register_map(load_scene(path), "float32", scene_path=path)
+
+    def drop_cyl_ret(data):  # retire CYL_01_RET_DI (DI:2) in the float32 lockfile
+        cyl = next(c for c in data["components"] if c["id"] == "CYL_01")
+        del cyl["io"]["retracted"]
+
+    path = scene_copy(tmp_path, [PE_00], edit=drop_cyl_ret)
+    f32 = labels(scene_register_map(load_scene(path), "float32", scene_path=path))
+    assert f32["PE_01_DI"] == "DI:3" and f32["PE_00_DI"] == "DI:4"  # appended, not sorted
+    fresh = labels(allocate(build_iotable(load_scene(path)).tags(), "int16_scaled"))
+    assert fresh["PE_00_DI"] != "DI:4"  # without the copy the maps would differ
+
+    i16 = labels(scene_register_map(load_scene(path), "int16_scaled", scene_path=path))
+    digital = {t: a for t, a in f32.items() if t.endswith(("_DI", "_DO"))}
+    assert {t: i16[t] for t in digital} == digital
+    assert i16["CONV_01_SPD_AO"] == "HR:0" and f32["CONV_01_SPD_AO"] == "HR:0-1"
+    i16_text = lockfile_path(path, "int16_scaled").read_text(encoding="utf-8")
+    assert "  CYL_01_RET_DI: 2  # not in scene\n" in i16_text  # the reservation is copied too
+    print(f"float32      {f32}\nint16_scaled {i16}")
+
+
+def test_existing_lockfile_is_never_reseeded(tmp_path):
+    path = scene_copy(tmp_path)
+    scene_register_map(load_scene(path), "int16_scaled", scene_path=path)  # created first
+    i16 = lockfile_path(path, "int16_scaled")
+    i16_text = i16.read_text(encoding="utf-8")
+    f32 = lockfile_path(path, "float32")
+    scene_register_map(load_scene(path), "float32", scene_path=path)  # seeded from int16_scaled
+    f32.write_text(  # the float32 map later diverges (a test-only edit)
+        f32.read_text(encoding="utf-8").replace("PE_01_DI: 3", "PE_01_DI: 7"), encoding="utf-8"
+    )
+    scene_register_map(load_scene(path), "int16_scaled", scene_path=path)
+    assert i16.read_text(encoding="utf-8") == i16_text  # an existing lockfile is never reseeded
+
+
+def test_shipped_lockfiles_share_their_digital_tables():
+    f32 = read_lock(lockfile_path(EXAMPLE, "float32")).addresses
+    i16 = read_lock(lockfile_path(EXAMPLE, "int16_scaled")).addresses
+    digital = {t for t in f32 if t.endswith(("_DI", "_DO"))}
+    assert {t: f32[t] for t in digital} == {t: i16[t] for t in digital}
+    assert f32["PE_01_DI"] == i16["PE_01_DI"] == 3

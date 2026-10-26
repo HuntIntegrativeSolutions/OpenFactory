@@ -24,11 +24,14 @@ remaining tags in tag-name order after the highest address already used in that 
 lockfile and no pins that is the plain packed allocation from 0. :func:`scene_register_map` writes
 the lockfile on first use and rewrites it only when its content changes. Each encoding has its own
 lockfile, so a ``float32`` map and an ``int16_scaled`` map of the same scene coexist and never
-change each other's addresses. The lockfile only grows: a tag removed from the scene keeps its
-line, marked ``# not in scene``, so its address is never given to another tag and comes back if the
-tag is re-added; deleting the line frees it. A lockfile whose content names the other encoding (a
-hand-renamed file), a lockfile under the pre-amendment name ``<scene>.modbus.yaml``, two tags on
-overlapping addresses, or an address past 65535 is an error (:class:`AddressError`).
+change each other's addresses. A lockfile created while another encoding's lockfile exists starts
+from that one's discrete-input and coil entries, so digital addresses are the same in every
+encoding; only the analog tables are allocated afresh. The lockfile only grows: a tag removed from
+the scene keeps its line, marked ``# not in scene``, so its address is never given to another tag
+and comes back if the tag is re-added; deleting the line frees it. A lockfile whose content names
+the other encoding (a hand-renamed file), a lockfile under the pre-amendment name
+``<scene>.modbus.yaml``, two tags on overlapping addresses, or an address past 65535 is an error
+(:class:`AddressError`).
 
 **Live binding.** The server is one pymodbus ``SimDevice`` (id 0 answers every unit id) with four
 separate tables and an ``action`` hook (``docs/research/libraries.md``, "pymodbus 3.x datastore
@@ -59,7 +62,7 @@ import struct
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, get_args
 
 import yaml
 from pymodbus.constants import ExcCodes
@@ -280,6 +283,33 @@ def legacy_lockfile_path(scene_path: str | Path) -> Path:
     return path.with_name(f"{path.stem}{LOCKFILE_SUFFIX}")
 
 
+DIGITAL_KINDS = ("DI", "DO")
+
+
+def seed_digital_lock(scene_path: str | Path, encoding: Encoding) -> AddressLock | None:
+    """Starting point for a new ``encoding`` lockfile when another encoding's lockfile exists:
+    its discrete-input and coil entries (retired ones included), so digital addresses are the same
+    in every encoding (ADR-0004 decision 8). Analog tables are not copied; their widths differ."""
+    for other in get_args(Encoding):
+        if other == encoding:
+            continue
+        sibling = read_lock(lockfile_path(scene_path, other))
+        if sibling is not None:
+            digital = {
+                name: address
+                for name, address in sibling.addresses.items()
+                if _kind_of(name) in DIGITAL_KINDS
+            }
+            log.info(
+                "new %s lockfile: %d digital addresses copied from %s",
+                encoding,
+                len(digital),
+                lockfile_path(scene_path, other).name,
+            )
+            return AddressLock(encoding, digital)
+    return None
+
+
 def _check_no_legacy_lock(scene_path: str | Path) -> None:
     legacy = legacy_lockfile_path(scene_path)
     if not legacy.is_file():
@@ -361,6 +391,8 @@ def scene_register_map(
         _check_no_legacy_lock(scene_path)
         path = lockfile_path(scene_path, enc)
     lock = read_lock(path) if path is not None else None
+    if path is not None and lock is None:
+        lock = seed_digital_lock(scene_path, enc)  # type: ignore[arg-type]
     register_map = allocate(build_iotable(scene).tags(), enc, pins=pins, lock=lock)
     if path is not None and write:
         text = lock_text(register_map, Path(scene_path).name)  # type: ignore[arg-type]
