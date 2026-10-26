@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { SceneDocument, Vec3 } from "./api";
 import sorter from "./fixtures/parity-sorter.json";
 import sorterMu03 from "./fixtures/parity-sorter-mu0.3.json";
+import queue from "./fixtures/parity-queue.json";
 import { loadRapier, PlantPhysics } from "./physics";
 
 interface Trace {
@@ -30,6 +31,7 @@ interface Trace {
 const TRACES: Record<string, Trace> = {
   "parity-sorter": sorter as unknown as Trace,
   "parity-sorter-mu0.3": sorterMu03 as unknown as Trace,
+  "parity-queue": queue as unknown as Trace, // PLAN 2.0: a placed queue released onto a faster belt
 };
 
 function load(name: string): Trace {

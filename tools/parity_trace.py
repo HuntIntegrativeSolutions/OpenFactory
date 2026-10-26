@@ -49,7 +49,7 @@ import json
 import statistics
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURES = REPO / "web" / "src" / "fixtures"
@@ -59,8 +59,34 @@ CHECKPOINTS_X = (1.0, 2.0, 3.0)
 GRAVITY = 9.81
 MIN_TOLERANCE_TICKS = 2.0
 RAMP_FRACTION = 0.25
-#: name -> scene friction override (None = the scene's own value)
-TRACES: dict[str, float | None] = {"parity-sorter": None, "parity-sorter-mu0.3": 0.3}
+
+
+class TraceSpec(NamedTuple):
+    """One committed trace: which scene, at what friction, driven how, measured where."""
+
+    scene: Path = SCENE
+    #: Scene friction override (None = the scene's own value).
+    friction: float | None = None
+    seconds: float = SECONDS
+    #: Belt x positions at which each part's first passing tick is recorded.
+    checkpoints: tuple[float, ...] = CHECKPOINTS_X
+    #: tick -> {PLC tag: value} written before that tick. None: every belt and emitter DO on and
+    #: every AO at 100 from tick 1 (the sorter traces).
+    schedule: dict[int, dict[str, bool | float]] | None = None
+
+
+TRACES: dict[str, TraceSpec] = {
+    "parity-sorter": TraceSpec(),
+    "parity-sorter-mu0.3": TraceSpec(friction=0.3),
+    # PLAN 2.0: five boxes placed nose to tail on stopped CONV_A; both belts start at tick 50 and
+    # the queue releases onto the faster CONV_B, where PE_B sees each gap.
+    "parity-queue": TraceSpec(
+        scene=REPO / "tests" / "scenes" / "queue-parity.yaml",
+        seconds=8.0,
+        checkpoints=(3.0, 3.5, 4.0, 4.5),
+        schedule={50: {"CONV_A_RUN_DO": True, "CONV_B_RUN_DO": True}},
+    ),
+}
 
 
 def _r(v: float) -> float:
@@ -78,7 +104,12 @@ def tolerance_ticks(ramp: float) -> float:
 
 
 def trace(
-    scene_path: Path = SCENE, seconds: float = SECONDS, friction: float | None = None
+    scene_path: Path = SCENE,
+    seconds: float = SECONDS,
+    friction: float | None = None,
+    *,
+    checkpoints_x: tuple[float, ...] = CHECKPOINTS_X,
+    schedule: dict[int, dict[str, bool | float]] | None = None,
 ) -> dict[str, Any]:
     from openfactory.core.iotable import Writer
     from openfactory.core.loader import build
@@ -92,7 +123,7 @@ def trace(
         )
     loaded = build(scene)
     doc = Runtime(loaded).scene_document()  # same geometry the viewer gets from /api/scene
-    for tag in loaded.io.tags():
+    for tag in loaded.io.tags() if schedule is None else ():
         if (
             tag.kind == "DO"
             and tag.owner
@@ -119,6 +150,8 @@ def trace(
     blocked = {e.id: False for e in eyes}
     ticks = round(seconds / dt)
     for k in range(1, ticks + 1):
+        for tag, value in (schedule or {}).get(k, {}).items():
+            loaded.io.set(tag, value, Writer.PLC)  # takes effect when the component steps in tick k
         entry: dict[str, Any] = {"tick": k}
         speeds = {
             b.id: _r(b.surface_speed) for b in belts if _r(b.surface_speed) != last_belts.get(b.id)
@@ -156,7 +189,7 @@ def trace(
             if part.carrier is None:
                 continue
             marks = checkpoints.setdefault(part.id, {})
-            for x in CHECKPOINTS_X:
+            for x in checkpoints_x:
                 if f"{x:g}" not in marks and part.position[0] >= x:
                     marks[f"{x:g}"] = k
     mu = loaded.kinematics.max_accel / GRAVITY
@@ -277,8 +310,15 @@ def live(scene_path: Path, seconds: float, timeout: float = 120.0) -> int:
     return 0
 
 
-def trace_text(friction: float | None) -> str:
-    return json.dumps(trace(friction=friction), indent=1, ensure_ascii=False) + "\n"
+def trace_text(spec: TraceSpec) -> str:
+    data = trace(
+        spec.scene,
+        spec.seconds,
+        spec.friction,
+        checkpoints_x=spec.checkpoints,
+        schedule=spec.schedule,
+    )
+    return json.dumps(data, indent=1, ensure_ascii=False) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -291,9 +331,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.live:
         return live(args.scene.resolve(), args.seconds)
     stale = 0
-    for name, friction in TRACES.items():
+    for name, spec in TRACES.items():
         path = FIXTURES / f"{name}.json"
-        text = trace_text(friction)
+        text = trace_text(spec)
         if args.check:
             if not path.is_file() or path.read_text(encoding="utf-8") != text:
                 print(f"{path} is stale; run: uv run python tools/parity_trace.py", file=sys.stderr)

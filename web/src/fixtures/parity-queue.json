@@ -1,0 +1,515 @@
+{
+ "generator": "tools/parity_trace.py",
+ "scene": {
+  "openfactory": "0.1",
+  "scene": {
+   "name": "queue-parity",
+   "description": "Five queued boxes released from an accumulation belt onto a faster metering belt.",
+   "author": null,
+   "seed": 1,
+   "units": "meters",
+   "friction": 0.8
+  },
+  "plc": {
+   "protocol": "none",
+   "role": "server"
+  },
+  "dt": 0.02,
+  "components": [
+   {
+    "id": "CONV_A",
+    "type": "belt_conveyor",
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "length": 3.0,
+    "width": 0.5,
+    "description": "Accumulation Belt Conveyor"
+   },
+   {
+    "id": "CONV_B",
+    "type": "belt_conveyor",
+    "position": [
+     3.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "length": 2.0,
+    "width": 0.5,
+    "description": "Metering Belt Conveyor"
+   },
+   {
+    "id": "PE_B",
+    "type": "photo_eye",
+    "position": [
+     4.2,
+     0.1,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "beam_length": 0.6,
+    "description": "Metering Belt Gap Photo Eye"
+   },
+   {
+    "id": "EMT_01",
+    "type": "box_emitter",
+    "position": [
+     2.84,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q1",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 1 Placement"
+   },
+   {
+    "id": "EMT_02",
+    "type": "box_emitter",
+    "position": [
+     2.538,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q2",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 2 Placement"
+   },
+   {
+    "id": "EMT_03",
+    "type": "box_emitter",
+    "position": [
+     2.236,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q3",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 3 Placement"
+   },
+   {
+    "id": "EMT_04",
+    "type": "box_emitter",
+    "position": [
+     1.934,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q4",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 4 Placement"
+   },
+   {
+    "id": "EMT_05",
+    "type": "box_emitter",
+    "position": [
+     1.632,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q5",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 5 Placement"
+   },
+   {
+    "id": "REM_B",
+    "type": "part_remover",
+    "position": [
+     5.15,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "size": [
+     0.3,
+     1.0,
+     1.0
+    ],
+    "description": "Metering Belt Discharge Part Remover"
+   }
+  ],
+  "connections": [
+   {
+    "from": "CONV_A",
+    "to": "CONV_B"
+   }
+  ],
+  "tags": [
+   {
+    "name": "CONV_A_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_A",
+    "description": "Accumulation Belt Conveyor — Run command"
+   },
+   {
+    "name": "CONV_B_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_B",
+    "description": "Metering Belt Conveyor — Run command"
+   },
+   {
+    "name": "PE_B_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "PE_B",
+    "description": "Metering Belt Gap Photo Eye — Part detected"
+   }
+  ],
+  "warnings": []
+ },
+ "dt": 0.02,
+ "ticks": 400,
+ "friction": 0.8,
+ "ramp_ticks": 6.37105,
+ "tolerance_ticks": 2.0,
+ "inputs": [
+  {
+   "tick": 1,
+   "belts": {
+    "CONV_A": 0.0,
+    "CONV_B": 0.0
+   }
+  },
+  {
+   "tick": 2,
+   "spawn": [
+    {
+     "id": "P000001",
+     "name": "q1",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      2.84,
+      0.105,
+      0.0
+     ]
+    },
+    {
+     "id": "P000002",
+     "name": "q2",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      2.538,
+      0.105,
+      0.0
+     ]
+    },
+    {
+     "id": "P000003",
+     "name": "q3",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      2.236,
+      0.105,
+      0.0
+     ]
+    },
+    {
+     "id": "P000004",
+     "name": "q4",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      1.934,
+      0.105,
+      0.0
+     ]
+    },
+    {
+     "id": "P000005",
+     "name": "q5",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      1.632,
+      0.105,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 51,
+   "belts": {
+    "CONV_A": 0.033333,
+    "CONV_B": 0.066667
+   }
+  },
+  {
+   "tick": 52,
+   "belts": {
+    "CONV_A": 0.066667,
+    "CONV_B": 0.133333
+   }
+  },
+  {
+   "tick": 53,
+   "belts": {
+    "CONV_A": 0.1,
+    "CONV_B": 0.2
+   }
+  },
+  {
+   "tick": 54,
+   "belts": {
+    "CONV_A": 0.133333,
+    "CONV_B": 0.266667
+   }
+  },
+  {
+   "tick": 55,
+   "belts": {
+    "CONV_A": 0.166667,
+    "CONV_B": 0.333333
+   }
+  },
+  {
+   "tick": 56,
+   "belts": {
+    "CONV_A": 0.2,
+    "CONV_B": 0.4
+   }
+  },
+  {
+   "tick": 57,
+   "belts": {
+    "CONV_A": 0.233333,
+    "CONV_B": 0.466667
+   }
+  },
+  {
+   "tick": 58,
+   "belts": {
+    "CONV_A": 0.266667,
+    "CONV_B": 0.533333
+   }
+  },
+  {
+   "tick": 59,
+   "belts": {
+    "CONV_A": 0.3,
+    "CONV_B": 0.6
+   }
+  },
+  {
+   "tick": 60,
+   "belts": {
+    "CONV_A": 0.333333,
+    "CONV_B": 0.666667
+   }
+  },
+  {
+   "tick": 61,
+   "belts": {
+    "CONV_A": 0.366667,
+    "CONV_B": 0.733333
+   }
+  },
+  {
+   "tick": 62,
+   "belts": {
+    "CONV_A": 0.4,
+    "CONV_B": 0.8
+   }
+  },
+  {
+   "tick": 63,
+   "belts": {
+    "CONV_A": 0.433333,
+    "CONV_B": 0.866667
+   }
+  },
+  {
+   "tick": 64,
+   "belts": {
+    "CONV_A": 0.466667,
+    "CONV_B": 0.933333
+   }
+  },
+  {
+   "tick": 65,
+   "belts": {
+    "CONV_A": 0.5,
+    "CONV_B": 1.0
+   }
+  },
+  {
+   "tick": 183,
+   "remove": [
+    "P000001"
+   ]
+  },
+  {
+   "tick": 213,
+   "remove": [
+    "P000002"
+   ]
+  },
+  {
+   "tick": 243,
+   "remove": [
+    "P000003"
+   ]
+  },
+  {
+   "tick": 273,
+   "remove": [
+    "P000004"
+   ]
+  },
+  {
+   "tick": 303,
+   "remove": [
+    "P000005"
+   ]
+  }
+ ],
+ "edges": {
+  "PE_B": [
+   [
+    135,
+    true
+   ],
+   [
+    150,
+    false
+   ],
+   [
+    165,
+    true
+   ],
+   [
+    180,
+    false
+   ],
+   [
+    195,
+    true
+   ],
+   [
+    210,
+    false
+   ],
+   [
+    225,
+    true
+   ],
+   [
+    240,
+    false
+   ],
+   [
+    255,
+    true
+   ],
+   [
+    270,
+    false
+   ]
+  ]
+ },
+ "checkpoints": {
+  "P000001": {
+   "3": 74,
+   "3.5": 107,
+   "4": 132,
+   "4.5": 157
+  },
+  "P000002": {
+   "3": 104,
+   "3.5": 137,
+   "4": 162,
+   "4.5": 187
+  },
+  "P000003": {
+   "3": 134,
+   "3.5": 167,
+   "4": 192,
+   "4.5": 217
+  },
+  "P000004": {
+   "3": 164,
+   "3.5": 197,
+   "4": 222,
+   "4.5": 247
+  },
+  "P000005": {
+   "3": 194,
+   "3.5": 227,
+   "4": 252,
+   "4.5": 277
+  }
+ }
+}

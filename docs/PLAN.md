@@ -299,7 +299,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `belt_conveyor` | run, speed (opt) | running | Moves parts on its top surface at `speed_mps × speed%` when run. Ramp 0.3 s. | 1 |
 | `photo_eye` | — | detect | True while any part intersects the beam segment. 20 ms debounce. | 1 |
 | `pusher` | extend | extended, retracted | Linear actuator; moves parts it contacts. Both limits false mid-stroke. | 1 |
-| `box_emitter` | enable | — | Spawns a part every `interval_s ± jitter` while enabled. Max parts in scene = 200. | 1 |
+| `box_emitter` | enable | — | Spawns a part every `interval_s ± jitter` while enabled, once its spawn volume is clear. Max parts in scene = 200. | 1 |
 | `part_remover` | — | — | Deletes parts entering its volume. Counts by part name for scene stats. | 1 |
 | `pushbutton` | — | pressed | Viewer click sets true for 300 ms (momentary) or toggles (maintained). | 1 |
 | `pilot_light` | on | — | Viewer visual only. | 1 |
@@ -338,8 +338,10 @@ choices that go beyond the table above:
   part's back face rides on the plate face (one tick behind the plate, swept, never pulled back); a
   part pushed past a belt edge falls onto whatever is below.
 - **`box_emitter`**: origin is the spawn point (part center). Spawns at once on enable, then every
-  `interval_s ± jitter_s`; unbound `enable` means always enabled; disabling resets the timer; spawns
-  over the 200-part cap are skipped and counted.
+  `interval_s ± jitter_s`; unbound `enable` means always enabled; disabling resets the timer; a due
+  part waits (held, counted in `waiting_ticks`) until its spawn volume is clear of other parts, and
+  the next interval starts from that spawn (PLAN 2.0); spawns over the 200-part cap are skipped and
+  counted.
 - **`part_remover`**: origin is the center of its volume. Removes a part when the part's *center* is
   inside the (rotatable) volume, and counts removals by part name.
 - **`pushbutton`**, **`selector_switch`**: origin is the center of the button or switch face. Viewer actions are queued and
@@ -606,7 +608,7 @@ runs the sorting program against it; a box visibly gets pushed.
       body starts with it. Live, 30 s: 1405 browser steps for 1405 core ticks, 0 dropped, worst
       |Δ| 2 ticks; 60 s: 2937 for 2937, 0 dropped, worst |Δ| 1, median 0.5.
       Capture: `docs/media/sorting-by-height-openplc.webm` (poster `.png`).
-- [ ] 2.0 Headless part-to-part queueing along the flow axis in `core/kinematics.py`: a carried part
+- [x] 2.0 Headless part-to-part queueing along the flow axis in `core/kinematics.py`: a carried part
       stops at the back face of the part ahead of it on the same belt (and across a connection
       handoff) instead of overlapping it, so parts accumulate behind a stopped belt or a raised
       stopper and release in order. Parity with Rapier's box-on-box contacts as for 1.12.
@@ -615,6 +617,25 @@ runs the sorting program against it; a box visibly gets pushed.
       Required before the `buffer-and-release` scene (2.7) and the `stopper` component (2.5).
       *Done when:* five parts sent onto a stopped belt queue nose to tail with gaps ≥ 0 m, a photo
       eye at the queue sees each gap when the belt restarts, and the parity test covers a queue.
+      *Note (2026-10-26):* `core/kinematics.py` moves leaders first and stops each carried part at
+      the back face of the part ahead (same belt, or across a connection), lateral and height
+      overlap required. `box_emitter` now waits for a clear spawn volume, holding the part it
+      already drew (the RNG sequence is unchanged), and the 1.14 chattering-enable stack is gone.
+      While a part straddles a connection seam it now rests on both belts by overlap share
+      (Coulomb friction from each); this was needed for the queue's release onto a faster belt to
+      match Rapier (worst 8 ticks before, 2 after). Headless (`tests/unit/test_queueing.py`): five
+      boxes from a running 0.5 m/s belt into a stopped 1.0 m/s belt queue with gaps
+      [0, 0, 0, 0] m (leader on the stopped belt's infeed); on restart PE_B sees five separate
+      blocks and parts leave first in, first out. Parity (`parity-queue`, scene
+      `tests/scenes/queue-parity.yaml`): five boxes *placed* nose to tail on a stopped belt,
+      both belts started at tick 50, 30 comparisons, worst |Δ| 2 ticks (tolerance 2). The sorter
+      traces are byte-identical. **Known difference, accumulation phase:** in Rapier a queue on a
+      running belt presses on the part it waits behind and a stopped belt brakes a part as soon as
+      its nose overhangs. Measured: with one or two followers the lead follower stops with its
+      nose 4 mm onto the stopped belt and never touches the box there; with four followers the
+      line pressure shoves that box 0.26 m along the stopped belt. The headless model has neither
+      effect, which is why parity covers a placed queue's release, not accumulation against a
+      stopped belt. A raised `stopper` (2.5) gives both models the same hard stop.
 - [ ] 2.1 Research spike: Logix Emulate connectivity, options (a)–(d) in §2.4. Write
       `docs/research/logix-emulate.md` and ADR-0002.
 - [ ] 2.2 `protocols/logix.py` with pycomm3, batched read/write, heartbeat, reconnect with backoff

@@ -18,6 +18,18 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   chain therefore hands off with no jump in position, and a connection bridges any gap, step, or
   turn like a transfer plate. A part whose center ends up off either end or beyond either belt edge
   (local |z| > width / 2) also starts to fall.
+  While a part straddles a connection seam it rests on both belts in proportion to its overlap,
+  and each belt pulls it toward that belt's speed with up to its share of μ·g (Coulomb friction;
+  a belt already at the part's speed holds it statically up to its share). So a part crossing onto
+  a faster belt speeds up only as more of it rests there, as in Rapier, instead of jumping to the
+  full μ·g ramp when its center crosses. On a single belt this is exactly the ramp above.
+- **Queued (PLAN 2.0):** a carried part never moves into the part ahead of it. Each step, leaders
+  move before followers (downstream belts first, then the part furthest along each belt), and a
+  part's advance is limited so its front face stops at the back face of the nearest carried part
+  ahead that overlaps it across the flow (local z) and in height, on its own belt or, past its
+  discharge end, on the belt it feeds. A blocked part's speed becomes the advance it actually
+  made, so it re-accelerates from there when the way clears. Parts therefore accumulate nose to
+  tail behind a stopped belt and release in order; side-by-side parts do not block each other.
 - **Falling:** gravity (9.81 m/s², semi-implicit Euler). A falling part lands on the highest
   conveyor whose belt top it crosses during the step and whose footprint (0 ≤ local x ≤ length,
   |local z| ≤ width / 2) holds the part's center. Landing is an impact: the normal impulse that
@@ -43,9 +55,13 @@ plate travel the pushers made, on the previous tick.
 
 Limits (deliberate, for a deterministic CI model): slip is modeled only as the μ·g acceleration cap
 plus the μ·|vy| grab on landing (no tipping, no bounce, no soft-contact spreading of the impact as
-in Rapier), no part-to-part collisions (parts overlap on a stopped belt; PLAN task 2.0), part boxes
-keep their world-axis orientation through turns, falling parts drop straight down, and a pusher only
-pushes along its own axis: a part conveyed sideways into an extended plate passes through it.
+in Rapier), part-to-part contact only along the flow axis (no stacking, no sideways shoving, no line
+pressure: a queue on a running belt never pushes the part it waits behind, and a part reaching a
+stopped downstream belt crosses until its center is on it, whereas in Rapier the queue's pressure
+can shove the leader and the stopped belt's friction brakes a part as soon as its nose overhangs;
+PLAN 2.0 note), part boxes keep their world-axis orientation through turns, falling parts drop
+straight down, and a pusher only pushes along its own axis: a part conveyed sideways into an
+extended plate passes through it.
 """
 
 from __future__ import annotations
@@ -84,11 +100,23 @@ class KinematicModel:
             c.id: c for c in components if c.type in CARRIER_TYPES
         }
         self.downstream: dict[str, str] = {c.from_: c.to for c in connections}
+        #: Belts from the end of a chain: 0 feeds nothing, 1 feeds a 0, ... (loops capped).
+        self._rank: dict[str, int] = {c: self._chain_rank(c) for c in self.carriers}
         tops = [self._top(c) for c in self.carriers.values()]
         self.lost_below = (min(tops) if tops else 0.0) - FALL_LIMIT_M
         self.pushers: list[Component] = [c for c in components if c.type == "pusher"]
         #: Plate position (m out from retracted) each pusher had when parts were last pushed.
         self._plate_seen: dict[str, float] = {c.id: self._plate(c) for c in self.pushers}
+
+    def _chain_rank(self, carrier_id: str) -> int:
+        rank, seen = 0, {carrier_id}
+        while carrier_id in self.downstream:
+            carrier_id = self.downstream[carrier_id]
+            if carrier_id in seen:  # recirculation loop: no true end, keep scene order
+                break
+            seen.add(carrier_id)
+            rank += 1
+        return rank
 
     # -- geometry helpers ------------------------------------------------------------------------
 
@@ -119,20 +147,32 @@ class KinematicModel:
     def step(self, dt: float) -> None:
         for pusher in self.pushers:
             self._push(pusher)
-        for part in list(self.world.parts.values()):
-            if part.carrier is not None:
-                self._convey(part, dt)
-            else:
-                self._fall(part, dt)
+        parts = list(self.world.parts.values())
+        falling = [p for p in parts if p.carrier is None]  # a part leaving a belt falls next tick
+        # Leaders move before the parts behind them (PLAN 2.0): downstream belts first, then
+        # the part furthest along each belt, so a follower is limited by where its leader is now.
+        carried = sorted(
+            (p for p in parts if p.carrier is not None),
+            key=lambda p: (
+                self._rank[p.carrier],
+                -self._local(self.carriers[p.carrier], p.position)[0],
+            ),  # type: ignore[index]
+        )
+        for part in carried:
+            self._convey(part, dt)
+        for part in falling:
+            self._fall(part, dt)
 
     def _convey(self, part: Part, dt: float) -> None:
         carrier = self.carriers[part.carrier]  # type: ignore[index]
         cfg = carrier.config
         x, _, z = self._local(carrier, part.position)
-        target = carrier.surface_speed  # type: ignore[attr-defined]
-        max_dv = self.max_accel * dt
-        dv = target - part.v_flow
-        part.v_flow = target if abs(dv) <= max_dv else part.v_flow + math.copysign(max_dv, dv)
+        part.v_flow = self._friction_speed(part.v_flow, self._supports(part, carrier, x), dt)
+        if part.v_flow > 0:
+            room = self._room_ahead(part, carrier, x, z)
+            if x + part.v_flow * dt > room:  # queued: stop at the back face of the part ahead
+                advance = max(0.0, room - x)
+                part.v_flow = advance / dt
         x += part.v_flow * dt
         rest_y = part.size[1] / 2  # part center height above the belt top
         if x > cfg.length + _EPS and carrier.id in self.downstream:
@@ -147,6 +187,73 @@ class KinematicModel:
             part.carrier = None  # off the end or the side: falls from here
             part.vy = 0.0
             part.v_flow = 0.0
+
+    def _supports(self, part: Part, carrier: Component, x: float) -> list[tuple[float, float]]:
+        """``(belt speed, share of the part's footprint)`` for each belt under the part. A part
+        straddling a connection seam rests on both belts, in proportion to its overlap."""
+        own = carrier.surface_speed  # type: ignore[attr-defined]
+        half, _ = self._extent(part, carrier)
+        length = carrier.config.length
+        if carrier.id in self.downstream and x + half > length:  # nose onto the next belt
+            share = min(1.0, (x + half - length) / (2 * half))
+            nxt = self.carriers[self.downstream[carrier.id]]
+            return [(own, 1.0 - share), (nxt.surface_speed, share)]  # type: ignore[attr-defined]
+        if x - half < 0:  # tail still on a belt feeding this one
+            feeders = [self.carriers[u] for u, d in self.downstream.items() if d == carrier.id]
+            if feeders:
+                share = min(1.0, (half - x) / (2 * half))
+                return [(own, 1.0 - share), (feeders[0].surface_speed, share)]  # type: ignore[attr-defined]
+        return [(own, 1.0)]
+
+    def _friction_speed(self, v: float, supports: list[tuple[float, float]], dt: float) -> float:
+        """New along-belt speed under Coulomb friction from each supporting belt.
+
+        Each belt pulls toward its own speed with up to share × μ·g. A belt already moving at the
+        part's speed holds it with static friction, up to its share, against the others. The speed
+        never passes a belt speed within one step (it stops there and static friction decides the
+        next step). On one belt this is the plain μ·g ramp toward that belt's speed.
+        """
+        a, held = 0.0, 0.0
+        for speed, share in supports:
+            if abs(speed - v) <= _EPS:
+                held += share * self.max_accel
+            else:
+                a += math.copysign(share * self.max_accel, speed - v)
+        if abs(a) <= held + _EPS:
+            return v
+        a -= math.copysign(held, a)
+        new = v + a * dt
+        crossed = [sp for sp, _ in supports if min(v, new) - _EPS <= sp <= max(v, new) + _EPS]
+        return min(crossed, key=lambda sp: abs(sp - v)) if crossed else new
+
+    def _extent(self, part: Part, carrier: Component) -> tuple[float, float]:
+        """Half-extents of a part's world-axis box along a carrier's flow (x) and across it (z)."""
+        r = math.radians(carrier.config.rotation_deg)
+        c, s = abs(math.cos(r)), abs(math.sin(r))
+        sx, _, sz = part.size
+        return (c * sx + s * sz) / 2, (s * sx + c * sz) / 2
+
+    def _room_ahead(self, part: Part, carrier: Component, x: float, z: float) -> float:
+        """Largest local x the part's center may reach this step without overlapping a carried
+        part ahead of it, on its own belt or on the belt it feeds (mapped past this belt's end)."""
+        half_x, half_z = self._extent(part, carrier)
+        room = math.inf
+        frames = [(carrier, 0.0)]
+        if carrier.id in self.downstream:
+            frames.append((self.carriers[self.downstream[carrier.id]], carrier.config.length))
+        for belt, offset in frames:
+            for other in self.world.parts.values():
+                if other is part or other.carrier != belt.id:
+                    continue
+                if abs(other.position[1] - part.position[1]) >= (other.size[1] + part.size[1]) / 2:
+                    continue  # above or below: no contact
+                ox, _, oz = self._local(belt, other.position)
+                ox += offset
+                o_half_x, o_half_z = self._extent(other, belt)
+                if ox <= x or abs(oz - z) >= half_z + o_half_z - _EPS:
+                    continue  # behind, or beside on the same or the next belt
+                room = min(room, ox - o_half_x - half_x)
+        return room
 
     def _push(self, pusher: Component) -> None:
         """Displace parts ahead of the plate by the plate's advance since the last step."""

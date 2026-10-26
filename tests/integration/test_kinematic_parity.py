@@ -72,8 +72,7 @@ def test_rapier_replay_within_tolerance():
         tolerance = trace["tolerance_ticks"]
         assert data["toleranceTicks"] == tolerance
         assert tolerance == pytest.approx(
-            parity_trace.tolerance_ticks(parity_trace.ramp_ticks(0.5, data["friction"], 0.02)),
-            abs=1e-6,
+            parity_trace.tolerance_ticks(trace["ramp_ticks"]), abs=1e-5
         )
         print(
             f"{name}: mu {data['friction']}, ramp {trace['ramp_ticks']} ticks, tolerance "

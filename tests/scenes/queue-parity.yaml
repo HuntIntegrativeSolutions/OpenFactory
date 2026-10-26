@@ -1,0 +1,79 @@
+# PLAN 2.0 parity fixture (tests only, not a shipped scene). Five boxes are placed nose to tail
+# (2 mm apart) on stopped belt CONV_A; tools/parity_trace.py starts CONV_A and the faster CONV_B
+# at tick 50 and records how the queue releases across the CONV_A -> CONV_B connection. The queue
+# is placed, not accumulated by a running feeder, because accumulation against a stopped belt
+# involves line pressure and seam braking that the headless model does not model (PLAN 2.0 note).
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: queue-parity
+  description: Five queued boxes released from an accumulation belt onto a faster metering belt.
+  seed: 1
+components:
+  - id: CONV_A
+    type: belt_conveyor
+    description: Accumulation Belt Conveyor
+    position: [0, 0, 0]
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_A_RUN_DO
+  - id: CONV_B
+    type: belt_conveyor
+    description: Metering Belt Conveyor
+    position: [3.0, 0, 0]
+    length: 2.0
+    width: 0.5
+    speed_mps: 1.0
+    io:
+      run: CONV_B_RUN_DO
+  - id: PE_B
+    type: photo_eye
+    description: Metering Belt Gap Photo Eye
+    position: [4.2, 0.1, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_B_DI
+  - id: EMT_01
+    type: box_emitter
+    description: Queue Box 1 Placement
+    position: [2.84, 0.105, 0]     # 5 mm above the belt: lands on the first step
+    interval_s: 1000.0            # one box per emitter
+    parts:
+      - {name: q1, size: [0.3, 0.2, 0.3], weight: 1.0}
+  - id: EMT_02
+    type: box_emitter
+    description: Queue Box 2 Placement
+    position: [2.538, 0.105, 0]     # 5 mm above the belt: lands on the first step
+    interval_s: 1000.0            # one box per emitter
+    parts:
+      - {name: q2, size: [0.3, 0.2, 0.3], weight: 1.0}
+  - id: EMT_03
+    type: box_emitter
+    description: Queue Box 3 Placement
+    position: [2.236, 0.105, 0]     # 5 mm above the belt: lands on the first step
+    interval_s: 1000.0            # one box per emitter
+    parts:
+      - {name: q3, size: [0.3, 0.2, 0.3], weight: 1.0}
+  - id: EMT_04
+    type: box_emitter
+    description: Queue Box 4 Placement
+    position: [1.934, 0.105, 0]     # 5 mm above the belt: lands on the first step
+    interval_s: 1000.0            # one box per emitter
+    parts:
+      - {name: q4, size: [0.3, 0.2, 0.3], weight: 1.0}
+  - id: EMT_05
+    type: box_emitter
+    description: Queue Box 5 Placement
+    position: [1.632, 0.105, 0]     # 5 mm above the belt: lands on the first step
+    interval_s: 1000.0            # one box per emitter
+    parts:
+      - {name: q5, size: [0.3, 0.2, 0.3], weight: 1.0}
+  - id: REM_B
+    type: part_remover
+    description: Metering Belt Discharge Part Remover
+    position: [5.15, 0, 0]
+    size: [0.3, 1.0, 1.0]
+connections:
+  - {from: CONV_A, to: CONV_B}
