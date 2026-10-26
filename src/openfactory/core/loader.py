@@ -6,7 +6,8 @@ Behavior spec
 
 1. creates one :class:`~openfactory.core.iotable.Tag` per bound port, in scene order, with the kind
    from the tag suffix, the analog range and units from the port declaration, the owning component
-   id, and a description of the form ``"<component description> — <port description>"``;
+   id, a description of the form ``"<component description> — <port description>"``, and the
+   binding's ``initial`` value when it has one (DO/AO only; the PLC's first write replaces it);
 2. creates the :class:`~openfactory.core.world.World` with the scene seed;
 3. resolves each component's ``type`` string through the registry and instantiates it.
 
@@ -84,6 +85,7 @@ def build_iotable(scene: Scene) -> IOTable:
                 owner=binding.component_id,
                 range=binding.port.range,
                 units=binding.port.units,
+                value=binding.initial if binding.initial is not None else 0,
             )
         )
     return table

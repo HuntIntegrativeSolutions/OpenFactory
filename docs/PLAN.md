@@ -188,7 +188,7 @@ components:
     speed_mps: 0.5               # used when speed AO absent
     io:
       run: CONV_01_RUN_DO
-      speed: CONV_01_SPD_AO      # optional; 0-100 %
+      speed: {tag: CONV_01_SPD_AO, initial: 100}  # optional; 0-100 %, 100 until the PLC writes
       running: CONV_01_RUN_DI    # feedback
   - id: PE_01
     type: photo_eye
@@ -230,6 +230,14 @@ connections:                     # optional; which conveyor feeds which
 Rules:
 - Tag names are globally unique, match `^[A-Z][A-Z0-9_]{0,39}$`, end in `_DI|_DO|_AI|_AO`.
 - Unbound optional `io` keys are allowed; the component uses its default.
+- A binding is a tag name or a mapping `{tag: NAME, address: N, initial: V}`; both keys are
+  optional. `address` pins the tag's Modbus address (§6.1, ADR-0004). `initial`, on DO and AO tags
+  only, seeds the I/O table at startup before any PLC write: `true`/`false` for a DO, an
+  engineering value inside the port's range for an AO (a value outside it fails at load). The
+  PLC's first write replaces it, and `openfactory run --force TAG=VALUE` overrides it. Without
+  `initial` a DO starts false and an AO starts at 0, so a belt whose speed AO is bound but not yet
+  written stands still even with its run coil on; the shipped sorter sets `initial: 100` on both
+  belts' speed AOs for that reason.
 - `position` is the component's local origin, documented per type in §5.
 - The loader rejects unknown keys (pydantic `extra="forbid"`) so typos surface immediately.
 - `connections` (optional) lists conveyor handoffs: parts leaving `from`'s discharge end land on
@@ -474,7 +482,8 @@ runs the sorting program against it; a box visibly gets pushed.
       fallback for unknown types); id labels via `CSS2DRenderer`; clicking a pushbutton or selector
       sends `press` / `select` on `/ws/events`. Parts are drawn at the core's kinematic positions
       (eased between 20 Hz frames) until 1.12 gives them Rapier bodies. A bound but unwritten speed
-      AO reads 0 %, so a demo needs `--force CONV_01_SPD_AO=100` as well as the run coil.
+      AO reads 0 %; since housekeeping 2 (2026-10-25) the sorter's speed bindings carry
+      `initial: 100`, so a demo needs only the run coil.
 - [x] 1.12 Viewer physics: Rapier world, parts as dynamic boxes, conveyor top as
       `kinematicVelocityBased` body with `setLinvel` **and `setTranslation(home)` reset every step**
       (otherwise the belt drifts; contact surface velocity is Rust-only), pusher as

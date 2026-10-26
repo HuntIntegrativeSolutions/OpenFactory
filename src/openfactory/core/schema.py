@@ -13,7 +13,10 @@ direction: inputs from the PLC are DO/AO, outputs to the PLC are DI/AI. Analog p
 engineering range here (for example belt speed 0–100 %), which ``int16_scaled`` encoding needs
 (ADR-0003). Port metadata lives in each field's ``json_schema_extra`` under ``x-io-kind``,
 ``x-range``, and ``x-units`` so the exported JSON Schema carries it too. A binding is either the tag
-name or ``{tag: NAME, address: N}``, which pins the tag's Modbus address (ADR-0004).
+name or a mapping ``{tag: NAME, address: N, initial: V}`` with both keys optional: ``address`` pins
+the tag's Modbus address (ADR-0004), and ``initial`` (DO and AO tags only) seeds the I/O table at
+startup, before any PLC write, as a bool for a DO or an engineering value inside the port's range
+for an AO. The PLC's first write replaces it; ``openfactory run --force`` overrides it.
 
 Not a safety-rated simulation. OpenFactory is a training and demo tool.
 """
@@ -61,49 +64,65 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class PinnedTag(StrictModel):
-    """A binding that pins its tag's Modbus address instead of letting allocation choose (ADR-0004).
+class TagSpec(StrictModel):
+    """A binding written as a mapping, ``{tag: CONV_01_RUN_DO, address: 12}``.
 
-    Written ``{tag: CONV_01_RUN_DO, address: 12}``. The address is zero-based in the tag's table
-    (coils for DO, discrete inputs for DI, holding registers for AO, input registers for AI); for a
-    float32 analog tag it is the first of the two registers.
+    ``address`` pins the tag's Modbus address instead of letting allocation choose (ADR-0004). It
+    is zero-based in the tag's table (coils for DO, discrete inputs for DI, holding registers for
+    AO, input registers for AI); for a float32 analog tag it is the first of the two registers.
+    DO and AO specs also take ``initial`` (see :class:`DoTagSpec`, :class:`AoTagSpec`).
     """
 
     tag: str
-    address: int = Field(ge=0, le=65535, description="Zero-based Modbus address (ADR-0004).")
+    address: int | None = Field(
+        None, ge=0, le=65535, description="Pinned zero-based Modbus address (ADR-0004)."
+    )
 
 
-class PinnedDiTag(PinnedTag):
+class DiTagSpec(TagSpec):
     tag: _tag_name("DI")  # type: ignore[valid-type]
 
 
-class PinnedDoTag(PinnedTag):
+class DoTagSpec(TagSpec):
     tag: _tag_name("DO")  # type: ignore[valid-type]
+    initial: bool | None = Field(
+        None, description="Value at startup, before any PLC write (default false)."
+    )
 
 
-class PinnedAiTag(PinnedTag):
+class AiTagSpec(TagSpec):
     tag: _tag_name("AI")  # type: ignore[valid-type]
 
 
-class PinnedAoTag(PinnedTag):
+class AoTagSpec(TagSpec):
     tag: _tag_name("AO")  # type: ignore[valid-type]
+    initial: float | None = Field(
+        None,
+        description="Engineering value at startup, before any PLC write (default 0); must be "
+        "inside the port's range.",
+    )
 
 
-#: A port binding: a tag name, or a tag with a pinned Modbus address.
-DiTag = _tag_name("DI") | PinnedDiTag
-DoTag = _tag_name("DO") | PinnedDoTag
-AiTag = _tag_name("AI") | PinnedAiTag
-AoTag = _tag_name("AO") | PinnedAoTag
+#: A port binding: a tag name, or a mapping with the tag and its options.
+DiTag = _tag_name("DI") | DiTagSpec
+DoTag = _tag_name("DO") | DoTagSpec
+AiTag = _tag_name("AI") | AiTagSpec
+AoTag = _tag_name("AO") | AoTagSpec
 
 
-def binding_tag(value: str | PinnedTag) -> str:
-    """The tag name of a port binding, plain or pinned."""
-    return value.tag if isinstance(value, PinnedTag) else value
+def binding_tag(value: str | TagSpec) -> str:
+    """The tag name of a port binding, plain or mapping."""
+    return value.tag if isinstance(value, TagSpec) else value
 
 
-def binding_address(value: str | PinnedTag) -> int | None:
+def binding_address(value: str | TagSpec) -> int | None:
     """The pinned Modbus address of a port binding, or None when allocation chooses."""
-    return value.address if isinstance(value, PinnedTag) else None
+    return value.address if isinstance(value, TagSpec) else None
+
+
+def binding_initial(value: str | TagSpec) -> bool | float | None:
+    """The startup value of a DO/AO port binding, or None for the kind's default."""
+    return getattr(value, "initial", None)
 
 
 ComponentId = Annotated[
@@ -416,6 +435,8 @@ class TagBinding:
     port: PortSpec
     #: Pinned Modbus address (ADR-0004), or None when allocation chooses.
     address: int | None = None
+    #: Startup value for a DO/AO tag, or None for False / 0.
+    initial: bool | float | None = None
 
     @property
     def description(self) -> str:
@@ -476,6 +497,16 @@ class Scene(StrictModel):
                     "tag names are globally unique"
                 )
             owners[binding.name] = where
+            rng = binding.port.range
+            if (
+                isinstance(binding.initial, float)
+                and rng
+                and not rng[0] <= binding.initial <= rng[1]
+            ):
+                raise ValueError(
+                    f"{where}: initial {binding.initial:g} for {binding.name} is outside the "
+                    f"port's range {rng[0]:g} to {rng[1]:g} {binding.port.units or ''}".rstrip()
+                )
         return self
 
     def tag_bindings(self) -> list[TagBinding]:
@@ -488,7 +519,12 @@ class Scene(StrictModel):
                 if value is not None:
                     out.append(
                         TagBinding(
-                            binding_tag(value), spec.kind, comp.id, spec, binding_address(value)
+                            binding_tag(value),
+                            spec.kind,
+                            comp.id,
+                            spec,
+                            binding_address(value),
+                            binding_initial(value),
                         )
                     )
         return out

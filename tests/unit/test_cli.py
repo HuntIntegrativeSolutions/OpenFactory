@@ -49,7 +49,7 @@ def test_help_lists_run_validate_export():
 def test_validate_ok_and_bad_scene_exit_codes(tmp_path):
     ok = runner.invoke(app, ["validate", str(EXAMPLE)])
     assert ok.exit_code == 0, ok.output
-    assert "OK   " in ok.output and "7 components, 10 tags, Modbus float32" in ok.output
+    assert "OK   " in ok.output and "7 components, 11 tags, Modbus float32" in ok.output
     bad = tmp_path / "bad.yaml"
     bad.write_text(EXAMPLE.read_text(encoding="utf-8").replace("length: 4.0", "lenght: 4.0"))
     result = runner.invoke(app, ["validate", str(EXAMPLE), str(bad)])

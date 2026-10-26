@@ -1,5 +1,49 @@
 {
   "$defs": {
+    "AoTagSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*_AO$",
+          "title": "Tag",
+          "type": "string"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned zero-based Modbus address (ADR-0004).",
+          "title": "Address"
+        },
+        "initial": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Engineering value at startup, before any PLC write (default 0); must be inside the port's range.",
+          "title": "Initial"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "title": "AoTagSpec",
+      "type": "object"
+    },
     "BeltConveyor": {
       "additionalProperties": false,
       "description": "Origin: center of the infeed end, at belt top-surface height. Flow is local +x.",
@@ -88,7 +132,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDoTag"
+              "$ref": "#/$defs/DoTagSpec"
             }
           ],
           "description": "Run command",
@@ -103,7 +147,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedAoTag"
+              "$ref": "#/$defs/AoTagSpec"
             },
             {
               "type": "null"
@@ -127,7 +171,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDiTag"
+              "$ref": "#/$defs/DiTagSpec"
             },
             {
               "type": "null"
@@ -238,7 +282,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDoTag"
+              "$ref": "#/$defs/DoTagSpec"
             },
             {
               "type": "null"
@@ -277,6 +321,81 @@
         "to"
       ],
       "title": "Connection",
+      "type": "object"
+    },
+    "DiTagSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+          "title": "Tag",
+          "type": "string"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned zero-based Modbus address (ADR-0004).",
+          "title": "Address"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "title": "DiTagSpec",
+      "type": "object"
+    },
+    "DoTagSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "tag": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+          "title": "Tag",
+          "type": "string"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned zero-based Modbus address (ADR-0004).",
+          "title": "Address"
+        },
+        "initial": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Value at startup, before any PLC write (default false).",
+          "title": "Initial"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "title": "DoTagSpec",
       "type": "object"
     },
     "NoIO": {
@@ -485,7 +604,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDiTag"
+              "$ref": "#/$defs/DiTagSpec"
             }
           ],
           "description": "Part detected",
@@ -579,7 +698,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDoTag"
+              "$ref": "#/$defs/DoTagSpec"
             }
           ],
           "description": "Light on command",
@@ -591,78 +710,6 @@
         "on"
       ],
       "title": "PilotLightIO",
-      "type": "object"
-    },
-    "PinnedAoTag": {
-      "additionalProperties": false,
-      "properties": {
-        "tag": {
-          "maxLength": 40,
-          "pattern": "^[A-Z][A-Z0-9_]*_AO$",
-          "title": "Tag",
-          "type": "string"
-        },
-        "address": {
-          "description": "Zero-based Modbus address (ADR-0004).",
-          "maximum": 65535,
-          "minimum": 0,
-          "title": "Address",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "tag",
-        "address"
-      ],
-      "title": "PinnedAoTag",
-      "type": "object"
-    },
-    "PinnedDiTag": {
-      "additionalProperties": false,
-      "properties": {
-        "tag": {
-          "maxLength": 40,
-          "pattern": "^[A-Z][A-Z0-9_]*_DI$",
-          "title": "Tag",
-          "type": "string"
-        },
-        "address": {
-          "description": "Zero-based Modbus address (ADR-0004).",
-          "maximum": 65535,
-          "minimum": 0,
-          "title": "Address",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "tag",
-        "address"
-      ],
-      "title": "PinnedDiTag",
-      "type": "object"
-    },
-    "PinnedDoTag": {
-      "additionalProperties": false,
-      "properties": {
-        "tag": {
-          "maxLength": 40,
-          "pattern": "^[A-Z][A-Z0-9_]*_DO$",
-          "title": "Tag",
-          "type": "string"
-        },
-        "address": {
-          "description": "Zero-based Modbus address (ADR-0004).",
-          "maximum": 65535,
-          "minimum": 0,
-          "title": "Address",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "tag",
-        "address"
-      ],
-      "title": "PinnedDoTag",
       "type": "object"
     },
     "PlcConfig": {
@@ -833,7 +880,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDiTag"
+              "$ref": "#/$defs/DiTagSpec"
             }
           ],
           "description": "Pushbutton pressed",
@@ -942,7 +989,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDoTag"
+              "$ref": "#/$defs/DoTagSpec"
             }
           ],
           "description": "Extend command",
@@ -957,7 +1004,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDiTag"
+              "$ref": "#/$defs/DiTagSpec"
             },
             {
               "type": "null"
@@ -976,7 +1023,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDiTag"
+              "$ref": "#/$defs/DiTagSpec"
             },
             {
               "type": "null"
@@ -1135,7 +1182,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDiTag"
+              "$ref": "#/$defs/DiTagSpec"
             }
           ],
           "description": "Selector in position A",
@@ -1150,7 +1197,7 @@
               "type": "string"
             },
             {
-              "$ref": "#/$defs/PinnedDiTag"
+              "$ref": "#/$defs/DiTagSpec"
             },
             {
               "type": "null"

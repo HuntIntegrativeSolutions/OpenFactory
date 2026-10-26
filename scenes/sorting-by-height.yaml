@@ -23,7 +23,7 @@ components:
     speed_mps: 0.5               # surface speed at 100 % speed command
     io:
       run: CONV_01_RUN_DO
-      speed: CONV_01_SPD_AO      # optional; 0-100 %
+      speed: {tag: CONV_01_SPD_AO, initial: 100}  # optional; 0-100 %, 100 until the PLC writes
       running: CONV_01_RUN_DI    # feedback
   - id: PE_01
     type: photo_eye
@@ -66,6 +66,7 @@ components:
     speed_mps: 0.5
     io:
       run: CONV_02_RUN_DO
+      speed: {tag: CONV_02_SPD_AO, initial: 100}
       running: CONV_02_RUN_DI
   - id: REM_02
     type: part_remover

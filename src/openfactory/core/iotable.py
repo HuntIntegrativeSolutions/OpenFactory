@@ -82,12 +82,13 @@ class Tag:
         owner: str = "",
         range: tuple[float, float] | None = None,  # noqa: A002
         units: str | None = None,
+        value: Value = 0,
     ) -> Tag:
-        """Create a tag with the kind's default dtype and a zero/False initial value."""
+        """Create a tag with the kind's default dtype, starting at ``value`` (zero/False)."""
         if kind not in WRITER_FOR_KIND:
             raise ValueError(f"{name}: unknown kind {kind!r}")
         dt = dtype or DEFAULT_DTYPE[kind]
-        return cls(name, kind, dt, _coerce(name, dt, 0), description, owner, range, units)
+        return cls(name, kind, dt, _coerce(name, dt, value), description, owner, range, units)
 
 
 #: Callback signature: (tag name, old value, new value, writer).

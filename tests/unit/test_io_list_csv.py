@@ -40,7 +40,7 @@ def scene():
 def test_header_and_row_count(scene):
     header, rows = parse(io_list_csv(scene))
     assert tuple(header) == COLUMNS
-    assert len(rows) == len(scene.tag_bindings()) == 10
+    assert len(rows) == len(scene.tag_bindings()) == 11
 
 
 def test_passes_io_validate_checks(scene):

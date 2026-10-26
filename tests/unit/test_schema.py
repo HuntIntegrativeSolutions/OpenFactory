@@ -58,6 +58,7 @@ def test_example_tag_bindings_and_kinds():
         "CYL_01_RET_DI",
         "EMT_01_EN_DO",
         "CONV_02_RUN_DO",
+        "CONV_02_SPD_AO",
         "CONV_02_RUN_DI",
     }
     speed = bindings["CONV_01_SPD_AO"]
@@ -65,6 +66,8 @@ def test_example_tag_bindings_and_kinds():
     assert speed.port.range == (0.0, 100.0)
     assert speed.port.units == "%"
     assert bindings["PE_01_DI"].component_id == "PE_01"
+    assert speed.initial == 100.0 and bindings["CONV_02_SPD_AO"].initial == 100.0
+    assert bindings["CONV_01_RUN_DO"].initial is None
 
 
 def test_analog_encoding_int16_scaled_accepted(example_data):

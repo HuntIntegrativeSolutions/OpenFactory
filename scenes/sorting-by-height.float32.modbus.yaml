@@ -17,3 +17,4 @@ coils:
 input_registers: {}
 holding_registers:
   CONV_01_SPD_AO: 0
+  CONV_02_SPD_AO: 2

@@ -198,6 +198,13 @@
     "description": "Divert Lane Belt Conveyor — Tall Boxes — Run command"
    },
    {
+    "name": "CONV_02_SPD_AO",
+    "kind": "AO",
+    "dtype": "float32",
+    "owner": "CONV_02",
+    "description": "Divert Lane Belt Conveyor — Tall Boxes — Speed command"
+   },
+   {
     "name": "CONV_02_RUN_DI",
     "kind": "DI",
     "dtype": "bool",
