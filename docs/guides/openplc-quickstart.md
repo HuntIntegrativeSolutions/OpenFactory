@@ -105,7 +105,15 @@ Otherwise the viewer is at <http://127.0.0.1:8000>, and `--bind` exposes it on y
 
 ## 5. Find the address OpenPLC uses to reach the simulator
 
-The container needs an address for the machine running the simulator. Two candidates were tried on
+The container needs an address for the machine running the simulator. With a non-loopback
+`--bind`, `openfactory run` prints the candidates right after the register map:
+
+```
+... Modbus TCP listening on 0.0.0.0:5020
+... reachable from containers or other machines at: 172.18.206.163:5020 (eth0)
+```
+
+Start with the first address listed. Two candidates were tried on
 the test host. Run both checks yourself, because your addresses will differ.
 
 **Check from inside the container.** Leave the simulator running from step 4. This sends one Modbus

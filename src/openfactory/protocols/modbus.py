@@ -50,7 +50,9 @@ for bit reads); bit writes past the allocation are rejected. Tables with no tags
 address 0 only with ILLEGAL ADDRESS.
 
 The server always binds the address it is given; callers resolve it with
-:func:`openfactory.core.config.resolve_endpoint` (default ``127.0.0.1:5020``).
+:func:`openfactory.core.config.resolve_endpoint` (default ``127.0.0.1:5020``). At startup it logs
+the register map and its listen address, then, for a non-loopback bind, the addresses containers
+and other machines can use (:func:`openfactory.core.netinfo.describe_reachable`).
 """
 
 from __future__ import annotations
@@ -72,6 +74,7 @@ from pymodbus.simulator.simutils import SimUtils
 
 from openfactory.core.config import Endpoint
 from openfactory.core.iotable import IOTable, Tag, Writer
+from openfactory.core.netinfo import describe_reachable
 
 if TYPE_CHECKING:
     from openfactory.core.schema import Scene
@@ -530,6 +533,9 @@ class ModbusServer:
         """Bind ``self.endpoint`` and serve until :meth:`shutdown`."""
         log.info("%s", self.map.describe())
         log.info("Modbus TCP listening on %s:%d", self.endpoint.bind, self.endpoint.port)
+        reachable = describe_reachable(self.endpoint.bind, self.endpoint.port)
+        if reachable:
+            log.info("%s", reachable)
         self._server = ModbusTcpServer(
             self.device, address=(self.endpoint.bind, self.endpoint.port)
         )
