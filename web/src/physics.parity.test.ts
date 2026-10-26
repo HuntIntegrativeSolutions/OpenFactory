@@ -1,5 +1,6 @@
 // PLAN 1.12 parity: replay the headless model's inputs (tools/parity_trace.py) through the
-// Rapier plant and require every photo-eye edge and belt checkpoint to agree within 2 ticks.
+// Rapier plant and require every photo-eye edge and belt checkpoint to agree within the trace's
+// tolerance_ticks, max(2 ticks, 25 % of the computed ramp time) (tools/parity_trace.py).
 // tests/integration/test_kinematic_parity.py checks the traces are current, runs this file, and
 // reads the measured deltas from the "PARITY_REPORT {json}" line each trace prints.
 import { describe, expect, it } from "vitest";
@@ -13,6 +14,8 @@ interface Trace {
   dt: number;
   ticks: number;
   friction: number;
+  ramp_ticks: number;
+  tolerance_ticks: number;
   inputs: {
     tick: number;
     belts?: Record<string, number>;
@@ -24,7 +27,6 @@ interface Trace {
   checkpoints: Record<string, Record<string, number>>;
 }
 
-const TOLERANCE_TICKS = 2;
 const TRACES: Record<string, Trace> = {
   "parity-sorter": sorter as unknown as Trace,
   "parity-sorter-mu0.3": sorterMu03 as unknown as Trace,
@@ -61,8 +63,10 @@ async function replay(trace: Trace) {
 }
 
 describe.each(Object.keys(TRACES))("Rapier vs kinematics.py parity (%s)", (name) => {
-  it(`agrees within ${TOLERANCE_TICKS} ticks on every photo-eye edge and belt checkpoint`, async () => {
+  it("agrees within tolerance_ticks on every photo-eye edge and belt checkpoint", async () => {
     const trace = load(name);
+    const tolerance = trace.tolerance_ticks;
+    expect(tolerance).toBeCloseTo(Math.max(2, 0.25 * trace.ramp_ticks), 5); // the formula, not a stale constant
     const got = await replay(trace);
     const rows: { what: string; kinematic: number; rapier: number | null; delta: number | null }[] = [];
     for (const [eye, expected] of Object.entries(trace.edges)) {
@@ -80,9 +84,9 @@ describe.each(Object.keys(TRACES))("Rapier vs kinematics.py parity (%s)", (name)
       }
     }
     const worst = Math.max(...rows.map((r) => (r.delta === null ? Infinity : Math.abs(r.delta))));
-    const summary = { trace: name, friction: trace.friction, comparisons: rows.length, worstDeltaTicks: worst, rows };
+    const summary = { trace: name, friction: trace.friction, toleranceTicks: tolerance, comparisons: rows.length, worstDeltaTicks: worst, rows };
     console.info(`PARITY_REPORT ${JSON.stringify(summary)}`);
-    console.info(`${name} (mu ${trace.friction}): ${rows.length} comparisons, worst |delta| = ${worst} ticks`);
-    for (const row of rows) expect(Math.abs(row.delta ?? Infinity), row.what).toBeLessThanOrEqual(TOLERANCE_TICKS);
+    console.info(`${name} (mu ${trace.friction}): ${rows.length} comparisons, worst |delta| = ${worst} ticks, tolerance ${tolerance}`);
+    for (const row of rows) expect(Math.abs(row.delta ?? Infinity), row.what).toBeLessThanOrEqual(tolerance);
   });
 });

@@ -14,10 +14,19 @@ its emitters enabled, and records, per tick k (1-based):
   tick k-1 first appear or disappear in tick k. Only ticks where something changes are listed.
 - ``edges``: raw (undebounced) photo-eye beam edges ``[tick, blocked]`` after tick k.
 - ``checkpoints``: for each part, the first tick its center passed each x checkpoint on a belt.
+- ``ramp_ticks`` and ``tolerance_ticks``: the parity tolerance for this trace (below).
 
 ``web/src/physics.parity.test.ts`` replays the trace through ``web/src/physics.ts`` and requires
-every edge and checkpoint to agree within 2 ticks. ``tests/integration/test_kinematic_parity.py``
-checks the committed traces are current and runs that replay.
+every edge and checkpoint to agree within the trace's ``tolerance_ticks``.
+``tests/integration/test_kinematic_parity.py`` checks the committed traces are current and runs that
+replay.
+
+Tolerance (PLAN 1.12): ``max(2 ticks, 25 % of the computed ramp time)``. The ramp time is how long a
+part takes to reach belt speed from rest under friction alone, ``v / (μ·g)``, for the fastest belt
+in the trace (belts forced to 100 %), in ticks of ``dt``. Lower friction stretches the ramp, and the
+two models' different contact handling (an impulse solver against a per-tick μ·g cap) spreads over
+more ticks, so the allowance grows with it. It is not rounded: deltas are whole ticks, so at μ 0.3
+(ramp 8.5 ticks, 25 % = 2.12) a delta of 2 passes and 3 fails.
 """
 
 from __future__ import annotations
@@ -33,12 +42,25 @@ FIXTURES = REPO / "web" / "src" / "fixtures"
 SCENE = REPO / "scenes" / "sorting-by-height.yaml"
 SECONDS = 20.0
 CHECKPOINTS_X = (1.0, 2.0, 3.0)
+GRAVITY = 9.81
+MIN_TOLERANCE_TICKS = 2.0
+RAMP_FRACTION = 0.25
 #: name -> scene friction override (None = the scene's own value)
 TRACES: dict[str, float | None] = {"parity-sorter": None, "parity-sorter-mu0.3": 0.3}
 
 
 def _r(v: float) -> float:
     return round(v, 6)
+
+
+def ramp_ticks(belt_speed_mps: float, friction: float, dt: float) -> float:
+    """Ticks for a part at rest to reach ``belt_speed_mps`` at μ·g: ``v / (μ·g) / dt``."""
+    return belt_speed_mps / (friction * GRAVITY) / dt
+
+
+def tolerance_ticks(ramp: float) -> float:
+    """Parity tolerance: ``max(2 ticks, 25 % of the ramp time)`` (PLAN 1.12), not rounded."""
+    return max(MIN_TOLERANCE_TICKS, RAMP_FRACTION * ramp)
 
 
 def trace(
@@ -123,12 +145,16 @@ def trace(
             for x in CHECKPOINTS_X:
                 if f"{x:g}" not in marks and part.position[0] >= x:
                     marks[f"{x:g}"] = k
+    mu = loaded.kinematics.max_accel / GRAVITY
+    ramp = ramp_ticks(max(b.config.speed_mps for b in belts), mu, dt)
     return {
         "generator": "tools/parity_trace.py",
         "scene": doc,
         "dt": dt,
         "ticks": ticks,
-        "friction": loaded.kinematics.max_accel / 9.81,
+        "friction": mu,
+        "ramp_ticks": _r(ramp),
+        "tolerance_ticks": _r(tolerance_ticks(ramp)),
         "inputs": inputs,
         "edges": edges,
         "checkpoints": checkpoints,
@@ -157,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         data = json.loads(text)
         print(
             f"wrote {path.relative_to(REPO)}: {data['ticks']} ticks, μ {data['friction']:g}, "
+            f"ramp {data['ramp_ticks']:g} ticks, tolerance {data['tolerance_ticks']:g} ticks, "
             f"edges {data['edges']}"
         )
     return 1 if stale else 0

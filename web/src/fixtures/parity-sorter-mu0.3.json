@@ -217,6 +217,8 @@
  "dt": 0.02,
  "ticks": 1000,
  "friction": 0.3,
+ "ramp_ticks": 8.494733,
+ "tolerance_ticks": 2.123683,
  "inputs": [
   {
    "tick": 1,

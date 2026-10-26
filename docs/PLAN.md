@@ -497,7 +497,11 @@ runs the sorting program against it; a box visibly gets pushed.
       upstream. Draw the belt mesh at `home`, not at the body translation. Part ramp is friction-limited
       (μ·g); `kinematics.py` models the same ramp from `scene.friction`, and parity is tested at it.
       *Done when:* with PLC coil forced on, a box travels the belt and a photo-eye event arrives in the
-      core; parity test against `kinematics.py` within 2 ticks.
+      core; parity test against `kinematics.py` within tolerance. Tolerance (amended 2026-10-25):
+      `max(2 ticks, 25 % of the computed ramp time)`, where the ramp time is `v / (μ·g)` for the
+      fastest belt, in ticks, unrounded; `tools/parity_trace.py` writes `ramp_ticks` and
+      `tolerance_ticks` into each trace and both test sides read it. Sorter at μ 0.8: ramp 3.19
+      ticks, tolerance 2; at μ 0.3: ramp 8.49, tolerance 2.12; at μ 0.1 it would be 6.37.
       *Note (2026-10-25):* `web/src/physics.ts` is DOM-free, so the viewer and a node replay run the
       same code. Parity (`tests/integration/test_kinematic_parity.py`): `tools/parity_trace.py`
       records the core's per-tick inputs (belt speeds, plate strokes, spawns, removals) and its
