@@ -572,7 +572,7 @@ runs the sorting program against it; a box visibly gets pushed.
       physics steps to the core tick, or on a machine with a GPU.
 - [x] 1.15 CI: GitHub Actions running `pytest`, `ruff`, `npm run build`, and the headless parity test
       *Note (2026-10-25):* `.github/workflows/ci.yml` sets up uv (Python 3.11) and Node 22, runs
-      `uv sync --frozen` and `playwright install --with-deps chromium`, then `tools/ci_local.sh`,
+      `uv sync --frozen --all-extras` and `playwright install --with-deps chromium`, then `tools/ci_local.sh`,
       which holds every step so a local run matches: ruff check and format, schema check, `openfactory
       validate scenes`, `npm ci` / `npm run build` / `npm test`, pytest, `tools/screenshot.py` with its
       non-blank check, `tools/parity_trace.py --check`, and `git diff --exit-code`. Under `CI=true`

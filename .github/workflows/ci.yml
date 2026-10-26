@@ -38,8 +38,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - name: Install Python dependencies
-        run: uv sync --frozen
+      - name: Install Python dependencies (with the logix and opcua extras)
+        run: uv sync --frozen --all-extras
 
       - name: Install Playwright Chromium and its system libraries
         run: uv run playwright install --with-deps chromium

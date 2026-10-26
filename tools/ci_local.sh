@@ -6,7 +6,8 @@
 #   env -i HOME="$HOME" PATH="$PATH" bash tools/ci_local.sh
 #
 # Steps, in order; the first failure stops the script with a non-zero exit:
-#   1. uv sync --frozen (exact versions from uv.lock)
+#   1. uv sync --frozen --all-extras (exact versions from uv.lock, logix and opcua extras included,
+#      so a local run never strips them from the dev venv)
 #   2. ruff check and ruff format --check
 #   3. scene JSON Schema is current; every shipped scene validates
 #   4. npm ci, npm run build (web/dist must exist afterwards), npm test
@@ -37,9 +38,9 @@ step() {
 }
 started=$SECONDS
 
-step "uv sync --frozen"
+step "uv sync --frozen --all-extras"
 uv --version
-uv sync --frozen
+uv sync --frozen --all-extras
 
 step "ruff"
 uv run ruff check .
