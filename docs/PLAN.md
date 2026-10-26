@@ -567,11 +567,11 @@ runs the sorting program against it; a box visibly gets pushed.
       guide uses. The first run diverted one short box: OpenPLC's input image held stale run
       feedback on connect, the emitter enable chattered, and two boxes spawned on top of each
       other. The program now waits for 1 s of steady run feedback before enabling the emitter.
-      **Screen capture deferred:** a 30 s Playwright recording was made and its stills checked,
-      but under headless SwiftShader the viewer's Rapier steps run at about 60 % of core ticks
-      (housekeeping 5 finding), so the video shows the pusher stroking ahead of a lagging box
-      while the core sorts correctly. It was not committed. Record it after the viewer locks its
-      physics steps to the core tick, or on a machine with a GPU.
+      **Screen capture deferred, then done in 2.0a:** a 30 s Playwright recording was made and its
+      stills checked. But under headless SwiftShader the viewer's Rapier steps ran at about 60 % of
+      core ticks (housekeeping 5 finding), so the video showed the pusher stroking ahead of a
+      lagging box while the core sorted correctly. It was not committed. Task 2.0a locked the
+      viewer to the core tick and recorded `docs/media/sorting-by-height-openplc.webm`.
 - [x] 1.15 CI: GitHub Actions running `pytest`, `ruff`, `npm run build`, and the headless parity test
       *Note (2026-10-25):* `.github/workflows/ci.yml` sets up uv (Python 3.11) and Node 22, runs
       `uv sync --frozen --all-extras` and `playwright install --with-deps chromium`, then `tools/ci_local.sh`,
@@ -583,6 +583,29 @@ runs the sorting program against it; a box visibly gets pushed.
       same script passed locally in an `env -i` shell. The live parity check stays out of CI.
 
 ### Milestone 2 — Rockwell and Ignition paths, discrete library complete (target 3–4 weeks)
+- [x] 2.0a Tick-locked viewer physics: the viewer steps Rapier on the simulator's tick, not on
+      wall-clock time. Each `/ws/state` frame carries the core tick; on each frame the viewer steps
+      physics exactly `tick - last_tick` times, at most 10 per frame (extra ticks are dropped and
+      counted), and never steps between frames. Rendering still runs every display frame and eases
+      part meshes toward their latest physics pose.
+      *Why:* the Milestone 1 viewer stepped on wall-clock time with at most 5 steps per rendered
+      frame, so under software WebGL it ran about 60 % of core ticks (housekeeping 5 live check:
+      432 browser steps for 718 core ticks, deltas up to 46 ticks). Its parts lagged the core's,
+      the pusher appeared to miss boxes the core sorted correctly, and the 1.14 screen capture had
+      to be deferred.
+      *Done when:* `tools/parity_trace.py --live` shows worst-case browser-vs-core photo-eye drift
+      ≤ the replay tolerance (2 ticks at the scene's μ 0.8), with no dropped ticks; then the 30 s
+      README capture from 1.14 is recorded with OpenPLC in control, stills at 5 s intervals are
+      looked at, the pusher is seen hitting the tall boxes, and the video is committed under
+      `docs/media/`.
+      *Note (2026-10-26):* `web/src/ticksync.ts` (`planSteps`, tested in `ticksync.test.ts`) and
+      `stepToFrame` in `main.ts`. A tick moves parts with the previous frame's inputs, as in the
+      replay, and pusher strokes are interpolated across a frame's steps. Tick-locking alone gave
+      a 3-tick worst case, because a part first seen in a frame was created at rest while the
+      core's was already falling. Frames now carry each part's world `velocity`, and the Rapier
+      body starts with it. Live, 30 s: 1405 browser steps for 1405 core ticks, 0 dropped, worst
+      |Δ| 2 ticks; 60 s: 2937 for 2937, 0 dropped, worst |Δ| 1, median 0.5.
+      Capture: `docs/media/sorting-by-height-openplc.webm` (poster `.png`).
 - [ ] 2.0 Headless part-to-part queueing along the flow axis in `core/kinematics.py`: a carried part
       stops at the back face of the part ahead of it on the same belt (and across a connection
       handoff) instead of overlapping it, so parts accumulate behind a stopped belt or a raised

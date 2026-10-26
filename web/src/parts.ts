@@ -1,16 +1,23 @@
 // Parts drawn from the core's state frames: one box per part id, created when a part first
 // appears and removed when the core removes it (the core decides which parts exist). With viewer
 // physics (PLAN 1.12) each mesh takes its Rapier body's pose via setPose(); without it (Rapier
-// failed to load) meshes ease toward the core's kinematic positions between 20 Hz frames.
+// failed to load) its target is the core's kinematic position. Either way the mesh eases toward its
+// target every rendered frame, because poses arrive only with 20 Hz state frames (PLAN 2.0a: physics
+// steps on core ticks, not between frames).
 import * as THREE from "three";
 import type { PartState } from "./api";
 import { NEUTRAL } from "./components/types";
 
 const EASE = 0.35;
+/** A pose this far from the mesh is a jump (respawn, reset): snap instead of easing. */
+const SNAP_M = 0.5;
 
 export class PartMeshes {
   readonly group = new THREE.Group();
-  private meshes = new Map<string, { mesh: THREE.Mesh; target: THREE.Vector3; physics: boolean }>();
+  private meshes = new Map<
+    string,
+    { mesh: THREE.Mesh; target: THREE.Vector3; turn: THREE.Quaternion; physics: boolean }
+  >();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
 
   private material(name: string): THREE.MeshStandardMaterial {
@@ -38,11 +45,11 @@ export class PartMeshes {
           new THREE.LineBasicMaterial({ color: 0x3f3428 }),
         );
         mesh.add(edges);
-        entry = { mesh, target: new THREE.Vector3(...p.position), physics: false };
+        entry = { mesh, target: new THREE.Vector3(...p.position), turn: new THREE.Quaternion(), physics: false };
         this.meshes.set(p.id, entry);
         this.group.add(mesh);
       }
-      entry.target.set(...p.position);
+      if (!entry.physics) entry.target.set(...p.position);
     }
     for (const [id, entry] of this.meshes) {
       if (!seen.has(id)) {
@@ -53,19 +60,24 @@ export class PartMeshes {
     }
   }
 
-  /** Pose from the physics world; once set, the mesh no longer eases toward the core position. */
+  /** Pose from the physics world; from then on it is the mesh's target instead of the core position. */
   setPose(id: string, position: [number, number, number], rotation: [number, number, number, number]): void {
     const entry = this.meshes.get(id);
     if (!entry) return;
-    entry.mesh.position.set(...position);
-    entry.mesh.quaternion.set(...rotation);
+    entry.target.set(...position);
+    entry.turn.set(...rotation);
+    if (!entry.physics || entry.mesh.position.distanceTo(entry.target) > SNAP_M) {
+      entry.mesh.position.copy(entry.target); // first pose, or a jump: no easing
+      entry.mesh.quaternion.copy(entry.turn);
+    }
     entry.physics = true;
   }
 
   /** Call once per rendered frame. */
   animate(): void {
-    for (const { mesh, target, physics } of this.meshes.values()) {
-      if (!physics) mesh.position.lerp(target, EASE);
+    for (const { mesh, target, turn, physics } of this.meshes.values()) {
+      mesh.position.lerp(target, EASE);
+      if (physics) mesh.quaternion.slerp(turn, EASE);
     }
   }
 

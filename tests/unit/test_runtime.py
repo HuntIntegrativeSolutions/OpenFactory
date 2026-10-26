@@ -104,3 +104,23 @@ def test_runtime_records_core_beam_edges_and_parity_view():
     viewer = runtime.parity()["viewer"]
     assert viewer[0]["tick"] == 275 and viewer[0]["core_tick"] == 320
     assert runtime.loaded.io.get("PE_01_DI") is False  # parity-only: the event changed no tag
+
+
+def test_snapshot_parts_carry_world_velocity():
+    """PLAN 2.0a: the viewer starts a newly seen part moving as the core's part already is."""
+    from openfactory.core.iotable import Writer
+    from openfactory.core.loader import load
+
+    loaded = load(EXAMPLE)
+    for tag in ("CONV_01_RUN_DO", "EMT_01_EN_DO"):
+        loaded.io.set(tag, True, Writer.PLC)
+    runtime = Runtime(loaded)
+    runtime._step(0.02)  # the emitter spawns at the end of this tick
+    runtime._step(0.02)  # and the part falls during this one
+    falling = runtime.snapshot["parts"][0]
+    assert falling["carrier"] is None and falling["velocity"][1] < 0  # falling from the emitter
+    for _ in range(100):
+        runtime._step(0.02)
+    carried = runtime.snapshot["parts"][0]
+    assert carried["carrier"] == "CONV_01"
+    assert carried["velocity"] == pytest.approx([0.5, 0.0, 0.0])  # belt speed along +x

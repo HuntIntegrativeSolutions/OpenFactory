@@ -33,14 +33,13 @@ Live mode (``--live``) compares the running viewer with the core instead of a re
 ``openfactory run`` with the scene's belts and emitters forced on, opens the built viewer in
 headless Chromium (``tools/screenshot.py``'s launcher), lets it run ``--seconds`` of sim time, and
 reads ``GET /api/parity``: the core's raw beam edges with their ticks, and the browser's sensor
-events, each carrying the core tick the browser step stood for (``tick``: the last frame's tick
-plus physics steps since) and the tick the core received it (``core_tick``). Each browser edge is
-paired with the nearest core edge of the same eye and direction; the table shows the browser-minus-
-core tick and the delivery latency. The live viewer steps on wall-clock time from 20 Hz frames and
-adds a part only when a frame first shows it, so live deltas are looser than the replay's. The
-output is informational, not a gate: the exit code is 0 whenever the check ran, and 1 only if it
-could not run (no ``web/dist``, the viewer failed, no core edges).
-"""
+events, each carrying the core tick of the browser step that saw the edge (``tick``; the viewer
+steps on core ticks, PLAN 2.0a) and the tick the core received it (``core_tick``). Each browser edge
+is paired with the nearest core edge of the same eye and direction; the table shows the
+browser-minus- core tick and the delivery latency. The live viewer adds a part only when a frame
+first shows it (up to 2-3 ticks after the core spawned it), so live deltas can be looser than the
+replay's. The output is informational, not a gate: the exit code is 0 whenever the check ran, and 1
+only if it could not run (no ``web/dist``, the viewer failed, no core edges)."""
 
 from __future__ import annotations
 
@@ -241,7 +240,8 @@ def live(scene_path: Path, seconds: float, timeout: float = 120.0) -> int:
     core_ticks = status["tick"] - (status.get("firstTick") or 0)
     print(
         f"viewer physics: {status.get('physics')}, {status.get('frames')} frames; browser stepped "
-        f"{status.get('physicsSteps')} physics ticks while the core advanced {core_ticks}"
+        f"{status.get('physicsSteps')} physics ticks while the core advanced {core_ticks} "
+        f"(dropped by the 10-per-frame cap: {status.get('droppedTicks', 'n/a')})"
     )
     if not data["core"]:
         print("no core beam edges: nothing reached a photo eye", file=sys.stderr)

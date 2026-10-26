@@ -4,10 +4,12 @@
 // with the mouse; click a pushbutton to press it or a selector to turn it. Status colors are ISA-101
 // (green running/active, grey stopped/idle). Geometry comes only from the scene JSON.
 //
-// Physics (PLAN 1.12): Rapier loads lazily and runs web/src/physics.ts at the core's dt. Each core
-// frame sets belt speeds and pusher strokes and adds or removes parts (the core decides which
-// exist); parts render at their Rapier poses; photo-eye beam edges go upstream on /ws/events as
-// {type: "sensor"} events. The core records them with its tick and never applies them (PLAN §3.3):
+// Physics (PLAN 1.12, 2.0a): Rapier loads lazily and runs web/src/physics.ts at the core's dt,
+// stepped only when a state frame arrives and exactly as many times as the core ticked since the
+// previous frame (web/src/ticksync.ts, at most 10 per frame), never on wall-clock time. Each frame
+// then sets belt speeds and pusher strokes for the next steps and adds or removes parts (the core
+// decides which exist); parts render at their Rapier poses, eased between frames; photo-eye beam
+// edges go upstream on /ws/events as {type: "sensor"} events carrying the core tick of their step. The core records them with its tick and never applies them (PLAN §3.3):
 // The headless model is authoritative for PLC tags through Milestone 2; browser sensor events are parity-only.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -17,6 +19,7 @@ import { loadRapier, PlantPhysics } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { cssColor, ISA101 } from "./isa101";
 import { PartMeshes } from "./parts";
+import { planSteps, strokeAt } from "./ticksync";
 
 window.__openfactory = {
   ready: false,
@@ -29,6 +32,7 @@ window.__openfactory = {
   physics: "loading",
   sensorEvents: 0,
   physicsSteps: 0,
+  droppedTicks: 0,
   firstTick: null,
 };
 
@@ -145,41 +149,47 @@ let lastFrame: StateFrame | null = null;
 let physics: PlantPhysics | null = null;
 let events: EventLink | null = null;
 
-/** Feed one core frame into the physics world: belt speeds, plate strokes, part set. */
-function syncPhysics(frame: StateFrame): void {
+let lastTick: number | null = null; // core tick the physics world has reached
+const strokes = new Map<string, number>(); // pusher stroke at lastTick
+
+/**
+ * Advance the physics world to the frame's core tick (PLAN 2.0a): exactly (tick - lastTick) steps,
+ * at most MAX_STEPS_PER_FRAME, with the inputs of the previous frame (as in the parity replay, a
+ * tick moves parts with the inputs reached at the end of the tick before) and pusher strokes
+ * interpolated across the steps. Each beam edge goes upstream with the core tick of its step.
+ */
+function stepToFrame(frame: StateFrame): void {
   if (!physics) return;
+  const plan = planSteps(lastTick, frame.tick);
+  const target = new Map<string, number>();
+  for (const view of views) {
+    if (view.type === "pusher") target.set(view.id, Number(frame.components[view.id]?.position_m ?? 0));
+  }
+  const status = window.__openfactory;
+  for (let i = 1; i <= plan.steps; i++) {
+    for (const [id, to] of target) physics.setPusher(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
+    const tick = plan.firstTick + i - 1;
+    for (const edge of physics.step()) {
+      events?.send({ t: frame.t, tick, type: "sensor", id: edge.id, value: edge.blocked });
+      status.sensorEvents = Number(status.sensorEvents) + 1;
+    }
+  }
+  status.physicsSteps = Number(status.physicsSteps) + plan.steps;
+  status.droppedTicks = Number(status.droppedTicks) + plan.dropped;
+  lastTick = frame.tick;
+  // Inputs for the steps of the next frame: belt speeds, plate strokes, and the part set (the
+  // core decides which parts exist; a new part starts at the core's position for this tick).
   for (const view of views) {
     const state = frame.components[view.id] ?? {};
     if (view.type === "belt_conveyor") physics.setBelt(view.id, Number(state.speed_mps ?? 0));
-    if (view.type === "pusher") physics.setPusher(view.id, Number(state.position_m ?? 0));
+  }
+  for (const [id, to] of target) {
+    strokes.set(id, to);
+    if (plan.steps === 0) physics.setPusher(id, to);
   }
   const alive = new Set(frame.parts.map((p) => p.id));
   for (const id of physics.partIds()) if (!alive.has(id)) physics.removePart(id);
-  for (const p of frame.parts) physics.addPart(p.id, p.size, p.position);
-}
-
-let accumulator = 0;
-let lastTime = performance.now();
-let stepsSinceFrame = 0; // physics steps since the last core frame, for the tick estimate
-
-/** Fixed steps at the core's dt, at most 5 per rendered frame; beam edges go upstream. */
-function stepPhysics(dt: number): void {
-  const now = performance.now();
-  accumulator = Math.min(accumulator + (now - lastTime) / 1000, 5 * dt);
-  lastTime = now;
-  if (!physics) return;
-  while (accumulator >= dt) {
-    accumulator -= dt;
-    stepsSinceFrame += 1;
-    window.__openfactory.physicsSteps = Number(window.__openfactory.physicsSteps) + 1;
-    // tick: the core tick this browser step stands for (last frame's tick + steps since), so
-    // tools/parity_trace.py --live can compare it with the core's own beam edge.
-    const tick = (lastFrame?.tick ?? 0) + stepsSinceFrame;
-    for (const edge of physics.step()) {
-      events?.send({ t: lastFrame?.t ?? 0, tick, type: "sensor", id: edge.id, value: edge.blocked });
-      window.__openfactory.sensorEvents = Number(window.__openfactory.sensorEvents) + 1;
-    }
-  }
+  for (const p of frame.parts) physics.addPart(p.id, p.size, p.position, p.velocity);
   for (const id of physics.partIds()) {
     const pose = physics.part(id);
     if (pose) parts.setPose(id, pose.position, pose.rotation);
@@ -188,10 +198,9 @@ function stepPhysics(dt: number): void {
 
 function onFrame(doc: SceneDocument, frame: StateFrame): void {
   lastFrame = frame;
-  stepsSinceFrame = 0;
   for (const view of views) view.update(frame.components[view.id] ?? {});
   parts.update(frame.parts);
-  syncPhysics(frame);
+  stepToFrame(frame);
   const status = window.__openfactory;
   status.frames += 1;
   status.simTime = frame.t;
@@ -206,12 +215,9 @@ function onFrame(doc: SceneDocument, frame: StateFrame): void {
     `running: ${running.map((v) => v.id).join(", ") || "none"}`;
 }
 
-let sceneDt = 0.02;
-
 async function start(): Promise<void> {
   const doc = await fetchScene();
   buildScene(doc);
-  sceneDt = doc.dt;
   window.__openfactory.scene = doc.scene.name;
   window.__openfactory.components = doc.components.length;
   events = new EventLink();
@@ -233,8 +239,7 @@ start().catch((err: unknown) => {
 
 renderer.setAnimationLoop(() => {
   controls.update();
-  stepPhysics(sceneDt);
-  parts.animate();
+  parts.animate(); // eases meshes toward their latest pose between 20 Hz frames; never steps physics
   renderer.render(scene, camera);
   labels.render(scene, camera);
 });

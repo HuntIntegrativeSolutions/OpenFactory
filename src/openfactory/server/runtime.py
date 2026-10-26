@@ -7,8 +7,10 @@ fixed-step :class:`~openfactory.core.scheduler.Scheduler` on a background thread
 default, or as fast as possible). After every tick, still holding the step lock, it publishes a new
 :class:`dict` snapshot (:attr:`Runtime.snapshot`) of everything the viewer needs:
 
-``{"t", "tick", "components": {id: state()}, "parts": [{id, name, size, position, carrier}],
-"io": {tag: value}}``
+``{"t", "tick", "components": {id: state()}, "parts": [{id, name, size, position, velocity,
+carrier}], "io": {tag: value}}``. A part's ``velocity`` (m/s, world frame) is its belt-direction
+speed while carried or its fall speed while falling, so the viewer can start a newly seen part's
+physics body moving as the core's part already is (PLAN 2.0a).
 
 The snapshot is built fresh each tick and never mutated afterwards, so the web server can serialize
 the latest one from its own thread at any rate (20 Hz for ``/ws/state``) without locking or racing
@@ -39,6 +41,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from openfactory.core.geometry import rotate_y
 from openfactory.core.loader import LoadedScene
 from openfactory.core.scheduler import DEFAULT_RATE_HZ, RunStats, Scheduler
 
@@ -98,12 +101,20 @@ class Runtime:
                     "name": p.name,
                     "size": list(p.size),
                     "position": list(p.position),
+                    "velocity": self._velocity(p),
                     "carrier": p.carrier,
                 }
                 for p in loaded.world.parts.values()
             ],
             "io": loaded.io.values(),
         }
+
+    def _velocity(self, part: Any) -> list[float]:
+        if part.carrier is None:
+            return [0.0, part.vy, 0.0]
+        rotation = self.loaded.component(part.carrier).config.rotation_deg
+        fx, _, fz = rotate_y((1.0, 0.0, 0.0), rotation)
+        return [fx * part.v_flow, 0.0, fz * part.v_flow]
 
     def start(self, duration_s: float | None = None) -> None:
         """Run the scheduler on a daemon thread until :meth:`stop` (or ``duration_s``)."""

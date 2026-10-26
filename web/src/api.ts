@@ -30,6 +30,8 @@ export interface PartState {
   name: string;
   size: Vec3;
   position: Vec3;
+  /** World velocity in m/s (belt-direction speed while carried, fall speed while falling). */
+  velocity?: Vec3;
   carrier: string | null;
 }
 

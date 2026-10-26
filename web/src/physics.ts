@@ -157,10 +157,13 @@ export class PlantPhysics {
     }
   }
 
-  addPart(id: string, size: Vec3, position: Vec3): void {
+  /** Add a dynamic box; `velocity` (m/s) starts it moving as the core's part already is. */
+  addPart(id: string, size: Vec3, position: Vec3, velocity: Vec3 = [0, 0, 0]): void {
     if (this.parts.has(id)) return;
     const { R } = this;
-    const body = this.world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(...position));
+    const body = this.world.createRigidBody(
+      R.RigidBodyDesc.dynamic().setTranslation(...position).setLinvel(...velocity),
+    );
     this.world.createCollider(
       R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setFriction(this.friction).setRestitution(0),
       body,
