@@ -5,7 +5,9 @@
 Write a plant as a YAML file. Run it. Connect a real PLC, a soft PLC, or an emulator over Modbus TCP,
 EtherNet/IP, or OPC UA. Watch it move in your browser.
 
-> Status: **Milestone 0, planning.** Nothing runs yet. See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap.
+> Status: **Milestone 1, walking skeleton.** One scene (`scenes/sorting-by-height.yaml`) runs headless
+> or in the browser, and sorts boxes under a free soft PLC: see the
+> [OpenPLC quickstart](docs/guides/openplc-quickstart.md). [`docs/PLAN.md`](docs/PLAN.md) has the roadmap.
 
 ## Why
 

@@ -13,7 +13,8 @@ Behavior spec
   AO) at startup, as if the PLC had written it, so a scene can be demonstrated without a PLC; a
   real PLC overwrites it on its next write. ``--analog-encoding float32|int16_scaled`` overrides
   the scene's ``plc.analog_encoding`` for this run and selects that encoding's lockfile; the other
-  encoding's lockfile is left alone. At the end it prints a one-line run summary.
+  encoding's lockfile is left alone. At the end it prints a one-line run summary: ticks, parts
+  spawned, removed and lost by part name, and removed per part remover.
 - Listen addresses follow ``openfactory.toml`` precedence (:mod:`openfactory.core.config`).
   ``--bind`` applies to every server and is the only way to leave loopback from the command line;
   ``--port`` is the Modbus port and ``--web-port`` the viewer port.
@@ -239,14 +240,21 @@ def run(
     wall = time.perf_counter()
     asyncio.run(_serve(runtime, modbus, web, duration))
     world = loaded.world
+    removers = {
+        c.id: dict(c.removed)  # type: ignore[attr-defined]
+        for c in loaded.components
+        if c.type == "part_remover"
+    }
     log.info(
-        "ran %d ticks (%.2f s simulated) in %.2f s wall; spawned %d, removed %s, lost %s",
+        "ran %d ticks (%.2f s simulated) in %.2f s wall; spawned %d, removed %s, lost %s; "
+        "by remover %s",
         loaded.tick,
         loaded.time,
         time.perf_counter() - wall,
         world.spawned,
         dict(world.removed),
         dict(world.lost),
+        removers,
     )
 
 

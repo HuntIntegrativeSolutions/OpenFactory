@@ -50,6 +50,12 @@ Four decisions shape everything else:
 - Emulating a PLC. We are the plant, not the controller.
 - Photorealism. Clean, readable, ISA-101-friendly visuals are the target.
 - A full CAD-style scene editor in Milestone 1 through 3. Text first, editor in Milestone 4.
+- Virtual commissioning of whole lines from CAD (Emulate3D, Siemens SIMIT/NX MCD, Dassault DELMIA, Omniverse). OpenFactory
+  is a training cell and demo tool one level below those; the USD exporter (4.10) is the bridge up.
+- Discrete-event throughput modeling (FlexSim, Arena, Plant Simulation). Those answer "how many per
+  hour under statistical variation" over thousands of runs. OpenFactory runs one plant in real time
+  with a controller in the loop and reports what happened; its statistics (2.11) describe a run, they
+  do not predict a design.
 
 ---
 
@@ -340,6 +346,11 @@ choices that go beyond the table above:
 Every component implements `fault_inject(kind)` from Milestone 2 so instructors can break sensors
 (stuck on, stuck off, noisy) during training.
 
+From 2.16 onward this table lists **primitives** only. Equipment that can be expressed as a composite
+of primitives (a gated conveyor, a two-station indexer, a filling head) is declared in a scene's
+`composites:` block or in `scenes/_library/*.yaml`, not added here. Add a primitive only when no
+composite can produce the behavior.
+
 ---
 
 ## 6. Protocol Design
@@ -524,7 +535,7 @@ runs the sorting program against it; a box visibly gets pushed.
       The tool waits on the viewer's `window.__openfactory` ready flag and sim time, never a sleep.
       Built before 1.11, so the viewer gained the minimum it needs: scene fetch, one neutral grey
       placeholder box per component, a HUD, and the `/ws/state` stream.
-- [ ] 1.14 `examples/openplc/sorting-by-height.st` + `docs/guides/openplc-quickstart.md` with the Slave
+- [x] 1.14 `examples/openplc/sorting-by-height.st` + `docs/guides/openplc-quickstart.md` with the Slave
       Devices settings (IP, port 5020, start addresses, sizes). Use `analog_encoding: int16_scaled` for
       this scene (see §6.1); OpenPLC delivers raw 16-bit words with no float decoding. OpenPLC polls at
       100 ms by default, so the example logic must not rely on photo-eye pulses shorter than ~200 ms;
@@ -534,10 +545,27 @@ runs the sorting program against it; a box visibly gets pushed.
       docker build -t openfactory/openplc:b5d4135 .` Image was pre-built on the dev host 2026-10-25.
       Run with `docker run -d --name openplc -p 8080:8080 -p 502:502 openfactory/openplc:b5d4135`; the
       web UI is on 8080 (default login openplc/openplc), and Slave Devices must point at the WSL host IP
-      (`hostname -I`) on port 5020, not 127.0.0.1, since the container has its own loopback. Run only
+      (`hostname -I`, a numeric address; tested 2026-10-25) on port 5020, not 127.0.0.1, since the
+      container has its own loopback. Run only
       this one container; this host freezes under heavy container fleets.
       *Done when:* a fresh OpenPLC install follows the guide and sorts boxes. Record a 30 s screen
       capture for the README.
+      *Note (2026-10-25):* done with a fresh container of the pre-built image, configured through
+      its web UI by `tools/openplc_configure.py` (Playwright). The simulator ran with
+      `--bind 0.0.0.0 --analog-encoding int16_scaled` against the new
+      `scenes/sorting-by-height.int16_scaled.modbus.yaml`. A 60 s headless run with OpenPLC in
+      control and no `--force`: spawned 20, REM_01 {short: 9}, REM_02 {tall: 9}, lost {}.
+      Addresses tried from inside the container: `host.docker.internal` (resolves to
+      192.168.65.254) connects at TCP level, but OpenPLC's Slave Device accepts only a numeric IP
+      (runtime log: "Invalid argument"); the WSL address from `hostname -I` works and is what the
+      guide uses. The first run diverted one short box: OpenPLC's input image held stale run
+      feedback on connect, the emitter enable chattered, and two boxes spawned on top of each
+      other. The program now waits for 1 s of steady run feedback before enabling the emitter.
+      **Screen capture deferred:** a 30 s Playwright recording was made and its stills checked,
+      but under headless SwiftShader the viewer's Rapier steps run at about 60 % of core ticks
+      (housekeeping 5 finding), so the video shows the pusher stroking ahead of a lagging box
+      while the core sorts correctly. It was not committed. Record it after the viewer locks its
+      physics steps to the core tick, or on a machine with a GPU.
 - [ ] 1.15 CI: GitHub Actions running `pytest`, `ruff`, `npm run build`, and the headless parity test
 
 ### Milestone 2 — Rockwell and Ignition paths, discrete library complete (target 3–4 weeks)
@@ -566,7 +594,81 @@ runs the sorting program against it; a box visibly gets pushed.
       `buffer-and-release`, `palletizer-lite`, `two-lane-merge`
 - [ ] 2.8 Scene → GRAFCET: feed the example PLC sequence to `/grafcet-chart-creator` for each scene and
       ship the HTML in `docs/sequences/`
-- [ ] 2.9 Performance: 200 parts at 60 fps in the viewer on integrated graphics; profile and fix
+- [ ] 2.9 Performance: 200 parts at 60 fps in the viewer on integrated graphics; profile and fix.
+      Add `tools/bench.py` running a fixed 500-part benchmark scene headless for 60 simulated seconds
+      and reporting mean and p99 tick time; CI fails if p99 exceeds 15 ms. The scheduler overrun
+      counter from Milestone 1 is the production-side signal for the same limit.
+- [ ] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
+      `def step(io, t)` that reads DI/AI and writes DO/AO through the same writer-side rules a protocol
+      server obeys. Ship `examples/pyplc/sorting-by-height.py`.
+      *Why:* every scene can then be demonstrated and tested in CI without any PLC, a sales engineer
+      can show a scene on a laptop with nothing installed, and scene authors get an executable
+      description of the intended control logic. The reviewer wrote exactly this script by hand on
+      2026-10-25 to demo the divert; it should be a feature.
+      *Done when:* the sorter scene runs 60 s headless under the script with the same sort result as
+      1.14 under OpenPLC.
+- [ ] 2.11 Exercise checks: a scene may declare `checks:` (for example `parts_reached: {REM_02: tall}`,
+      `none_lost: true`, `max_cycle_s: 12`) evaluated by `openfactory test scene.yaml --script|--plc`
+      with a pass/fail report.
+      *Why:* this is the auto-grading a training tool needs and the acceptance test a client demo
+      needs, from one declaration. No commercial trainer in this class grades the student's PLC
+      program automatically. Also the CI gate for every shipped scene from 2.7 onward.
+      The same run ends with a **statistics block**, printed by the CLI and served at `/api/stats`:
+      throughput per remover (parts/hour, by part name), per-conveyor utilization (% of run time
+      with `run` true), per-actuator cycle count and mean cycle time, mean and max part dwell time
+      from emitter to remover, and parts lost. Keep it to counters and timers the components already
+      have; this is not discrete-event simulation (see Non-Goals), it is the plant manager's view of
+      a run so a demo persuades the operations side as well as the controls engineer.
+- [ ] 2.12 Record and replay: `--record file.ofrec` logs every I/O table change with its tick;
+      `openfactory replay file.ofrec` drives the viewer from the log with no simulation.
+      *Why:* reproducible bug reports from users, deterministic screenshots and videos for docs, and the
+      raw material for a sequence-of-operations document (feeds 2.8).
+- [ ] 2.13 Comms-loss injection: `/api/fault` gains `comms: {drop: true}` and `comms: {latency_ms: N}`
+      that stall or delay the protocol servers without stopping the sim, so a PLC program's watchdog
+      and stale-data handling can be exercised. Pairs with the SIM_HEARTBEAT tag in §6.2.
+- [ ] 2.14 Demo kit convention: `kits/<scene>/` holding the scene, its PLC program(s), the exported
+      I/O CSV, the generated L5X and Ignition tag JSON, the Perspective view, and the GRAFCET HTML, all
+      regenerated by `tools/build_kit.py`. First kit: the sorter.
+      *Why:* the one-file-to-full-deliverable pipeline is OpenFactory's differentiator (§0). A kit
+      makes that claim demonstrable and gives HIS Controls a reusable client demo per scene.
+- [ ] 2.15 Custom mesh per component: an optional `mesh: {file: models/press.glb, scale: 1.0,
+      offset: [0,0,0]}` on any component replaces the viewer's primitive with a user-supplied GLTF
+      (`.glb`/`.gltf`; OBJ via a one-off `tools/convert_mesh.py`). The headless model and physics
+      collider keep using the component's declared dimensions; the mesh is visual only. Files resolve
+      relative to the scene file; the server serves them under `/models/`.
+      *Why:* users want their own equipment on screen immediately, and competitors in this class
+      already offer model import. A curated asset library (4.2) is polish on top of this, not a
+      prerequisite for it.
+      *Done when:* the sorter scene renders a user-supplied `.glb` for CYL_01 in the screenshot
+      runner, the parity trace is unchanged, and a missing file falls back to the primitive with a
+      loader warning rather than a blank viewer.
+- [ ] 2.16 Composite components, declared in scenes without Python: a `composites:` block defines a
+      new type from existing components, primitive shapes, and simple expressions:
+      ```yaml
+      composites:
+        - type: gated_conveyor
+          params: {length: 2.0, gate_time_s: 0.5}
+          parts:
+            - {id: belt, type: belt_conveyor, length: "{length}"}
+            - {id: gate, type: stopper, position: [ "{length} - 0.2", 0, 0 ]}
+          io:
+            run:    {to: belt.run}
+            open:   {to: gate.raise, invert: true}
+            parts_waiting: {from: "gate.raised and belt.part_present"}
+      ```
+      Instances then use `type: gated_conveyor` like any built-in. Expressions are a small safe
+      subset (arithmetic, comparisons, `and`/`or`/`not`, no function calls), evaluated by a
+      purpose-built evaluator, never `eval`. Composite types may nest one level. The I/O list export
+      flattens them. A `openfactory lint` warning flags a composite that exposes no I/O.
+      *Why:* today only a Python programmer can add a machine. A scene author, a student, or an AI
+      assistant should be able to build new equipment from the parts list, which is the feature users
+      of commercial trainers ask for most and the one that makes the Milestone 4 editor worthwhile
+      (an editor that can only place built-ins is a scene picker). Composites also keep the §5 table
+      honest: a new primitive is needed only when no composite can express the behavior.
+      *Done when:* the `gated_conveyor` example above runs headless and in the viewer, its tags
+      appear in the exported CSV with the composite instance's id as prefix, the JSON Schema
+      validates composite definitions, and a recursive composite is rejected at load with a clear
+      message. Ship it in a scene (`buffer-and-release` from 2.7 should be rebuilt on it).
 
 ### Milestone 3 — Process simulation (target 3–4 weeks)
 - [ ] 3.1 Flow network solver (`core/flownet.py`): directed graph of sources, pipes, valves, pumps,
@@ -578,14 +680,34 @@ runs the sorting program against it; a box visibly gets pushed.
       `/plantpax-*` skills, parameters from `ai-memory-vendor-docs`) + Perspective faceplates
 - [ ] 3.5 MQTT Sparkplug B publisher (`protocols/sparkplug.py`) tested against Ignition 8.3 MQTT Engine
 - [ ] 3.6 Trend endpoint `/api/history?tag=` ring buffer so the viewer can show a 10-minute trend
+- [ ] 3.7 Per-tag `range` and `units` override in the binding form (closes the §8 analog-range risk)
+      before any 3.2 component lands.
+- [ ] 3.8 Process demo kit (`kits/tank-level-pid/`) built with 2.14, including PlantPAx L5X and
+      Perspective faceplates from 3.4.
 
 ### Milestone 4 — Editor, assets, community (ongoing)
-- [ ] 4.1 In-browser scene editor: drag components, edit properties with schema-driven forms, export YAML
+- [ ] 4.1 In-browser scene editor: drag components, edit properties with schema-driven forms, export YAML.
+      Must support placing and editing composite types (2.16) and assigning meshes (2.15) from day one.
 - [ ] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
 - [ ] 4.5 Public GitHub release, issue templates, Discussions, first good-first-issues
 - [ ] 4.6 Desktop packaging (PyInstaller + bundled viewer) for Windows users without Python
+- [ ] 4.7 Scene schema versioning: `openfactory: "0.2"` bumps require `openfactory migrate` to rewrite
+      older scenes, with a test corpus of every shipped scene at every past version. Must exist before
+      4.5, because a public release freezes the format people depend on.
+- [ ] 4.8 Release hygiene before 4.5: SECURITY.md with a disclosure contact, CODE_OF_CONDUCT.md,
+      semantic versioning policy, CHANGELOG.md, SBOM generated from `THIRD_PARTY.md`, and a one-page
+      "what OpenFactory is not" statement (not safety-rated, not virtual commissioning, not a PLC).
+- [ ] 4.9 Dependency upgrade cadence: a quarterly task that bumps three, Rapier, and pymodbus, reruns
+      the parity trace and the Modbus round trip, and records the result in `docs/research/`.
+      *Why:* Rapier and pymodbus both changed APIs under us during planning (§2.1, 1.7).
+- [ ] 4.10 Stretch, on request only: OpenUSD exporter (`export/usd.py`) mapping scene components to
+      USD prims so a scene can be opened in NVIDIA Omniverse or any USD viewer for photoreal client
+      presentations, plus import of SimReady USD assets as component meshes.
+      *Why:* OpenUSD is the industry's converging scene format (Siemens, Rockwell Emulate3D, NVIDIA).
+      OpenFactory stays the lightweight logic-and-SCADA layer; USD is the ladder up to the high-end
+      tools without building on them (GPU and license requirements rule that out, see ADR-0001).
 
 ---
 
@@ -599,6 +721,9 @@ runs the sorting program against it; a box visibly gets pushed.
 | LGPL in asyncua | License questions from adopters | `THIRD_PARTY.md` explains dynamic import; offer `open62541` binding as alternative later |
 | Performance with many parts | Demo looks bad | Cap parts at 200; instanced meshes; profile in 2.9 |
 | Clean-room doubt | Legal exposure | CONTRIBUTING policy, DCO sign-off, never open `04_Software` from this project |
+| Scene format freezes at public release | Breaking changes after 4.5 strand users' scenes | Schema versioning and `migrate` (4.7) before release |
+| Physics or protocol library API churn | Parity or Modbus binding silently breaks on upgrade | Pinned minors; quarterly upgrade task (4.9) reruns parity and round-trip tests |
+| Users mistake it for virtual commissioning or safety validation | Reputational and liability exposure | "What OpenFactory is not" statement (4.8) in README, docs site, and every scene header |
 | Analog range is per port type, not per tag | Milestone 3 transmitters and tanks need their own engineering ranges (for example 0–2 m level, 0–150 °C), which `int16_scaled` scaling (ADR-0003) depends on | Add a per-tag range override in the scene before Milestone 3 component work starts |
 
 ---
