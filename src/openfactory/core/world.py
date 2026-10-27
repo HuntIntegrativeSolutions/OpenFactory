@@ -22,6 +22,7 @@ from __future__ import annotations
 import random
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import Any
 
 MAX_PARTS = 200
 
@@ -76,6 +77,8 @@ class World:
     lost: Counter[str] = field(default_factory=Counter)
     #: The tick being computed (``LoadedScene.step`` sets it), stamped on spawned parts.
     tick: int = 0
+    #: The scene's conveyor components (set by the loader), for sensors that see belt surfaces.
+    conveyors: list[Any] = field(default_factory=list)
 
     def rng(self, component_id: str) -> random.Random:
         """A deterministic random generator owned by one component."""

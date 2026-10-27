@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+import pytest
 from pymodbus.client import AsyncModbusTcpClient
 
 from openfactory.core.config import Endpoint
@@ -166,3 +167,39 @@ def test_pick_and_place_commands_and_feedback():
         (True, False, True, True),
         (False, True, False, True),
     ]
+
+
+def test_distance_sensor_reads_metres_over_modbus():
+    from openfactory.core.loader import build
+    from openfactory.core.schema import Scene
+
+    loaded = build(
+        Scene.model_validate(
+            {
+                "openfactory": "0.1",
+                "scene": {"name": "distance", "description": "distance sensor over Modbus"},
+                "components": [
+                    {
+                        "id": "DS_01",
+                        "type": "distance_sensor",
+                        "description": "Box Height Distance Sensor",
+                        "position": [0, 0.6, 0],
+                        "axis": "-y",
+                        "beam_length": 0.8,
+                        "io": {"distance": "DS_01_DIST_AI"},
+                    }
+                ],
+            }
+        )
+    )
+
+    async def session(plc: Plc) -> list[float]:
+        steps(loaded, 1)
+        clear = await plc.ir("DS_01_DIST_AI")
+        loaded.world.spawn("tall", (0.3, 0.4, 0.3), (0, 0.2, 0))  # top 0.2 m below the face
+        loaded.component("DS_01").step(0.02)
+        return [clear, await plc.ir("DS_01_DIST_AI")]
+
+    seen = over_modbus(loaded, session)
+    print(f"DS_01_DIST_AI over Modbus FC04 (float32 m): clear, box under: {seen}")
+    assert seen == [pytest.approx(0.8), pytest.approx(0.2)]

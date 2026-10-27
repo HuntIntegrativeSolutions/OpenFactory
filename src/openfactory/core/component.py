@@ -35,7 +35,7 @@ from openfactory.core.schema import (
     PortSpec,
     binding_tag,
     binding_transform,
-    port_specs,
+    instance_ports,
 )
 from openfactory.core.world import World
 
@@ -52,7 +52,7 @@ class Component(ABC):
         self.io = io
         self.world = world
         io_model = config.io  # type: ignore[attr-defined]
-        self.ports: dict[str, PortSpec] = port_specs(type(io_model))
+        self.ports: dict[str, PortSpec] = instance_ports(config)
         #: Port name → bound tag name, for bound ports only.
         self.bindings: dict[str, str] = {
             name: binding_tag(spec.value(io_model))

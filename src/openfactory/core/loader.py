@@ -132,6 +132,7 @@ def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScen
     world = World(seed=scene.scene.seed)
     configs = [resolve_defaults(c, scene) for c in scene.components]
     components = [registry.resolve(c.type)(c, io, world) for c in configs]
+    world.conveyors = [c for c in components if c.type in CARRIER_TYPES]
     kinematics = KinematicModel(world, components, scene.connections, scene.scene.friction)
     warnings = lint(scene)
     for warning in warnings:

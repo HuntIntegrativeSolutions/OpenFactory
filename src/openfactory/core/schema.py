@@ -27,7 +27,7 @@ import ipaddress
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -192,13 +192,15 @@ class Transform:
     def __bool__(self) -> bool:
         return self != Transform()
 
-    def describe(self) -> str:
-        """Human-readable form for the I/O list CSV, e.g. ``or(PE_01.detect, PE_02.detect); NC``."""
+    def describe(self, units: str | None = None) -> str:
+        """Human-readable form for the I/O list CSV, e.g. ``or(PE_01.detect, PE_02.detect); NC``
+        or ``window 0.25 to 0.35 m`` (``units``: the bound port's)."""
         parts = []
         if self.combine:
             parts.append(f"{self.combine}({', '.join(self.sources)})")
         if self.window is not None:
-            parts.append(f"window {self.window[0]:g}..{self.window[1]:g}")
+            unit = f" {units}" if units else ""
+            parts.append(f"window {self.window[0]:g} to {self.window[1]:g}{unit}")
         if self.invert:
             parts.append("NC (inverted)")
         if self.on_delay_s:
@@ -237,18 +239,24 @@ def port(
     range: tuple[float, float] | None = None,  # noqa: A002 - matches the scene vocabulary
     units: str | None = None,
     alias: str | None = None,
+    range_from: str | None = None,
 ) -> Any:
     """Declare an I/O port field. ``kind`` must agree with the field's tag annotation. ``alias``
-    is the port's name in scene files when it is a Python keyword (``stopper.io.raise``)."""
+    is the port's name in scene files when it is a Python keyword (``stopper.io.raise``).
+    ``range_from`` names a component parameter that sets an analog port's range per instance,
+    0 to its value (a distance sensor's 0 to ``beam_length``), instead of a fixed ``range``."""
     if kind not in IO_KINDS:
         raise ValueError(f"unknown I/O kind {kind!r}")
-    if (range is None) != (kind in ("DI", "DO")):
+    if (range is None and range_from is None) != (kind in ("DI", "DO")):
         raise ValueError(
             f"{kind} port {description!r}: analog ports need a range, discrete ports must not"
         )
     extra: dict[str, Any] = {"x-io-kind": kind}
     if range is not None:
         extra["x-range"] = list(range)
+    if range_from is not None:
+        extra["x-range-from"] = range_from
+    if range is not None or range_from is not None:
         extra["x-units"] = units or ""
     default: Any = ... if required else None
     return Field(default, alias=alias, description=description, json_schema_extra=extra)
@@ -270,6 +278,8 @@ class PortSpec:
     units: str | None
     #: Attribute on the ``io`` model, when the port name is a keyword (``raise`` -> ``raise_``).
     attr: str = ""
+    #: Component parameter giving the range per instance, 0 to its value (:func:`instance_ports`).
+    range_from: str | None = None
 
     def value(self, io_model: Any) -> Any:
         """The port's binding on a validated ``io`` model, or None when unbound."""
@@ -292,7 +302,17 @@ def port_specs(io_model: type[IOModel]) -> dict[str, PortSpec]:
             range=(float(rng[0]), float(rng[1])) if isinstance(rng, list) else None,
             units=str(extra["x-units"]) if "x-units" in extra else None,
             attr=name,
+            range_from=extra.get("x-range-from"),  # type: ignore[arg-type]
         )
+    return specs
+
+
+def instance_ports(component: Any) -> dict[str, PortSpec]:
+    """A component's ports with per-instance ranges filled in (``range_from``)."""
+    specs = port_specs(type(component.io))
+    for name, spec in specs.items():
+        if spec.range_from is not None:
+            specs[name] = replace(spec, range=(0.0, float(getattr(component, spec.range_from))))
     return specs
 
 
@@ -537,6 +557,34 @@ class PickAndPlace(ComponentBase):
     io: PickAndPlaceIO
 
 
+class DistanceSensorIO(IOModel):
+    distance: AiTag = port(
+        "AI",
+        "Distance to the nearest part along the beam (beam_length when clear)",
+        required=True,
+        units="m",
+        range_from="beam_length",
+    )
+    switching: AiTag | None = port(
+        "AI",
+        "Switching output: the same distance, for a {tag: X_DI, window: [lo, hi]} binding",
+        units="m",
+        range_from="beam_length",
+    )
+
+
+class DistanceSensor(ComponentBase):
+    """Origin: the sensor face. The beam runs ``beam_length`` from it along ``axis``: ``+z``
+    across the flow (rotated with the sensor), or ``-y`` straight down."""
+
+    type: Literal["distance_sensor"]
+    axis: Literal["+z", "-y"] = Field("+z", description="Beam direction in the sensor's frame.")
+    beam_length: PositiveFloat = Field(
+        1.0, description="Measuring range, meters; the distance ports' range is 0 to this."
+    )
+    io: DistanceSensorIO
+
+
 class PartSpec(StrictModel):
     name: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
     size: Size3 = Field(description="Box size x, y, z in meters.")
@@ -623,6 +671,7 @@ Component = Annotated[
     | Turntable
     | DiverterArm
     | PickAndPlace
+    | DistanceSensor
     | PhotoEye
     | Pusher
     | BoxEmitter
@@ -643,6 +692,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Turntable,
         DiverterArm,
         PickAndPlace,
+        DistanceSensor,
         PhotoEye,
         Pusher,
         BoxEmitter,
@@ -783,7 +833,7 @@ class Scene(StrictModel):
         out: list[TagBinding] = []
         for comp in self.components:
             io = comp.io  # type: ignore[attr-defined]
-            for spec in port_specs(type(io)).values():
+            for spec in instance_ports(comp).values():
                 value = spec.value(io)
                 if value is not None:
                     transform = binding_transform(value)

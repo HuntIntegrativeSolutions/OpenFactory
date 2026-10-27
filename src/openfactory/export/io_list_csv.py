@@ -79,7 +79,7 @@ def io_list_rows(
     table = build_iotable(scene)
     rows = []
     register_map = scene_register_map(scene, enc, scene_path=scene_path, write=write_lock)
-    transforms = {b.name: b.transform.describe() for b in scene.tag_bindings()}
+    transforms = {b.name: b.transform.describe(b.port.units) for b in scene.tag_bindings()}
     for a in register_map.assignments:
         tag = table.tag(a.tag)
         analog = tag.kind in ("AI", "AO")

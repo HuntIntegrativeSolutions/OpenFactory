@@ -33,6 +33,15 @@ the other encoding (a hand-renamed file), a lockfile under the pre-amendment nam
 ``<scene>.modbus.yaml``, two tags on overlapping addresses, or an address past 65535 is an error
 (:class:`AddressError`).
 
+**Scaling ranges (PLAN 2.5 ruling).** An ``int16_scaled`` lockfile also records, under
+``ranges:``, the engineering range each analog tag in the scene is scaled against (raw 0 and raw
+32767). A PLC program is written against that scaling, so a scene whose range for a tag no longer
+matches the lockfile's (a distance sensor's ``beam_length`` changed, for example) is an
+:class:`AddressError` instead of a silent rescale; the message says to update the PLC's scaling and
+then delete the tag's ``ranges:`` line to accept the new range. A lockfile written before ranges
+were recorded gains the section the next time it is written; ``float32`` lockfiles have none, since
+floats carry engineering values.
+
 **Live binding.** The server is one pymodbus ``SimDevice`` (id 0 answers every unit id) with four
 separate tables and an ``action`` hook (``docs/research/libraries.md``, "pymodbus 3.x datastore
 binding"; verified against the pymodbus 3.16.1 source). On every read the hook refills the whole
@@ -167,6 +176,8 @@ class RegisterMap:
     assignments: list[Assignment] = field(default_factory=list)
     #: Locked addresses of tags no longer in the scene, kept reserved (ADR-0004).
     retired: dict[str, int] = field(default_factory=dict)
+    #: int16_scaled only: the engineering range each analog tag is scaled against.
+    ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.by_tag = {a.tag: a for a in self.assignments}
@@ -195,6 +206,8 @@ class AddressLock:
     encoding: Encoding
     #: Tag name -> zero-based address. The table follows from the tag's kind suffix.
     addresses: dict[str, int] = field(default_factory=dict)
+    #: int16_scaled: tag name -> the (lo, hi) range its scaling was locked against.
+    ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
 
 
 def _kind_of(tag_name: str) -> str:
@@ -268,7 +281,12 @@ def allocate(
     ]
     out.sort(key=lambda a: (KIND_ORDER.index(a.kind), a.address))
     retired = {name: addr for name, addr in chosen.items() if name not in present}
-    return RegisterMap(encoding, out, retired)
+    ranges = (
+        {t.name: _span(t) for t in ordered if t.kind in ("AI", "AO")}
+        if encoding == "int16_scaled"
+        else {}
+    )
+    return RegisterMap(encoding, out, retired, ranges)
 
 
 # --- lockfile (ADR-0004) -------------------------------------------------------------------------
@@ -341,10 +359,16 @@ def read_lock(path: str | Path) -> AddressLock | None:
             if not isinstance(address, int) or isinstance(address, bool):
                 raise AddressError(f"{path}: {name} has a non-integer address {address!r}")
             addresses[name] = address
-    unknown = set(data) - {"encoding", *LOCK_SECTION.values()}
+    ranges: dict[str, tuple[float, float]] = {}
+    for name, span in (data.get("ranges") or {}).items():
+        ok = isinstance(span, list) and len(span) == 2
+        if not ok or not all(isinstance(v, int | float) and not isinstance(v, bool) for v in span):
+            raise AddressError(f"{path}: {name} range must be [lo, hi], got {span!r}")
+        ranges[name] = (float(span[0]), float(span[1]))
+    unknown = set(data) - {"encoding", "ranges", *LOCK_SECTION.values()}
     if unknown:
         raise AddressError(f"{path}: unknown key(s) {', '.join(sorted(unknown))}")
-    return AddressLock(data["encoding"], addresses)
+    return AddressLock(data["encoding"], addresses, ranges)
 
 
 def lock_text(register_map: RegisterMap, scene_file: str = "the scene") -> str:
@@ -370,6 +394,12 @@ def lock_text(register_map: RegisterMap, scene_file: str = "the scene") -> str:
         lines += [
             f"  {name}: {address}" + ("" if live else "  # not in scene")
             for address, name, live in rows
+        ]
+    if register_map.ranges:
+        lines.append("# The range each analog tag is scaled against (raw 0 and raw 32767).")
+        lines.append("ranges:")
+        lines += [
+            f"  {name}: [{lo:g}, {hi:g}]" for name, (lo, hi) in sorted(register_map.ranges.items())
         ]
     return "\n".join(lines) + "\n"
 
@@ -397,6 +427,20 @@ def scene_register_map(
     if path is not None and lock is None:
         lock = seed_digital_lock(scene_path, enc)  # type: ignore[arg-type]
     register_map = allocate(build_iotable(scene).tags(), enc, pins=pins, lock=lock)
+    if lock is not None:
+        for name, (lo, hi) in register_map.ranges.items():
+            locked = lock.ranges.get(name)
+            same = locked is None or all(
+                math.isclose(a, b, abs_tol=1e-9) for a, b in zip(locked, (lo, hi), strict=True)
+            )
+            if not same:
+                raise AddressError(
+                    f"{name}: the {enc} lockfile scales it against {locked[0]:g} to {locked[1]:g}, "  # type: ignore[index]
+                    f"but the scene now gives {lo:g} to {hi:g}; a PLC program scaled for the old "
+                    "range would read wrong values. Update the PLC's scaling, then delete the "
+                    f"'{name}' line under ranges: in {path.name if path else 'the lockfile'} to "
+                    "accept the new range"
+                )
     if path is not None and write:
         text = lock_text(register_map, Path(scene_path).name)  # type: ignore[arg-type]
         if not path.is_file() or path.read_text(encoding="utf-8") != text:

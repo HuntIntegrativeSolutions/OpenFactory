@@ -293,3 +293,39 @@ export const pickAndPlace: Builder = (g, ctx) => {
     },
   };
 };
+
+/**
+ * Distance sensor: origin at the sensor face. The beam runs along local +z (axis "+z") or straight
+ * down (axis "-y") and is drawn to the core's measured distance_m. ISA-101: green while a part is
+ * in range, grey when the beam is clear. The reading is core-only (no physics body, PLAN §3.3).
+ */
+export const distanceSensor: Builder = (g) => {
+  const reach = num(g, "beam_length", 1);
+  const down = g.axis === "-y";
+  const group = placed(g);
+  const housing = box([0.06, 0.06, 0.06], NEUTRAL.frame, down ? [0, 0.03, 0] : [0, 0, -0.03]);
+  group.add(housing);
+  const beam = zCylinder(0.005, 1, ISA101.stopped);
+  beam.name = "beam";
+  const aim = new THREE.Group(); // beam along local +z, or turned to point down
+  if (down) aim.rotation.x = Math.PI / 2;
+  aim.add(beam);
+  group.add(aim);
+  const setLength = (d: number) => {
+    const length = Math.max(0.001, d);
+    beam.scale.y = length; // cylinder height runs along local y before its x rotation
+    beam.position.z = length / 2;
+  };
+  setLength(reach);
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, 0.1, 0),
+    pickable: [],
+    update(state) {
+      setLength(typeof state.distance_m === "number" ? state.distance_m : reach);
+      setColor(beam, state.target ? ISA101.running : ISA101.stopped);
+    },
+  };
+};

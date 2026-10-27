@@ -18,3 +18,7 @@ input_registers: {}
 holding_registers:
   CONV_01_SPD_AO: 0
   CONV_02_SPD_AO: 1
+# The range each analog tag is scaled against (raw 0 and raw 32767).
+ranges:
+  CONV_01_SPD_AO: [0, 100]
+  CONV_02_SPD_AO: [0, 100]

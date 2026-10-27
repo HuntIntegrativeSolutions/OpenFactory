@@ -1,5 +1,60 @@
 {
   "$defs": {
+    "AiTagSpec": {
+      "additionalProperties": false,
+      "description": "An AI binding. With ``window: [lo, hi]`` the port feeds a DI tag instead, true while the\nvalue is inside the window (a distance sensor's switching window, PLAN 2.17).",
+      "properties": {
+        "tag": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*_(?:AI|DI)$",
+          "title": "Tag",
+          "type": "string"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned zero-based Modbus address (ADR-0004).",
+          "title": "Address"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[lo, hi] in the port's units: bind a _DI tag, true inside the window.",
+          "title": "Window"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "title": "AiTagSpec",
+      "type": "object"
+    },
     "AoTagSpec": {
       "additionalProperties": false,
       "properties": {
@@ -409,6 +464,129 @@
         "tag"
       ],
       "title": "DiTagSpec",
+      "type": "object"
+    },
+    "DistanceSensor": {
+      "additionalProperties": false,
+      "description": "Origin: the sensor face. The beam runs ``beam_length`` from it along ``axis``: ``+z``\nacross the flow (rotated with the sensor), or ``-y`` straight down.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "type": {
+          "const": "distance_sensor",
+          "title": "Type",
+          "type": "string"
+        },
+        "axis": {
+          "default": "+z",
+          "description": "Beam direction in the sensor's frame.",
+          "enum": [
+            "+z",
+            "-y"
+          ],
+          "title": "Axis",
+          "type": "string"
+        },
+        "beam_length": {
+          "default": 1.0,
+          "description": "Measuring range, meters; the distance ports' range is 0 to this.",
+          "exclusiveMinimum": 0,
+          "title": "Beam Length",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/DistanceSensorIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type",
+        "io"
+      ],
+      "title": "DistanceSensor",
+      "type": "object"
+    },
+    "DistanceSensorIO": {
+      "additionalProperties": false,
+      "properties": {
+        "distance": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            }
+          ],
+          "description": "Distance to the nearest part along the beam (beam_length when clear)",
+          "title": "Distance",
+          "x-io-kind": "AI",
+          "x-range-from": "beam_length",
+          "x-units": "m"
+        },
+        "switching": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Switching output: the same distance, for a {tag: X_DI, window: [lo, hi]} binding",
+          "title": "Switching",
+          "x-io-kind": "AI",
+          "x-range-from": "beam_length",
+          "x-units": "m"
+        }
+      },
+      "required": [
+        "distance"
+      ],
+      "title": "DistanceSensorIO",
       "type": "object"
     },
     "DiverterArm": {
@@ -2164,6 +2342,7 @@
           "mapping": {
             "belt_conveyor": "#/$defs/BeltConveyor",
             "box_emitter": "#/$defs/BoxEmitter",
+            "distance_sensor": "#/$defs/DistanceSensor",
             "diverter_arm": "#/$defs/DiverterArm",
             "part_remover": "#/$defs/PartRemover",
             "photo_eye": "#/$defs/PhotoEye",
@@ -2196,6 +2375,9 @@
           },
           {
             "$ref": "#/$defs/PickAndPlace"
+          },
+          {
+            "$ref": "#/$defs/DistanceSensor"
           },
           {
             "$ref": "#/$defs/PhotoEye"
