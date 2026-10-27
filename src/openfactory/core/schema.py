@@ -512,6 +512,31 @@ class DiverterArm(ComponentBase):
         return self
 
 
+class PickAndPlaceIO(IOModel):
+    traverse: DoTag = port(
+        "DO", "Traverse command (held: to the place side; released: back to pick)", required=True
+    )
+    lower: DoTag = port("DO", "Lower command", required=True)
+    grip: DoTag = port("DO", "Grip command", required=True)
+    at_pick: DiTag | None = port("DI", "At the pick side")
+    at_place: DiTag | None = port("DI", "At the place side")
+    lowered: DiTag | None = port("DI", "Lowered limit switch")
+    holding: DiTag | None = port("DI", "Holding a part")
+
+
+class PickAndPlace(ComponentBase):
+    """Origin: bottom centre of the gripper pad, raised, over the pick point. Traverse runs along
+    local +x for ``travel``; lowering moves the pad down by ``stroke``."""
+
+    type: Literal["pick_and_place"]
+    travel: PositiveFloat = Field(description="Pick to place distance along local +x, meters.")
+    stroke: PositiveFloat = Field(description="Vertical lowering distance, meters.")
+    travel_time_s: PositiveFloat = Field(1.0, description="Time for the full traverse, seconds.")
+    lower_time_s: PositiveFloat = Field(0.3, description="Time to lower or raise, seconds.")
+    grip_size: Size3 = Field((0.25, 0.05, 0.25), description="Gripper pad size x, y, z in meters.")
+    io: PickAndPlaceIO
+
+
 class PartSpec(StrictModel):
     name: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
     size: Size3 = Field(description="Box size x, y, z in meters.")
@@ -597,6 +622,7 @@ Component = Annotated[
     | Stopper
     | Turntable
     | DiverterArm
+    | PickAndPlace
     | PhotoEye
     | Pusher
     | BoxEmitter
@@ -616,6 +642,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Stopper,
         Turntable,
         DiverterArm,
+        PickAndPlace,
         PhotoEye,
         Pusher,
         BoxEmitter,

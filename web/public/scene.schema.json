@@ -838,6 +838,251 @@
       "title": "PhotoEyeIO",
       "type": "object"
     },
+    "PickAndPlace": {
+      "additionalProperties": false,
+      "description": "Origin: bottom centre of the gripper pad, raised, over the pick point. Traverse runs along\nlocal +x for ``travel``; lowering moves the pad down by ``stroke``.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "type": {
+          "const": "pick_and_place",
+          "title": "Type",
+          "type": "string"
+        },
+        "travel": {
+          "description": "Pick to place distance along local +x, meters.",
+          "exclusiveMinimum": 0,
+          "title": "Travel",
+          "type": "number"
+        },
+        "stroke": {
+          "description": "Vertical lowering distance, meters.",
+          "exclusiveMinimum": 0,
+          "title": "Stroke",
+          "type": "number"
+        },
+        "travel_time_s": {
+          "default": 1.0,
+          "description": "Time for the full traverse, seconds.",
+          "exclusiveMinimum": 0,
+          "title": "Travel Time S",
+          "type": "number"
+        },
+        "lower_time_s": {
+          "default": 0.3,
+          "description": "Time to lower or raise, seconds.",
+          "exclusiveMinimum": 0,
+          "title": "Lower Time S",
+          "type": "number"
+        },
+        "grip_size": {
+          "default": [
+            0.25,
+            0.05,
+            0.25
+          ],
+          "description": "Gripper pad size x, y, z in meters.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            }
+          ],
+          "title": "Grip Size",
+          "type": "array"
+        },
+        "io": {
+          "$ref": "#/$defs/PickAndPlaceIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type",
+        "travel",
+        "stroke",
+        "io"
+      ],
+      "title": "PickAndPlace",
+      "type": "object"
+    },
+    "PickAndPlaceIO": {
+      "additionalProperties": false,
+      "properties": {
+        "traverse": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Traverse command (held: to the place side; released: back to pick)",
+          "title": "Traverse",
+          "x-io-kind": "DO"
+        },
+        "lower": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Lower command",
+          "title": "Lower",
+          "x-io-kind": "DO"
+        },
+        "grip": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Grip command",
+          "title": "Grip",
+          "x-io-kind": "DO"
+        },
+        "at_pick": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "At the pick side",
+          "title": "At Pick",
+          "x-io-kind": "DI"
+        },
+        "at_place": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "At the place side",
+          "title": "At Place",
+          "x-io-kind": "DI"
+        },
+        "lowered": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lowered limit switch",
+          "title": "Lowered",
+          "x-io-kind": "DI"
+        },
+        "holding": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Holding a part",
+          "title": "Holding",
+          "x-io-kind": "DI"
+        }
+      },
+      "required": [
+        "traverse",
+        "lower",
+        "grip"
+      ],
+      "title": "PickAndPlaceIO",
+      "type": "object"
+    },
     "PilotLight": {
       "additionalProperties": false,
       "properties": {
@@ -1922,6 +2167,7 @@
             "diverter_arm": "#/$defs/DiverterArm",
             "part_remover": "#/$defs/PartRemover",
             "photo_eye": "#/$defs/PhotoEye",
+            "pick_and_place": "#/$defs/PickAndPlace",
             "pilot_light": "#/$defs/PilotLight",
             "pushbutton": "#/$defs/Pushbutton",
             "pusher": "#/$defs/Pusher",
@@ -1947,6 +2193,9 @@
           },
           {
             "$ref": "#/$defs/DiverterArm"
+          },
+          {
+            "$ref": "#/$defs/PickAndPlace"
           },
           {
             "$ref": "#/$defs/PhotoEye"

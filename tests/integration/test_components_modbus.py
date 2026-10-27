@@ -139,3 +139,30 @@ def test_diverter_arm_extend_coil_and_limit_inputs():
     seen = over_modbus(loaded, session)
     print(f"DIV_01 (extended, retracted) over Modbus: start, mid-swing, out: {seen}")
     assert seen == [(False, True), (False, False), (True, False)]
+
+
+def test_pick_and_place_commands_and_feedback():
+    loaded = load(SCENES / "demo-pick-place.yaml")
+    loaded.world.spawn("box", (0.3, 0.2, 0.3), (2.05, 0.1, 0.0))  # waiting under the pad
+    names = ("PP_01_AT_PICK_DI", "PP_01_AT_PLACE_DI", "PP_01_DOWN_DI", "PP_01_HOLD_DI")
+
+    async def session(plc: Plc) -> list[tuple[bool, ...]]:
+        steps(loaded, 1)
+        read = [tuple([await plc.di(n) for n in names])]
+        await plc.coil("PP_01_LOWER_DO", True)
+        await plc.coil("PP_01_GRIP_DO", True)
+        steps(loaded, 16)
+        read.append(tuple([await plc.di(n) for n in names]))
+        await plc.coil("PP_01_LOWER_DO", False)
+        await plc.coil("PP_01_TRAV_DO", True)
+        steps(loaded, 55)
+        read.append(tuple([await plc.di(n) for n in names]))
+        return read
+
+    seen = over_modbus(loaded, session)
+    print(f"PP_01 (at_pick, at_place, lowered, holding) over Modbus: {seen}")
+    assert seen == [
+        (True, False, False, False),
+        (True, False, True, True),
+        (False, True, False, True),
+    ]

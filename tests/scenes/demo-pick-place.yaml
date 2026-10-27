@@ -1,0 +1,74 @@
+# PLAN 2.5 demo and test scene for pick_and_place (tests only, not a shipped scene): boxes ride
+# CONV_A to stopper STP_A; the gantry picks each one, carries it 1 m across, and sets it on CONV_B.
+# tests/scenes/demo-pick-place.py sequences it. Training and demo use only. Not a safety-rated
+# simulation.
+openfactory: "0.1"
+scene:
+  name: demo-pick-place
+  description: Two-axis gantry transferring boxes from one conveyor to a parallel one.
+  seed: 1
+plc:
+  protocol: modbus_tcp
+components:
+  - id: CONV_A
+    type: belt_conveyor
+    description: Pick Belt Conveyor
+    position: [0, 0, 0]
+    length: 2.4
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_A_RUN_DO
+  - id: STP_A
+    type: stopper
+    description: Pick Position Stopper
+    position: [2.2, 0, 0]          # holds a 0.3 m box centred at x 2.05
+    io:
+      raise: STP_A_RAISE_DO
+  - id: PE_A
+    type: photo_eye
+    description: Pick Position Photo Eye
+    position: [2.05, 0.1, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_A_DI
+  - id: PP_01
+    type: pick_and_place
+    description: Transfer Gantry
+    position: [2.05, 0.45, 0]      # pad bottom, raised, over the pick point
+    rotation_deg: -90              # traverses toward +z
+    travel: 1.0
+    stroke: 0.25                   # lowered pad bottom at 0.20: the top of a 0.2 m box
+    travel_time_s: 1.0
+    lower_time_s: 0.3
+    io:
+      traverse: PP_01_TRAV_DO
+      lower: PP_01_LOWER_DO
+      grip: PP_01_GRIP_DO
+      at_pick: PP_01_AT_PICK_DI
+      at_place: PP_01_AT_PLACE_DI
+      lowered: PP_01_DOWN_DI
+      holding: PP_01_HOLD_DI
+  - id: CONV_B
+    type: belt_conveyor
+    description: Place Belt Conveyor
+    position: [1.0, 0, 1.0]
+    length: 2.5
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_B_RUN_DO
+  - id: EMT_01
+    type: box_emitter
+    description: Pick Belt Box Source
+    position: [0.3, 0.15, 0]
+    interval_s: 6.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_B
+    type: part_remover
+    description: Place Belt Discharge Part Remover
+    position: [3.65, 0, 1.0]
+    size: [0.3, 1.0, 0.5]

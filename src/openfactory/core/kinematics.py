@@ -49,6 +49,8 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   and pokes through it is moved back out along the arm's normal. A part carried into an extended
   arm therefore slides along it, and a swinging arm sweeps what it reaches; a part whose centre
   ends up past the belt edge falls (onto the side conveyor). A retracting arm does not pull parts.
+- **Held (PLAN 2.5):** a part a ``pick_and_place`` gripper holds (:attr:`Part.held_by`) is not
+  carried, fenced, or falling here; the gripper moves it. Released, it falls as below.
 - **Falling:** gravity (9.81 m/s², semi-implicit Euler). A falling part lands on the highest
   conveyor whose belt top it crosses during the step and whose footprint (0 ≤ local x ≤ length,
   |local z| ≤ width / 2) holds the part's center. Landing is an impact: the normal impulse that
@@ -254,7 +256,8 @@ class KinematicModel:
         for pusher in self.pushers:
             self._push(pusher)
         parts = list(self.world.parts.values())
-        falling = [p for p in parts if p.carrier is None]  # a part leaving a belt falls next tick
+        # a part leaving a belt falls next tick; a gripper moves the parts it holds
+        falling = [p for p in parts if p.carrier is None and p.held_by is None]
         # Each carried part's belt-local box, computed once per tick and updated as it moves, so
         # the queueing check (_room_ahead) is plain arithmetic: belt -> part id -> box.
         self._boxes = {c: {} for c in self.carriers}

@@ -8,6 +8,7 @@ import {
   fallback,
   partRemover,
   photoEye,
+  pickAndPlace,
   pilotLight,
   pushbutton,
   pusher,
@@ -29,6 +30,7 @@ export const BUILDERS: Record<string, Builder> = {
   stopper,
   turntable,
   diverter_arm: diverterArm,
+  pick_and_place: pickAndPlace,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {

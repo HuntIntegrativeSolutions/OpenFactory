@@ -246,3 +246,50 @@ export const diverterArm: Builder = (g) => {
     },
   };
 };
+
+/**
+ * Pick and place: origin at the bottom centre of the raised gripper pad over the pick point. A
+ * gantry beam spans the traverse along local +x on two portal frames; the carriage moves with the
+ * core's x_m and the pad drops by y_m. ISA-101: the pad is green while gripping, grey otherwise.
+ */
+export const pickAndPlace: Builder = (g, ctx) => {
+  const travel = num(g, "travel", 1);
+  const grip = (g.grip_size as number[] | undefined) ?? [0.25, 0.05, 0.25];
+  const beamY = 0.35;
+  const group = placed(g);
+  group.add(box([travel + 0.6, 0.06, 0.08], NEUTRAL.frame, [travel / 2, beamY, 0]));
+  const legH = g.position[1] + beamY - ctx.floorY;
+  for (const x of [-0.3, travel + 0.3]) {
+    group.add(box([0.06, 0.06, 0.9], NEUTRAL.frame, [x, beamY, 0]));
+    for (const z of [-0.42, 0.42]) group.add(box([0.06, legH, 0.06], NEUTRAL.frame, [x, beamY - legH / 2, z]));
+  }
+  const carriage = new THREE.Group();
+  carriage.name = "carriage";
+  group.add(carriage);
+  carriage.add(box([0.14, 0.1, 0.14], NEUTRAL.structure, [0, beamY - 0.06, 0]));
+  const rod = box([0.03, 1, 0.03], NEUTRAL.structure);
+  carriage.add(rod);
+  const pad = box([grip[0], grip[1], grip[2]], ISA101.stopped);
+  pad.name = "pad";
+  carriage.add(pad);
+  const setPose = (x: number, y: number) => {
+    carriage.position.x = x;
+    pad.position.y = -y + grip[1] / 2;
+    const top = beamY - 0.11;
+    const bottom = -y + grip[1];
+    rod.scale.y = Math.max(0.01, top - bottom);
+    rod.position.y = (top + bottom) / 2;
+  };
+  setPose(0, 0);
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(travel / 2, beamY + 0.1, 0),
+    pickable: [],
+    update(state) {
+      setPose(typeof state.x_m === "number" ? state.x_m : 0, typeof state.y_m === "number" ? state.y_m : 0);
+      setColor(pad, state.gripping ? ISA101.running : ISA101.stopped);
+    },
+  };
+};
