@@ -10,6 +10,11 @@ Behavior spec
 - ``GET /api/state``: the latest state snapshot (same shape as a ``/ws/state`` frame).
 - ``GET /api/status``: sim time and tick, part counts, and viewer events received by type and id.
 - ``GET /api/events``: the most recent viewer events with the core time they arrived.
+- ``GET /api/fault``: active faults (``{id, type, kind, params, tick}``) and each component's
+  supported kinds (PLAN 2.6). ``POST /api/fault`` with ``{"id", "kind", "params"}`` injects one,
+  replacing that component's current fault, and returns it with the one it replaced;
+  ``DELETE /api/fault/{id}`` clears it. Unknown components are 404, unsupported kinds or bad
+  parameters 400. Faults act from the next tick.
 - ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
   sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
 - ``WS /ws/state``: sends the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines,
@@ -37,10 +42,10 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from openfactory import __version__
 from openfactory.core.config import Endpoint, load_settings
@@ -50,6 +55,18 @@ from openfactory.server.runtime import Runtime
 log = logging.getLogger(__name__)
 
 STATE_RATE_HZ = 20.0
+
+
+class FaultRequest(BaseModel):
+    """Body of ``POST /api/fault`` (PLAN 2.6)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    kind: str
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
 WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
 
 _NO_BUILD = """<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -78,6 +95,26 @@ def create_app(runtime: Runtime, web_dist: Path | None = WEB_DIST) -> FastAPI:
     @app.get("/api/events")
     def events(limit: int = 100) -> list[dict[str, Any]]:
         return list(runtime.events)[-limit:] if limit > 0 else []
+
+    @app.get("/api/fault")
+    def faults() -> dict[str, Any]:
+        return runtime.faults()
+
+    @app.post("/api/fault")
+    def inject_fault(request: FaultRequest) -> dict[str, Any]:
+        try:
+            return runtime.inject_fault(request.id, request.kind, request.params)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc.args[0])) from None
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
+
+    @app.delete("/api/fault/{component_id}")
+    def clear_fault(component_id: str) -> dict[str, Any]:
+        try:
+            return runtime.clear_fault(component_id)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc.args[0])) from None
 
     @app.get("/api/parity")
     def parity() -> dict[str, Any]:

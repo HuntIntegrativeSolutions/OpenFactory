@@ -27,14 +27,26 @@ _TOUCH_M = 1e-9
 
 @register("photo_eye")
 class PhotoEye(Component):
+    FAULTS = ("stuck_on", "stuck_off", "misaligned", "noisy")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        half = self.config.beam_length / 2
-        pos, rot = self.config.position, self.config.rotation_deg
-        self.beam = (to_world(pos, rot, (0.0, 0.0, -half)), to_world(pos, rot, (0.0, 0.0, half)))
         self.blocked = False  # raw beam state this step
         self.detect = False  # debounced state written to the PLC
         self._pending_s: float | None = None  # time the raw state has differed from detect
+
+    @property
+    def beam_offset(self) -> float:
+        """How far a ``misaligned`` fault has moved the beam along local x (the flow), meters."""
+        if self.fault is not None and self.fault.kind == "misaligned":
+            return float(self.fault.params["offset_m"])
+        return 0.0
+
+    @property
+    def beam(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        half, x = self.config.beam_length / 2, self.beam_offset
+        pos, rot = self.config.position, self.config.rotation_deg
+        return to_world(pos, rot, (x, 0.0, -half)), to_world(pos, rot, (x, 0.0, half))
 
     def beam_blocked(self) -> bool:
         p0, p1 = self.beam
@@ -60,7 +72,7 @@ class PhotoEye(Component):
         self.write("detect", self.detect)
 
     def state(self) -> dict[str, Any]:
-        return {"detect": self.detect, "blocked": self.blocked}
+        return {"detect": self.detect, "blocked": self.blocked, "beam_offset_m": self.beam_offset}
 
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "beam_length": self.config.beam_length}

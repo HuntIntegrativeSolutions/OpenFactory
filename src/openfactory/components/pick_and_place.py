@@ -40,6 +40,8 @@ def _toward(value: float, goal: float, rate: float) -> float:
 
 @register("pick_and_place")
 class PickAndPlace(Component):
+    FAULTS = ("stuck_on", "stuck_off", "jammed", "slow")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.x = 0.0  # carriage travel from the pick side, meters
@@ -56,11 +58,11 @@ class PickAndPlace(Component):
         cfg = self.config
         self.x = _toward(
             self.x, cfg.travel if self.read("traverse", default=False) else 0.0,
-            cfg.travel / cfg.travel_time_s * dt,
+            cfg.travel / cfg.travel_time_s * dt * self.speed_factor,
         )  # fmt: skip
         self.y = _toward(
             self.y, cfg.stroke if self.read("lower", default=False) else 0.0,
-            cfg.stroke / cfg.lower_time_s * dt,
+            cfg.stroke / cfg.lower_time_s * dt * self.speed_factor,
         )  # fmt: skip
         lowered = abs(self.y - cfg.stroke) <= _EPS
         grip = bool(self.read("grip", default=False))

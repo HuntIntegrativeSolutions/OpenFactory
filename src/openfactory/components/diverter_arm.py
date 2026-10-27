@@ -49,6 +49,8 @@ def resolve_arm(config: Any, scene: Scene) -> Any:
 
 @register("diverter_arm")
 class DiverterArm(Component):
+    FAULTS = ("stuck_on", "stuck_off", "jammed", "slow")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.angle = 0.0  # degrees from rest, 0 .. swing_deg
@@ -56,7 +58,7 @@ class DiverterArm(Component):
     def step(self, dt: float) -> None:
         swing = self.config.swing_deg
         goal = swing if self.read("extend", default=False) else 0.0
-        rate = abs(swing) / self.config.extend_time_s * dt
+        rate = abs(swing) / self.config.extend_time_s * dt * self.speed_factor
         if abs(goal - self.angle) <= rate + _EPS:
             self.angle = goal
         else:

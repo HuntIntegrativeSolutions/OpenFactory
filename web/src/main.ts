@@ -14,6 +14,9 @@
 // A part first seen in a frame is added before the step for its spawn tick + 1 (spawnStep), the
 // tick the core first moved it in, so browser and core parts start on the same tick.
 //
+// Faults (PLAN 2.6): right-click (or long-press) a component for the fault menu (faultmenu.ts);
+// a faulted component's label shows the fault in ISA-101 alarm yellow.
+//
 // Reconnect: when the state socket reconnects, the server may have restarted with another scene,
 // so the viewer refetches /api/scene, rebuilds the plant if the document changed, and always starts
 // a fresh physics world, part set, and event link (frames are ignored until that is done).
@@ -24,6 +27,7 @@ import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type Sc
 import { loadRapier, PlantPhysics, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { cssColor, ISA101 } from "./isa101";
+import { FaultMenu } from "./faultmenu";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
 
@@ -88,7 +92,7 @@ function label(text: string): CSS2DObject {
   el.textContent = text;
   el.style.cssText =
     `font:12px Arial,sans-serif;color:${cssColor("normalText")};background:rgba(31,42,54,0.75);` +
-    "padding:1px 5px;border-radius:3px";
+    "padding:1px 5px;border-radius:3px;white-space:nowrap";
   return new CSS2DObject(el);
 }
 
@@ -105,6 +109,18 @@ const parts = new PartMeshes();
 scene.add(parts.group);
 let views: ComponentView[] = [];
 let plant: THREE.Object3D[] = []; // what buildScene added: component views, floor, grid
+const labelsById = new Map<string, { label: CSS2DObject; fault: string | null }>();
+
+/** Show a component's injected fault on its label (ISA-101 alarm yellow), or clear it. */
+function markFault(id: string, fault: string | null): void {
+  const entry = labelsById.get(id);
+  if (!entry || entry.fault === fault) return;
+  entry.fault = fault;
+  const el = entry.label.element;
+  el.textContent = fault ? `${id} ⚠ ${fault.replace("_", " ")}` : id;
+  el.style.background = fault ? cssColor("alarmMedium") : "rgba(31,42,54,0.75)";
+  el.style.color = fault ? cssColor("background") : cssColor("normalText");
+}
 
 /** Remove the plant built by buildScene, labels included (CSS2D elements live in the DOM). */
 function clearScene(): void {
@@ -117,6 +133,7 @@ function clearScene(): void {
   }
   plant = [];
   views = [];
+  labelsById.clear();
 }
 
 function buildScene(doc: SceneDocument): void {
@@ -128,6 +145,7 @@ function buildScene(doc: SceneDocument): void {
     const tag = label(view.id);
     tag.position.copy(view.labelAnchor);
     view.object.add(tag);
+    labelsById.set(view.id, { label: tag, fault: null });
     view.object.updateMatrixWorld(true);
     bounds.expandByObject(view.object);
   }
@@ -271,7 +289,11 @@ function stepToFrame(frame: StateFrame): void {
 function onFrame(frame: StateFrame): void {
   if (loading || !doc) return;
   lastFrame = frame;
-  for (const view of views) view.update(frame.components[view.id] ?? {});
+  for (const view of views) {
+    const state = frame.components[view.id] ?? {};
+    view.update(state);
+    markFault(view.id, typeof state.fault === "string" ? state.fault : null);
+  }
   parts.update(frame.parts);
   stepToFrame(frame);
   const status = window.__openfactory;
@@ -319,9 +341,39 @@ async function loadScene(): Promise<void> {
   loading = false;
 }
 
+/** The component under a viewport point: the view whose object tree holds the first hit. */
+function pickComponent(clientX: number, clientY: number): { id: string; type: string } | null {
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(new THREE.Vector2((clientX / window.innerWidth) * 2 - 1, -(clientY / window.innerHeight) * 2 + 1), camera);
+  const hits = raycaster.intersectObjects(views.map((v) => v.object), true);
+  // Solid meshes first: an emitter's or remover's nearly transparent outline box should not hide
+  // the equipment behind it; it is picked only when nothing solid is under the pointer.
+  const ghost = (o: THREE.Object3D) => {
+    const m = (o as THREE.Mesh).material as THREE.Material | undefined;
+    return !m || (m.transparent && m.opacity < 0.2) || o instanceof THREE.LineSegments;
+  };
+  for (const hit of [...hits.filter((h) => !ghost(h.object)), ...hits.filter((h) => ghost(h.object))]) {
+    for (let o: THREE.Object3D | null = hit.object; o; o = o.parent) {
+      const view = views.find((v) => v.object === o);
+      if (view) return { id: view.id, type: view.type };
+    }
+  }
+  return null;
+}
+
+/** Where a component's origin is on screen, in CSS pixels (for tools/screenshot.py). */
+function screenOf(id: string): [number, number] | null {
+  const view = views.find((v) => v.id === id);
+  if (!view) return null;
+  const p = view.object.getWorldPosition(new THREE.Vector3()).project(camera);
+  return [((p.x + 1) / 2) * window.innerWidth, ((1 - p.y) / 2) * window.innerHeight];
+}
+
 async function start(): Promise<void> {
   await loadScene();
   wireClicks();
+  const menu = new FaultMenu({ target: renderer.domElement, pick: pickComponent });
+  Object.assign(window, { __openfactoryFaultMenu: menu, __openfactoryScreenOf: screenOf });
   try {
     rapier = await loadRapier();
     if (doc) physics = new PlantPhysics(rapier, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });

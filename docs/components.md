@@ -26,6 +26,22 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
 - **Sized defaults.** Some heights default to sizes taken from the scene at load time (the tallest
   part any `box_emitter` can spawn, or the belt a component stands on). `openfactory lint` warns
   (W206) when a plate, blade, or arm top set by hand is below an emitted part's centre of mass.
+- **Faults (PLAN 2.6).** Every component has `fault_inject(kind, **params)` and `clear_fault()`;
+  each section lists the kinds its type supports. One fault per component at a time: injecting
+  replaces the current one. Inject from the viewer (right-click a component, or long-press it on a
+  touch screen) or over HTTP (`POST /api/fault` with `{"id", "kind", "params"}`, `GET /api/fault`
+  for the active ones and what each component supports, `DELETE /api/fault/{id}`). A fault acts
+  from the next tick; the component's label shows it in ISA-101 alarm yellow.
+  - `stuck_on` / `stuck_off` (`port`: one DI port, default all): the device's DI output reads
+    true / false. It is the device's output, before any binding transform, so an NC eye stuck on
+    reads false at the PLC. Not for analog outputs.
+  - `jammed`: the belt or actuator stops where it is; feedback stays honest.
+  - `slow` (`factor`, default 0.5): it moves at that fraction of its speed.
+  - `misaligned` (`offset_m`, default 0.05): the sensor sees that far late (or early, negative).
+  - `noisy` (`rate` per second, default 0.5; `duration_s`, default 0.2): random dropouts, long
+    enough for 100 ms PLC polling to see; a DI drops to false, an AI reads the top of its range.
+    Seeded per component, so a run replays and other random draws are not shifted.
+  - `drift` (`rate` units per second, default 0.01): an analog reading grows with simulated time.
 - **Viewer authority (PLAN §3.3).** Parts on conveyors, pushed by a plate or arm, or held by a
   stopper are simulated by the viewer's Rapier physics. Parts held by a gripper or on a turning
   turntable deck follow the core's position. Sensors are read by the core only.
@@ -54,6 +70,9 @@ A powered belt. Origin: centre of the infeed end at belt-top height; flow is loc
 The surface speed follows the target (`speed_mps` × speed % while `run`, else 0) with a linear ramp
 of 0.3 s for a full-scale change. Parts accelerate at the scene friction μ × 9.81 m/s².
 
+Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the belt at once and `running` still
+follows `run`; stuck faults act on `running`).
+
 ### `roller_conveyor`
 
 Driven rollers. Same origin, ports, and speed behavior as `belt_conveyor`.
@@ -74,6 +93,8 @@ Driven rollers. Same origin, ports, and speed behavior as `belt_conveyor`.
 
 Parts on it accelerate at its own `friction` × 9.81 m/s² (9 ticks to 0.5 m/s at μ 0.3, against 4
 at μ 0.8), in the headless model and in the viewer alike.
+
+Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (as `belt_conveyor`).
 
 ### `turntable`
 
@@ -109,6 +130,9 @@ origin is not the infeed end.
 
 ## Actuators
 
+Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the deck belt and the turn; stuck
+faults act on `running`, `at_0`, `at_90`).
+
 ### `pusher`
 
 A single-solenoid, spring-return linear actuator. Origin: centre of the retracted push-plate face;
@@ -131,6 +155,9 @@ An advancing plate pushes every part it overlaps along local +z; a retracting pl
 `openfactory lint` warns when the plate top is below an emitted part's centre of mass (W206) or the
 stroke stops short of the far edge of the belt the plate sweeps (W207), which leaves a part
 straddling the seam.
+
+Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes the plate where it is, with honest
+limits; stuck faults act on the limit switches).
 
 ### `stopper`
 
@@ -157,6 +184,9 @@ belt-top height; the blade spans local z and stops flow along local +x.
 - Queue formation against a raised stopper is a parity trace (`parity-stopper`): Rapier and the
   headless model agree within 2 ticks.
 
+Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes the blade, so a blade jammed
+partly up still holds parts).
+
 ### `diverter_arm`
 
 A paddle on a pivot at the edge of a belt. Origin: the pivot at belt-top height; at rest the arm
@@ -181,6 +211,8 @@ belt once its centre is past the belt edge; a swinging arm sweeps the parts it r
 the arm also turns the box about the vertical as it slides, which the headless model does not, so
 the diverted box reaches downstream sensors up to 10 ticks later in the viewer (informational
 trace `parity-diverter`).
+
+Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes the arm at its current angle).
 
 ### `pick_and_place`
 
@@ -213,6 +245,9 @@ pick point; the traverse runs along local +x and the pad drops along -y.
 
 ## Sensors
 
+Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes both axes; a held part stays
+held).
+
 ### `photo_eye`
 
 A through-beam photo eye. Origin: the beam midpoint; the beam spans local z.
@@ -224,6 +259,9 @@ A through-beam photo eye. Origin: the beam midpoint; the beam spans local z.
 | Port | Kind | Required | Meaning |
 |---|---|---|---|
 | `detect` | DI | yes | True while a part blocks the beam (20 ms debounce on both edges) |
+
+Faults: `stuck_on`, `stuck_off`, `misaligned`, `noisy` (misaligned moves the beam `offset_m` along
+the flow; positive sees late).
 
 ### `distance_sensor`
 
@@ -250,6 +288,9 @@ A laser or ultrasonic range sensor. Origin: the sensor face.
 
 ## Parts
 
+Faults: `misaligned`, `noisy`, `drift` (misaligned adds `offset_m` to the reading; a dropout reads
+`beam_length`).
+
 ### `box_emitter`
 
 Spawns boxes. Origin: the spawn point, the centre of each new part.
@@ -267,6 +308,8 @@ Spawns boxes. Origin: the spawn point, the centre of each new part.
 A due part waits until its spawn volume is clear, and the next interval starts from that spawn. The
 scene holds at most 200 parts; a spawn over the cap is skipped and counted.
 
+Faults: `jammed`, `slow` (jammed: nothing is spawned; slow stretches each interval by 1 / `factor`).
+
 ### `part_remover`
 
 Deletes parts that enter its volume and counts them by part name. Origin: the volume's centre.
@@ -278,6 +321,8 @@ Deletes parts that enter its volume and counts them by part name. Origin: the vo
 It has no ports.
 
 ## Operator devices
+
+Faults: none.
 
 ### `pushbutton`
 
@@ -292,6 +337,8 @@ Origin: the button face. A viewer click presses it.
 |---|---|---|---|
 | `pressed` | DI | yes | Pushbutton pressed |
 
+Faults: `stuck_on`, `stuck_off`.
+
 ### `pilot_light`
 
 Origin: the lens centre. Lit while `on` is true; viewer only.
@@ -303,6 +350,8 @@ Origin: the lens centre. Lit while `on` is true; viewer only.
 | Port | Kind | Required | Meaning |
 |---|---|---|---|
 | `on` | DO | yes | Light on command |
+
+Faults: none.
 
 ### `selector_switch`
 
@@ -317,3 +366,5 @@ Origin: the switch face. A viewer click turns it to the next position.
 |---|---|---|---|
 | `pos_a` | DI | yes | In position A |
 | `pos_b` | DI | no | In position B |
+
+Faults: `stuck_on`, `stuck_off`.

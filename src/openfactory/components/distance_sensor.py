@@ -53,6 +53,8 @@ def ray_box(origin: Vec3, direction: Vec3, lo: Vec3, hi: Vec3) -> float | None:
 
 @register("distance_sensor")
 class DistanceSensor(Component):
+    FAULTS = ("misaligned", "noisy", "drift")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.distance = float(self.config.beam_length)

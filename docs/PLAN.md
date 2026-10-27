@@ -725,11 +725,33 @@ runs the sorting program against it; a box visibly gets pushed.
       arrow in the viewer), and the accumulation (zero-pressure) conveyor, the first
       `scenes/_library/` composite built on 2.16 and 2.0, not a primitive. The W207 gap case (below,
       under 2.20) is settled here with the accumulation work.
-- [ ] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
+- [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late
       or early by a configurable offset), `noisy` (random dropouts), `drift` (analog offset growing
       with time). One fault per component at a time; `/api/fault` lists what is active.
+      *Done when (defined 2026-10-26, the task had none):* every kind is unit-tested on a component
+      that supports it; `POST`/`GET`/`DELETE /api/fault` round-trip against a running server with
+      404 and 400 for unknown components and unsupported kinds; a fault is visible to a PLC over
+      Modbus; on the sorter under its script, `CYL_01 jammed` keeps `CYL_01_EXT_DI` off and sends
+      the tall boxes to REM_01, and `PE_01 stuck_off` commands no divert; and the viewer's context
+      menu is screenshotted and looked at.
+      *Note (2026-10-26):* `core/component.py`: `Component.FAULTS` per type, `fault_inject`,
+      `clear_fault`, `speed_factor` (jammed 0, slow `factor`) multiplied into every motion rate,
+      and DI/AI faults applied in `write()` before the raw value (so they precede 2.17
+      transforms: an NC eye stuck on reads false at the PLC). `Component.tick` runs the fault's
+      clock in simulated time, then `step`. `noisy` dropouts are drawn from the component's own
+      `world.rng("<id>:fault")` (the emitter's sequence is unchanged) and last `duration_s`
+      (default 0.2 s, so 100 ms PLC polling sees them). The runtime applies a fault under the step
+      lock, between ticks, and logs `fault`/`clear` events with the core tick (for 2.12 replay).
+      The viewer marks a faulted component's label in ISA-101 alarm yellow, draws a misaligned
+      eye's beam where the core has it, and opens the menu on a right-click that did not drag
+      (OrbitControls pans on right-drag) or a 600 ms long-press. Per-type kinds are in
+      `docs/components.md`, checked against the code. Results: sorter 60 s under its script,
+      healthy REM_01 {short: 9}, REM_02 {tall: 9}; CYL_01 jammed: CYL_01_EXT_DI on for 0 ticks,
+      REM_01 {short: 9, tall: 9}, REM_02 {}; PE_01 stuck_off: extend commanded for 0 ticks, same
+      result. Not done: a CLI flag to inject faults in a headless run (`openfactory run`), and
+      hiding the fault marker from trainees (overlaps 2.11's exam mode).
 - [ ] 2.7 Scenes: `conveyor-start-stop` (hello world), `sorting-by-height`, `sorting-by-color`,
       `buffer-and-release`, `palletizer-lite`, `two-lane-merge`
 - [ ] 2.8 Scene → GRAFCET: feed the example PLC sequence to `/grafcet-chart-creator` for each scene and

@@ -28,7 +28,7 @@ def test_clear_beam_reads_false(pe):
     put_part(pe, x=0.5)  # upstream of the beam
     pe.step(5)
     assert pe.io.get("PE_01_DI") is False
-    assert pe["PE_01"].state() == {"detect": False, "blocked": False}
+    assert pe["PE_01"].state() == {"detect": False, "blocked": False, "beam_offset_m": 0.0}
 
 
 def test_detect_after_20_ms_debounce_at_50_hz(pe):

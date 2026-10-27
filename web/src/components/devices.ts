@@ -11,12 +11,14 @@ import { NEUTRAL, box, num, placed, setColor, wireBox, zCylinder, type Builder }
 export const photoEye: Builder = (g) => {
   const beamLength = num(g, "beam_length", 0.5);
   const group = placed(g);
+  const eye = new THREE.Group(); // heads and beam; moved along x by a misaligned fault (PLAN 2.6)
+  group.add(eye);
   for (const side of [-1, 1]) {
-    group.add(box([0.05, 0.09, 0.04], NEUTRAL.frame, [0, 0, side * (beamLength / 2 + 0.02)]));
+    eye.add(box([0.05, 0.09, 0.04], NEUTRAL.frame, [0, 0, side * (beamLength / 2 + 0.02)]));
   }
   const beam = zCylinder(0.006, beamLength, ISA101.stopped);
   beam.name = "beam";
-  group.add(beam);
+  eye.add(beam);
   return {
     id: g.id,
     type: g.type,
@@ -24,6 +26,7 @@ export const photoEye: Builder = (g) => {
     labelAnchor: new THREE.Vector3(0, 0.1, -beamLength / 2),
     pickable: [],
     update(state) {
+      eye.position.x = typeof state.beam_offset_m === "number" ? state.beam_offset_m : 0;
       setColor(beam, state.detect ? ISA101.running : ISA101.stopped);
       beam.scale.set(state.detect ? 2 : 1, 1, state.detect ? 2 : 1);
     },

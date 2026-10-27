@@ -37,6 +37,8 @@ _EPS = 1e-9
 
 @register("turntable")
 class Turntable(Component):
+    FAULTS = ("stuck_on", "stuck_off", "jammed", "slow")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.angle = 0.0  # degrees turned, 0 .. turn_deg
@@ -61,7 +63,9 @@ class Turntable(Component):
 
     def step(self, dt: float) -> None:
         cfg = self.config
-        target = cfg.speed_mps if self.read("run", default=False) else 0.0
+        target = (cfg.speed_mps if self.read("run", default=False) else 0.0) * self.speed_factor
+        if self.speed_factor == 0:
+            self.surface_speed = 0.0  # jammed: deck belt and turn stop at once
         max_delta = cfg.speed_mps / RAMP_S * dt
         delta = target - self.surface_speed
         self.surface_speed = target if abs(delta) <= max_delta else (
@@ -69,7 +73,7 @@ class Turntable(Component):
         )  # fmt: skip
         self.travel += self.surface_speed * dt
         goal = float(cfg.turn_deg) if self.read("turn", default=False) else 0.0
-        rate = abs(cfg.turn_deg) / cfg.turn_time_s * dt
+        rate = abs(cfg.turn_deg) / cfg.turn_time_s * dt * self.speed_factor
         self.angle = goal if abs(goal - self.angle) <= rate + _EPS else (
             self.angle + (rate if goal > self.angle else -rate)
         )  # fmt: skip

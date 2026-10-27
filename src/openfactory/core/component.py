@@ -20,12 +20,40 @@ reads the opposite of what the PLC wrote. :meth:`Component.step` advances the co
 
 Concrete types register themselves with ``@register("belt_conveyor")``. Registering a name twice
 raises, so two modules cannot silently claim the same type.
+
+Fault injection (PLAN 2.6)
+--------------------------
+Every component has :meth:`Component.fault_inject` and :meth:`Component.clear_fault`; a type lists
+the kinds that make sense for it in :attr:`Component.FAULTS` (an empty tuple: none), and asking for
+another kind raises ``ValueError`` naming the supported ones. A component has at most one fault;
+injecting replaces the current one. The kinds (:data:`FAULT_KINDS`) and their parameters:
+
+- ``stuck_on`` / ``stuck_off``: a DI output reads true / false whatever the device senses
+  (``port``: one DI port; default every DI port). This is the device's output, before any 2.17
+  transform, so an NC (``invert: true``) eye stuck on reads false at the PLC. Not for AI ports.
+- ``jammed``: the belt or actuator stops moving where it is; its feedback stays honest (a belt's
+  ``running`` still follows ``run``; limit switches report the true position).
+- ``slow``: the belt or actuator moves at ``factor`` of its speed (default 0.5).
+- ``misaligned``: the sensor sees ``offset_m`` late (positive) or early: a photo eye's beam is
+  shifted that far along the flow, a distance sensor reads that much more.
+- ``noisy``: random dropouts, on average ``rate`` per second (default 0.5), each ``duration_s`` long
+  (default 0.2 s, long enough for 100 ms PLC polling to see): a DI reads false, an AI reads the top
+  of its range (no echo). Drawn from the component's own fault RNG, so a replay is unchanged and
+  the scene's other random draws are not shifted.
+- ``drift``: an AI reads ``rate`` units per second (default 0.01) more for every second since the
+  fault was injected, in simulated time.
+
+Faults on DI/AI outputs are applied in :meth:`Component.write`, before the raw value is kept;
+``jammed`` and ``slow`` reach the type's motion through :attr:`Component.speed_factor`. The fault's
+clock runs in :meth:`Component.tick`, which :meth:`openfactory.core.loader.LoadedScene.step` calls
+(it then calls :meth:`Component.step`).
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, TypeVar
 
 from openfactory.core.iotable import IOTable, Tag, Value, Writer
@@ -39,12 +67,42 @@ from openfactory.core.schema import (
 )
 from openfactory.core.world import World
 
+FAULT_KINDS = ("stuck_on", "stuck_off", "jammed", "slow", "misaligned", "noisy", "drift")
+#: Parameters each fault kind accepts, with their defaults.
+FAULT_PARAMS: dict[str, dict[str, Any]] = {
+    "stuck_on": {"port": None},
+    "stuck_off": {"port": None},
+    "jammed": {},
+    "slow": {"factor": 0.5},
+    "misaligned": {"offset_m": 0.05},
+    "noisy": {"rate": 0.5, "duration_s": 0.2},
+    "drift": {"rate": 0.01},
+}
+
+
+@dataclass
+class Fault:
+    """An injected fault (PLAN 2.6): its kind, parameters, and simulated time since injection."""
+
+    kind: str
+    params: dict[str, Any] = field(default_factory=dict)
+    #: Ticks completed when it was injected; it acts from the next tick.
+    tick: int = 0
+    elapsed_s: float = 0.0
+    #: Seconds left in the current dropout (``noisy``).
+    dropout_s: float = 0.0
+
+    def describe(self) -> dict[str, Any]:
+        return {"kind": self.kind, "params": dict(self.params), "tick": self.tick}
+
 
 class Component(ABC):
     """Base class for every simulated component type."""
 
     #: Scene ``type`` string; set by :func:`register`.
     type_name: ClassVar[str] = ""
+    #: Fault kinds this type supports (PLAN 2.6).
+    FAULTS: ClassVar[tuple[str, ...]] = ()
 
     def __init__(self, config: ComponentBase, io: IOTable, world: World) -> None:
         self.config = config
@@ -72,6 +130,8 @@ class Component(ABC):
         }
         #: Last value written to each output port, before any transform.
         self.raw: dict[str, Value] = {}
+        #: The injected fault, if any (PLAN 2.6).
+        self.fault: Fault | None = None
 
     @property
     def type(self) -> str:
@@ -102,8 +162,11 @@ class Component(ABC):
         return (not value) if port in self.inverted else value
 
     def write(self, port: str, value: Value) -> None:
-        """Set an output port. A write to an unbound port is dropped."""
+        """Set an output port. A write to an unbound port is dropped. An injected fault on the
+        port's signal is applied first (PLAN 2.6)."""
         self._check_port(port, plc_writes=False)
+        if self.fault is not None:
+            value = self._faulted(port, value)
         self.raw[port] = value
         tag = self.bindings.get(port)
         if tag is not None and port not in self.conditioned:
@@ -120,6 +183,95 @@ class Component(ABC):
     @abstractmethod
     def step(self, dt: float) -> None:
         """Advance by ``dt`` seconds. Deterministic: never read the clock."""
+
+    def tick(self, dt: float) -> None:
+        """One tick: advance the fault's clock (and a ``noisy`` fault's dropouts), then step."""
+        fault = self.fault
+        if fault is not None:
+            fault.elapsed_s += dt
+            if fault.kind == "noisy":
+                if fault.dropout_s > 0:
+                    left = fault.dropout_s - dt
+                    fault.dropout_s = left if left > 1e-9 else 0.0  # n·dt is n ticks, not n + 1
+                elif self._fault_rng.random() < fault.params["rate"] * dt:
+                    fault.dropout_s = fault.params["duration_s"]
+        self.step(dt)
+
+    # -- faults (PLAN 2.6) -------------------------------------------------------------------
+
+    @property
+    def speed_factor(self) -> float:
+        """1 normally, 0 while ``jammed``, ``factor`` while ``slow``: multiply every motion rate."""
+        if self.fault is None:
+            return 1.0
+        if self.fault.kind == "jammed":
+            return 0.0
+        if self.fault.kind == "slow":
+            return float(self.fault.params["factor"])
+        return 1.0
+
+    def fault_inject(self, kind: str, **params: Any) -> Fault | None:
+        """Inject a fault, replacing any current one; returns the one it replaced."""
+        if kind not in self.FAULTS:
+            supported = ", ".join(self.FAULTS) or "none"
+            raise ValueError(
+                f"{self.id}: a {self.type_name} has no {kind!r} fault (supports: {supported})"
+            )
+        allowed = FAULT_PARAMS[kind]
+        unknown = sorted(set(params) - set(allowed))
+        if unknown:
+            raise ValueError(
+                f"{self.id}: {kind} takes {', '.join(allowed) or 'no parameters'}, "
+                f"not {', '.join(unknown)}"
+            )
+        values = {**allowed, **params}
+        self._check_fault(kind, values)
+        replaced, self.fault = self.fault, Fault(kind, values, tick=self.world.tick)
+        if kind == "noisy":
+            self._fault_rng = self.world.rng(f"{self.id}:fault")
+        return replaced
+
+    def clear_fault(self) -> Fault | None:
+        """Remove the fault; returns it (None if there was none)."""
+        cleared, self.fault = self.fault, None
+        return cleared
+
+    def _check_fault(self, kind: str, values: dict[str, Any]) -> None:
+        di_ports = [n for n, p in self.ports.items() if p.kind == "DI"]
+        if kind in ("stuck_on", "stuck_off"):
+            port = values["port"]
+            if port is not None and port not in di_ports:
+                raise ValueError(
+                    f"{self.id}: {kind} needs a DI port ({', '.join(di_ports) or 'none'}), "
+                    f"not {port!r}"
+                )
+        elif kind == "slow" and not 0 < float(values["factor"]) < 1:
+            raise ValueError(
+                f"{self.id}: slow factor must be between 0 and 1, not {values['factor']}"
+            )
+        elif kind == "noisy" and (float(values["rate"]) <= 0 or float(values["duration_s"]) <= 0):
+            raise ValueError(f"{self.id}: noisy rate and duration_s must be positive")
+        for key, value in values.items():
+            if key != "port" and not isinstance(value, int | float):
+                raise ValueError(f"{self.id}: {kind} {key} must be a number, not {value!r}")
+
+    def _faulted(self, port: str, value: Value) -> Value:
+        fault = self.fault
+        assert fault is not None
+        kind = self.ports[port].kind
+        if fault.kind in ("stuck_on", "stuck_off") and kind == "DI":
+            if fault.params["port"] in (None, port):
+                return fault.kind == "stuck_on"
+        elif fault.kind == "noisy" and fault.dropout_s > 0:
+            if kind == "DI":
+                return False
+            if kind == "AI" and self.ports[port].range:
+                return self.ports[port].range[1]  # type: ignore[index]
+        elif fault.kind == "drift" and kind == "AI":
+            return float(value) + float(fault.params["rate"]) * fault.elapsed_s
+        elif fault.kind == "misaligned" and kind == "AI":
+            return float(value) + float(fault.params["offset_m"])
+        return value
 
     def state(self) -> dict[str, Any]:
         """Dynamic state the viewer needs each frame (PLAN §3.3)."""

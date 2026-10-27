@@ -28,6 +28,8 @@ _EPS = 1e-9
 
 @register("pushbutton")
 class Pushbutton(Component):
+    FAULTS = ("stuck_on", "stuck_off")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.pressed = False

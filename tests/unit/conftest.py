@@ -32,7 +32,7 @@ class Rig:
     def step(self, n: int = 1, dt: float = DT) -> None:
         for _ in range(n):
             for comp in self.loaded.components:
-                comp.step(dt)
+                comp.tick(dt)  # as LoadedScene.step: fault clock, then step
 
 
 @pytest.fixture

@@ -32,6 +32,13 @@ Viewer events (PLAN §3.3, ``/ws/events``) go through :meth:`Runtime.apply_event
 
 Every event is recorded in :attr:`Runtime.events` (the last 1000) and counted by type and id.
 
+Faults (PLAN 2.6): :meth:`Runtime.inject_fault` and :meth:`Runtime.clear_fault` act on a
+component under the step lock, so a fault takes effect at a tick boundary, from the next tick; each
+is recorded in the event log as a ``fault`` or ``clear`` event with the core tick.
+:meth:`Runtime.faults` lists the active ones and every component's supported kinds. A faulted
+component's state in a snapshot carries ``fault`` (the kind), and a misaligned photo eye's carries
+``beam_offset_m``, so the viewer can mark it and draw the beam where the core has it.
+
 With a ``controller`` (:class:`~openfactory.pyplc.ScriptPlc`, PLAN 2.10) the runtime scans it at
 the simulated time before every tick, under the same lock. An exception from the script is kept
 in :attr:`Runtime.fault` and stops the run.
@@ -121,7 +128,10 @@ class Runtime:
         return {
             "t": round(loaded.time, 6),
             "tick": loaded.tick,
-            "components": {c.id: c.state() for c in loaded.components},
+            "components": {
+                c.id: {**c.state(), **({"fault": c.fault.kind} if c.fault else {})}
+                for c in loaded.components
+            },
             "parts": [
                 {
                     "id": p.id,
@@ -216,6 +226,52 @@ class Runtime:
             )
             self.event_counts[f"{event.type}:{event.id}"] += 1
         return event
+
+    # -- faults (PLAN 2.6) -----------------------------------------------------------------------
+
+    def _component(self, component_id: str) -> Any:
+        comp = next((c for c in self.loaded.components if c.id == component_id), None)
+        if comp is None:
+            raise KeyError(f"unknown component {component_id!r}")
+        return comp
+
+    def inject_fault(
+        self, component_id: str, kind: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Inject a fault (replacing the component's current one). Raises KeyError for an
+        unknown component and ValueError for a kind or parameters it does not support."""
+        with self.lock:
+            comp = self._component(component_id)
+            replaced = comp.fault_inject(kind, **(params or {}))
+            fault = {"id": comp.id, "type": comp.type, **comp.fault.describe()}
+            self._log_fault("fault", fault)
+            return {"fault": fault, "replaced": replaced.describe() if replaced else None}
+
+    def clear_fault(self, component_id: str) -> dict[str, Any]:
+        """Clear a component's fault. Raises KeyError for an unknown component."""
+        with self.lock:
+            comp = self._component(component_id)
+            cleared = comp.clear_fault()
+            self._log_fault("clear", {"id": comp.id, "type": comp.type})
+            return {"id": comp.id, "cleared": cleared.describe() if cleared else None}
+
+    def faults(self) -> dict[str, Any]:
+        with self.lock:
+            return {
+                "active": [
+                    {"id": c.id, "type": c.type, **c.fault.describe()}
+                    for c in self.loaded.components
+                    if c.fault is not None
+                ],
+                "supported": {c.id: list(c.FAULTS) for c in self.loaded.components},
+            }
+
+    def _log_fault(self, event: str, data: dict[str, Any]) -> None:
+        """Record a ``fault`` or ``clear`` event (the fault's own kind stays under ``kind``)."""
+        entry = {"type": event, "id": data["id"], "component_type": data["type"]}
+        entry.update({k: data[k] for k in ("kind", "params") if k in data})
+        self.events.append({**entry, "core_t": self.loaded.time, "core_tick": self.loaded.tick})
+        self.event_counts[f"{event}:{data['id']}"] += 1
 
     def parity(self) -> dict[str, Any]:
         """Core beam edges and browser sensor events, for ``tools/parity_trace.py --live``."""

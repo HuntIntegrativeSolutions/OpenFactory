@@ -22,6 +22,8 @@ from openfactory.core.component import Component, register
 
 @register("selector_switch")
 class SelectorSwitch(Component):
+    FAULTS = ("stuck_on", "stuck_off")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.position: str = self.config.initial

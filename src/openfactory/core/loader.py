@@ -69,7 +69,7 @@ class LoadedScene:
         self.world.tick = self.tick + 1  # parts spawned in this tick carry its number
         self.kinematics.step(dt)
         for comp in self.components:
-            comp.step(dt)
+            comp.tick(dt)  # advances an injected fault's clock, then steps
         if self.transforms is not None:
             self.transforms.step(dt)
         self.tick += 1

@@ -51,6 +51,8 @@ def resolve_stopper(config: Any, scene: Scene) -> Any:
 
 @register("stopper")
 class Stopper(Component):
+    FAULTS = ("stuck_on", "stuck_off", "jammed", "slow")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.position = 0.0  # fraction raised, 0 (down) .. 1 (up)
@@ -61,7 +63,7 @@ class Stopper(Component):
         return self.position > _EPS
 
     def step(self, dt: float) -> None:
-        rate = dt / self.config.raise_time_s
+        rate = dt / self.config.raise_time_s * self.speed_factor
         if self.read("raise", default=False):
             self.position = min(1.0, self.position + rate)
         else:

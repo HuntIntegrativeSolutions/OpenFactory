@@ -24,6 +24,8 @@ RAMP_S = 0.3
 
 @register("belt_conveyor")
 class BeltConveyor(Component):
+    FAULTS = ("stuck_on", "stuck_off", "jammed", "slow")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.surface_speed = 0.0  # m/s along local +x
@@ -37,7 +39,9 @@ class BeltConveyor(Component):
         return self.config.speed_mps * pct / 100.0
 
     def step(self, dt: float) -> None:
-        target = self.target_speed()
+        target = self.target_speed() * self.speed_factor  # jammed: 0; slow: a fraction
+        if self.speed_factor == 0:
+            self.surface_speed = 0.0  # a jammed belt stops at once
         max_delta = self.config.speed_mps / RAMP_S * dt
         delta = target - self.surface_speed
         self.surface_speed = (

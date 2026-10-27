@@ -98,6 +98,8 @@ def resolve_plate_height(pusher: Any, scene: Scene) -> Any:
 
 @register("pusher")
 class Pusher(Component):
+    FAULTS = ("stuck_on", "stuck_off", "jammed", "slow")
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.position = 0.0  # meters out from retracted, 0..stroke
@@ -108,10 +110,11 @@ class Pusher(Component):
 
     def step(self, dt: float) -> None:
         stroke = self.config.stroke
+        travel = self.speed * dt * self.speed_factor  # jammed: 0; slow: a fraction
         if self.read("extend", default=False):
-            self.position = min(stroke, self.position + self.speed * dt)
+            self.position = min(stroke, self.position + travel)
         else:
-            self.position = max(0.0, self.position - self.speed * dt)
+            self.position = max(0.0, self.position - travel)
         if stroke - self.position <= _EPS:
             self.position = stroke
         elif self.position <= _EPS:

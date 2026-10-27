@@ -30,6 +30,8 @@ _EPS = 1e-9
 
 @register("box_emitter")
 class BoxEmitter(Component):
+    FAULTS = ("jammed", "slow")  # jammed: no spawns; slow: intervals stretched by 1 / factor
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.rng = self.world.rng(self.id)
@@ -79,11 +81,14 @@ class BoxEmitter(Component):
         if not enabled:
             self.enabled = False
             return
+        if self.speed_factor == 0:  # jammed: nothing comes out
+            self.enabled = True
+            return
         if not self.enabled:  # rising edge: spawn now
             self.enabled = True
             self.until_next_s = 0.0
         else:
-            self.until_next_s -= dt
+            self.until_next_s -= dt * self.speed_factor
         if self.until_next_s <= _EPS and self._try_spawn():
             if self._waited:  # the next interval runs from this late spawn: no burst
                 self.until_next_s = 0.0
