@@ -139,6 +139,9 @@ OpenFactory/
   `bash tools/ci_local.sh` runs exactly what CI runs (`.github/workflows/ci.yml`).
 - Commit messages: imperative, conventional prefix (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
 - Each PR or commit that closes a PLAN task ticks its checkbox in `docs/PLAN.md` in the same commit.
+- No binary file over 1 MB enters git (rule from 2026-10-26; `docs/media/sorting-by-height-openplc.webm`
+  predates it and stays). Videos and other large media go up as GitHub release assets, and the README
+  or doc links to the asset URL. Check with `git diff --cached --stat` before committing media.
 
 ### What this project does NOT do
 - No safety-rated simulation. OpenFactory is a training and demo tool. Say so in every README and scene.
