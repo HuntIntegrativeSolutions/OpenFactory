@@ -114,7 +114,9 @@ OpenFactory/
 - One Python module per component type. Each exposes `inputs`, `outputs`, `step(dt)`, and `state()`.
 - Physical behavior is deterministic given inputs and `dt`. No wall-clock reads inside `step`.
 - Every component ships with a unit test and a one-paragraph behavior spec in its docstring.
-- Add new component types to `docs/PLAN.md` §5 component table, not just the code.
+- Add new component types to `docs/PLAN.md` §5 component table and to `docs/components.md` (a test
+  checks every registered type has a section there naming all its parameters and ports), not just
+  the code.
 
 ### Web viewer
 - Scene JSON is the only source of truth for geometry. No hard-coded positions in TypeScript.

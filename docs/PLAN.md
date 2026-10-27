@@ -321,12 +321,13 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `pushbutton` | — | pressed | Viewer click sets true for 300 ms (momentary) or toggles (maintained). | 1 |
 | `pilot_light` | on | — | Viewer visual only. | 1 |
 | `selector_switch` | — | pos_a, pos_b | Two or three position. | 1 |
-| `roller_conveyor` | run | running | Same as belt, different geometry; parts roll (lower friction). | 2 |
-| `stopper` | raise | raised | Blade that blocks parts on a conveyor. | 2 |
-| `turntable` | run, dir | at_0, at_90 | Rotates a short conveyor 90°. | 2 |
-| `diverter_arm` | extend | extended | Angled arm that routes parts to a side conveyor. | 2 |
-| `pick_and_place` | grip, move_x, move_z | at_pick, at_place, holding | Simplified gantry, two positions. | 2 |
-| `counter_display` | value (AO) | — | 4-digit readout on a panel. | 2 |
+| `roller_conveyor` | run, speed (opt) | running | Same as belt, drawn as rollers; its own `friction` (default the scene's). | 2 |
+| `stopper` | raise | raised, lowered | Blade that rises out of the belt and holds the queue; a part already over it passes. | 2 |
+| `turntable` | run, turn | running, at_0, at_90 | Turns its deck conveyor ±90°; `turn` held drives to `turn_deg`, released returns to 0. | 2 |
+| `diverter_arm` | extend | extended, retracted | Paddle swinging across a belt; parts slide along it onto a side conveyor. | 2 |
+| `pick_and_place` | traverse, lower, grip | at_pick, at_place, lowered, holding | Two-axis gantry with a gripper pad. | 2 |
+| `distance_sensor` | — | distance (AI), switching (AI) | Range to the nearest part or belt along its beam, metres 0 to `beam_length`. | 2 |
+| `counter_display` | value (AO) | — | 4-digit readout on a panel. | 2 (2.5b) |
 | `tank` | — | level (AI), hi_sw, lo_sw | Mass balance: Σ inflows − Σ outflows. Height from volume and footprint. | 3 |
 | `valve_onoff` | open | opened, closed | Travel time; flow coefficient Cv passes to connected pipe. | 3 |
 | `valve_control` | position (AO) | position_fb (AI) | First-order lag, stroke time. | 3 |
@@ -338,8 +339,9 @@ CC-BY GLTF models replace primitives where it helps readability.
 
 #### Milestone 1 behavior as built
 
-The full behavior spec for each type is in its module docstring (`src/openfactory/components/`). The
-choices that go beyond the table above:
+The full behavior spec for each type is in its module docstring (`src/openfactory/components/`), and
+`docs/components.md` is the component reference (parameters, ports, behavior) for every type,
+Milestone 2 ones included. The choices that go beyond the table above:
 
 - **`belt_conveyor`**: origin is the center of the infeed end at belt top-surface height; flow is local
   +x. `running` follows the `run` command in the same tick (contactor auxiliary contact). Surface
