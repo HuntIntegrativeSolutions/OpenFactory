@@ -10,6 +10,7 @@ from openfactory.components import (
     pusher,
     roller_conveyor,
     selector_switch,
+    stopper,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "pusher",
     "roller_conveyor",
     "selector_switch",
+    "stopper",
 ]

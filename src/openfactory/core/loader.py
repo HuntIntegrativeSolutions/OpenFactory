@@ -31,12 +31,13 @@ import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from openfactory.components.pusher import resolve_plate_height
+import openfactory.components  # noqa: F401 - registers the built-in types and their defaults
 from openfactory.core.component import REGISTRY, Component, ComponentRegistry
 from openfactory.core.geometry import to_world
 from openfactory.core.iotable import IOTable, Tag
 from openfactory.core.kinematics import KinematicModel
 from openfactory.core.schema import CARRIER_TYPES, Scene, load_scene
+from openfactory.core.sizing import resolve_defaults
 from openfactory.core.transforms import TransformStage
 from openfactory.core.world import World
 
@@ -126,9 +127,7 @@ def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScen
         registry = REGISTRY
     io = build_iotable(scene)
     world = World(seed=scene.scene.seed)
-    configs = [
-        resolve_plate_height(c, scene) if c.type == "pusher" else c for c in scene.components
-    ]
+    configs = [resolve_defaults(c, scene) for c in scene.components]
     components = [registry.resolve(c.type)(c, io, world) for c in configs]
     kinematics = KinematicModel(world, components, scene.connections, scene.scene.friction)
     warnings = lint(scene)

@@ -1383,6 +1383,162 @@
       ],
       "title": "SelectorSwitchIO",
       "type": "object"
+    },
+    "Stopper": {
+      "additionalProperties": false,
+      "description": "Origin: center of the blade's upstream face, at belt-top height. The blade spans local z\n(across the flow) and stops parts moving along local +x.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "type": {
+          "const": "stopper",
+          "title": "Type",
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Blade width across the flow, meters. Unset: the width of the belt under it.",
+          "title": "Width"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Raised blade top above the belt, meters. Unset: sized from the tallest emitted part (its centre of mass, at least 0.05 m).",
+          "title": "Height"
+        },
+        "raise_time_s": {
+          "default": 0.2,
+          "description": "Time to raise or lower, seconds.",
+          "exclusiveMinimum": 0,
+          "title": "Raise Time S",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/StopperIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type",
+        "io"
+      ],
+      "title": "Stopper",
+      "type": "object"
+    },
+    "StopperIO": {
+      "additionalProperties": false,
+      "properties": {
+        "raise": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Raise command",
+          "title": "Raise",
+          "x-io-kind": "DO"
+        },
+        "raised": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Raised limit switch",
+          "title": "Raised",
+          "x-io-kind": "DI"
+        },
+        "lowered": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lowered limit switch",
+          "title": "Lowered",
+          "x-io-kind": "DI"
+        }
+      },
+      "required": [
+        "raise"
+      ],
+      "title": "StopperIO",
+      "type": "object"
     }
   },
   "$id": "urn:openfactory:scene:0.1",
@@ -1420,7 +1576,8 @@
             "pushbutton": "#/$defs/Pushbutton",
             "pusher": "#/$defs/Pusher",
             "roller_conveyor": "#/$defs/RollerConveyor",
-            "selector_switch": "#/$defs/SelectorSwitch"
+            "selector_switch": "#/$defs/SelectorSwitch",
+            "stopper": "#/$defs/Stopper"
           },
           "propertyName": "type"
         },
@@ -1430,6 +1587,9 @@
           },
           {
             "$ref": "#/$defs/RollerConveyor"
+          },
+          {
+            "$ref": "#/$defs/Stopper"
           },
           {
             "$ref": "#/$defs/PhotoEye"

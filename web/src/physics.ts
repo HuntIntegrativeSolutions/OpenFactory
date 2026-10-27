@@ -15,6 +15,11 @@
 //   like the headless model.
 // - Photo eyes: a thin sensor cuboid along the beam with collision events; a beam is blocked
 //   while any part intersects it. step() returns the beam edges, which the viewer sends upstream.
+// - Stopper blades (PLAN 2.5): `kinematicPositionBased` cuboids rising out of the belt to the core's
+//   raised fraction, frictionless like the pusher plate. A part already over the blade line when
+//   the blade starts to rise passes, as in the headless model: a contact-pair hook
+//   (filterContactPair) ignores the blade's contacts with those parts until they leave its
+//   footprint.
 //
 // Frames: geometry.py's convention (x along flow, y up, rotation_deg about +y) is three.js's.
 import type * as RapierNs from "@dimforge/rapier3d-compat";
@@ -73,6 +78,19 @@ interface Plate {
   rotation: number;
 }
 
+interface Blade {
+  body: RapierNs.RigidBody;
+  collider: number;
+  origin: Vec3;
+  rotation: number;
+  width: number;
+  height: number;
+  thickness: number;
+  raised: number; // fraction 0..1 for the next step
+  /** Part collider handles over the blade line when it started to rise: contacts ignored. */
+  exempt: Set<number>;
+}
+
 export class PlantPhysics {
   readonly world: RapierNs.World;
   private readonly R: Rapier;
@@ -83,6 +101,10 @@ export class PlantPhysics {
   private readonly beams = new Map<number, string>(); // sensor collider handle -> eye id
   private readonly inBeam = new Map<string, Set<number>>(); // eye id -> part collider handles
   private readonly parts = new Map<string, RapierNs.RigidBody>();
+  private readonly sizes = new Map<string, Vec3>();
+  private readonly blades = new Map<string, Blade>();
+  private readonly bladeColliders = new Map<number, Blade>();
+  private readonly hooks: RapierNs.PhysicsHooks;
   private readonly reported = new Map<string, boolean>(); // eye id -> last state step() returned
 
   constructor(R: Rapier, scene: PhysicsScene) {
@@ -95,7 +117,42 @@ export class PlantPhysics {
       if (BELT_TYPES.has(g.type)) this.addBelt(g);
       else if (g.type === "pusher") this.addPlate(g);
       else if (g.type === "photo_eye") this.addBeam(g);
+      else if (g.type === "stopper") this.addBlade(g);
     }
+    const blades = this.bladeColliders;
+    this.hooks = {
+      filterContactPair: (c1, c2) => {
+        const blade = blades.get(c1) ?? blades.get(c2);
+        const other = blades.has(c1) ? c2 : c1;
+        return blade && blade.exempt.has(other) ? R.SolverFlags.EMPTY : R.SolverFlags.COMPUTE_IMPULSE;
+      },
+      filterIntersectionPair: () => true,
+    };
+  }
+
+  private addBlade(g: ComponentGeometry): void {
+    const { R } = this;
+    const width = num(g, "width", 0.5);
+    const height = num(g, "height", 0.05);
+    const thickness = num(g, "thickness", 0.02);
+    const body = this.world.createRigidBody(
+      R.RigidBodyDesc.kinematicPositionBased()
+        .setTranslation(...toWorld(g.position, g.rotation_deg, [thickness / 2, -height / 2, 0]))
+        .setRotation(quatY(g.rotation_deg)),
+    );
+    const collider = this.world.createCollider(
+      R.ColliderDesc.cuboid(thickness / 2, height / 2, width / 2)
+        .setFriction(0)
+        .setFrictionCombineRule(R.CoefficientCombineRule.Min)
+        .setActiveHooks(R.ActiveHooks.FILTER_CONTACT_PAIRS),
+      body,
+    );
+    const blade: Blade = {
+      body, collider: collider.handle, origin: g.position, rotation: g.rotation_deg,
+      width, height, thickness, raised: 0, exempt: new Set(),
+    };
+    this.blades.set(g.id, blade);
+    this.bladeColliders.set(collider.handle, blade);
   }
 
   private addBelt(g: ComponentGeometry): void {
@@ -160,6 +217,36 @@ export class PlantPhysics {
     }
   }
 
+  /** Stopper blade raised fraction 0..1 (the core's `position` state), for the next step. */
+  setStopper(id: string, raised: number): void {
+    const blade = this.blades.get(id);
+    if (!blade) return;
+    if (blade.raised <= 0 && raised > 0) {
+      for (const [partId, body] of this.parts) {
+        if (this.overBlade(blade, body, this.sizes.get(partId)!)) blade.exempt.add(body.collider(0).handle);
+      }
+    }
+    blade.raised = raised;
+    // Fully lowered, the blade is flush with the belt surface, where a part's bottom edge would
+    // catch its top corner; the headless model never blocks then, so neither does the collider.
+    this.world.getCollider(blade.collider).setEnabled(raised > 0);
+    const top = blade.height * raised;
+    blade.body.setNextKinematicTranslation(
+      vec(toWorld(blade.origin, blade.rotation, [blade.thickness / 2, top - blade.height / 2, 0])),
+    );
+  }
+
+  /** True if a part's box overlaps the blade's footprint (its line across the belt). */
+  private overBlade(blade: Blade, body: RapierNs.RigidBody, size: Vec3): boolean {
+    const t = body.translation();
+    const d: Vec3 = [t.x - blade.origin[0], 0, t.z - blade.origin[2]];
+    const [lx, , lz] = rotateY(d, -blade.rotation);
+    const r = (-blade.rotation * Math.PI) / 180;
+    const hx = (Math.abs(Math.cos(r)) * size[0] + Math.abs(Math.sin(r)) * size[2]) / 2;
+    const hz = (Math.abs(Math.sin(r)) * size[0] + Math.abs(Math.cos(r)) * size[2]) / 2;
+    return lx + hx > 0 && lx - hx < blade.thickness && Math.abs(lz) < blade.width / 2 + hz;
+  }
+
   /** Add a dynamic box; `velocity` (m/s) starts it moving as the core's part already is. */
   addPart(id: string, size: Vec3, position: Vec3, velocity: Vec3 = [0, 0, 0]): void {
     if (this.parts.has(id)) return;
@@ -172,6 +259,7 @@ export class PlantPhysics {
       body,
     );
     this.parts.set(id, body);
+    this.sizes.set(id, size);
   }
 
   removePart(id: string): void {
@@ -181,8 +269,10 @@ export class PlantPhysics {
       const handle = body.collider(i).handle;
       for (const handles of this.inBeam.values()) handles.delete(handle);
     }
+    for (const blade of this.blades.values()) blade.exempt.delete(body.collider(0).handle);
     this.world.removeRigidBody(body);
     this.parts.delete(id);
+    this.sizes.delete(id);
   }
 
   hasPart(id: string): boolean {
@@ -214,7 +304,13 @@ export class PlantPhysics {
       belt.body.setTranslation(vec(belt.home), true); // never let the belt drift
       belt.body.setLinvel(vec([belt.flow[0] * belt.speed, 0, belt.flow[2] * belt.speed]), true);
     }
-    this.world.step(this.events);
+    for (const blade of this.blades.values()) {
+      for (const handle of blade.exempt) {
+        const id = [...this.parts].find(([, b]) => b.collider(0).handle === handle)?.[0];
+        if (id === undefined || !this.overBlade(blade, this.parts.get(id)!, this.sizes.get(id)!)) blade.exempt.delete(handle);
+      }
+    }
+    this.world.step(this.events, this.hooks);
     this.events.drainCollisionEvents((h1, h2, started) => {
       const eye = this.beams.get(h1) ?? this.beams.get(h2);
       if (eye === undefined) return;

@@ -185,3 +185,32 @@ export const fallback: Builder = (g: ComponentGeometry) => {
     update() {},
   };
 };
+
+/**
+ * Stopper: origin at the center of the blade's upstream face at belt-top height; the blade spans
+ * local z and rises to `height` above the belt with the core's raised fraction. ISA-101: green
+ * while raised or rising, grey when lowered.
+ */
+export const stopper: Builder = (g) => {
+  const width = num(g, "width", 0.5);
+  const height = num(g, "height", 0.05);
+  const thickness = num(g, "thickness", 0.02);
+  const group = placed(g);
+  const blade = box([thickness, height, width], ISA101.stopped, [thickness / 2, -height / 2, 0]);
+  blade.name = "blade";
+  group.add(blade);
+  // actuator housing under the belt, so a lowered stopper is still visible
+  group.add(box([0.08, 0.06, 0.12], NEUTRAL.structure, [thickness / 2, -0.11, 0]));
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, height + 0.08, -width / 2),
+    pickable: [],
+    update(state) {
+      const raised = typeof state.position === "number" ? state.position : 0;
+      blade.position.y = height * raised - height / 2;
+      setColor(blade, state.raising || raised > 0 ? ISA101.running : ISA101.stopped);
+    },
+  };
+};

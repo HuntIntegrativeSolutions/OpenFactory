@@ -86,6 +86,18 @@ TRACES: dict[str, TraceSpec] = {
         checkpoints=(3.0, 3.5, 4.0, 4.5),
         schedule={50: {"CONV_A_RUN_DO": True, "CONV_B_RUN_DO": True}},
     ),
+    # PLAN 2.5: queue formation. Five boxes ride a running belt into a raised stopper and pile up
+    # nose to tail (PE_Q sees them arrive and stand); the stopper lowers at tick 400 and the queue
+    # releases onto the faster CONV_B, where PE_B sees each gap.
+    "parity-stopper": TraceSpec(
+        scene=REPO / "tests" / "scenes" / "stopper-queue.yaml",
+        seconds=15.0,
+        checkpoints=(2.0, 3.3, 4.0, 4.5),
+        schedule={
+            1: {"CONV_A_RUN_DO": True, "CONV_B_RUN_DO": True, "STP_01_RAISE_DO": True},
+            400: {"STP_01_RAISE_DO": False},
+        },
+    ),
 }
 
 
@@ -139,6 +151,7 @@ def trace(
     dt = doc["dt"]
     belts = [c for c in loaded.components if c.type == "belt_conveyor"]
     pushers = [c for c in loaded.components if c.type == "pusher"]
+    stoppers = [c for c in loaded.components if c.type == "stopper"]
     eyes = [c for c in loaded.components if c.type == "photo_eye"]
 
     inputs: list[dict[str, Any]] = []
@@ -146,6 +159,7 @@ def trace(
     checkpoints: dict[str, dict[str, int]] = {}
     last_belts: dict[str, float] = {}
     last_plates: dict[str, float] = {}
+    last_blades: dict[str, float] = {}
     known: dict[str, Any] = {}
     blocked = {e.id: False for e in eyes}
     ticks = round(seconds / dt)
@@ -157,6 +171,7 @@ def trace(
             b.id: _r(b.surface_speed) for b in belts if _r(b.surface_speed) != last_belts.get(b.id)
         }
         plates = {p.id: _r(p.position) for p in pushers if _r(p.position) != last_plates.get(p.id)}
+        blades = {s.id: _r(s.position) for s in stoppers if _r(s.position) != last_blades.get(s.id)}
         spawned = [p for pid, p in loaded.world.parts.items() if pid not in known]
         removed = [pid for pid in known if pid not in loaded.world.parts]
         if speeds:
@@ -165,6 +180,9 @@ def trace(
         if plates:
             entry["pushers"] = plates
             last_plates.update(plates)
+        if blades:
+            entry["stoppers"] = blades
+            last_blades.update(blades)
         if spawned:
             entry["spawn"] = [
                 {

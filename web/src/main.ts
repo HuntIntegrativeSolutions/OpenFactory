@@ -178,7 +178,7 @@ let physics: PlantPhysics | null = null;
 let events: EventLink | null = null;
 
 let lastTick: number | null = null; // core tick the physics world has reached
-const strokes = new Map<string, number>(); // pusher stroke at lastTick
+const strokes = new Map<string, number>(); // pusher stroke and stopper raise at lastTick
 
 /**
  * Advance the physics world to the frame's core tick (PLAN 2.0a): exactly (tick - lastTick) steps,
@@ -189,9 +189,12 @@ const strokes = new Map<string, number>(); // pusher stroke at lastTick
 function stepToFrame(frame: StateFrame): void {
   if (!physics) return;
   const plan = planSteps(lastTick, frame.tick);
-  const target = new Map<string, number>();
+  const target = new Map<string, number>(); // pusher strokes (m)
+  const raise = new Map<string, number>(); // stopper blades (fraction raised)
   for (const view of views) {
-    if (view.type === "pusher") target.set(view.id, Number(frame.components[view.id]?.position_m ?? 0));
+    const state = frame.components[view.id];
+    if (view.type === "pusher") target.set(view.id, Number(state?.position_m ?? 0));
+    if (view.type === "stopper") raise.set(view.id, Number(state?.position ?? 0));
   }
   // Parts the core spawned during this frame's ticks join on the tick it first moved them.
   const known = new Set(physics.partIds());
@@ -204,6 +207,7 @@ function stepToFrame(frame: StateFrame): void {
   for (let i = 1; i <= plan.steps; i++) {
     for (const p of joining.get(i) ?? []) physics.addPart(p.id, p.size, p.spawn_position ?? p.position);
     for (const [id, to] of target) physics.setPusher(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
+    for (const [id, to] of raise) physics.setStopper(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
     const tick = plan.firstTick + i - 1;
     for (const edge of physics.step()) {
       events?.send({ t: frame.t, tick, type: "sensor", id: edge.id, value: edge.blocked });
@@ -222,6 +226,10 @@ function stepToFrame(frame: StateFrame): void {
   for (const [id, to] of target) {
     strokes.set(id, to);
     if (plan.steps === 0) physics.setPusher(id, to);
+  }
+  for (const [id, to] of raise) {
+    strokes.set(id, to);
+    if (plan.steps === 0) physics.setStopper(id, to);
   }
   const alive = new Set(frame.parts.map((p) => p.id));
   for (const id of physics.partIds()) if (!alive.has(id)) physics.removePart(id);

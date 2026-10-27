@@ -21,7 +21,9 @@ Warnings (exit 0 unless there are errors):
 - ``W205`` two conveyors whose footprints overlap at the same belt height (within 5 cm). Conveyors
   joined end to end by a connection are allowed to touch.
 - ``W206`` a pusher plate whose top is below the centre of mass of a part the scene emits, resting
-  on the belt the plate sweeps: the plate hits the part low and tips it.
+  on the belt the plate sweeps: the plate hits the part low and tips it. The same check covers a
+  ``stopper``'s raised blade top and a ``diverter_arm``'s arm top (their ``height``, above the belt
+  they stand on).
 - ``W207`` a pusher stroke shorter than the distance from the plate's retracted face to the far edge
   of the belt it sweeps: a pushed part is left straddling that edge (the seam to the next belt).
 
@@ -44,10 +46,11 @@ from typing import get_args
 
 from pydantic import ValidationError
 
-from openfactory.components.pusher import emitted_parts, push_path
+from openfactory.components.pusher import push_path
 from openfactory.core.loader import build
 from openfactory.core.loader import lint as loader_lint
 from openfactory.core.schema import CARRIER_TYPES, PLC_WRITES, load_scene
+from openfactory.core.sizing import belt_under, emitted_parts
 from openfactory.protocols.modbus import (
     AddressError,
     Encoding,
@@ -56,6 +59,10 @@ from openfactory.protocols.modbus import (
     scene_register_map,
 )
 
+#: Types whose ``height`` is a top above the belt they stand on (W206), and what it is called.
+HEIGHT_TOPS = {"stopper": "raised blade top", "diverter_arm": "arm top"}
+#: How far beside a belt a component's origin may sit and still stand on it (a diverter's pivot).
+BESIDE_BELT_M = 0.1
 FLOOR_HALF_M = 20.0  # web/src/main.ts draws a 40 m x 40 m floor centred on the origin
 SAME_HEIGHT_M = 0.05
 _WRITE = re.compile(r"""io\[\s*["']([A-Z][A-Z0-9_]*)["']\s*\]\s*=(?!=)""")
@@ -168,11 +175,24 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                             "pusher's position or plate_height, or leave plate_height unset to "
                             "size it from the parts")
                 )  # fmt: skip
-        if cfg.stroke < path.far_m - 1e-9:
+        if cfg.stroke < path.far_m - 1e-9:  # W207
             findings.append(
                 Finding("warning", "W207", f"{pusher.id}: stroke {cfg.stroke:.3g} m stops "
                         f"{path.far_m - cfg.stroke:.3g} m short of {path.belt_id}'s far edge "
                         f"({path.far_m:.3g} m from the retracted face); a pushed part is left "
                         "straddling that edge")
             )  # fmt: skip
+    for comp in (c for c in loaded.components if c.type in HEIGHT_TOPS):
+        belt = belt_under(comp.config.position, scene, reach=BESIDE_BELT_M)
+        if belt is None:
+            continue
+        for part in parts:
+            if comp.config.height < part.size[1] / 2 - 1e-9:
+                findings.append(
+                    Finding("warning", "W206", f"{comp.id}: {HEIGHT_TOPS[comp.type]} "
+                            f"{comp.config.height:.3g} m above {belt.id} is below the centre of "
+                            f"mass of part '{part.name}' ({part.size[1] / 2:.3g} m); it meets the "
+                            "part low and can tip it. Raise height, or leave it unset to size it "
+                            "from the parts")
+                )  # fmt: skip
     return findings

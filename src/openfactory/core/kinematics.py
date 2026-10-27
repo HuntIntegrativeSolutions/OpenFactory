@@ -31,6 +31,10 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   discharge end, on the belt it feeds. A blocked part's speed becomes the advance it actually
   made, so it re-accelerates from there when the way clears. Parts therefore accumulate nose to
   tail behind a stopped belt and release in order; side-by-side parts do not block each other.
+- **Stopped (PLAN 2.5):** a ``stopper`` blade on a belt (its origin on that belt's surface) is a
+  hard stop in the same check while it is above fully lowered: a part whose front face has not
+  passed the blade line stops with its front face on the blade (lateral overlap required), and the
+  parts behind queue on it. A part already over or past the line when the blade rises passes.
 - **Falling:** gravity (9.81 m/s², semi-implicit Euler). A falling part lands on the highest
   conveyor whose belt top it crosses during the step and whose footprint (0 ≤ local x ≤ length,
   |local z| ≤ width / 2) holds the part's center. Landing is an impact: the normal impulse that
@@ -73,6 +77,7 @@ from typing import TYPE_CHECKING
 
 from openfactory.core.geometry import rotate_y, to_local, to_world
 from openfactory.core.schema import CARRIER_TYPES, Connection
+from openfactory.core.sizing import ON_BELT_M
 from openfactory.core.world import Part, World
 
 if TYPE_CHECKING:
@@ -122,6 +127,17 @@ class KinematicModel:
         self.pushers: list[Component] = [c for c in components if c.type == "pusher"]
         #: Plate position (m out from retracted) each pusher had when parts were last pushed.
         self._plate_seen: dict[str, float] = {c.id: self._plate(c) for c in self.pushers}
+        #: Stopper blades by the belt they stand on: (stopper, local x, local z, half width).
+        self._stops: dict[str, list[tuple[Component, float, float, float]]] = {}
+        for stopper in (c for c in components if c.type == "stopper"):
+            origin = stopper.config.position
+            for belt in self.carriers.values():
+                if abs(self._top(belt) - origin[1]) <= ON_BELT_M and self._holds(belt, origin):
+                    sx, _, sz = self._local(belt, origin)
+                    self._stops.setdefault(belt.id, []).append(
+                        (stopper, sx, sz, stopper.config.width / 2)
+                    )
+                    break
 
     def _chain_rank(self, carrier_id: str) -> int:
         rank, seen = 0, {carrier_id}
@@ -289,6 +305,13 @@ class KinematicModel:
                 if ox <= x or abs(oz - z) >= half_z + o_half_z - _EPS:
                     continue  # behind, or beside on the same or the next belt
                 room = min(room, ox - o_half_x - half_x)
+            for stopper, sx, sz, half_w in self._stops.get(belt_id, ()):
+                sx += offset
+                if not stopper.blocking or abs(sz - z) >= half_w + half_z - _EPS:  # type: ignore[attr-defined]
+                    continue  # lowered, or beside the blade
+                if x + half_x > sx + _EPS:
+                    continue  # already over or past the blade line: it passes
+                room = min(room, sx - half_x)
         return room
 
     def _push(self, pusher: Component) -> None:

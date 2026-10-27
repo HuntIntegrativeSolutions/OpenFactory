@@ -33,6 +33,7 @@ from typing import Any
 from openfactory.core.component import Component, register
 from openfactory.core.geometry import rotate_y, to_local
 from openfactory.core.schema import CARRIER_TYPES, Scene
+from openfactory.core.sizing import emitted_parts, resolver
 
 _EPS = 1e-9
 DEFAULT_PLATE_HEIGHT_M = 0.15
@@ -77,11 +78,6 @@ def push_path(pusher: Any, scene: Scene) -> PushPath | None:
     return best
 
 
-def emitted_parts(scene: Scene) -> list[Any]:
-    """Every part spec any emitter in the scene can spawn."""
-    return [part for c in scene.components if c.type == "box_emitter" for part in c.parts]
-
-
 def default_plate_height(pusher: Any, scene: Scene) -> float:
     path, parts = push_path(pusher, scene), emitted_parts(scene)
     if path is None or not parts:
@@ -90,6 +86,7 @@ def default_plate_height(pusher: Any, scene: Scene) -> float:
     return max(DEFAULT_PLATE_HEIGHT_M, round(2 * (top - pusher.position[1]), 6))
 
 
+@resolver("pusher")
 def resolve_plate_height(pusher: Any, scene: Scene) -> Any:
     """The pusher config with ``plate_height`` filled in when the scene leaves it unset."""
     if pusher.plate_height is not None:

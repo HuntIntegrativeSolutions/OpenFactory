@@ -8,6 +8,7 @@ import type { SceneDocument, Vec3 } from "./api";
 import sorter from "./fixtures/parity-sorter.json";
 import sorterMu03 from "./fixtures/parity-sorter-mu0.3.json";
 import queue from "./fixtures/parity-queue.json";
+import stopper from "./fixtures/parity-stopper.json";
 import { loadRapier, PlantPhysics } from "./physics";
 
 interface Trace {
@@ -21,6 +22,7 @@ interface Trace {
     tick: number;
     belts?: Record<string, number>;
     pushers?: Record<string, number>;
+    stoppers?: Record<string, number>;
     spawn?: { id: string; size: Vec3; position: Vec3 }[];
     remove?: string[];
   }[];
@@ -32,6 +34,7 @@ const TRACES: Record<string, Trace> = {
   "parity-sorter": sorter as unknown as Trace,
   "parity-sorter-mu0.3": sorterMu03 as unknown as Trace,
   "parity-queue": queue as unknown as Trace, // PLAN 2.0: a placed queue released onto a faster belt
+  "parity-stopper": stopper as unknown as Trace, // PLAN 2.5: a queue formed against a stopper
 };
 
 function load(name: string): Trace {
@@ -50,6 +53,7 @@ async function replay(trace: Trace) {
     const input = byTick.get(k);
     for (const [id, v] of Object.entries(input?.belts ?? {})) physics.setBelt(id, v);
     for (const [id, s] of Object.entries(input?.pushers ?? {})) physics.setPusher(id, s);
+    for (const [id, f] of Object.entries(input?.stoppers ?? {})) physics.setStopper(id, f);
     for (const id of input?.remove ?? []) physics.removePart(id);
     for (const p of input?.spawn ?? []) physics.addPart(p.id, p.size, p.position);
     for (const edge of physics.step()) edges[edge.id]?.push([k, edge.blocked]);

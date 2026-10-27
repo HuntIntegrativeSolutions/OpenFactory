@@ -1,0 +1,685 @@
+{
+ "generator": "tools/parity_trace.py",
+ "scene": {
+  "openfactory": "0.1",
+  "scene": {
+   "name": "stopper-queue",
+   "description": "Five boxes accumulate against a stopper on a running belt, then release.",
+   "author": null,
+   "seed": 1,
+   "units": "meters",
+   "friction": 0.8
+  },
+  "plc": {
+   "protocol": "none",
+   "role": "server"
+  },
+  "dt": 0.02,
+  "components": [
+   {
+    "id": "CONV_A",
+    "type": "belt_conveyor",
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "length": 4.0,
+    "width": 0.5,
+    "description": "Accumulation Belt Conveyor"
+   },
+   {
+    "id": "STP_01",
+    "type": "stopper",
+    "position": [
+     3.2,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "width": 0.5,
+    "height": 0.1,
+    "thickness": 0.02,
+    "description": "Accumulation Belt Stopper"
+   },
+   {
+    "id": "CONV_B",
+    "type": "belt_conveyor",
+    "position": [
+     4.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "length": 2.0,
+    "width": 0.5,
+    "description": "Metering Belt Conveyor"
+   },
+   {
+    "id": "PE_Q",
+    "type": "photo_eye",
+    "position": [
+     2.5,
+     0.1,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "beam_length": 0.6,
+    "description": "Accumulation Queue Photo Eye"
+   },
+   {
+    "id": "PE_B",
+    "type": "photo_eye",
+    "position": [
+     5.2,
+     0.1,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "beam_length": 0.6,
+    "description": "Metering Belt Gap Photo Eye"
+   },
+   {
+    "id": "EMT_01",
+    "type": "box_emitter",
+    "position": [
+     2.3,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q1",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 1 Placement"
+   },
+   {
+    "id": "EMT_02",
+    "type": "box_emitter",
+    "position": [
+     1.8,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q2",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 2 Placement"
+   },
+   {
+    "id": "EMT_03",
+    "type": "box_emitter",
+    "position": [
+     1.3,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q3",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 3 Placement"
+   },
+   {
+    "id": "EMT_04",
+    "type": "box_emitter",
+    "position": [
+     0.8,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q4",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 4 Placement"
+   },
+   {
+    "id": "EMT_05",
+    "type": "box_emitter",
+    "position": [
+     0.3,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "q5",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Queue Box 5 Placement"
+   },
+   {
+    "id": "REM_B",
+    "type": "part_remover",
+    "position": [
+     6.15,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "size": [
+     0.3,
+     1.0,
+     1.0
+    ],
+    "description": "Metering Belt Discharge Part Remover"
+   }
+  ],
+  "connections": [
+   {
+    "from": "CONV_A",
+    "to": "CONV_B"
+   }
+  ],
+  "tags": [
+   {
+    "name": "CONV_A_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_A",
+    "description": "Accumulation Belt Conveyor — Run command"
+   },
+   {
+    "name": "STP_01_RAISE_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "STP_01",
+    "description": "Accumulation Belt Stopper — Raise command"
+   },
+   {
+    "name": "STP_01_UP_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "STP_01",
+    "description": "Accumulation Belt Stopper — Raised limit switch"
+   },
+   {
+    "name": "STP_01_DN_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "STP_01",
+    "description": "Accumulation Belt Stopper — Lowered limit switch"
+   },
+   {
+    "name": "CONV_B_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_B",
+    "description": "Metering Belt Conveyor — Run command"
+   },
+   {
+    "name": "PE_Q_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "PE_Q",
+    "description": "Accumulation Queue Photo Eye — Part detected"
+   },
+   {
+    "name": "PE_B_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "PE_B",
+    "description": "Metering Belt Gap Photo Eye — Part detected"
+   }
+  ],
+  "warnings": []
+ },
+ "dt": 0.02,
+ "ticks": 750,
+ "friction": 0.8,
+ "ramp_ticks": 6.37105,
+ "tolerance_ticks": 2.0,
+ "inputs": [
+  {
+   "tick": 1,
+   "belts": {
+    "CONV_A": 0.0,
+    "CONV_B": 0.0
+   },
+   "stoppers": {
+    "STP_01": 0.0
+   }
+  },
+  {
+   "tick": 2,
+   "belts": {
+    "CONV_A": 0.033333,
+    "CONV_B": 0.066667
+   },
+   "stoppers": {
+    "STP_01": 0.1
+   },
+   "spawn": [
+    {
+     "id": "P000001",
+     "name": "q1",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      2.3,
+      0.105,
+      0.0
+     ]
+    },
+    {
+     "id": "P000002",
+     "name": "q2",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      1.8,
+      0.105,
+      0.0
+     ]
+    },
+    {
+     "id": "P000003",
+     "name": "q3",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      1.3,
+      0.105,
+      0.0
+     ]
+    },
+    {
+     "id": "P000004",
+     "name": "q4",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.8,
+      0.105,
+      0.0
+     ]
+    },
+    {
+     "id": "P000005",
+     "name": "q5",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.3,
+      0.105,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 3,
+   "belts": {
+    "CONV_A": 0.066667,
+    "CONV_B": 0.133333
+   },
+   "stoppers": {
+    "STP_01": 0.2
+   }
+  },
+  {
+   "tick": 4,
+   "belts": {
+    "CONV_A": 0.1,
+    "CONV_B": 0.2
+   },
+   "stoppers": {
+    "STP_01": 0.3
+   }
+  },
+  {
+   "tick": 5,
+   "belts": {
+    "CONV_A": 0.133333,
+    "CONV_B": 0.266667
+   },
+   "stoppers": {
+    "STP_01": 0.4
+   }
+  },
+  {
+   "tick": 6,
+   "belts": {
+    "CONV_A": 0.166667,
+    "CONV_B": 0.333333
+   },
+   "stoppers": {
+    "STP_01": 0.5
+   }
+  },
+  {
+   "tick": 7,
+   "belts": {
+    "CONV_A": 0.2,
+    "CONV_B": 0.4
+   },
+   "stoppers": {
+    "STP_01": 0.6
+   }
+  },
+  {
+   "tick": 8,
+   "belts": {
+    "CONV_A": 0.233333,
+    "CONV_B": 0.466667
+   },
+   "stoppers": {
+    "STP_01": 0.7
+   }
+  },
+  {
+   "tick": 9,
+   "belts": {
+    "CONV_A": 0.266667,
+    "CONV_B": 0.533333
+   },
+   "stoppers": {
+    "STP_01": 0.8
+   }
+  },
+  {
+   "tick": 10,
+   "belts": {
+    "CONV_A": 0.3,
+    "CONV_B": 0.6
+   },
+   "stoppers": {
+    "STP_01": 0.9
+   }
+  },
+  {
+   "tick": 11,
+   "belts": {
+    "CONV_A": 0.333333,
+    "CONV_B": 0.666667
+   },
+   "stoppers": {
+    "STP_01": 1.0
+   }
+  },
+  {
+   "tick": 12,
+   "belts": {
+    "CONV_A": 0.366667,
+    "CONV_B": 0.733333
+   }
+  },
+  {
+   "tick": 13,
+   "belts": {
+    "CONV_A": 0.4,
+    "CONV_B": 0.8
+   }
+  },
+  {
+   "tick": 14,
+   "belts": {
+    "CONV_A": 0.433333,
+    "CONV_B": 0.866667
+   }
+  },
+  {
+   "tick": 15,
+   "belts": {
+    "CONV_A": 0.466667,
+    "CONV_B": 0.933333
+   }
+  },
+  {
+   "tick": 16,
+   "belts": {
+    "CONV_A": 0.5,
+    "CONV_B": 1.0
+   }
+  },
+  {
+   "tick": 401,
+   "stoppers": {
+    "STP_01": 0.9
+   }
+  },
+  {
+   "tick": 402,
+   "stoppers": {
+    "STP_01": 0.8
+   }
+  },
+  {
+   "tick": 403,
+   "stoppers": {
+    "STP_01": 0.7
+   }
+  },
+  {
+   "tick": 404,
+   "stoppers": {
+    "STP_01": 0.6
+   }
+  },
+  {
+   "tick": 405,
+   "stoppers": {
+    "STP_01": 0.5
+   }
+  },
+  {
+   "tick": 406,
+   "stoppers": {
+    "STP_01": 0.4
+   }
+  },
+  {
+   "tick": 407,
+   "stoppers": {
+    "STP_01": 0.3
+   }
+  },
+  {
+   "tick": 408,
+   "stoppers": {
+    "STP_01": 0.2
+   }
+  },
+  {
+   "tick": 409,
+   "stoppers": {
+    "STP_01": 0.1
+   }
+  },
+  {
+   "tick": 410,
+   "stoppers": {
+    "STP_01": 0.0
+   }
+  },
+  {
+   "tick": 615,
+   "remove": [
+    "P000001"
+   ]
+  },
+  {
+   "tick": 645,
+   "remove": [
+    "P000002"
+   ]
+  },
+  {
+   "tick": 675,
+   "remove": [
+    "P000003"
+   ]
+  },
+  {
+   "tick": 705,
+   "remove": [
+    "P000004"
+   ]
+  },
+  {
+   "tick": 735,
+   "remove": [
+    "P000005"
+   ]
+  }
+ ],
+ "edges": {
+  "PE_Q": [
+   [
+    13,
+    true
+   ],
+   [
+    44,
+    false
+   ],
+   [
+    64,
+    true
+   ],
+   [
+    94,
+    false
+   ],
+   [
+    114,
+    true
+   ],
+   [
+    491,
+    false
+   ]
+  ],
+  "PE_B": [
+   [
+    567,
+    true
+   ],
+   [
+    582,
+    false
+   ],
+   [
+    597,
+    true
+   ],
+   [
+    612,
+    false
+   ],
+   [
+    627,
+    true
+   ],
+   [
+    642,
+    false
+   ],
+   [
+    657,
+    true
+   ],
+   [
+    672,
+    false
+   ],
+   [
+    687,
+    true
+   ],
+   [
+    702,
+    false
+   ]
+  ]
+ },
+ "checkpoints": {
+  "P000001": {
+   "2": 3,
+   "3.3": 436,
+   "4": 506,
+   "4.5": 539
+  },
+  "P000002": {
+   "2": 29,
+   "3.3": 466,
+   "4": 536,
+   "4.5": 569
+  },
+  "P000003": {
+   "2": 79,
+   "3.3": 496,
+   "4": 566,
+   "4.5": 599
+  },
+  "P000004": {
+   "2": 129,
+   "3.3": 526,
+   "4": 596,
+   "4.5": 629
+  },
+  "P000005": {
+   "2": 426,
+   "3.3": 556,
+   "4": 626,
+   "4.5": 659
+  }
+ }
+}

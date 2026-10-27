@@ -236,8 +236,10 @@ def port(
     required: bool = False,
     range: tuple[float, float] | None = None,  # noqa: A002 - matches the scene vocabulary
     units: str | None = None,
+    alias: str | None = None,
 ) -> Any:
-    """Declare an I/O port field. ``kind`` must agree with the field's tag annotation."""
+    """Declare an I/O port field. ``kind`` must agree with the field's tag annotation. ``alias``
+    is the port's name in scene files when it is a Python keyword (``stopper.io.raise``)."""
     if kind not in IO_KINDS:
         raise ValueError(f"unknown I/O kind {kind!r}")
     if (range is None) != (kind in ("DI", "DO")):
@@ -249,7 +251,7 @@ def port(
         extra["x-range"] = list(range)
         extra["x-units"] = units or ""
     default: Any = ... if required else None
-    return Field(default, description=description, json_schema_extra=extra)
+    return Field(default, alias=alias, description=description, json_schema_extra=extra)
 
 
 class IOModel(StrictModel):
@@ -266,6 +268,12 @@ class PortSpec:
     required: bool
     range: tuple[float, float] | None
     units: str | None
+    #: Attribute on the ``io`` model, when the port name is a keyword (``raise`` -> ``raise_``).
+    attr: str = ""
+
+    def value(self, io_model: Any) -> Any:
+        """The port's binding on a validated ``io`` model, or None when unbound."""
+        return getattr(io_model, self.attr or self.name)
 
 
 def port_specs(io_model: type[IOModel]) -> dict[str, PortSpec]:
@@ -275,13 +283,15 @@ def port_specs(io_model: type[IOModel]) -> dict[str, PortSpec]:
         extra = field.json_schema_extra
         assert isinstance(extra, dict), f"{io_model.__name__}.{name} is not declared with port()"
         rng = extra.get("x-range")
-        specs[name] = PortSpec(
-            name=name,
+        port_name = field.alias or name
+        specs[port_name] = PortSpec(
+            name=port_name,
             kind=str(extra["x-io-kind"]),
             description=field.description or name,
             required=field.is_required(),
             range=(float(rng[0]), float(rng[1])) if isinstance(rng, list) else None,
             units=str(extra["x-units"]) if "x-units" in extra else None,
+            attr=name,
         )
     return specs
 
@@ -424,6 +434,30 @@ class Pusher(ComponentBase):
     io: PusherIO
 
 
+class StopperIO(IOModel):
+    raise_: DoTag = port("DO", "Raise command", required=True, alias="raise")
+    raised: DiTag | None = port("DI", "Raised limit switch")
+    lowered: DiTag | None = port("DI", "Lowered limit switch")
+
+
+class Stopper(ComponentBase):
+    """Origin: center of the blade's upstream face, at belt-top height. The blade spans local z
+    (across the flow) and stops parts moving along local +x."""
+
+    type: Literal["stopper"]
+    width: PositiveFloat | None = Field(
+        None,
+        description="Blade width across the flow, meters. Unset: the width of the belt under it.",
+    )
+    height: PositiveFloat | None = Field(
+        None,
+        description="Raised blade top above the belt, meters. Unset: sized from the tallest "
+        "emitted part (its centre of mass, at least 0.05 m).",
+    )
+    raise_time_s: PositiveFloat = Field(0.2, description="Time to raise or lower, seconds.")
+    io: StopperIO
+
+
 class PartSpec(StrictModel):
     name: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
     size: Size3 = Field(description="Box size x, y, z in meters.")
@@ -506,6 +540,7 @@ class SelectorSwitch(ComponentBase):
 Component = Annotated[
     BeltConveyor
     | RollerConveyor
+    | Stopper
     | PhotoEye
     | Pusher
     | BoxEmitter
@@ -522,6 +557,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
     for model in (
         BeltConveyor,
         RollerConveyor,
+        Stopper,
         PhotoEye,
         Pusher,
         BoxEmitter,
@@ -657,8 +693,8 @@ class Scene(StrictModel):
         out: list[TagBinding] = []
         for comp in self.components:
             io = comp.io  # type: ignore[attr-defined]
-            for name, spec in port_specs(type(io)).items():
-                value = getattr(io, name)
+            for spec in port_specs(type(io)).values():
+                value = spec.value(io)
                 if value is not None:
                     transform = binding_transform(value)
                     out.append(

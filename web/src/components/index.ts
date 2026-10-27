@@ -11,6 +11,7 @@ import {
   pushbutton,
   pusher,
   selectorSwitch,
+  stopper,
 } from "./devices";
 import type { BuildContext, Builder, ComponentView } from "./types";
 
@@ -24,6 +25,7 @@ export const BUILDERS: Record<string, Builder> = {
   pushbutton,
   pilot_light: pilotLight,
   selector_switch: selectorSwitch,
+  stopper,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {

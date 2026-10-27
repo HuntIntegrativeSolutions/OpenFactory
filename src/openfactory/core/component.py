@@ -55,11 +55,13 @@ class Component(ABC):
         self.ports: dict[str, PortSpec] = port_specs(type(io_model))
         #: Port name → bound tag name, for bound ports only.
         self.bindings: dict[str, str] = {
-            name: binding_tag(getattr(io_model, name))
-            for name in self.ports
-            if getattr(io_model, name) is not None
+            name: binding_tag(spec.value(io_model))
+            for name, spec in self.ports.items()
+            if spec.value(io_model) is not None
         }
-        transforms = {name: binding_transform(getattr(io_model, name)) for name in self.bindings}
+        transforms = {
+            name: binding_transform(self.ports[name].value(io_model)) for name in self.bindings
+        }
         #: Output ports whose tag the transform stage writes instead of this component.
         self.conditioned: set[str] = {
             name for name, t in transforms.items() if t and self.ports[name].kind not in PLC_WRITES
