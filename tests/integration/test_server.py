@@ -97,7 +97,11 @@ def test_state_websocket_streams_at_least_15_frames_per_second(served):
     assert set(last) == {"t", "tick", "components", "parts", "io"}
     assert last["components"]["CONV_01"]["running"] is True
     assert last["parts"], "the enabled emitter has spawned parts"
-    assert set(last["parts"][0]) == {"id", "name", "size", "position", "velocity", "carrier"}
+    part = last["parts"][0]
+    assert set(part) == {
+        "id", "name", "size", "position", "velocity", "carrier", "spawn_tick", "spawn_position",
+    }  # fmt: skip
+    assert 0 < part["spawn_tick"] <= last["tick"] and len(part["spawn_position"]) == 3
 
 
 def test_event_websocket_records_and_rejects(served):

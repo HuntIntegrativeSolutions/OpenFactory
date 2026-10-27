@@ -81,6 +81,11 @@ export class PartMeshes {
     }
   }
 
+  /** Drop every mesh (the server restarted: part ids start again from P000001). */
+  clear(): void {
+    this.update([]);
+  }
+
   get count(): number {
     return this.meshes.size;
   }

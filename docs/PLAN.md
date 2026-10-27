@@ -164,8 +164,12 @@ fresh with a narrow component model is less work than bending a robotics simulat
   sensor interactions.
 
 ### 3.3 Viewer contract
-- `GET /api/scene` returns the resolved scene with geometry, once.
-- `WS /ws/state` streams `{t, components: {id: state}}` at 20 Hz; viewer interpolates.
+- `GET /api/scene` returns the resolved scene with geometry. The viewer fetches it at start and
+  again whenever `/ws/state` reconnects (the server may have restarted with another scene); it
+  rebuilds the plant if the document changed and always restarts its physics world.
+- `WS /ws/state` streams `{t, tick, components: {id: state}, parts, io}` at 20 Hz. Each part
+  carries `velocity`, `spawn_tick`, and `spawn_position`, so the viewer adds a new part before
+  stepping the tick the core first moved it in (`spawn_tick + 1`), not at the next frame.
 - `WS /ws/events` upstream: `{t, type: "sensor", id, value}` and `{t, type: "part", ...}`.
 - Viewer never computes PLC-visible logic. If a sensor reading can be derived from Rapier contacts in the
   browser, the browser reports it and the core *decides* whether the tag changes (debounce, fault
@@ -615,6 +619,11 @@ runs the sorting program against it; a box visibly gets pushed.
       body starts with it. Live, 30 s: 1405 browser steps for 1405 core ticks, 0 dropped, worst
       |Δ| 2 ticks; 60 s: 2937 for 2937, 0 dropped, worst |Δ| 1, median 0.5.
       Capture: `docs/media/sorting-by-height-openplc.webm` (poster `.png`).
+      *Spawn tick (2026-10-26):* frames now carry each part's `spawn_tick` and `spawn_position`;
+      `spawnStep` (`ticksync.ts`) adds a new part before the step for `spawn_tick + 1`, as the
+      replay does, instead of after the frame's steps at its current pose. Live: 30 s, 1238
+      steps for 1238 ticks, worst |Δ| 1, median 1; 60 s, 2778 for 2778, worst |Δ| 1, median 1.
+      The renderer's pixel ratio is capped at 2, and a reconnect refetches `/api/scene` (§3.3).
 - [x] 2.0 Headless part-to-part queueing along the flow axis in `core/kinematics.py`: a carried part
       stops at the back face of the part ahead of it on the same belt (and across a connection
       handoff) instead of overlapping it, so parts accumulate behind a stopped belt or a raised

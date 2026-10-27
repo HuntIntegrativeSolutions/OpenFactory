@@ -18,7 +18,7 @@
 import type * as RapierNs from "@dimforge/rapier3d-compat";
 import type { ComponentGeometry, Vec3 } from "./api";
 
-type Rapier = typeof RapierNs;
+export type Rapier = typeof RapierNs;
 
 export const GRAVITY = 9.81;
 const BELT_HALF_THICKNESS = 0.05;

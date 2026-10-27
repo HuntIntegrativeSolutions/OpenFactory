@@ -33,6 +33,9 @@ export interface PartState {
   /** World velocity in m/s (belt-direction speed while carried, fall speed while falling). */
   velocity?: Vec3;
   carrier: string | null;
+  /** Tick that spawned the part, and its pose then; it first moves in tick spawn_tick + 1. */
+  spawn_tick?: number;
+  spawn_position?: Vec3;
 }
 
 export interface StateFrame {
@@ -72,11 +75,16 @@ function wsUrl(path: string): string {
   return `${proto}//${location.host}${path}`;
 }
 
-/** Stream /ws/state frames to `onFrame`, reconnecting after a second if the socket drops. */
-export function streamState(onFrame: (frame: StateFrame) => void): void {
+/**
+ * Stream /ws/state frames to `onFrame`, reconnecting after a second if the socket drops. When a
+ * reconnected socket opens, `onReconnect` runs first: the server may have restarted, possibly with a
+ * different scene, so the caller refetches /api/scene before it uses frames again.
+ */
+export function streamState(onFrame: (frame: StateFrame) => void, onReconnect?: () => void, reconnect = false): void {
   const ws = new WebSocket(wsUrl("/ws/state"));
+  if (reconnect && onReconnect) ws.onopen = onReconnect;
   ws.onmessage = (msg) => onFrame(JSON.parse(msg.data as string) as StateFrame);
-  ws.onclose = () => setTimeout(() => streamState(onFrame), 1000);
+  ws.onclose = () => setTimeout(() => streamState(onFrame, onReconnect, true), 1000);
 }
 
 /** Upstream events (/ws/events): sensor reports, pushbutton presses. Queued until open. */

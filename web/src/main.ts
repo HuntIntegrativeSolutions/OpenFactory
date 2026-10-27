@@ -11,15 +11,21 @@
 // decides which exist); parts render at their Rapier poses, eased between frames; photo-eye beam
 // edges go upstream on /ws/events as {type: "sensor"} events carrying the core tick of their step. The core records them with its tick and never applies them (PLAN §3.3):
 // The headless model is authoritative for PLC tags through Milestone 2; browser sensor events are parity-only.
+// A part first seen in a frame is added before the step for its spawn tick + 1 (spawnStep), the
+// tick the core first moved it in, so browser and core parts start on the same tick.
+//
+// Reconnect: when the state socket reconnects, the server may have restarted with another scene,
+// so the viewer refetches /api/scene, rebuilds the plant if the document changed, and always starts
+// a fresh physics world, part set, and event link (frames are ignored until that is done).
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
-import { EventLink, fetchScene, streamState, type SceneDocument, type StateFrame } from "./api";
-import { loadRapier, PlantPhysics } from "./physics";
+import { EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame } from "./api";
+import { loadRapier, PlantPhysics, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { cssColor, ISA101 } from "./isa101";
 import { PartMeshes } from "./parts";
-import { planSteps, strokeAt } from "./ticksync";
+import { planSteps, spawnStep, strokeAt } from "./ticksync";
 
 window.__openfactory = {
   ready: false,
@@ -34,13 +40,17 @@ window.__openfactory = {
   physicsSteps: 0,
   droppedTicks: 0,
   firstTick: null,
+  reloads: 0,
 };
+
+/** Phones report a device pixel ratio of 3 or more; rendering at that drops frames for no gain. */
+const MAX_PIXEL_RATIO = 2;
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("#app element missing from index.html");
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
 renderer.setSize(window.innerWidth, window.innerHeight);
 app.appendChild(renderer.domElement);
 
@@ -94,6 +104,20 @@ function frameCamera(bounds: THREE.Box3): void {
 const parts = new PartMeshes();
 scene.add(parts.group);
 let views: ComponentView[] = [];
+let plant: THREE.Object3D[] = []; // what buildScene added: component views, floor, grid
+
+/** Remove the plant built by buildScene, labels included (CSS2D elements live in the DOM). */
+function clearScene(): void {
+  for (const object of plant) {
+    object.traverse((o) => {
+      if (o instanceof CSS2DObject) o.element.remove();
+      if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) o.geometry.dispose();
+    });
+    scene.remove(object);
+  }
+  plant = [];
+  views = [];
+}
 
 function buildScene(doc: SceneDocument): void {
   const floorY = floorFor(doc.components);
@@ -116,6 +140,7 @@ function buildScene(doc: SceneDocument): void {
   const grid = new THREE.GridHelper(40, 80, 0x324152, 0x253240);
   grid.position.y = floorY;
   scene.add(floor, grid);
+  plant = [...views.map((v) => v.object), floor, grid];
   bounds.expandByPoint(new THREE.Vector3(bounds.min.x, floorY, bounds.min.z));
   frameCamera(bounds);
 }
@@ -126,7 +151,7 @@ function nextPosition(geometryPositions: unknown, current: string): string {
   return order[(order.indexOf(current) + 1) % order.length];
 }
 
-function wireClicks(doc: SceneDocument, events: EventLink): void {
+function wireClicks(): void {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   renderer.domElement.addEventListener("click", (e) => {
@@ -135,7 +160,7 @@ function wireClicks(doc: SceneDocument, events: EventLink): void {
     const pickable = views.flatMap((v) => v.pickable.map((o) => [o, v] as const));
     const hit = raycaster.intersectObjects(pickable.map(([o]) => o), false)[0];
     const view = hit && pickable.find(([o]) => o === hit.object)?.[1];
-    if (!view) return;
+    if (!view || !doc || !events) return;
     if (view.type === "pushbutton") events.send({ type: "press", id: view.id });
     if (view.type === "selector_switch") {
       const geometry = doc.components.find((c) => c.id === view.id);
@@ -145,6 +170,9 @@ function wireClicks(doc: SceneDocument, events: EventLink): void {
   });
 }
 
+let doc: SceneDocument | null = null; // the scene the plant was built from
+let loading = true; // (re)loading the scene: frames are ignored
+let rapier: Rapier | null = null;
 let lastFrame: StateFrame | null = null;
 let physics: PlantPhysics | null = null;
 let events: EventLink | null = null;
@@ -165,8 +193,16 @@ function stepToFrame(frame: StateFrame): void {
   for (const view of views) {
     if (view.type === "pusher") target.set(view.id, Number(frame.components[view.id]?.position_m ?? 0));
   }
+  // Parts the core spawned during this frame's ticks join on the tick it first moved them.
+  const known = new Set(physics.partIds());
+  const joining = new Map<number, PartState[]>();
+  for (const p of frame.parts) {
+    const i = known.has(p.id) || !p.spawn_position ? 0 : spawnStep(plan, p.spawn_tick);
+    if (i) joining.set(i, [...(joining.get(i) ?? []), p]);
+  }
   const status = window.__openfactory;
   for (let i = 1; i <= plan.steps; i++) {
+    for (const p of joining.get(i) ?? []) physics.addPart(p.id, p.size, p.spawn_position ?? p.position);
     for (const [id, to] of target) physics.setPusher(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
     const tick = plan.firstTick + i - 1;
     for (const edge of physics.step()) {
@@ -178,7 +214,7 @@ function stepToFrame(frame: StateFrame): void {
   status.droppedTicks = Number(status.droppedTicks) + plan.dropped;
   lastTick = frame.tick;
   // Inputs for the steps of the next frame: belt speeds, plate strokes, and the part set (the
-  // core decides which parts exist; a new part starts at the core's position for this tick).
+  // core decides which parts exist; a part not added above starts at the core's pose for this tick).
   for (const view of views) {
     const state = frame.components[view.id] ?? {};
     if (view.type === "belt_conveyor") physics.setBelt(view.id, Number(state.speed_mps ?? 0));
@@ -196,7 +232,8 @@ function stepToFrame(frame: StateFrame): void {
   }
 }
 
-function onFrame(doc: SceneDocument, frame: StateFrame): void {
+function onFrame(frame: StateFrame): void {
+  if (loading || !doc) return;
   lastFrame = frame;
   for (const view of views) view.update(frame.components[view.id] ?? {});
   parts.update(frame.parts);
@@ -215,21 +252,52 @@ function onFrame(doc: SceneDocument, frame: StateFrame): void {
     `running: ${running.map((v) => v.id).join(", ") || "none"}`;
 }
 
-async function start(): Promise<void> {
-  const doc = await fetchScene();
-  buildScene(doc);
-  window.__openfactory.scene = doc.scene.name;
-  window.__openfactory.components = doc.components.length;
+/**
+ * Fetch /api/scene and (re)build: the plant only if the document changed, and always a fresh
+ * physics world, part set, tick sync, and event link, because a reconnect may follow a server
+ * restart (ticks and part ids start again).
+ */
+async function loadScene(): Promise<void> {
+  loading = true;
+  const next = await fetchScene();
+  const status = window.__openfactory;
+  if (!doc || JSON.stringify(next) !== JSON.stringify(doc)) {
+    if (doc) status.reloads = Number(status.reloads) + 1;
+    clearScene();
+    doc = next;
+    buildScene(doc);
+    status.scene = doc.scene.name;
+    status.components = doc.components.length;
+  }
+  physics?.free();
+  physics = null;
+  parts.clear();
+  lastTick = null;
+  strokes.clear();
+  lastFrame = null;
   events = new EventLink();
-  wireClicks(doc, events);
+  if (rapier) {
+    physics = new PlantPhysics(rapier, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
+  }
+  loading = false;
+}
+
+async function start(): Promise<void> {
+  await loadScene();
+  wireClicks();
   try {
-    const R = await loadRapier();
-    physics = new PlantPhysics(R, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
-    window.__openfactory.physics = `rapier ${R.version()}`;
+    rapier = await loadRapier();
+    if (doc) physics = new PlantPhysics(rapier, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
+    window.__openfactory.physics = `rapier ${rapier.version()}`;
   } catch (err) {
     window.__openfactory.physics = `off: ${String(err)}`; // parts follow the core positions instead
   }
-  streamState((frame) => onFrame(doc, frame));
+  streamState(onFrame, () => {
+    loadScene().catch((err: unknown) => {
+      window.__openfactory.error = String(err);
+      hud.textContent = `OpenFactory: ${String(err)}`;
+    });
+  });
 }
 
 start().catch((err: unknown) => {

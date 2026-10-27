@@ -43,6 +43,15 @@ class Part:
     vy: float = 0.0
     #: Speed in m/s along the carrier's flow axis (local +x) while carried.
     v_flow: float = 0.0
+    #: The tick that spawned the part (``LoadedScene.tick`` after it), and where it was then: a
+    #: part does not move in its spawn tick, so the viewer can add it at this pose before stepping
+    #: tick ``spawn_tick + 1``, as the core does (PLAN 2.0a).
+    spawn_tick: int = 0
+    spawn_position: Vec3 | None = None
+
+    def __post_init__(self) -> None:
+        if self.spawn_position is None:
+            self.spawn_position = self.position
 
     @property
     def bottom(self) -> float:
@@ -63,6 +72,8 @@ class World:
     spawned: int = 0
     removed: Counter[str] = field(default_factory=Counter)
     lost: Counter[str] = field(default_factory=Counter)
+    #: The tick being computed (``LoadedScene.step`` sets it), stamped on spawned parts.
+    tick: int = 0
 
     def rng(self, component_id: str) -> random.Random:
         """A deterministic random generator owned by one component."""
@@ -73,7 +84,7 @@ class World:
         if len(self.parts) >= MAX_PARTS:
             return None
         self.spawned += 1
-        part = Part(f"P{self.spawned:06d}", name, size, position, source)
+        part = Part(f"P{self.spawned:06d}", name, size, position, source, spawn_tick=self.tick)
         self.parts[part.id] = part
         return part
 

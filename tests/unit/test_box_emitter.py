@@ -181,3 +181,20 @@ def test_chattering_enable_no_longer_stacks_boxes():
     print(f"spawned {emitter.spawned}, waited {emitter.waiting_ticks} ticks, worst overlap {worst}")
     assert emitter.waiting_ticks > 0  # the re-enable spawn had to wait
     assert worst <= 1e-9  # no two parts ever overlap
+
+
+def test_parts_carry_their_spawn_tick_and_spawn_position():
+    """The viewer adds a part before stepping spawn_tick + 1 (PLAN 2.0a), at spawn_position.
+
+    Uses LoadedScene.step (kinematics included), which stamps the tick; the rig does not."""
+    loaded = load(Path(__file__).resolve().parents[2] / "scenes" / "sorting-by-height.yaml")
+    loaded.io.set("CONV_01_RUN_DO", True, Writer.PLC)
+    for _ in range(3):
+        loaded.step(0.02)
+    loaded.io.set("EMT_01_EN_DO", True, Writer.PLC)
+    for _ in range(152):  # spawns in tick 4 and, 3 s later, tick 154
+        loaded.step(0.02)
+    first, second = loaded.world.parts.values()
+    assert (first.spawn_tick, second.spawn_tick) == (4, 154)
+    assert first.spawn_position == second.spawn_position == (0.2, 0.3, 0.0)
+    assert first.position != first.spawn_position  # carried away; the spawn pose is kept

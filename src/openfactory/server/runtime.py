@@ -8,9 +8,13 @@ default, or as fast as possible). After every tick, still holding the step lock,
 :class:`dict` snapshot (:attr:`Runtime.snapshot`) of everything the viewer needs:
 
 ``{"t", "tick", "components": {id: state()}, "parts": [{id, name, size, position, velocity,
-carrier}], "io": {tag: value}}``. A part's ``velocity`` (m/s, world frame) is its belt-direction
-speed while carried or its fall speed while falling, so the viewer can start a newly seen part's
-physics body moving as the core's part already is (PLAN 2.0a).
+carrier, spawn_tick, spawn_position}], "io": {tag: value}}``. A part's ``velocity`` (m/s, world
+frame) is its belt-direction speed while carried or its fall speed while falling, so the viewer can
+start a newly seen part's physics body moving as the core's part already is (PLAN 2.0a).
+``spawn_tick`` is the tick that spawned the part and ``spawn_position`` where it was at the end of
+that tick (a part does not move in its spawn tick). A frame covers several ticks, so the viewer
+uses them to add a new part before the step for ``spawn_tick + 1``, the tick the core first moves
+it in, instead of at the frame's tick.
 
 The snapshot is built fresh each tick and never mutated afterwards, so the web server can serialize
 the latest one from its own thread at any rate (20 Hz for ``/ws/state``) without locking or racing
@@ -125,6 +129,8 @@ class Runtime:
                     "position": list(p.position),
                     "velocity": self._velocity(p),
                     "carrier": p.carrier,
+                    "spawn_tick": p.spawn_tick,
+                    "spawn_position": list(p.spawn_position),
                 }
                 for p in loaded.world.parts.values()
             ],

@@ -65,6 +65,7 @@ class LoadedScene:
     def step(self, dt: float) -> None:
         """One tick: move parts, step components in scene order, then write transformed tags.
         Never reads the clock."""
+        self.world.tick = self.tick + 1  # parts spawned in this tick carry its number
         self.kinematics.step(dt)
         for comp in self.components:
             comp.step(dt)
