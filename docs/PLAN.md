@@ -694,6 +694,13 @@ runs the sorting program against it; a box visibly gets pushed.
       less OpenPLC's 0.10 s polling latency, which a script does not have. 60 s headless, both
       real time and `--as-fast-as-possible`: spawned 20, REM_01 {short: 9}, REM_02 {tall: 9},
       lost {}. That is identical to 1.14 under OpenPLC.
+      *Divert ring (2026-10-26):* the ST program and the script held one pending divert in one
+      flag and one timer, so a second tall box reaching PE_01 within the divert delay of the first
+      restarted the shared timer and the first box was never pushed. Both now give each tall box
+      the next of four slots, each with its own timer (`DIVERT_PEND_n`/`DIVERT_TMR_n`, latched
+      `DIVERT_OVERRUN` if a fifth box finds its slot busy). Stress scene
+      `tests/scenes/sorter-tall-pairs.yaml` (every box tall, 1.5 s apart): OpenPLC, 60 s,
+      REM_01 {} and REM_02 {tall: 35}; the old program sent 17 of 35 to REM_01.
 - [ ] 2.11 Exercise checks: a scene may declare `checks:` (for example `parts_reached: {REM_02: tall}`,
       `none_lost: true`, `max_cycle_s: 12`) evaluated by `openfactory test scene.yaml --script|--plc`
       with a pass/fail report.

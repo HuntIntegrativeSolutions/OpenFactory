@@ -15,8 +15,10 @@ eye-to-plate travel time.
 Sequence of operations
   1. Run both belt conveyors and write both speed references, 100 % each.
   2. Enable the box emitter once both belts have reported running for 1 s without a break.
-  3. On each PE_01 rising edge (tall boxes only: the beam is above short ones), wait
-     DIVERT_DELAY_S for the box to travel from the eye to the pusher plate, then extend CYL_01.
+  3. On each PE_01 rising edge (tall boxes only: the beam is above short ones), start that box's
+     own DIVERT_DELAY_S timer for its travel from the eye to the pusher plate, then extend CYL_01.
+     Up to DIVERT_SLOTS boxes can be on their way at once, each in its own slot (a ring), so a
+     second tall box tripping the eye before the first is pushed keeps its divert.
   4. Retract CYL_01 as soon as its extended limit is made.
 
 Training and demo use only. Not a safety-rated program and not a safety-rated simulation.
@@ -30,15 +32,19 @@ OPENPLC_POLL_LATENCY_S = 0.10  # what the ST program subtracts; zero for a scrip
 DIVERT_DELAY_S = TRAVEL_S  # ST: DIVERT_DELAY := T#1980ms = TRAVEL_S - OPENPLC_POLL_LATENCY_S
 BELTS_OK_DELAY_S = 1.0  # ST: BELTS_OK_DELAY := T#1s
 
+DIVERT_SLOTS = 4  # ST: DIVERT_PEND_0..3 and DIVERT_TMR_0..3
+
 PE_01_RISE = R_TRIG()  # tall box arrives at PE_01
-DIVERT_TMR = TON(DIVERT_DELAY_S)  # eye-to-plate travel timer
+DIVERT_TMR = [TON(DIVERT_DELAY_S) for _ in range(DIVERT_SLOTS)]  # one eye-to-plate timer per box
 BELTS_OK_TMR = TON(BELTS_OK_DELAY_S)  # both belts running, debounced
-divert_pending = False  # a tall box is on its way to the pusher
+divert_pend = [False] * DIVERT_SLOTS  # slot i holds a tall box on its way to the pusher
+next_slot = 0  # ring index: the slot the next tall box takes
+divert_overrun = False  # a tall box found its slot still busy (more than DIVERT_SLOTS in transit)
 push_cmd = False  # pusher extend request, held until the extended limit
 
 
 def step(io, t):
-    global divert_pending, push_cmd
+    global next_slot, divert_overrun, push_cmd
 
     # 1. Belts run at 100 %
     io["CONV_01_RUN_DO"] = True
@@ -49,12 +55,16 @@ def step(io, t):
     # 2. Feed boxes only after both belts have reported running for BELTS_OK_DELAY_S
     io["EMT_01_EN_DO"] = BELTS_OK_TMR(io["CONV_01_RUN_DI"] and io["CONV_02_RUN_DI"], t)
 
-    # 3. Tall box at the eye: time its travel to the plate, then extend
+    # 3. Tall box at the eye: give it the next slot and its own travel timer; extend when it is due
     if PE_01_RISE(io["PE_01_DI"]):
-        divert_pending = True
-    if DIVERT_TMR(divert_pending, t):
-        divert_pending = False
-        push_cmd = True
+        if divert_pend[next_slot]:
+            divert_overrun = True  # the slot's earlier box keeps its timer; this box is lost
+        divert_pend[next_slot] = True
+        next_slot = (next_slot + 1) % DIVERT_SLOTS
+    for i in range(DIVERT_SLOTS):
+        if DIVERT_TMR[i](divert_pend[i], t):
+            divert_pend[i] = False
+            push_cmd = True
 
     # 4. Retract on the extended limit
     if io["CYL_01_EXT_DI"]:

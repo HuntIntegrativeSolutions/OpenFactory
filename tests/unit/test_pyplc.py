@@ -18,6 +18,7 @@ REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO / "scenes" / "sorting-by-height.yaml"
 SCRIPT = REPO / "examples" / "pyplc" / "sorting-by-height.py"
 ST = REPO / "examples" / "openplc" / "sorting-by-height.st"
+TALL_PAIRS = REPO / "tests" / "scenes" / "sorter-tall-pairs.yaml"
 runner = CliRunner()
 
 
@@ -71,6 +72,25 @@ def test_sorter_runs_60_s_under_the_script_with_the_1_14_result(tmp_path, strip_
     assert "scripted PLC:" in out and "would fight it" in out  # warns about a Modbus PLC
 
 
+def test_every_tall_box_is_diverted_when_two_are_in_transit(tmp_path, strip_ansi):
+    """Boxes 1.5 s apart, under the divert delay: each needs its own timer (the divert ring)."""
+    for name in (TALL_PAIRS.name, "sorter-tall-pairs.float32.modbus.yaml"):
+        (tmp_path / name).write_text((TALL_PAIRS.parent / name).read_text(encoding="utf-8"))
+    result = runner.invoke(
+        app,
+        [
+            "run", str(tmp_path / TALL_PAIRS.name), "--as-fast-as-possible", "--duration", "60",
+            "--port", str(free_port()), "--script", str(SCRIPT),
+        ],
+    )  # fmt: skip
+    out = strip_ansi(result.output)
+    assert result.exit_code == 0, out
+    summary = next(line for line in out.splitlines() if "ran 3000 ticks" in line)
+    print(summary)
+    # One shared flag and timer sent 17 of these to REM_01 (OpenPLC and script alike).
+    assert "by remover {'REM_01': {}, 'REM_02': {'tall': 35}}" in summary and "lost {}" in summary
+
+
 def test_a_faulting_script_stops_the_run_with_exit_1(tmp_path, strip_ansi):
     bad = tmp_path / "bad.py"
     bad.write_text("def step(io, t):\n    if t > 0.5:\n        io['PE_01_DI'] = True\n")
@@ -105,6 +125,8 @@ def test_script_stays_in_step_with_the_openplc_program():
         script.DIVERT_DELAY_S - script.OPENPLC_POLL_LATENCY_S
     )
     assert s["BELTS_OK_DELAY"] == script.BELTS_OK_DELAY_S
+    assert len(re.findall(r"DIVERT_TMR_\d+ : TON;", st)) == script.DIVERT_SLOTS
+    assert f"MOD {script.DIVERT_SLOTS};" in st
     raw = int(re.search(r"SPEED_RAW : INT := (\d+)", st).group(1))
     assert raw / 32767 * 100 == script.SPEED_PCT
     logic = st.split("END_VAR")[-1]  # the program body after the declarations

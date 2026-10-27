@@ -1,0 +1,78 @@
+# OpenFactory test scene, training and demo use only. Not a safety-rated simulation.
+# The sorter with every box tall and boxes 1.5 s apart, less than the 1.98 s / 2.08 s divert delay,
+# so a second tall box reaches PE_01 while the first is still on its way to the pusher. A divert
+# held in one shared flag and timer loses the second box. Same tags and Modbus addresses as the
+# shipped sorter (the lockfiles beside this file are copies of scenes/sorting-by-height.*), so
+# examples/openplc/sorting-by-height.st runs it unchanged.
+openfactory: "0.1"
+scene:
+  name: sorter-tall-pairs
+  description: Sorter stress case. Every box tall, 1.5 s apart, two diverts pending at once.
+  author: HIS Controls
+  seed: 42
+  units: meters
+plc:
+  protocol: modbus_tcp          # modbus_tcp | logix | opcua | none
+  role: server                  # server | client
+  # bind/port come from openfactory.toml ([modbus], default 127.0.0.1:5020); plc.bind and
+  # plc.port are optional per-scene overrides.
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Infeed Belt Conveyor — Sorting Line
+    position: [0, 0, 0]          # x (along flow), y (up), z
+    rotation_deg: 0
+    length: 4.0
+    width: 0.5
+    speed_mps: 0.5               # surface speed at 100 % speed command
+    io:
+      run: CONV_01_RUN_DO
+      speed: {tag: CONV_01_SPD_AO, initial: 100}  # optional; 0-100 %, 100 until the PLC writes
+      running: CONV_01_RUN_DI    # feedback
+  - id: PE_01
+    type: photo_eye
+    description: Infeed Tall Box Photo Eye
+    position: [1.5, 0.3, 0]       # beam above short boxes (0.2 m), below tall boxes (0.4 m)
+    beam_length: 0.6
+    io:
+      detect: PE_01_DI
+  - id: CYL_01
+    type: pusher
+    description: Tall Box Divert Pusher
+    position: [2.5, 0.1, -0.3]
+    stroke: 0.5
+    extend_time_s: 0.4
+    io:
+      extend: CYL_01_EXT_DO
+      extended: CYL_01_EXT_DI
+      retracted: CYL_01_RET_DI
+  - id: EMT_01
+    type: box_emitter
+    description: Infeed Box Source
+    position: [0.2, 0.3, 0]
+    interval_s: 1.5
+    parts:
+      - {name: tall, size: [0.3, 0.4, 0.3], weight: 0.5}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_01
+    type: part_remover
+    description: Sorting Line Discharge Part Remover
+    position: [4.1, 0, 0]
+    size: [0.3, 1.0, 1.0]
+  - id: CONV_02
+    type: belt_conveyor
+    description: Divert Lane Belt Conveyor — Tall Boxes
+    position: [2.0, 0, 0.5]       # alongside CONV_01; the pusher moves tall boxes across onto it
+    length: 1.5
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_02_RUN_DO
+      speed: {tag: CONV_02_SPD_AO, initial: 100}
+      running: CONV_02_RUN_DI
+  - id: REM_02
+    type: part_remover
+    description: Divert Lane Discharge Part Remover
+    position: [3.65, 0, 0.5]
+    size: [0.3, 1.0, 0.5]
