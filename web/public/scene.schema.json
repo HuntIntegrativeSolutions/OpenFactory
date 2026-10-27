@@ -555,7 +555,7 @@
               "$ref": "#/$defs/AiTagSpec"
             }
           ],
-          "description": "Distance to the nearest part along the beam (beam_length when clear)",
+          "description": "Distance to the nearest part or belt along the beam",
           "title": "Distance",
           "x-io-kind": "AI",
           "x-range-from": "beam_length",
@@ -576,7 +576,7 @@
             }
           ],
           "default": null,
-          "description": "Switching output: the same distance, for a {tag: X_DI, window: [lo, hi]} binding",
+          "description": "Switching output (the distance, windowed to a DI)",
           "title": "Switching",
           "x-io-kind": "AI",
           "x-range-from": "beam_length",

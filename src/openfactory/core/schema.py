@@ -560,14 +560,14 @@ class PickAndPlace(ComponentBase):
 class DistanceSensorIO(IOModel):
     distance: AiTag = port(
         "AI",
-        "Distance to the nearest part along the beam (beam_length when clear)",
+        "Distance to the nearest part or belt along the beam",
         required=True,
         units="m",
         range_from="beam_length",
     )
     switching: AiTag | None = port(
         "AI",
-        "Switching output: the same distance, for a {tag: X_DI, window: [lo, hi]} binding",
+        "Switching output (the distance, windowed to a DI)",
         units="m",
         range_from="beam_length",
     )

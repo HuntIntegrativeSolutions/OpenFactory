@@ -672,7 +672,7 @@ runs the sorting program against it; a box visibly gets pushed.
 - [ ] 2.4 `protocols/opcua.py` with asyncua; `export/ignition_tags.py` producing 8.3 tag JSON
       *Done when:* Ignition 8.3 gateway shows Good quality on all tags; a Perspective view from
       `/perspective-view` starts the conveyor.
-- [ ] 2.5 Components: `roller_conveyor`, `stopper`, `turntable`, `diverter_arm`, `pick_and_place`,
+- [x] 2.5 Components: `roller_conveyor`, `stopper`, `turntable`, `diverter_arm`, `pick_and_place`,
       `distance_sensor` (split 2026-10-26: the rest of the original list moved to 2.5b).
       Each component ships headless kinematics, a viewer device, a Modbus binding, a unit test, and
       an entry in the component reference.
@@ -706,6 +706,19 @@ runs the sorting program against it; a box visibly gets pushed.
       Locking part yaw in Rapier only brought it to 8 ticks and hides real behavior, so it was not
       done. Belt colliders now have 5 mm rounded edges: a part driven sideways across a level seam
       caught on the neighbor belt's top edge (stuck for 0.9 s with yaw locked).
+      *Done (2026-10-26):* one commit per component, each with headless kinematics, a viewer
+      device (screenshots looked at), a Modbus round trip (`tests/integration/
+      test_components_modbus.py`), and unit tests; `docs/components.md` covers all 14 types and
+      `tests/unit/test_component_reference.py` checks it against the registry. Queue-formation
+      parity (`parity-stopper`): 36 comparisons, worst |Δ| 2 ticks (tolerance 2), with the blade
+      height sized to the tallest part's centre of mass; no tipping (Rapier tilt at most 0.3
+      degrees, 0.4 with 0.4 m boxes). Window end to end (`tests/scenes/distance-window.yaml`,
+      int16_scaled over Modbus): the windowed DI rose for each of 5 tall boxes and for nothing
+      else, and every AI raw value was the distance scaled over 0 to 0.8 m. Also built for these:
+      `core/sizing.py` (load-time defaults), `Component.frame()` and aligned turntable
+      connections, the `follow` flag in state frames, `port(range_from=)` per-instance ranges,
+      `ranges:` in int16_scaled lockfiles, `port(alias=)` for the `raise` keyword, and
+      `tools/screenshot.py --script`.
 - [ ] 2.5b Components split from 2.5: `counter_display` (4-digit readout of an AO on a panel),
       `lift` (moves a short conveyor between two heights; at_top/at_bottom DIs), reversible belts
       (belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction
