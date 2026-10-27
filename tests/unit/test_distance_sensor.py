@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import csv
 import io
+from pathlib import Path
 
 import pytest
 import yaml
@@ -137,3 +138,21 @@ def test_over_a_belt_it_reads_the_belt_when_no_part_is_under_it():
     assert loaded.io.get("DS_01_DIST_AI") == pytest.approx(0.6)  # the belt top, 0.6 below
     assert loaded.component("DS_01").state()["target"] is True
     assert loaded.io.get("DS_01_TALL_DI") is False  # 0.6 is outside the 0.1 to 0.3 window
+
+
+def test_lint_reports_a_changed_beam_length_as_e101(tmp_path):
+    """docs/components.md: a changed beam_length fails the lockfile check, and so lint."""
+    from openfactory.lint import lint_scene
+
+    shipped = Path(__file__).resolve().parents[1] / "scenes" / "distance-window.yaml"
+    data = yaml.safe_load(shipped.read_text(encoding="utf-8"))
+    next(c for c in data["components"] if c["id"] == "DS_01")["beam_length"] = 1.0
+    path = tmp_path / shipped.name
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    lock = shipped.with_name("distance-window.int16_scaled.modbus.yaml")
+    (tmp_path / lock.name).write_text(lock.read_text(encoding="utf-8"), encoding="utf-8")
+    findings = lint_scene(path)
+    print("\n".join(str(f) for f in findings))
+    assert [f.code for f in findings] == ["E101"]
+    assert "scales it against 0 to 0.8, but the scene now gives 0 to 1" in findings[0].message
+    assert lint_scene(shipped) == []  # the committed lockfile matches the shipped 0.8 m
