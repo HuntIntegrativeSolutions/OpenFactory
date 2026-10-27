@@ -73,6 +73,8 @@ class TraceSpec(NamedTuple):
     #: tick -> {PLC tag: value} written before that tick. None: every belt and emitter DO on and
     #: every AO at 100 from tick 1 (the sorter traces).
     schedule: dict[int, dict[str, bool | float]] | None = None
+    #: False: the replay is reported but not held to the tolerance (a known model difference).
+    gate: bool = True
 
 
 TRACES: dict[str, TraceSpec] = {
@@ -97,6 +99,22 @@ TRACES: dict[str, TraceSpec] = {
             1: {"CONV_A_RUN_DO": True, "CONV_B_RUN_DO": True, "STP_01_RAISE_DO": True},
             400: {"STP_01_RAISE_DO": False},
         },
+    ),
+    # PLAN 2.5: the diverter arm slides box a onto CONV_SIDE (PE_SIDE sees it), swings back at
+    # tick 175, and box b passes straight on (PE_MAIN sees it). Informational, not a gate: in
+    # Rapier the arm's contact turns the box (about 23 degrees) and it slides along the arm a
+    # little slower than the headless fence's v·cos(swing), so the diverted box arrives up to 10
+    # ticks late; the box that passes agrees within 1 tick (PLAN 2.5 note). Parts the arm pushes
+    # are Rapier-driven (§3.3), so the viewer shows this difference.
+    "parity-diverter": TraceSpec(
+        scene=REPO / "tests" / "scenes" / "demo-diverter.yaml",
+        seconds=9.0,
+        checkpoints=(2.0, 3.0, 4.0),
+        schedule={
+            1: {"CONV_01_RUN_DO": True, "CONV_SIDE_RUN_DO": True, "DIV_01_EXT_DO": True},
+            175: {"DIV_01_EXT_DO": False},
+        },
+        gate=False,
     ),
 }
 
@@ -152,6 +170,7 @@ def trace(
     belts = [c for c in loaded.components if c.type == "belt_conveyor"]
     pushers = [c for c in loaded.components if c.type == "pusher"]
     stoppers = [c for c in loaded.components if c.type == "stopper"]
+    arms = [c for c in loaded.components if c.type == "diverter_arm"]
     eyes = [c for c in loaded.components if c.type == "photo_eye"]
 
     inputs: list[dict[str, Any]] = []
@@ -160,6 +179,7 @@ def trace(
     last_belts: dict[str, float] = {}
     last_plates: dict[str, float] = {}
     last_blades: dict[str, float] = {}
+    last_arms: dict[str, float] = {}
     known: dict[str, Any] = {}
     blocked = {e.id: False for e in eyes}
     ticks = round(seconds / dt)
@@ -172,6 +192,7 @@ def trace(
         }
         plates = {p.id: _r(p.position) for p in pushers if _r(p.position) != last_plates.get(p.id)}
         blades = {s.id: _r(s.position) for s in stoppers if _r(s.position) != last_blades.get(s.id)}
+        swings = {a.id: _r(a.angle) for a in arms if _r(a.angle) != last_arms.get(a.id)}
         spawned = [p for pid, p in loaded.world.parts.items() if pid not in known]
         removed = [pid for pid in known if pid not in loaded.world.parts]
         if speeds:
@@ -183,6 +204,9 @@ def trace(
         if blades:
             entry["stoppers"] = blades
             last_blades.update(blades)
+        if swings:
+            entry["diverters"] = swings
+            last_arms.update(swings)
         if spawned:
             entry["spawn"] = [
                 {
@@ -336,6 +360,7 @@ def trace_text(spec: TraceSpec) -> str:
         checkpoints_x=spec.checkpoints,
         schedule=spec.schedule,
     )
+    data["gate"] = spec.gate
     return json.dumps(data, indent=1, ensure_ascii=False) + "\n"
 
 

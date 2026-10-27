@@ -214,3 +214,35 @@ export const stopper: Builder = (g) => {
     },
   };
 };
+
+/**
+ * Diverter arm: origin at the pivot at belt-top height. At rest the arm lies along local +x and it
+ * swings toward local +z by the core's angle_deg (positive swing_deg). ISA-101: green while
+ * extending or out, grey retracted.
+ */
+export const diverterArm: Builder = (g) => {
+  const length = num(g, "length", 0.8);
+  const height = num(g, "height", 0.15);
+  const clearance = num(g, "clearance", 0.005);
+  const thickness = num(g, "thickness", 0.02);
+  const group = placed(g);
+  group.add(zCylinder(0.03, 0.06, NEUTRAL.structure, [0, height + 0.03, 0]).rotateX(Math.PI / 2));
+  const swing = new THREE.Group();
+  swing.name = "arm";
+  group.add(swing);
+  const paddle = box([length, height - clearance, thickness], ISA101.stopped, [length / 2, clearance + (height - clearance) / 2, 0]);
+  paddle.name = "paddle";
+  swing.add(paddle);
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, height + 0.12, 0),
+    pickable: [],
+    update(state) {
+      const angle = typeof state.angle_deg === "number" ? state.angle_deg : 0;
+      swing.rotation.y = -THREE.MathUtils.degToRad(angle); // local +x turned toward +z
+      setColor(paddle, state.extending || angle !== 0 ? ISA101.running : ISA101.stopped);
+    },
+  };
+};

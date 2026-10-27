@@ -193,11 +193,13 @@ function stepToFrame(frame: StateFrame): void {
   const target = new Map<string, number>(); // pusher strokes (m)
   const raise = new Map<string, number>(); // stopper blades (fraction raised)
   const turn = new Map<string, number>(); // turntable decks (degrees)
+  const swing = new Map<string, number>(); // diverter arms (degrees)
   for (const view of views) {
     const state = frame.components[view.id];
     if (view.type === "pusher") target.set(view.id, Number(state?.position_m ?? 0));
     if (view.type === "stopper") raise.set(view.id, Number(state?.position ?? 0));
     if (view.type === "turntable") turn.set(view.id, Number(state?.angle_deg ?? 0));
+    if (view.type === "diverter_arm") swing.set(view.id, Number(state?.angle_deg ?? 0));
   }
   // Parts the core places this frame (held, or on a turning deck) move from their last core
   // position to this frame's across the steps instead of being simulated (PLAN §3.3).
@@ -215,6 +217,7 @@ function stepToFrame(frame: StateFrame): void {
     for (const [id, to] of target) physics.setPusher(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
     for (const [id, to] of raise) physics.setStopper(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
     for (const [id, to] of turn) physics.setTurntable(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
+    for (const [id, to] of swing) physics.setDiverter(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
     for (const p of following) {
       const from = corePositions.get(p.id) ?? p.position;
       physics.follow(p.id, [0, 1, 2].map((a) => strokeAt(from[a], p.position[a], i, plan.steps)) as Vec3);
@@ -245,6 +248,10 @@ function stepToFrame(frame: StateFrame): void {
   for (const [id, to] of turn) {
     strokes.set(id, to);
     if (plan.steps === 0) physics.setTurntable(id, to);
+  }
+  for (const [id, to] of swing) {
+    strokes.set(id, to);
+    if (plan.steps === 0) physics.setDiverter(id, to);
   }
   for (const p of frame.parts) {
     if (p.follow && plan.steps === 0) physics.follow(p.id, p.position);

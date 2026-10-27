@@ -3,6 +3,7 @@
 from openfactory.components import (
     belt_conveyor,
     box_emitter,
+    diverter_arm,
     part_remover,
     photo_eye,
     pilot_light,
@@ -17,6 +18,7 @@ from openfactory.components import (
 __all__ = [
     "belt_conveyor",
     "box_emitter",
+    "diverter_arm",
     "part_remover",
     "photo_eye",
     "pilot_light",

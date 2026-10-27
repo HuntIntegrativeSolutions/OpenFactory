@@ -696,6 +696,14 @@ runs the sorting program against it; a box visibly gets pushed.
       on `stopper` and `diverter_arm` is the raised blade top / arm top above the belt, so W206
       applies to them. Component reference: `docs/components.md`, with a test that every
       registered type has an entry. Window scene: `tests/scenes/distance-window.yaml`.
+      *Diverter parity (2026-10-26, informational):* trace `parity-diverter` (not a gate, as no
+      ruling asks for one): the box the arm diverts arrives up to 10 ticks late in Rapier (12
+      comparisons; the box that passes agrees within 1). In Rapier the arm's corner contact turns
+      the box about 23 degrees about the vertical, and it slides along the arm a little slower than
+      the headless fence's v·cos(swing); the headless model keeps boxes square to the world axes.
+      Locking part yaw in Rapier only brought it to 8 ticks and hides real behavior, so it was not
+      done. Belt colliders now have 5 mm rounded edges: a part driven sideways across a level seam
+      caught on the neighbor belt's top edge (stuck for 0.9 s with yaw locked).
 - [ ] 2.5b Components split from 2.5: `counter_display` (4-digit readout of an AO on a panel),
       `lift` (moves a short conveyor between two heights; at_top/at_bottom DIs), reversible belts
       (belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction

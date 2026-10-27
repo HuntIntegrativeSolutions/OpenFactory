@@ -9,6 +9,7 @@ import sorter from "./fixtures/parity-sorter.json";
 import sorterMu03 from "./fixtures/parity-sorter-mu0.3.json";
 import queue from "./fixtures/parity-queue.json";
 import stopper from "./fixtures/parity-stopper.json";
+import diverter from "./fixtures/parity-diverter.json";
 import { loadRapier, PlantPhysics } from "./physics";
 
 interface Trace {
@@ -23,11 +24,14 @@ interface Trace {
     belts?: Record<string, number>;
     pushers?: Record<string, number>;
     stoppers?: Record<string, number>;
+    diverters?: Record<string, number>;
     spawn?: { id: string; size: Vec3; position: Vec3 }[];
     remove?: string[];
   }[];
   edges: Record<string, [number, boolean][]>;
   checkpoints: Record<string, Record<string, number>>;
+  /** false: a known model difference, reported but not held to the tolerance. */
+  gate?: boolean;
 }
 
 const TRACES: Record<string, Trace> = {
@@ -35,6 +39,7 @@ const TRACES: Record<string, Trace> = {
   "parity-sorter-mu0.3": sorterMu03 as unknown as Trace,
   "parity-queue": queue as unknown as Trace, // PLAN 2.0: a placed queue released onto a faster belt
   "parity-stopper": stopper as unknown as Trace, // PLAN 2.5: a queue formed against a stopper
+  "parity-diverter": diverter as unknown as Trace, // PLAN 2.5: a box slid along a diverter arm
 };
 
 function load(name: string): Trace {
@@ -54,6 +59,7 @@ async function replay(trace: Trace) {
     for (const [id, v] of Object.entries(input?.belts ?? {})) physics.setBelt(id, v);
     for (const [id, s] of Object.entries(input?.pushers ?? {})) physics.setPusher(id, s);
     for (const [id, f] of Object.entries(input?.stoppers ?? {})) physics.setStopper(id, f);
+    for (const [id, a] of Object.entries(input?.diverters ?? {})) physics.setDiverter(id, a);
     for (const id of input?.remove ?? []) physics.removePart(id);
     for (const p of input?.spawn ?? []) physics.addPart(p.id, p.size, p.position);
     for (const edge of physics.step()) edges[edge.id]?.push([k, edge.blocked]);
@@ -92,7 +98,8 @@ describe.each(Object.keys(TRACES))("Rapier vs kinematics.py parity (%s)", (name)
     const worst = Math.max(...rows.map((r) => (r.delta === null ? Infinity : Math.abs(r.delta))));
     const summary = { trace: name, friction: trace.friction, toleranceTicks: tolerance, comparisons: rows.length, worstDeltaTicks: worst, rows };
     console.info(`PARITY_REPORT ${JSON.stringify(summary)}`);
-    console.info(`${name} (mu ${trace.friction}): ${rows.length} comparisons, worst |delta| = ${worst} ticks, tolerance ${tolerance}`);
+    console.info(`${name} (mu ${trace.friction}): ${rows.length} comparisons, worst |delta| = ${worst} ticks, tolerance ${tolerance}${trace.gate === false ? " (informational, not a gate)" : ""}`);
+    if (trace.gate === false) return;
     for (const row of rows) expect(Math.abs(row.delta ?? Infinity), row.what).toBeLessThanOrEqual(tolerance);
   });
 });

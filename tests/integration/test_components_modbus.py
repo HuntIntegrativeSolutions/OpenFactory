@@ -121,3 +121,21 @@ def test_turntable_turn_coil_and_position_inputs():
     seen = over_modbus(loaded, session)
     print(f"TT_01 (at_0, at_90) over Modbus: start, mid-turn, turned: {seen}")
     assert seen == [(True, False), (False, False), (False, True)]
+
+
+def test_diverter_arm_extend_coil_and_limit_inputs():
+    loaded = load(SCENES / "demo-diverter.yaml")
+
+    async def session(plc: Plc) -> list[tuple[bool, bool]]:
+        steps(loaded, 1)
+        read = [(await plc.di("DIV_01_EXT_DI"), await plc.di("DIV_01_RET_DI"))]
+        await plc.coil("DIV_01_EXT_DO", True)
+        steps(loaded, 12)
+        read.append((await plc.di("DIV_01_EXT_DI"), await plc.di("DIV_01_RET_DI")))
+        steps(loaded, 13)  # extend_time_s 0.5
+        read.append((await plc.di("DIV_01_EXT_DI"), await plc.di("DIV_01_RET_DI")))
+        return read
+
+    seen = over_modbus(loaded, session)
+    print(f"DIV_01 (extended, retracted) over Modbus: start, mid-swing, out: {seen}")
+    assert seen == [(False, True), (False, False), (True, False)]

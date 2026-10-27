@@ -411,6 +411,163 @@
       "title": "DiTagSpec",
       "type": "object"
     },
+    "DiverterArm": {
+      "additionalProperties": false,
+      "description": "Origin: the arm's pivot, at belt-top height, at the edge of the belt it diverts from. At\nrest the arm lies along local +x; extending swings it by ``swing_deg`` (positive toward local\n+z, negative toward -z).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "type": {
+          "const": "diverter_arm",
+          "title": "Type",
+          "type": "string"
+        },
+        "length": {
+          "description": "Arm length from the pivot, meters.",
+          "exclusiveMinimum": 0,
+          "title": "Length",
+          "type": "number"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Arm top above the belt, meters. Unset: 3/4 of the tallest emitted part's height (0.15 m with no emitter).",
+          "title": "Height"
+        },
+        "swing_deg": {
+          "default": 45.0,
+          "description": "Extended angle from rest, degrees: positive toward local +z.",
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Swing Deg",
+          "type": "number"
+        },
+        "extend_time_s": {
+          "default": 0.5,
+          "description": "Time to swing out or back, seconds.",
+          "exclusiveMinimum": 0,
+          "title": "Extend Time S",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/DiverterArmIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type",
+        "length",
+        "io"
+      ],
+      "title": "DiverterArm",
+      "type": "object"
+    },
+    "DiverterArmIO": {
+      "additionalProperties": false,
+      "properties": {
+        "extend": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Extend command",
+          "title": "Extend",
+          "x-io-kind": "DO"
+        },
+        "extended": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Extended limit switch",
+          "title": "Extended",
+          "x-io-kind": "DI"
+        },
+        "retracted": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retracted limit switch",
+          "title": "Retracted",
+          "x-io-kind": "DI"
+        }
+      },
+      "required": [
+        "extend"
+      ],
+      "title": "DiverterArmIO",
+      "type": "object"
+    },
     "DoTagSpec": {
       "additionalProperties": false,
       "properties": {
@@ -1762,6 +1919,7 @@
           "mapping": {
             "belt_conveyor": "#/$defs/BeltConveyor",
             "box_emitter": "#/$defs/BoxEmitter",
+            "diverter_arm": "#/$defs/DiverterArm",
             "part_remover": "#/$defs/PartRemover",
             "photo_eye": "#/$defs/PhotoEye",
             "pilot_light": "#/$defs/PilotLight",
@@ -1786,6 +1944,9 @@
           },
           {
             "$ref": "#/$defs/Turntable"
+          },
+          {
+            "$ref": "#/$defs/DiverterArm"
           },
           {
             "$ref": "#/$defs/PhotoEye"

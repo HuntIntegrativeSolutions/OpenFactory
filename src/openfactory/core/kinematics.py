@@ -42,6 +42,13 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   conveyors' headings agree within ``ALIGN_DEG``; other connections are always active. A part
   reaching the discharge end of a conveyor that has connections but no active one waits there
   (its front face stops at the end), as a box held against a turned deck's side would.
+- **Diverted (PLAN 2.5):** a ``diverter_arm`` is a frictionless fence for the parts carried by
+  the belt its pivot stands on (within 0.1 m of its edge) and by belts level with it, such as a
+  side conveyor under the arm's tip. After the parts move, a part that
+  overlaps the arm's segment in height, lies on the side the arm swings toward (ahead of the arm),
+  and pokes through it is moved back out along the arm's normal. A part carried into an extended
+  arm therefore slides along it, and a swinging arm sweeps what it reaches; a part whose centre
+  ends up past the belt edge falls (onto the side conveyor). A retracting arm does not pull parts.
 - **Falling:** gravity (9.81 m/s², semi-implicit Euler). A falling part lands on the highest
   conveyor whose belt top it crosses during the step and whose footprint (0 ≤ local x ≤ length,
   |local z| ≤ width / 2) holds the part's center. Landing is an impact: the normal impulse that
@@ -93,6 +100,9 @@ if TYPE_CHECKING:
 GRAVITY = 9.81
 #: Two conveyor headings closer than this are aligned, so a connection between them is active.
 ALIGN_DEG = 1.0
+#: A diverter arm acts on the belt its pivot stands on, or one this far beside (its edge), meters.
+BESIDE_BELT_M = 0.1
+ARM_CLEARANCE_M = 0.005  # diverter_arm.CLEARANCE_M: the arm's bottom above the belt
 FALL_LIMIT_M = 2.0
 DEFAULT_FRICTION = 0.8
 _EPS = 1e-9
@@ -135,6 +145,20 @@ class KinematicModel:
         self.pushers: list[Component] = [c for c in components if c.type == "pusher"]
         #: Plate position (m out from retracted) each pusher had when parts were last pushed.
         self._plate_seen: dict[str, float] = {c.id: self._plate(c) for c in self.pushers}
+        #: Diverter arms and the belt each one's pivot stands on.
+        self.arms: list[tuple[Component, str]] = []
+        for arm in (c for c in components if c.type == "diverter_arm"):
+            pivot = arm.config.position
+            for belt in self.carriers.values():
+                x, _, z = self._local(belt, pivot)
+                on = -_EPS <= x <= belt.config.length + _EPS
+                if (
+                    on
+                    and abs(z) <= belt.config.width / 2 + BESIDE_BELT_M
+                    and abs(self._top(belt) - pivot[1]) <= ON_BELT_M
+                ):
+                    self.arms.append((arm, belt.id))
+                    break
         #: Stopper blades by the belt they stand on: (stopper, local x, local z, half width).
         self._stops: dict[str, list[tuple[Component, float, float, float]]] = {}
         for stopper in (c for c in components if c.type == "stopper"):
@@ -249,6 +273,8 @@ class KinematicModel:
             self._boxes[before].pop(part.id, None)  # type: ignore[index]
             if part.carrier is not None:
                 self._record(part)  # its new box, on whichever belt now carries it
+        for arm, belt_id in self.arms:
+            self._fence(arm, belt_id)
         for part in falling:
             self._fall(part, dt)
 
@@ -366,6 +392,48 @@ class KinematicModel:
                     continue  # already over or past the blade line: it passes
                 room = min(room, sx - half_x)
         return room
+
+    def _fence(self, arm: Component, belt_id: str) -> None:
+        """Move parts on the arm's belt that poke through the arm back out along its normal."""
+        cfg = arm.config
+        theta = math.radians(arm.angle)  # type: ignore[attr-defined]
+        sign = 1.0 if cfg.swing_deg > 0 else -1.0
+        # direction along the arm and its normal toward the side it swings to, in world xz
+        d = rotate_y((math.cos(theta), 0.0, math.sin(theta)), cfg.rotation_deg)
+        n = rotate_y((-sign * math.sin(theta), 0.0, sign * math.cos(theta)), cfg.rotation_deg)
+        px, py, pz = cfg.position
+        bottom, top = py + ARM_CLEARANCE_M, py + cfg.height
+        level = self._top(self.carriers[belt_id])
+        for part in self.world.parts.values():
+            belt = self.carriers.get(part.carrier) if part.carrier else None
+            if belt is None or abs(self._top(belt) - level) > ON_BELT_M:
+                continue  # the arm reaches parts on its belt and on belts level with it
+            x, y, z = part.position
+            hx, hy, hz = (s / 2 for s in part.size)
+            if y - hy >= top or y + hy <= bottom:
+                continue  # above or below the arm
+            # separating axes for a box against the arm's segment: world x and z, then the arm's
+            # direction and normal
+            tip_x, tip_z = px + d[0] * cfg.length, pz + d[2] * cfg.length
+            if min(px, tip_x) >= x + hx or max(px, tip_x) <= x - hx:
+                continue
+            if min(pz, tip_z) >= z + hz or max(pz, tip_z) <= z - hz:
+                continue
+            rx, rz = x - px, z - pz
+            along = d[0] * rx + d[2] * rz
+            reach_d = abs(d[0]) * hx + abs(d[2]) * hz
+            if along < -reach_d or along > cfg.length + reach_d:
+                continue  # beyond either end of the arm
+            ahead = n[0] * rx + n[2] * rz
+            reach_n = abs(n[0]) * hx + abs(n[2]) * hz
+            if ahead < 0 or ahead >= reach_n:
+                continue  # behind the arm, or clear of it
+            push = reach_n - ahead
+            part.position = (x + n[0] * push, y, z + n[2] * push)
+            if not self._holds(belt, part.position):
+                part.carrier = None  # slid off the belt edge: falls from here
+                part.vy = 0.0
+                part.v_flow = 0.0
 
     def _turn(self, deck: Component) -> None:
         """Turn the parts on a deck with it, about its centre, by its turn since the last step."""

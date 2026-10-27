@@ -21,6 +21,8 @@
 //   (filterContactPair) ignores the blade's contacts with those parts until they leave its
 //   footprint.
 //
+// - Diverter arms (PLAN 2.5): frictionless `kinematicPositionBased` cuboids turned about their
+//   pivot to the core's angle (positive swing_deg toward local +z), like the pusher plate.
 // - Turntable decks (PLAN 2.5): a belt body whose heading is the scene rotation plus the core's
 //   turn angle, re-posed about the deck centre before every step.
 // - Parts the core places (PLAN §3.3: held by a gripper, or on a turning deck) become
@@ -68,6 +70,16 @@ function quatY(degrees: number) {
 }
 
 const vec = (v: Vec3) => ({ x: v[0], y: v[1], z: v[2] });
+
+/** Belt edges are rounded by this radius so a part driven across a level seam between two belts
+ * (side by side, as under a diverter arm) slides over it instead of catching on the edge. */
+const BELT_EDGE_RADIUS = 0.005;
+
+/** A belt's collider: top face at the belt surface, edges rounded by BELT_EDGE_RADIUS. */
+function beltCollider(R: Rapier, length: number, width: number): RapierNs.ColliderDesc {
+  const r = BELT_EDGE_RADIUS;
+  return R.ColliderDesc.roundCuboid(length / 2 - r, BELT_HALF_THICKNESS - r, width / 2 - r, r);
+}
 const num = (g: ComponentGeometry, key: string, fallback: number) =>
   typeof g[key] === "number" ? (g[key] as number) : fallback;
 
@@ -106,6 +118,7 @@ export class PlantPhysics {
   private readonly events: RapierNs.EventQueue;
   private readonly belts = new Map<string, Belt>();
   private readonly plates = new Map<string, Plate>();
+  private readonly arms = new Map<string, { body: RapierNs.RigidBody; g: ComponentGeometry }>();
   private readonly beams = new Map<number, string>(); // sensor collider handle -> eye id
   private readonly inBeam = new Map<string, Set<number>>(); // eye id -> part collider handles
   private readonly parts = new Map<string, RapierNs.RigidBody>();
@@ -127,6 +140,7 @@ export class PlantPhysics {
       else if (g.type === "photo_eye") this.addBeam(g);
       else if (g.type === "stopper") this.addBlade(g);
       else if (g.type === "turntable") this.addDeck(g);
+      else if (g.type === "diverter_arm") this.addArm(g);
     }
     const blades = this.bladeColliders;
     this.hooks = {
@@ -139,6 +153,49 @@ export class PlantPhysics {
     };
   }
 
+  private addArm(g: ComponentGeometry): void {
+    const { R } = this;
+    const length = num(g, "length", 0.8);
+    const height = num(g, "height", 0.15);
+    const clearance = num(g, "clearance", 0.005);
+    const thickness = num(g, "thickness", 0.02);
+    const body = this.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased());
+    this.world.createCollider(
+      R.ColliderDesc.cuboid(length / 2, (height - clearance) / 2, thickness / 2)
+        .setFriction(0)
+        .setFrictionCombineRule(R.CoefficientCombineRule.Min),
+      body,
+    );
+    this.arms.set(g.id, { body, g });
+    this.poseArm(g.id, 0, true);
+  }
+
+  private poseArm(id: string, angle: number, now = false): void {
+    const arm = this.arms.get(id);
+    if (!arm) return;
+    const { body, g } = arm;
+    const length = num(g, "length", 0.8);
+    const height = num(g, "height", 0.15);
+    const clearance = num(g, "clearance", 0.005);
+    const t = (angle * Math.PI) / 180;
+    const centre = toWorld(g.position, g.rotation_deg, [
+      (Math.cos(t) * length) / 2, clearance + (height - clearance) / 2, (Math.sin(t) * length) / 2,
+    ]);
+    const rotation = quatY(g.rotation_deg - angle); // local +x turned toward +z by `angle`
+    if (now) {
+      body.setTranslation(vec(centre), true);
+      body.setRotation(rotation, true);
+    } else {
+      body.setNextKinematicTranslation(vec(centre));
+      body.setNextKinematicRotation(rotation);
+    }
+  }
+
+  /** Diverter arm angle in degrees from rest (the core's `angle_deg` state), for the next step. */
+  setDiverter(id: string, angle: number): void {
+    this.poseArm(id, angle);
+  }
+
   private addDeck(g: ComponentGeometry): void {
     const { R } = this;
     const length = num(g, "length", 1);
@@ -147,10 +204,7 @@ export class PlantPhysics {
     const body = this.world.createRigidBody(
       R.RigidBodyDesc.kinematicVelocityBased().setTranslation(...home).setRotation(quatY(g.rotation_deg)),
     );
-    this.world.createCollider(
-      R.ColliderDesc.cuboid(length / 2, BELT_HALF_THICKNESS, width / 2).setFriction(this.friction).setRestitution(0),
-      body,
-    );
+    this.world.createCollider(beltCollider(R, length, width).setFriction(this.friction).setRestitution(0), body);
     this.belts.set(g.id, {
       body, home, flow: rotateY([1, 0, 0], g.rotation_deg), speed: 0,
       deck: { centre: g.position, rotation: g.rotation_deg, angle: 0 },
@@ -213,7 +267,7 @@ export class PlantPhysics {
       R.RigidBodyDesc.kinematicVelocityBased().setTranslation(...home).setRotation(quatY(g.rotation_deg)),
     );
     const own = typeof g.friction === "number" ? g.friction : this.friction;
-    const collider = R.ColliderDesc.cuboid(length / 2, BELT_HALF_THICKNESS, width / 2).setFriction(own).setRestitution(0);
+    const collider = beltCollider(R, length, width).setFriction(own).setRestitution(0);
     if (own < this.friction) collider.setFrictionCombineRule(R.CoefficientCombineRule.Min);
     if (own > this.friction) collider.setFrictionCombineRule(R.CoefficientCombineRule.Max);
     this.world.createCollider(collider, body);

@@ -1,0 +1,79 @@
+# PLAN 2.5 demo, test, and parity scene for diverter_arm (tests only, not a shipped scene). Two boxes
+# ride CONV_01; DIV_01 swings 45 degrees across the belt and slides the first onto the parallel
+# CONV_SIDE, then swings back so the second passes straight on. tools/parity_trace.py
+# ("parity-diverter") drives it. Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: demo-diverter
+  description: Diverter arm sliding boxes from a main belt onto a parallel side belt.
+  seed: 1
+plc:
+  protocol: modbus_tcp
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Main Line Belt Conveyor
+    position: [0, 0, 0]
+    length: 5.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_01_RUN_DO
+  - id: DIV_01
+    type: diverter_arm
+    description: Main Line Divert Arm
+    position: [2.6, 0, -0.25]     # pivot on the main belt's -z edge
+    length: 0.78                  # at 45 degrees its tip reaches z 0.30, past the far edge (0.25)
+    swing_deg: 45
+    extend_time_s: 0.5
+    io:
+      extend: DIV_01_EXT_DO
+      extended: DIV_01_EXT_DI
+      retracted: DIV_01_RET_DI
+  - id: CONV_SIDE
+    type: belt_conveyor
+    description: Divert Lane Belt Conveyor
+    position: [2.6, 0, 0.5]       # alongside the main belt, z 0.25 to 0.75
+    length: 2.4
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_SIDE_RUN_DO
+  - id: PE_MAIN
+    type: photo_eye
+    description: Main Line Outfeed Photo Eye
+    position: [4.2, 0.1, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_MAIN_DI
+  - id: PE_SIDE
+    type: photo_eye
+    description: Divert Lane Photo Eye
+    position: [4.2, 0.1, 0.5]
+    beam_length: 0.6
+    io:
+      detect: PE_SIDE_DI
+  - id: EMT_A
+    type: box_emitter
+    description: First Box Placement
+    position: [1.6, 0.105, 0]
+    interval_s: 1000.0            # one box per emitter
+    parts:
+      - {name: a, size: [0.3, 0.2, 0.3], weight: 1.0}
+  - id: EMT_B
+    type: box_emitter
+    description: Second Box Placement
+    position: [0.2, 0.105, 0]
+    interval_s: 1000.0
+    parts:
+      - {name: b, size: [0.3, 0.2, 0.3], weight: 1.0}
+  - id: REM_MAIN
+    type: part_remover
+    description: Main Line Discharge Part Remover
+    position: [5.15, 0, 0]
+    size: [0.3, 1.0, 0.5]
+  - id: REM_SIDE
+    type: part_remover
+    description: Divert Lane Discharge Part Remover
+    position: [5.15, 0, 0.5]
+    size: [0.3, 1.0, 0.5]

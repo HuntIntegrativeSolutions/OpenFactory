@@ -481,6 +481,37 @@ class Stopper(ComponentBase):
     io: StopperIO
 
 
+class DiverterArmIO(IOModel):
+    extend: DoTag = port("DO", "Extend command", required=True)
+    extended: DiTag | None = port("DI", "Extended limit switch")
+    retracted: DiTag | None = port("DI", "Retracted limit switch")
+
+
+class DiverterArm(ComponentBase):
+    """Origin: the arm's pivot, at belt-top height, at the edge of the belt it diverts from. At
+    rest the arm lies along local +x; extending swings it by ``swing_deg`` (positive toward local
+    +z, negative toward -z)."""
+
+    type: Literal["diverter_arm"]
+    length: PositiveFloat = Field(description="Arm length from the pivot, meters.")
+    height: PositiveFloat | None = Field(
+        None,
+        description="Arm top above the belt, meters. Unset: 3/4 of the tallest emitted part's "
+        "height (0.15 m with no emitter).",
+    )
+    swing_deg: Annotated[float, Field(ge=-90, le=90)] = Field(
+        45.0, description="Extended angle from rest, degrees: positive toward local +z."
+    )
+    extend_time_s: PositiveFloat = Field(0.5, description="Time to swing out or back, seconds.")
+    io: DiverterArmIO
+
+    @model_validator(mode="after")
+    def _swings(self) -> DiverterArm:
+        if self.swing_deg == 0:
+            raise ValueError("swing_deg must not be 0")
+        return self
+
+
 class PartSpec(StrictModel):
     name: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
     size: Size3 = Field(description="Box size x, y, z in meters.")
@@ -565,6 +596,7 @@ Component = Annotated[
     | RollerConveyor
     | Stopper
     | Turntable
+    | DiverterArm
     | PhotoEye
     | Pusher
     | BoxEmitter
@@ -583,6 +615,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         RollerConveyor,
         Stopper,
         Turntable,
+        DiverterArm,
         PhotoEye,
         Pusher,
         BoxEmitter,

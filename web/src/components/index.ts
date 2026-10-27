@@ -4,6 +4,7 @@ import { BELT_TYPES, type ComponentGeometry } from "../api";
 import { beltConveyor, rollerConveyor, turntable } from "./conveyor";
 import {
   boxEmitter,
+  diverterArm,
   fallback,
   partRemover,
   photoEye,
@@ -27,6 +28,7 @@ export const BUILDERS: Record<string, Builder> = {
   selector_switch: selectorSwitch,
   stopper,
   turntable,
+  diverter_arm: diverterArm,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {

@@ -1,0 +1,672 @@
+{
+ "generator": "tools/parity_trace.py",
+ "scene": {
+  "openfactory": "0.1",
+  "scene": {
+   "name": "demo-diverter",
+   "description": "Diverter arm sliding boxes from a main belt onto a parallel side belt.",
+   "author": null,
+   "seed": 1,
+   "units": "meters",
+   "friction": 0.8
+  },
+  "plc": {
+   "protocol": "modbus_tcp",
+   "role": "server"
+  },
+  "dt": 0.02,
+  "components": [
+   {
+    "id": "CONV_01",
+    "type": "belt_conveyor",
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "length": 5.0,
+    "width": 0.5,
+    "description": "Main Line Belt Conveyor"
+   },
+   {
+    "id": "DIV_01",
+    "type": "diverter_arm",
+    "position": [
+     2.6,
+     0.0,
+     -0.25
+    ],
+    "rotation_deg": 0.0,
+    "length": 0.78,
+    "height": 0.15,
+    "swing_deg": 45.0,
+    "thickness": 0.02,
+    "clearance": 0.005,
+    "description": "Main Line Divert Arm"
+   },
+   {
+    "id": "CONV_SIDE",
+    "type": "belt_conveyor",
+    "position": [
+     2.6,
+     0.0,
+     0.5
+    ],
+    "rotation_deg": 0.0,
+    "length": 2.4,
+    "width": 0.5,
+    "description": "Divert Lane Belt Conveyor"
+   },
+   {
+    "id": "PE_MAIN",
+    "type": "photo_eye",
+    "position": [
+     4.2,
+     0.1,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "beam_length": 0.6,
+    "description": "Main Line Outfeed Photo Eye"
+   },
+   {
+    "id": "PE_SIDE",
+    "type": "photo_eye",
+    "position": [
+     4.2,
+     0.1,
+     0.5
+    ],
+    "rotation_deg": 0.0,
+    "beam_length": 0.6,
+    "description": "Divert Lane Photo Eye"
+   },
+   {
+    "id": "EMT_A",
+    "type": "box_emitter",
+    "position": [
+     1.6,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "a",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "First Box Placement"
+   },
+   {
+    "id": "EMT_B",
+    "type": "box_emitter",
+    "position": [
+     0.2,
+     0.105,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "b",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0
+     }
+    ],
+    "description": "Second Box Placement"
+   },
+   {
+    "id": "REM_MAIN",
+    "type": "part_remover",
+    "position": [
+     5.15,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "size": [
+     0.3,
+     1.0,
+     0.5
+    ],
+    "description": "Main Line Discharge Part Remover"
+   },
+   {
+    "id": "REM_SIDE",
+    "type": "part_remover",
+    "position": [
+     5.15,
+     0.0,
+     0.5
+    ],
+    "rotation_deg": 0.0,
+    "size": [
+     0.3,
+     1.0,
+     0.5
+    ],
+    "description": "Divert Lane Discharge Part Remover"
+   }
+  ],
+  "connections": [],
+  "tags": [
+   {
+    "name": "CONV_01_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_01",
+    "description": "Main Line Belt Conveyor — Run command"
+   },
+   {
+    "name": "DIV_01_EXT_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "DIV_01",
+    "description": "Main Line Divert Arm — Extend command"
+   },
+   {
+    "name": "DIV_01_EXT_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "DIV_01",
+    "description": "Main Line Divert Arm — Extended limit switch"
+   },
+   {
+    "name": "DIV_01_RET_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "DIV_01",
+    "description": "Main Line Divert Arm — Retracted limit switch"
+   },
+   {
+    "name": "CONV_SIDE_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_SIDE",
+    "description": "Divert Lane Belt Conveyor — Run command"
+   },
+   {
+    "name": "PE_MAIN_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "PE_MAIN",
+    "description": "Main Line Outfeed Photo Eye — Part detected"
+   },
+   {
+    "name": "PE_SIDE_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "PE_SIDE",
+    "description": "Divert Lane Photo Eye — Part detected"
+   }
+  ],
+  "warnings": []
+ },
+ "dt": 0.02,
+ "ticks": 450,
+ "friction": 0.8,
+ "ramp_ticks": 3.185525,
+ "tolerance_ticks": 2.0,
+ "inputs": [
+  {
+   "tick": 1,
+   "belts": {
+    "CONV_01": 0.0,
+    "CONV_SIDE": 0.0
+   },
+   "diverters": {
+    "DIV_01": 0.0
+   }
+  },
+  {
+   "tick": 2,
+   "belts": {
+    "CONV_01": 0.033333,
+    "CONV_SIDE": 0.033333
+   },
+   "diverters": {
+    "DIV_01": 1.8
+   },
+   "spawn": [
+    {
+     "id": "P000001",
+     "name": "a",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      1.6,
+      0.105,
+      0.0
+     ]
+    },
+    {
+     "id": "P000002",
+     "name": "b",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.2,
+      0.105,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 3,
+   "belts": {
+    "CONV_01": 0.066667,
+    "CONV_SIDE": 0.066667
+   },
+   "diverters": {
+    "DIV_01": 3.6
+   }
+  },
+  {
+   "tick": 4,
+   "belts": {
+    "CONV_01": 0.1,
+    "CONV_SIDE": 0.1
+   },
+   "diverters": {
+    "DIV_01": 5.4
+   }
+  },
+  {
+   "tick": 5,
+   "belts": {
+    "CONV_01": 0.133333,
+    "CONV_SIDE": 0.133333
+   },
+   "diverters": {
+    "DIV_01": 7.2
+   }
+  },
+  {
+   "tick": 6,
+   "belts": {
+    "CONV_01": 0.166667,
+    "CONV_SIDE": 0.166667
+   },
+   "diverters": {
+    "DIV_01": 9.0
+   }
+  },
+  {
+   "tick": 7,
+   "belts": {
+    "CONV_01": 0.2,
+    "CONV_SIDE": 0.2
+   },
+   "diverters": {
+    "DIV_01": 10.8
+   }
+  },
+  {
+   "tick": 8,
+   "belts": {
+    "CONV_01": 0.233333,
+    "CONV_SIDE": 0.233333
+   },
+   "diverters": {
+    "DIV_01": 12.6
+   }
+  },
+  {
+   "tick": 9,
+   "belts": {
+    "CONV_01": 0.266667,
+    "CONV_SIDE": 0.266667
+   },
+   "diverters": {
+    "DIV_01": 14.4
+   }
+  },
+  {
+   "tick": 10,
+   "belts": {
+    "CONV_01": 0.3,
+    "CONV_SIDE": 0.3
+   },
+   "diverters": {
+    "DIV_01": 16.2
+   }
+  },
+  {
+   "tick": 11,
+   "belts": {
+    "CONV_01": 0.333333,
+    "CONV_SIDE": 0.333333
+   },
+   "diverters": {
+    "DIV_01": 18.0
+   }
+  },
+  {
+   "tick": 12,
+   "belts": {
+    "CONV_01": 0.366667,
+    "CONV_SIDE": 0.366667
+   },
+   "diverters": {
+    "DIV_01": 19.8
+   }
+  },
+  {
+   "tick": 13,
+   "belts": {
+    "CONV_01": 0.4,
+    "CONV_SIDE": 0.4
+   },
+   "diverters": {
+    "DIV_01": 21.6
+   }
+  },
+  {
+   "tick": 14,
+   "belts": {
+    "CONV_01": 0.433333,
+    "CONV_SIDE": 0.433333
+   },
+   "diverters": {
+    "DIV_01": 23.4
+   }
+  },
+  {
+   "tick": 15,
+   "belts": {
+    "CONV_01": 0.466667,
+    "CONV_SIDE": 0.466667
+   },
+   "diverters": {
+    "DIV_01": 25.2
+   }
+  },
+  {
+   "tick": 16,
+   "belts": {
+    "CONV_01": 0.5,
+    "CONV_SIDE": 0.5
+   },
+   "diverters": {
+    "DIV_01": 27.0
+   }
+  },
+  {
+   "tick": 17,
+   "diverters": {
+    "DIV_01": 28.8
+   }
+  },
+  {
+   "tick": 18,
+   "diverters": {
+    "DIV_01": 30.6
+   }
+  },
+  {
+   "tick": 19,
+   "diverters": {
+    "DIV_01": 32.4
+   }
+  },
+  {
+   "tick": 20,
+   "diverters": {
+    "DIV_01": 34.2
+   }
+  },
+  {
+   "tick": 21,
+   "diverters": {
+    "DIV_01": 36.0
+   }
+  },
+  {
+   "tick": 22,
+   "diverters": {
+    "DIV_01": 37.8
+   }
+  },
+  {
+   "tick": 23,
+   "diverters": {
+    "DIV_01": 39.6
+   }
+  },
+  {
+   "tick": 24,
+   "diverters": {
+    "DIV_01": 41.4
+   }
+  },
+  {
+   "tick": 25,
+   "diverters": {
+    "DIV_01": 43.2
+   }
+  },
+  {
+   "tick": 26,
+   "diverters": {
+    "DIV_01": 45.0
+   }
+  },
+  {
+   "tick": 176,
+   "diverters": {
+    "DIV_01": 43.2
+   }
+  },
+  {
+   "tick": 177,
+   "diverters": {
+    "DIV_01": 41.4
+   }
+  },
+  {
+   "tick": 178,
+   "diverters": {
+    "DIV_01": 39.6
+   }
+  },
+  {
+   "tick": 179,
+   "diverters": {
+    "DIV_01": 37.8
+   }
+  },
+  {
+   "tick": 180,
+   "diverters": {
+    "DIV_01": 36.0
+   }
+  },
+  {
+   "tick": 181,
+   "diverters": {
+    "DIV_01": 34.2
+   }
+  },
+  {
+   "tick": 182,
+   "diverters": {
+    "DIV_01": 32.4
+   }
+  },
+  {
+   "tick": 183,
+   "diverters": {
+    "DIV_01": 30.6
+   }
+  },
+  {
+   "tick": 184,
+   "diverters": {
+    "DIV_01": 28.8
+   }
+  },
+  {
+   "tick": 185,
+   "diverters": {
+    "DIV_01": 27.0
+   }
+  },
+  {
+   "tick": 186,
+   "diverters": {
+    "DIV_01": 25.2
+   }
+  },
+  {
+   "tick": 187,
+   "diverters": {
+    "DIV_01": 23.4
+   }
+  },
+  {
+   "tick": 188,
+   "diverters": {
+    "DIV_01": 21.6
+   }
+  },
+  {
+   "tick": 189,
+   "diverters": {
+    "DIV_01": 19.8
+   }
+  },
+  {
+   "tick": 190,
+   "diverters": {
+    "DIV_01": 18.0
+   }
+  },
+  {
+   "tick": 191,
+   "diverters": {
+    "DIV_01": 16.2
+   }
+  },
+  {
+   "tick": 192,
+   "diverters": {
+    "DIV_01": 14.4
+   }
+  },
+  {
+   "tick": 193,
+   "diverters": {
+    "DIV_01": 12.6
+   }
+  },
+  {
+   "tick": 194,
+   "diverters": {
+    "DIV_01": 10.8
+   }
+  },
+  {
+   "tick": 195,
+   "diverters": {
+    "DIV_01": 9.0
+   }
+  },
+  {
+   "tick": 196,
+   "diverters": {
+    "DIV_01": 7.2
+   }
+  },
+  {
+   "tick": 197,
+   "diverters": {
+    "DIV_01": 5.4
+   }
+  },
+  {
+   "tick": 198,
+   "diverters": {
+    "DIV_01": 3.6
+   }
+  },
+  {
+   "tick": 199,
+   "diverters": {
+    "DIV_01": 1.8
+   }
+  },
+  {
+   "tick": 200,
+   "diverters": {
+    "DIV_01": 0.0
+   }
+  },
+  {
+   "tick": 386,
+   "remove": [
+    "P000001"
+   ]
+  }
+ ],
+ "edges": {
+  "PE_MAIN": [
+   [
+    290,
+    true
+   ],
+   [
+    320,
+    false
+   ],
+   [
+    394,
+    true
+   ],
+   [
+    424,
+    false
+   ]
+  ],
+  "PE_SIDE": [
+   [
+    290,
+    true
+   ],
+   [
+    320,
+    false
+   ]
+  ]
+ },
+ "checkpoints": {
+  "P000001": {
+   "2": 49,
+   "3": 185,
+   "4": 285
+  },
+  "P000002": {
+   "2": 189,
+   "3": 289,
+   "4": 389
+  }
+ },
+ "gate": false
+}
