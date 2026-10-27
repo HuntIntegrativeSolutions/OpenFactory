@@ -663,10 +663,7 @@ runs the sorting program against it; a box visibly gets pushed.
       *Done when:* Ignition 8.3 gateway shows Good quality on all tags; a Perspective view from
       `/perspective-view` starts the conveyor.
 - [ ] 2.5 Components: `roller_conveyor`, `stopper`, `turntable`, `diverter_arm`, `pick_and_place`,
-      `distance_sensor`, `counter_display`, `lift` (moves a short conveyor between two heights;
-      at_top/at_bottom DIs). Belt and roller conveyors gain `bidirectional: true` with a `reverse`
-      DO and a direction arrow in the viewer. An accumulation (zero-pressure) conveyor is the first
-      `scenes/_library/` composite built on 2.16 and 2.0, not a primitive.
+      `distance_sensor` (split 2026-10-26: the rest of the original list moved to 2.5b).
       Each component ships headless kinematics, a viewer device, a Modbus binding, a unit test, and
       an entry in the component reference.
       *Distance sensor (amended 2026-10-26):* range along its beam to the nearest part as an AI, so
@@ -676,6 +673,27 @@ runs the sorting program against it; a box visibly gets pushed.
       must match the headless queue within the 2.0 tolerance (max(2 ticks, 25 % of the ramp)).
       This replaces the placed-queue workaround from 2.0, because a stopper gives both models the
       same hard stop.
+      *Rulings (2026-10-26):* distance in metres, 0 to `beam_length`, the range set per sensor, and
+      the int16_scaled lockfile records the range each analog tag is scaled against, so a changed
+      `beam_length` fails the lockfile check instead of silently rescaling. A second port,
+      `switching`, carries the same value for a `{tag: X_DI, window: [lo, hi]}` binding, and the
+      I/O CSV shows the window on that row. Pick-and-place axes are `traverse` and `lower`. The
+      turntable turns a fixed ±90°; `turn` held true drives to `turn_deg` and released returns to
+      0, like the pusher's `extend`; `at_0` and `at_90` are both false while moving; a connection
+      to or from the deck hands parts across only while that end is aligned. The stopper's
+      `raise`/`raised`/`lowered`; a part already over a rising blade passes, the next one stops; the
+      blade height is sized from the parts when unset and tuned against the parity trace (if the
+      trace cannot agree within the 2.0 tolerance, report the numbers; do not widen it). Parts held
+      by a gripper or on a turning deck follow the core's position in the viewer (§3.3). `height`
+      on `stopper` and `diverter_arm` is the raised blade top / arm top above the belt, so W206
+      applies to them. Component reference: `docs/components.md`, with a test that every
+      registered type has an entry. Window scene: `tests/scenes/distance-window.yaml`.
+- [ ] 2.5b Components split from 2.5: `counter_display` (4-digit readout of an AO on a panel),
+      `lift` (moves a short conveyor between two heights; at_top/at_bottom DIs), reversible belts
+      (belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction
+      arrow in the viewer), and the accumulation (zero-pressure) conveyor, the first
+      `scenes/_library/` composite built on 2.16 and 2.0, not a primitive. The W207 gap case (below,
+      under 2.20) is settled here with the accumulation work.
 - [ ] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late
@@ -848,6 +866,9 @@ runs the sorting program against it; a box visibly gets pushed.
       stroke left them across the CONV_01/CONV_02 seam. An unset `plate_height` is now sized from
       the emitted parts. The sorter's pusher moved to y 0.175 with stroke 0.6 (plate 0.25 m,
       y 0.05 to 0.30); pushed boxes now end centred at z 0.45 on CONV_02 instead of 0.35.
+      **Known gap (W207):** the check measures to the far edge of the belt the plate sweeps across
+      (ruled correct). When a gap separates that belt from the belt beyond, clearing the swept belt
+      does not land the part on the next one; that case waits for 2.5b's accumulation work.
 
 ### Milestone 3 — Process simulation (target 3–4 weeks)
 - [ ] 3.1 Flow network solver (`core/flownet.py`): directed graph of sources, pipes, valves, pumps,
