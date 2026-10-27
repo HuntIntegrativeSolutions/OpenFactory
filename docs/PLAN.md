@@ -663,10 +663,19 @@ runs the sorting program against it; a box visibly gets pushed.
       *Done when:* Ignition 8.3 gateway shows Good quality on all tags; a Perspective view from
       `/perspective-view` starts the conveyor.
 - [ ] 2.5 Components: `roller_conveyor`, `stopper`, `turntable`, `diverter_arm`, `pick_and_place`,
-      `counter_display`, `lift` (moves a short conveyor between two heights; at_top/at_bottom DIs).
-      Belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction arrow
-      in the viewer. An accumulation (zero-pressure) conveyor is the first `scenes/_library/`
-      composite built on 2.16 and 2.0, not a primitive.
+      `distance_sensor`, `counter_display`, `lift` (moves a short conveyor between two heights;
+      at_top/at_bottom DIs). Belt and roller conveyors gain `bidirectional: true` with a `reverse`
+      DO and a direction arrow in the viewer. An accumulation (zero-pressure) conveyor is the first
+      `scenes/_library/` composite built on 2.16 and 2.0, not a primitive.
+      Each component ships headless kinematics, a viewer device, a Modbus binding, a unit test, and
+      an entry in the component reference.
+      *Distance sensor (amended 2026-10-26):* range along its beam to the nearest part as an AI, so
+      2.17's `window` transform is tested end to end (a scene binds a `_DI` with `window:` to it).
+      *Parity test (amended 2026-10-26):* queue formation. Five boxes pile against a raised
+      `stopper` on a running belt, then the stopper lowers and they release; the browser physics
+      must match the headless queue within the 2.0 tolerance (max(2 ticks, 25 % of the ramp)).
+      This replaces the placed-queue workaround from 2.0, because a stopper gives both models the
+      same hard stop.
 - [ ] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late
@@ -685,6 +694,11 @@ runs the sorting program against it; a box visibly gets pushed.
       spike branch swapping Rapier for `jolt-physics` on the sorter, compare parity trace, frame time at
       200 parts, bundle size, and API ergonomics. Write ADR-0005 either way. Do not switch on a hunch;
       switch if parity tightens or frame time halves.
+      **Headless queueing cost (from 2.0, added 2026-10-26):** the part-to-part queueing check in
+      `core/kinematics.py` costs 11.7 ms per tick at the 200-part cap after the belt-local box
+      cache (56.4 ms before it), and it is still quadratic in the parts on a belt. Target under
+      4 ms per tick at 200 parts (a spatial index per belt along the flow axis, or sorting once per
+      tick and checking only the neighbour ahead).
 - [x] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
       `def step(io, t)` that reads DI/AI and writes DO/AO through the same writer-side rules a protocol
       server obeys. Ship `examples/pyplc/sorting-by-height.py`.
@@ -769,6 +783,9 @@ runs the sorting program against it; a box visibly gets pushed.
       subset (arithmetic, comparisons, `and`/`or`/`not`, no function calls), evaluated by a
       purpose-built evaluator, never `eval`. Composite types may nest one level. The I/O list export
       flattens them. A `openfactory lint` warning flags a composite that exposes no I/O.
+      **Lint (added 2026-10-26):** this task adds that check to `src/openfactory/lint.py` (2.20
+      left it out because composites did not exist yet) as a new warning code with a unit test, and
+      the Done-when below includes a composite with an empty `io:` producing it.
       *Why:* today only a Python programmer can add a machine. A scene author, a student, or an AI
       assistant should be able to build new equipment from the parts list, which is the feature users
       of commercial trainers ask for most and the one that makes the Milestone 4 editor worthwhile
@@ -778,6 +795,7 @@ runs the sorting program against it; a box visibly gets pushed.
       appear in the exported CSV with the composite instance's id as prefix, the JSON Schema
       validates composite definitions, and a recursive composite is rejected at load with a clear
       message. Ship it in a scene (`buffer-and-release` from 2.7 should be rebuilt on it).
+      `openfactory lint` warns on a composite that exposes no I/O.
 - [x] 2.17 Binding-level signal transforms. A binding may be `{tag: X, invert: true}` (NO/NC),
       `{tag: X, on_delay_s: 0.2, off_delay_s: 0}`, `{tag: X, combine: or, from: [PE_01.detect,
       PE_02.detect]}` for a DI fed by several outputs, and for distance sensors `{tag: X, window:
