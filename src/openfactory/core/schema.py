@@ -369,6 +369,27 @@ class BeltConveyor(ComponentBase):
     io: BeltConveyorIO
 
 
+class RollerConveyor(ComponentBase):
+    """Origin: center of the infeed end, at roller-top height. Flow is local +x (as belt_conveyor).
+
+    Driven rollers: the same run, speed, and running ports and the same speed ramp as a belt. Parts
+    accelerate at ``friction`` × g (default: the scene's friction)."""
+
+    type: Literal["roller_conveyor"]
+    length: PositiveFloat
+    width: PositiveFloat
+    speed_mps: PositiveFloat = Field(description="Roller surface speed at 100 % speed command.")
+    roller_pitch: PositiveFloat = Field(
+        0.1, description="Roller spacing along the flow, meters (viewer only)."
+    )
+    friction: Annotated[float, Field(gt=0, le=2)] | None = Field(
+        None,
+        description="Roller-to-part friction coefficient (mu); default: the scene's friction. "
+        "Lower values make parts take longer to reach roller speed.",
+    )
+    io: BeltConveyorIO
+
+
 class PhotoEyeIO(IOModel):
     detect: DiTag = port("DI", "Part detected", required=True)
 
@@ -484,6 +505,7 @@ class SelectorSwitch(ComponentBase):
 
 Component = Annotated[
     BeltConveyor
+    | RollerConveyor
     | PhotoEye
     | Pusher
     | BoxEmitter
@@ -499,6 +521,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
     model.model_fields["type"].annotation.__args__[0]: model  # type: ignore[union-attr]
     for model in (
         BeltConveyor,
+        RollerConveyor,
         PhotoEye,
         Pusher,
         BoxEmitter,
@@ -511,7 +534,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
 
 
 #: Component types that carry parts on their top surface (PLAN §5). Connections join these.
-CARRIER_TYPES = frozenset({"belt_conveyor"})
+CARRIER_TYPES = frozenset({"belt_conveyor", "roller_conveyor"})
 
 
 class Connection(StrictModel):

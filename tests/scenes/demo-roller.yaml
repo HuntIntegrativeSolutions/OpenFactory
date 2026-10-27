@@ -1,0 +1,49 @@
+# PLAN 2.5 demo and test scene for roller_conveyor (tests only, not a shipped scene): a belt feeds
+# driven rollers with a lower friction (0.4) than the scene (0.8), so boxes take longer to reach
+# roller speed after the seam. Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: demo-roller
+  description: Belt conveyor feeding a driven roller conveyor.
+  seed: 1
+plc:
+  protocol: modbus_tcp
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Infeed Belt Conveyor
+    position: [0, 0, 0]
+    length: 2.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_01_RUN_DO
+      running: CONV_01_RUN_DI
+  - id: RC_01
+    type: roller_conveyor
+    description: Transfer Roller Conveyor
+    position: [2.0, 0, 0]
+    length: 2.0
+    width: 0.5
+    speed_mps: 0.6
+    friction: 0.4
+    io:
+      run: RC_01_RUN_DO
+      speed: {tag: RC_01_SPD_AO, initial: 100}
+      running: RC_01_RUN_DI
+  - id: EMT_01
+    type: box_emitter
+    description: Infeed Box Source
+    position: [0.3, 0.15, 0]
+    interval_s: 2.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_01
+    type: part_remover
+    description: Roller Discharge Part Remover
+    position: [4.15, 0, 0]
+    size: [0.3, 1.0, 1.0]
+connections:
+  - {from: CONV_01, to: RC_01}

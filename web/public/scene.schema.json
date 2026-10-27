@@ -1111,6 +1111,105 @@
       "title": "PusherIO",
       "type": "object"
     },
+    "RollerConveyor": {
+      "additionalProperties": false,
+      "description": "Origin: center of the infeed end, at roller-top height. Flow is local +x (as belt_conveyor).\n\nDriven rollers: the same run, speed, and running ports and the same speed ramp as a belt. Parts\naccelerate at ``friction`` × g (default: the scene's friction).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "type": {
+          "const": "roller_conveyor",
+          "title": "Type",
+          "type": "string"
+        },
+        "length": {
+          "exclusiveMinimum": 0,
+          "title": "Length",
+          "type": "number"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "speed_mps": {
+          "description": "Roller surface speed at 100 % speed command.",
+          "exclusiveMinimum": 0,
+          "title": "Speed Mps",
+          "type": "number"
+        },
+        "roller_pitch": {
+          "default": 0.1,
+          "description": "Roller spacing along the flow, meters (viewer only).",
+          "exclusiveMinimum": 0,
+          "title": "Roller Pitch",
+          "type": "number"
+        },
+        "friction": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 2,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Roller-to-part friction coefficient (mu); default: the scene's friction. Lower values make parts take longer to reach roller speed.",
+          "title": "Friction"
+        },
+        "io": {
+          "$ref": "#/$defs/BeltConveyorIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type",
+        "length",
+        "width",
+        "speed_mps",
+        "io"
+      ],
+      "title": "RollerConveyor",
+      "type": "object"
+    },
     "SceneMeta": {
       "additionalProperties": false,
       "properties": {
@@ -1320,6 +1419,7 @@
             "pilot_light": "#/$defs/PilotLight",
             "pushbutton": "#/$defs/Pushbutton",
             "pusher": "#/$defs/Pusher",
+            "roller_conveyor": "#/$defs/RollerConveyor",
             "selector_switch": "#/$defs/SelectorSwitch"
           },
           "propertyName": "type"
@@ -1327,6 +1427,9 @@
         "oneOf": [
           {
             "$ref": "#/$defs/BeltConveyor"
+          },
+          {
+            "$ref": "#/$defs/RollerConveyor"
           },
           {
             "$ref": "#/$defs/PhotoEye"

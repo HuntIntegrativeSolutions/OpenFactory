@@ -20,7 +20,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
-import { EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame } from "./api";
+import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame } from "./api";
 import { loadRapier, PlantPhysics, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { cssColor, ISA101 } from "./isa101";
@@ -217,7 +217,7 @@ function stepToFrame(frame: StateFrame): void {
   // core decides which parts exist; a part not added above starts at the core's pose for this tick).
   for (const view of views) {
     const state = frame.components[view.id] ?? {};
-    if (view.type === "belt_conveyor") physics.setBelt(view.id, Number(state.speed_mps ?? 0));
+    if (BELT_TYPES.has(view.type)) physics.setBelt(view.id, Number(state.speed_mps ?? 0));
   }
   for (const [id, to] of target) {
     strokes.set(id, to);
@@ -245,7 +245,7 @@ function onFrame(frame: StateFrame): void {
   status.firstTick ??= frame.tick;
   status.parts = parts.count;
   status.ready = true;
-  const running = views.filter((v) => v.type === "belt_conveyor" && frame.components[v.id]?.running);
+  const running = views.filter((v) => BELT_TYPES.has(v.type) && frame.components[v.id]?.running);
   hud.textContent =
     `OpenFactory · ${doc.scene.name}\n` +
     `t = ${frame.t.toFixed(2)} s   tick ${frame.tick}   parts ${frame.parts.length}\n` +

@@ -4,6 +4,9 @@
 
 export type Vec3 = [number, number, number];
 
+/** Conveyor types with a straight running surface (schema.CARRIER_TYPES, less the turntable). */
+export const BELT_TYPES = new Set(["belt_conveyor", "roller_conveyor"]);
+
 export interface ComponentGeometry {
   id: string;
   type: string;

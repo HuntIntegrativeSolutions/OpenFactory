@@ -7,7 +7,9 @@
 //   more than v·dt (docs/research/libraries.md, "Rapier conveyor approach"; contact-based surface
 //   velocity is Rust-only). The viewer draws belt meshes at home, never at the body.
 // - Parts: dynamic boxes. Belts and parts use the scene's friction μ, so the default Average
-//   combine rule gives μ, and parts accelerate at μ·g like core/kinematics.py.
+//   combine rule gives μ, and parts accelerate at μ·g like core/kinematics.py. A roller conveyor
+//   with its own `friction` μr uses combine rule Min (μr < μ) or Max (μr > μ), so the contact
+//   friction is exactly μr, as in the headless model.
 // - Pusher plates: `kinematicPositionBased`, driven with setNextKinematicTranslation to the
 //   core's stroke. The plate is frictionless (combine rule Min) so it pushes along its axis only,
 //   like the headless model.
@@ -16,7 +18,7 @@
 //
 // Frames: geometry.py's convention (x along flow, y up, rotation_deg about +y) is three.js's.
 import type * as RapierNs from "@dimforge/rapier3d-compat";
-import type { ComponentGeometry, Vec3 } from "./api";
+import { BELT_TYPES, type ComponentGeometry, type Vec3 } from "./api";
 
 export type Rapier = typeof RapierNs;
 
@@ -90,7 +92,7 @@ export class PlantPhysics {
     this.world.timestep = scene.dt;
     this.events = new R.EventQueue(true);
     for (const g of scene.components) {
-      if (g.type === "belt_conveyor") this.addBelt(g);
+      if (BELT_TYPES.has(g.type)) this.addBelt(g);
       else if (g.type === "pusher") this.addPlate(g);
       else if (g.type === "photo_eye") this.addBeam(g);
     }
@@ -104,10 +106,11 @@ export class PlantPhysics {
     const body = this.world.createRigidBody(
       R.RigidBodyDesc.kinematicVelocityBased().setTranslation(...home).setRotation(quatY(g.rotation_deg)),
     );
-    this.world.createCollider(
-      R.ColliderDesc.cuboid(length / 2, BELT_HALF_THICKNESS, width / 2).setFriction(this.friction).setRestitution(0),
-      body,
-    );
+    const own = typeof g.friction === "number" ? g.friction : this.friction;
+    const collider = R.ColliderDesc.cuboid(length / 2, BELT_HALF_THICKNESS, width / 2).setFriction(own).setRestitution(0);
+    if (own < this.friction) collider.setFrictionCombineRule(R.CoefficientCombineRule.Min);
+    if (own > this.friction) collider.setFrictionCombineRule(R.CoefficientCombineRule.Max);
+    this.world.createCollider(collider, body);
     this.belts.set(g.id, { body, home, flow: rotateY([1, 0, 0], g.rotation_deg), speed: 0 });
   }
 

@@ -8,6 +8,7 @@ from openfactory.components import (
     pilot_light,
     pushbutton,
     pusher,
+    roller_conveyor,
     selector_switch,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "pilot_light",
     "pushbutton",
     "pusher",
+    "roller_conveyor",
     "selector_switch",
 ]

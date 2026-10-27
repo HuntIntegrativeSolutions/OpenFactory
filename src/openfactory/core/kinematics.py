@@ -7,7 +7,8 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
 - **Carried:** the part moves along its conveyor's local +x, resting on the belt top. Its speed
   (:attr:`Part.v_flow`) follows the conveyor's current ``surface_speed``, but friction limits how
   fast: the speed changes by at most ``friction × 9.81 m/s² × dt`` per step (scene
-  ``scene.friction``, default 0.8), speeding up and slowing down alike. A part at rest on a running
+  ``scene.friction``, default 0.8; a ``roller_conveyor`` may set its own ``friction`` for parts on
+  it), speeding up and slowing down alike. A part at rest on a running
   belt therefore slips for ``v / (μ·g)`` seconds (64 ms at 0.5 m/s and μ = 0.8) before it moves with
   the belt, as in the viewer's Rapier physics (a dropped part gets a head start from its landing
   impact, below). The speed is updated before the position (semi-implicit Euler, like Rapier). When
@@ -98,6 +99,11 @@ class KinematicModel:
         self.max_accel = friction * GRAVITY
         self.carriers: dict[str, Component] = {
             c.id: c for c in components if c.type in CARRIER_TYPES
+        }
+        #: μ·g for parts on each conveyor (a roller conveyor may override the scene friction).
+        self.accel: dict[str, float] = {
+            cid: (getattr(c.config, "friction", None) or friction) * GRAVITY
+            for cid, c in self.carriers.items()
         }
         self.downstream: dict[str, str] = {c.from_: c.to for c in connections}
         #: Belts from the end of a chain: 0 feeds nothing, 1 feeds a 0, ... (loops capped).
@@ -204,42 +210,53 @@ class KinematicModel:
             part.vy = 0.0
             part.v_flow = 0.0
 
-    def _supports(self, part: Part, carrier: Component, x: float) -> list[tuple[float, float]]:
-        """``(belt speed, share of the part's footprint)`` for each belt under the part. A part
+    def _supports(
+        self, part: Part, carrier: Component, x: float
+    ) -> list[tuple[float, float, float]]:
+        """``(belt speed, share of the part's footprint, μ·g)`` for each belt under the part. A part
         straddling a connection seam rests on both belts, in proportion to its overlap."""
-        own = carrier.surface_speed  # type: ignore[attr-defined]
+        own = (carrier.surface_speed, self.accel[carrier.id])  # type: ignore[attr-defined]
         half, _ = self._extent(part, carrier)
         length = carrier.config.length
         if carrier.id in self.downstream and x + half > length:  # nose onto the next belt
             share = min(1.0, (x + half - length) / (2 * half))
             nxt = self.carriers[self.downstream[carrier.id]]
-            return [(own, 1.0 - share), (nxt.surface_speed, share)]  # type: ignore[attr-defined]
+            return [
+                (own[0], 1.0 - share, own[1]),
+                (nxt.surface_speed, share, self.accel[nxt.id]),  # type: ignore[attr-defined]
+            ]
         if x - half < 0:  # tail still on a belt feeding this one
             feeders = [self.carriers[u] for u, d in self.downstream.items() if d == carrier.id]
             if feeders:
                 share = min(1.0, (half - x) / (2 * half))
-                return [(own, 1.0 - share), (feeders[0].surface_speed, share)]  # type: ignore[attr-defined]
-        return [(own, 1.0)]
+                up = feeders[0]
+                return [
+                    (own[0], 1.0 - share, own[1]),
+                    (up.surface_speed, share, self.accel[up.id]),  # type: ignore[attr-defined]
+                ]
+        return [(own[0], 1.0, own[1])]
 
-    def _friction_speed(self, v: float, supports: list[tuple[float, float]], dt: float) -> float:
+    def _friction_speed(
+        self, v: float, supports: list[tuple[float, float, float]], dt: float
+    ) -> float:
         """New along-belt speed under Coulomb friction from each supporting belt.
 
-        Each belt pulls toward its own speed with up to share × μ·g. A belt already moving at the
-        part's speed holds it with static friction, up to its share, against the others. The speed
-        never passes a belt speed within one step (it stops there and static friction decides the
-        next step). On one belt this is the plain μ·g ramp toward that belt's speed.
+        Each belt pulls toward its own speed with up to share × its μ·g. A belt already moving at
+        the part's speed holds it with static friction, up to its share, against the others. The
+        speed never passes a belt speed within one step (it stops there and static friction decides
+        the next step). On one belt this is the plain μ·g ramp toward that belt's speed.
         """
         a, held = 0.0, 0.0
-        for speed, share in supports:
+        for speed, share, accel in supports:
             if abs(speed - v) <= _EPS:
-                held += share * self.max_accel
+                held += share * accel
             else:
-                a += math.copysign(share * self.max_accel, speed - v)
+                a += math.copysign(share * accel, speed - v)
         if abs(a) <= held + _EPS:
             return v
         a -= math.copysign(held, a)
         new = v + a * dt
-        crossed = [sp for sp, _ in supports if min(v, new) - _EPS <= sp <= max(v, new) + _EPS]
+        crossed = [sp for sp, _, _ in supports if min(v, new) - _EPS <= sp <= max(v, new) + _EPS]
         return min(crossed, key=lambda sp: abs(sp - v)) if crossed else new
 
     def _extent(self, part: Part, carrier: Component) -> tuple[float, float]:
@@ -310,7 +327,7 @@ class KinematicModel:
             part.position = (x, self._top(landing) + part.size[1] / 2, z)
             # Impact friction: the normal impulse that stops the fall (m·|vy|) lets friction change
             # the along-belt speed by up to μ·|vy| at once, as Rapier's contact solver does.
-            grab = self.max_accel / GRAVITY * abs(vy)
+            grab = self.accel[landing.id] / GRAVITY * abs(vy)
             target = landing.surface_speed  # type: ignore[attr-defined]
             part.v_flow = max(-grab, min(grab, target))
             part.vy = 0.0
