@@ -1019,11 +1019,18 @@
           "type": "number"
         },
         "plate_height": {
-          "default": 0.15,
-          "description": "Push plate height along y, centered on the origin, meters.",
-          "exclusiveMinimum": 0,
-          "title": "Plate Height",
-          "type": "number"
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Push plate height along y, centered on the origin, meters. Unset: the plate top reaches 3/4 of the tallest emitted part's height above the belt it sweeps (0.15 m with no emitter or no belt in its path).",
+          "title": "Plate Height"
         },
         "io": {
           "$ref": "#/$defs/PusherIO"

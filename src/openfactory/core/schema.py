@@ -394,8 +394,11 @@ class Pusher(ComponentBase):
     stroke: PositiveFloat
     extend_time_s: PositiveFloat
     plate_width: PositiveFloat = Field(0.3, description="Push plate width along local x, meters.")
-    plate_height: PositiveFloat = Field(
-        0.15, description="Push plate height along y, centered on the origin, meters."
+    plate_height: PositiveFloat | None = Field(
+        None,
+        description="Push plate height along y, centered on the origin, meters. Unset: the plate "
+        "top reaches 3/4 of the tallest emitted part's height above the belt it sweeps (0.15 m "
+        "with no emitter or no belt in its path).",
     )
     io: PusherIO
 

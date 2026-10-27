@@ -31,6 +31,7 @@ import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from openfactory.components.pusher import resolve_plate_height
 from openfactory.core.component import REGISTRY, Component, ComponentRegistry
 from openfactory.core.geometry import to_world
 from openfactory.core.iotable import IOTable, Tag
@@ -124,7 +125,10 @@ def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScen
         registry = REGISTRY
     io = build_iotable(scene)
     world = World(seed=scene.scene.seed)
-    components = [registry.resolve(c.type)(c, io, world) for c in scene.components]
+    configs = [
+        resolve_plate_height(c, scene) if c.type == "pusher" else c for c in scene.components
+    ]
+    components = [registry.resolve(c.type)(c, io, world) for c in configs]
     kinematics = KinematicModel(world, components, scene.connections, scene.scene.friction)
     warnings = lint(scene)
     for warning in warnings:

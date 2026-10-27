@@ -39,8 +39,8 @@ components:
   - id: CYL_01
     type: pusher
     description: Tall Box Divert Pusher
-    position: [2.5, 0.1, -0.3]
-    stroke: 0.5
+    position: [2.5, 0.175, -0.3]  # plate unset: sized from the tallest box, 0.25 m, spans y 0.05..0.3
+    stroke: 0.6                   # retracted face to CONV_01's far edge is 0.55 m; 0.6 clears the seam
     extend_time_s: 0.4
     io:
       extend: CYL_01_EXT_DO

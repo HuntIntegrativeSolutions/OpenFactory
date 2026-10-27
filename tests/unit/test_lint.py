@@ -107,3 +107,23 @@ def test_connected_end_to_end_conveyors_do_not_count_as_overlapping(tmp_path, so
     sorter["connections"] = [{"from": "CONV_01", "to": "CONV_02"}]
     path = write(tmp_path, sorter)
     assert "W205" not in codes(lint_scene(path))
+
+
+def test_old_sorter_pusher_values_warn_w206_and_w207(tmp_path, sorter, strip_ansi):
+    """The pre-2026-10-26 sorter: a 0.15 m plate at y 0.1 and a 0.5 m stroke."""
+    cyl = next(c for c in sorter["components"] if c["id"] == "CYL_01")
+    cyl.update({"position": [2.5, 0.1, -0.3], "stroke": 0.5, "plate_height": 0.15})
+    path = write(tmp_path, sorter, EXAMPLE.name)
+    for lock in EXAMPLE.parent.glob(f"{EXAMPLE.stem}.*.modbus.yaml"):
+        (tmp_path / lock.name).write_text(lock.read_text(encoding="utf-8"), encoding="utf-8")
+    findings = lint_scene(path)
+    assert codes(findings) == ["W206", "W207"]
+    assert "plate top y 0.175 m" in findings[0].message and "'tall'" in findings[0].message
+    assert "stroke 0.5 m stops 0.05 m short of CONV_01" in findings[1].message
+    result = runner.invoke(app, ["lint", str(path)])
+    out = strip_ansi(result.output)
+    print(out)
+    assert result.exit_code == 0 and "0 error(s), 2 warning(s)" in out
+    # leaving plate_height unset sizes it from the parts: only the stroke warning remains
+    del cyl["plate_height"]
+    assert codes(lint_scene(write(tmp_path, sorter, EXAMPLE.name))) == ["W207"]

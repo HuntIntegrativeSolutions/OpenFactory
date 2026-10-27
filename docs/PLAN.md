@@ -278,7 +278,8 @@ Rules:
   - `selector_switch.positions` (2 or 3, default 2) and `selector_switch.initial` (`a`, `center`, or
     `b`, default `a`; `center` needs 3 positions).
   - `pushbutton.mode` (`momentary` or `maintained`) and `color` on pushbuttons and pilot lights.
-  - `pusher.plate_width` (local x, default 0.3 m) and `pusher.plate_height` (default 0.15 m).
+  - `pusher.plate_width` (local x, default 0.3 m) and `pusher.plate_height` (default: the plate
+    top reaches 3/4 of the tallest emitted part's height above the belt it sweeps, else 0.15 m).
 - Connection settings live in `openfactory.toml` (git-ignored overrides in `openfactory.local.toml`),
   never in scenes. The `plc` block selects `protocol` and `role`; `bind` and `port` are optional
   per-scene overrides of the server's listen address, and a PLC's own address is only ever a named
@@ -337,7 +338,9 @@ choices that go beyond the table above:
   first step that sees the change (one tick of delay at 50 Hz).
 - **`pusher`**: origin is the center of the retracted push-plate face; extends along local +z.
   Single-solenoid spring return: `extend` off retracts at the same speed, and a command change
-  mid-stroke reverses immediately. The plate is `plate_width` × `plate_height` (default 0.3 × 0.15 m).
+  mid-stroke reverses immediately. The plate is `plate_width` × `plate_height` (default width 0.3 m;
+  default height sized at load so the plate top is a quarter of the tallest emitted part's height
+  above its centre of mass, since a plate meeting a box below its centre of mass tips it).
   In the headless model an advancing plate pushes every part whose footprint overlaps it, so the
   part's back face rides on the plate face (one tick behind the plate, swept, never pulled back); a
   part pushed past a belt edge falls onto whatever is below.
@@ -811,6 +814,13 @@ runs the sorting program against it; a box visibly gets pushed.
       pairs exempt). Scripts are scanned as text, never run. The composites check waits for
       2.16. `tools/ci_local.sh` step 3 runs `openfactory lint scenes`; the shipped sorter has
       0 errors and 0 warnings.
+      *Pusher checks (2026-10-26):* W206 a plate top below the centre of mass of any emitted part
+      on the belt the plate sweeps (it tips the part), W207 a stroke shorter than the retracted
+      face's distance to that belt's far edge (the part is left straddling the seam). Both came
+      from a phone demo where the sorter's 0.15 m plate at y 0.1 tipped 0.4 m boxes and its 0.5 m
+      stroke left them across the CONV_01/CONV_02 seam. An unset `plate_height` is now sized from
+      the emitted parts. The sorter's pusher moved to y 0.175 with stroke 0.6 (plate 0.25 m,
+      y 0.05 to 0.30); pushed boxes now end centred at z 0.45 on CONV_02 instead of 0.35.
 
 ### Milestone 3 — Process simulation (target 3–4 weeks)
 - [ ] 3.1 Flow network solver (`core/flownet.py`): directed graph of sources, pipes, valves, pumps,

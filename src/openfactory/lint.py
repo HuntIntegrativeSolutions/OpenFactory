@@ -20,6 +20,13 @@ Warnings (exit 0 unless there are errors):
   (``|x|`` or ``|z|`` over 20 m).
 - ``W205`` two conveyors whose footprints overlap at the same belt height (within 5 cm). Conveyors
   joined end to end by a connection are allowed to touch.
+- ``W206`` a pusher plate whose top is below the centre of mass of a part the scene emits, resting
+  on the belt the plate sweeps: the plate hits the part low and tips it.
+- ``W207`` a pusher stroke shorter than the distance from the plate's retracted face to the far edge
+  of the belt it sweeps: a pushed part is left straddling that edge (the seam to the next belt).
+
+W206 and W207 use :func:`openfactory.components.pusher.push_path`, the first belt along the plate's
+centre line, and the plate height after the loader's default.
 
 Composite components (PLAN 2.16) do not exist yet; their "exposes no I/O" check arrives with them.
 
@@ -37,6 +44,7 @@ from typing import get_args
 
 from pydantic import ValidationError
 
+from openfactory.components.pusher import emitted_parts, push_path
 from openfactory.core.loader import build
 from openfactory.core.loader import lint as loader_lint
 from openfactory.core.schema import CARRIER_TYPES, PLC_WRITES, load_scene
@@ -143,4 +151,28 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                     Finding("warning", "W205", f"conveyors {a.id} and {b.id} overlap by "
                             f"{overlap_x:.3g} m x {overlap_z:.3g} m at the same height")
                 )  # fmt: skip
+    parts = emitted_parts(scene)
+    for pusher in (c for c in loaded.components if c.type == "pusher"):
+        cfg = pusher.config
+        path = push_path(cfg, scene)
+        if path is None:
+            continue
+        top = cfg.position[1] + cfg.plate_height / 2
+        for part in parts:
+            com = path.belt_y + part.size[1] / 2
+            if top < com - 1e-9:
+                findings.append(
+                    Finding("warning", "W206", f"{pusher.id}: plate top y {top:.3g} m is below "
+                            f"the centre of mass of part '{part.name}' (y {com:.3g} m on "
+                            f"{path.belt_id}); the plate hits it low and can tip it. Raise the "
+                            "pusher's position or plate_height, or leave plate_height unset to "
+                            "size it from the parts")
+                )  # fmt: skip
+        if cfg.stroke < path.far_m - 1e-9:
+            findings.append(
+                Finding("warning", "W207", f"{pusher.id}: stroke {cfg.stroke:.3g} m stops "
+                        f"{path.far_m - cfg.stroke:.3g} m short of {path.belt_id}'s far edge "
+                        f"({path.far_m:.3g} m from the retracted face); a pushed part is left "
+                        "straddling that edge")
+            )  # fmt: skip
     return findings

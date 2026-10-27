@@ -1,8 +1,16 @@
-"""pusher: full extend/retract cycle with limit switches, mid-stroke reversal."""
+"""pusher: full extend/retract cycle with limit switches, mid-stroke reversal, plate sizing."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+import yaml
+
+from openfactory.components.pusher import push_path, resolve_plate_height
+from openfactory.core.schema import Scene
+
+SORTER = Path(__file__).resolve().parents[2] / "scenes" / "sorting-by-height.yaml"
 
 CYL = {
     "id": "CYL_01",
@@ -76,3 +84,27 @@ def test_limit_ports_are_optional(rig):
     r.plc("CYL_01_EXT_DO", True)
     r.step(25)
     assert r["CYL_01"].position == 0.5
+
+
+def _sorter_with(**pusher) -> Scene:
+    data = yaml.safe_load(SORTER.read_text(encoding="utf-8"))
+    cyl = next(c for c in data["components"] if c["id"] == "CYL_01")
+    cyl.update(pusher)
+    return Scene.model_validate(data)
+
+
+def test_unset_plate_height_reaches_above_the_tallest_parts_centre_of_mass():
+    scene = _sorter_with(position=[2.5, 0.1, -0.3], stroke=0.5)  # the old sorter values
+    cfg = next(c for c in scene.components if c.id == "CYL_01")
+    assert cfg.plate_height is None
+    path = push_path(cfg, scene)
+    assert (path.belt_id, path.belt_y) == ("CONV_01", 0.0)
+    assert path.near_m == pytest.approx(0.05) and path.far_m == pytest.approx(0.55)
+    # tallest box 0.4 m: top at 0.75 x 0.4 = 0.3 m, centred on y 0.1 -> 0.4 m tall
+    assert resolve_plate_height(cfg, scene).plate_height == pytest.approx(0.4)
+    explicit = cfg.model_copy(update={"plate_height": 0.15})
+    assert resolve_plate_height(explicit, scene).plate_height == 0.15  # set values are kept
+
+
+def test_default_plate_height_without_emitters_or_belts_is_0_15(rig):
+    assert rig(CYL)["CYL_01"].config.plate_height == 0.15  # no belt, no emitter in the rig

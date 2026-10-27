@@ -71,7 +71,8 @@ def test_api_scene_returns_resolved_geometry(served):
         "description": "Infeed Belt Conveyor — Sorting Line",
     }
     assert comps["PE_01"]["beam_length"] == 0.6 and comps["PE_01"]["position"] == [1.5, 0.3, 0.0]
-    assert comps["CYL_01"]["stroke"] == 0.5 and comps["CYL_01"]["plate_width"] == 0.3
+    assert comps["CYL_01"]["stroke"] == 0.6 and comps["CYL_01"]["plate_width"] == 0.3
+    assert comps["CYL_01"]["plate_height"] == 0.25  # unset in the scene: sized from the tall box
     assert comps["REM_01"]["size"] == [0.3, 1.0, 1.0]
     assert [p["name"] for p in comps["EMT_01"]["parts"]] == ["tall", "short"]
     assert {t["name"] for t in doc["tags"]} >= {"CONV_01_RUN_DO", "PE_01_DI"}
