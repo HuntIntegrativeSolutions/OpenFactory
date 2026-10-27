@@ -39,6 +39,8 @@ export interface PartState {
   /** Tick that spawned the part, and its pose then; it first moves in tick spawn_tick + 1. */
   spawn_tick?: number;
   spawn_position?: Vec3;
+  /** True while the core places the part (held by a gripper, or on a turning deck, PLAN §3.3). */
+  follow?: boolean;
 }
 
 export interface StateFrame {

@@ -1,0 +1,85 @@
+# PLAN 2.5 demo and test scene for turntable (tests only, not a shipped scene): an infeed belt feeds
+# a turntable whose deck either passes boxes straight on to CONV_OUT (at 0 degrees) or turns 90 and
+# sends them to CONV_SIDE. tests/scenes/demo-turntable.py routes every other box to the side.
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: demo-turntable
+  description: Turntable routing boxes straight on or 90 degrees to a side conveyor.
+  seed: 1
+plc:
+  protocol: modbus_tcp
+components:
+  - id: CONV_IN
+    type: belt_conveyor
+    description: Infeed Belt Conveyor
+    position: [0, 0, 0]
+    length: 2.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_IN_RUN_DO
+  - id: TT_01
+    type: turntable
+    description: Routing Turntable
+    position: [2.4, 0, 0]          # deck centre; at 0 degrees the deck spans x 2.0 to 2.8
+    length: 0.8
+    width: 0.5
+    speed_mps: 0.5
+    turn_deg: 90                   # counter-clockwise from above: the deck then flows toward -z
+    turn_time_s: 1.0
+    io:
+      run: TT_01_RUN_DO
+      turn: TT_01_TURN_DO
+      running: TT_01_RUN_DI
+      at_0: TT_01_AT0_DI
+      at_90: TT_01_AT90_DI
+  - id: PE_TT
+    type: photo_eye
+    description: Turntable Deck Centre Photo Eye
+    position: [2.6, 0.1, 0]        # blocked when a box's front reaches 2.6: box centred on the deck
+    beam_length: 0.6
+    io:
+      detect: PE_TT_DI
+  - id: CONV_OUT
+    type: belt_conveyor
+    description: Straight Outfeed Belt Conveyor
+    position: [2.8, 0, 0]
+    length: 1.5
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_OUT_RUN_DO
+  - id: CONV_SIDE
+    type: belt_conveyor
+    description: Side Outfeed Belt Conveyor
+    position: [2.4, 0, -0.4]       # the deck's discharge end at 90 degrees
+    rotation_deg: 90               # flows toward -z
+    length: 1.5
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_SIDE_RUN_DO
+  - id: EMT_01
+    type: box_emitter
+    description: Infeed Box Source
+    position: [0.3, 0.15, 0]
+    interval_s: 5.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_OUT
+    type: part_remover
+    description: Straight Outfeed Part Remover
+    position: [4.45, 0, 0]
+    size: [0.3, 1.0, 1.0]
+  - id: REM_SIDE
+    type: part_remover
+    description: Side Outfeed Part Remover
+    position: [2.4, 0, -2.05]
+    size: [1.0, 1.0, 0.3]
+connections:
+  - {from: CONV_IN, to: TT_01}
+  - {from: TT_01, to: CONV_OUT}
+  - {from: TT_01, to: CONV_SIDE}

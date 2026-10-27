@@ -48,6 +48,8 @@ class Part:
     #: tick ``spawn_tick + 1``, as the core does (PLAN 2.0a).
     spawn_tick: int = 0
     spawn_position: Vec3 | None = None
+    #: Id of the gripper holding the part (``pick_and_place``), or None.
+    held_by: str | None = None
 
     def __post_init__(self) -> None:
         if self.spawn_position is None:

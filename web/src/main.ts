@@ -20,7 +20,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
-import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame } from "./api";
+import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame, type Vec3 } from "./api";
 import { loadRapier, PlantPhysics, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { cssColor, ISA101 } from "./isa101";
@@ -178,7 +178,8 @@ let physics: PlantPhysics | null = null;
 let events: EventLink | null = null;
 
 let lastTick: number | null = null; // core tick the physics world has reached
-const strokes = new Map<string, number>(); // pusher stroke and stopper raise at lastTick
+const strokes = new Map<string, number>(); // pusher stroke, stopper raise, deck angle at lastTick
+const corePositions = new Map<string, Vec3>(); // each part's core position in the last frame
 
 /**
  * Advance the physics world to the frame's core tick (PLAN 2.0a): exactly (tick - lastTick) steps,
@@ -191,11 +192,16 @@ function stepToFrame(frame: StateFrame): void {
   const plan = planSteps(lastTick, frame.tick);
   const target = new Map<string, number>(); // pusher strokes (m)
   const raise = new Map<string, number>(); // stopper blades (fraction raised)
+  const turn = new Map<string, number>(); // turntable decks (degrees)
   for (const view of views) {
     const state = frame.components[view.id];
     if (view.type === "pusher") target.set(view.id, Number(state?.position_m ?? 0));
     if (view.type === "stopper") raise.set(view.id, Number(state?.position ?? 0));
+    if (view.type === "turntable") turn.set(view.id, Number(state?.angle_deg ?? 0));
   }
+  // Parts the core places this frame (held, or on a turning deck) move from their last core
+  // position to this frame's across the steps instead of being simulated (PLAN §3.3).
+  const following = frame.parts.filter((p) => p.follow && physics!.hasPart(p.id));
   // Parts the core spawned during this frame's ticks join on the tick it first moved them.
   const known = new Set(physics.partIds());
   const joining = new Map<number, PartState[]>();
@@ -208,6 +214,11 @@ function stepToFrame(frame: StateFrame): void {
     for (const p of joining.get(i) ?? []) physics.addPart(p.id, p.size, p.spawn_position ?? p.position);
     for (const [id, to] of target) physics.setPusher(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
     for (const [id, to] of raise) physics.setStopper(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
+    for (const [id, to] of turn) physics.setTurntable(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
+    for (const p of following) {
+      const from = corePositions.get(p.id) ?? p.position;
+      physics.follow(p.id, [0, 1, 2].map((a) => strokeAt(from[a], p.position[a], i, plan.steps)) as Vec3);
+    }
     const tick = plan.firstTick + i - 1;
     for (const edge of physics.step()) {
       events?.send({ t: frame.t, tick, type: "sensor", id: edge.id, value: edge.blocked });
@@ -221,7 +232,7 @@ function stepToFrame(frame: StateFrame): void {
   // core decides which parts exist; a part not added above starts at the core's pose for this tick).
   for (const view of views) {
     const state = frame.components[view.id] ?? {};
-    if (BELT_TYPES.has(view.type)) physics.setBelt(view.id, Number(state.speed_mps ?? 0));
+    if (BELT_TYPES.has(view.type) || view.type === "turntable") physics.setBelt(view.id, Number(state.speed_mps ?? 0));
   }
   for (const [id, to] of target) {
     strokes.set(id, to);
@@ -231,6 +242,16 @@ function stepToFrame(frame: StateFrame): void {
     strokes.set(id, to);
     if (plan.steps === 0) physics.setStopper(id, to);
   }
+  for (const [id, to] of turn) {
+    strokes.set(id, to);
+    if (plan.steps === 0) physics.setTurntable(id, to);
+  }
+  for (const p of frame.parts) {
+    if (p.follow && plan.steps === 0) physics.follow(p.id, p.position);
+    if (!p.follow) physics.release(p.id, p.velocity); // no-op unless it was followed
+    corePositions.set(p.id, p.position);
+  }
+  for (const id of corePositions.keys()) if (!frame.parts.some((p) => p.id === id)) corePositions.delete(id);
   const alive = new Set(frame.parts.map((p) => p.id));
   for (const id of physics.partIds()) if (!alive.has(id)) physics.removePart(id);
   for (const p of frame.parts) physics.addPart(p.id, p.size, p.position, p.velocity);
@@ -253,7 +274,7 @@ function onFrame(frame: StateFrame): void {
   status.firstTick ??= frame.tick;
   status.parts = parts.count;
   status.ready = true;
-  const running = views.filter((v) => BELT_TYPES.has(v.type) && frame.components[v.id]?.running);
+  const running = views.filter((v) => (BELT_TYPES.has(v.type) || v.type === "turntable") && frame.components[v.id]?.running);
   hud.textContent =
     `OpenFactory · ${doc.scene.name}\n` +
     `t = ${frame.t.toFixed(2)} s   tick ${frame.tick}   parts ${frame.parts.length}\n` +
@@ -282,6 +303,7 @@ async function loadScene(): Promise<void> {
   parts.clear();
   lastTick = null;
   strokes.clear();
+  corePositions.clear();
   lastFrame = null;
   events = new EventLink();
   if (rapier) {

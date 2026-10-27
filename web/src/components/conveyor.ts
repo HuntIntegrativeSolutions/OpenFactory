@@ -107,3 +107,57 @@ export const rollerConveyor: Builder = (g, ctx) => {
     },
   };
 };
+
+/**
+ * turntable: origin at the deck centre (the pivot) at belt-top height. A round platform on a
+ * pedestal carries the deck belt, which turns about +y with the core's angle_deg (0: flow along
+ * local +x). The belt shows status like belt_conveyor; the platform rim is green while turning.
+ */
+export const turntable: Builder = (g, ctx) => {
+  const length = num(g, "length", 1);
+  const width = num(g, "width", 0.5);
+  const group = placed(g);
+  const radius = Math.hypot(length, width) / 2 + 0.03;
+  const platform = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, 0.04, 40),
+    new THREE.MeshStandardMaterial({ color: ISA101.stopped, roughness: 0.7 }),
+  );
+  platform.name = "platform";
+  platform.position.y = -RAIL_H - 0.02;
+  group.add(platform);
+  const pedestal = g.position[1] - RAIL_H - 0.04 - ctx.floorY;
+  if (pedestal > 0.01) group.add(box([0.2, pedestal, 0.2], NEUTRAL.frame, [0, -RAIL_H - 0.04 - pedestal / 2, 0]));
+  const deck = new THREE.Group();
+  deck.name = "deck";
+  group.add(deck);
+  const belt = box([length, BELT_T, width], ISA101.stopped, [0, -BELT_T / 2, 0]);
+  belt.name = "belt";
+  deck.add(belt);
+  for (const side of [-1, 1]) {
+    deck.add(box([length, RAIL_H, 0.03], NEUTRAL.frame, [0, -RAIL_H / 2 + 0.01, side * (width / 2 + 0.015)]));
+  }
+  const slats: THREE.Mesh[] = [];
+  const count = Math.max(1, Math.floor(length / SLAT_PITCH));
+  for (let i = 0; i < count; i++) {
+    const slat = box([0.015, 0.003, width * 0.96], NEUTRAL.slat, [i * SLAT_PITCH - length / 2, 0.0015, 0]);
+    slats.push(slat);
+    deck.add(slat);
+  }
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, 0.15, -radius),
+    pickable: [],
+    update(state) {
+      deck.rotation.y = THREE.MathUtils.degToRad(typeof state.angle_deg === "number" ? state.angle_deg : 0);
+      setColor(belt, state.running ? ISA101.running : ISA101.stopped);
+      setColor(platform, state.turning ? ISA101.running : ISA101.stopped);
+      const travel = typeof state.travel_m === "number" ? state.travel_m : 0;
+      const phase = ((travel % SLAT_PITCH) + SLAT_PITCH) % SLAT_PITCH;
+      slats.forEach((slat, i) => {
+        slat.position.x = ((i * SLAT_PITCH + phase) % (count * SLAT_PITCH)) - length / 2;
+      });
+    },
+  };
+};

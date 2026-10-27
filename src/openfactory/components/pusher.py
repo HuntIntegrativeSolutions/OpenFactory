@@ -62,6 +62,8 @@ def push_path(pusher: Any, scene: Scene) -> PushPath | None:
         if belt.type not in CARRIER_TYPES or belt.position[1] > oy + _EPS:
             continue
         o = to_local(belt.position, belt.rotation_deg, (ox, oy, oz))
+        if belt.type == "turntable":  # a deck's origin is its centre, at 0 degrees
+            o = (o[0] + belt.length / 2, o[1], o[2])
         u = rotate_y(d, -belt.rotation_deg)
         t0, t1 = -math.inf, math.inf
         for axis, lo, hi in ((0, 0.0, belt.length), (2, -belt.width / 2, belt.width / 2)):

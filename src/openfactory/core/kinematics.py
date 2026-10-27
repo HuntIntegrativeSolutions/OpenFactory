@@ -35,6 +35,13 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   hard stop in the same check while it is above fully lowered: a part whose front face has not
   passed the blade line stops with its front face on the blade (lateral overlap required), and the
   parts behind queue on it. A part already over or past the line when the blade rises passes.
+- **Turntables (PLAN 2.5):** a ``turntable`` deck is a conveyor whose frame turns with it
+  (:meth:`Turntable.frame`). Each step, before anything moves, every part the deck carries is
+  turned about the deck centre by the angle the deck turned since the last step (its box keeps its
+  world-axis orientation). Connections from or to a deck are *active* only while the two
+  conveyors' headings agree within ``ALIGN_DEG``; other connections are always active. A part
+  reaching the discharge end of a conveyor that has connections but no active one waits there
+  (its front face stops at the end), as a box held against a turned deck's side would.
 - **Falling:** gravity (9.81 m/s², semi-implicit Euler). A falling part lands on the highest
   conveyor whose belt top it crosses during the step and whose footprint (0 ≤ local x ≤ length,
   |local z| ≤ width / 2) holds the part's center. Landing is an impact: the normal impulse that
@@ -76,7 +83,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from openfactory.core.geometry import rotate_y, to_local, to_world
-from openfactory.core.schema import CARRIER_TYPES, Connection
+from openfactory.core.schema import CARRIER_TYPES, TURNING_TYPES, Connection
 from openfactory.core.sizing import ON_BELT_M
 from openfactory.core.world import Part, World
 
@@ -84,6 +91,8 @@ if TYPE_CHECKING:
     from openfactory.core.component import Component
 
 GRAVITY = 9.81
+#: Two conveyor headings closer than this are aligned, so a connection between them is active.
+ALIGN_DEG = 1.0
 FALL_LIMIT_M = 2.0
 DEFAULT_FRICTION = 0.8
 _EPS = 1e-9
@@ -110,17 +119,16 @@ class KinematicModel:
             cid: (getattr(c.config, "friction", None) or friction) * GRAVITY
             for cid, c in self.carriers.items()
         }
-        self.downstream: dict[str, str] = {c.from_: c.to for c in connections}
-        #: Belts from the end of a chain: 0 feeds nothing, 1 feeds a 0, ... (loops capped).
-        self._rank: dict[str, int] = {c: self._chain_rank(c) for c in self.carriers}
-        #: |cos|, |sin| of each belt's rotation, for part extents along and across its flow.
-        self._axes: dict[str, tuple[float, float]] = {
-            cid: (
-                abs(math.cos(math.radians(c.config.rotation_deg))),
-                abs(math.sin(math.radians(c.config.rotation_deg))),
-            )
-            for cid, c in self.carriers.items()
-        }
+        #: Every connection: conveyor -> the conveyors it may feed (several only for a turntable).
+        self.links: dict[str, list[str]] = {}
+        for conn in connections:
+            self.links.setdefault(conn.from_, []).append(conn.to)
+        self.turntables: list[Component] = [
+            c for c in self.carriers.values() if c.type in TURNING_TYPES
+        ]
+        #: Deck heading each turntable had when its parts were last turned with it.
+        self._heading_seen: dict[str, float] = {c.id: c.heading for c in self.turntables}  # type: ignore[attr-defined]
+        self._refresh()
         self._boxes: dict[str, dict[str, tuple[float, float, float, float, float, float]]] = {}
         tops = [self._top(c) for c in self.carriers.values()]
         self.lost_below = (min(tops) if tops else 0.0) - FALL_LIMIT_M
@@ -139,6 +147,31 @@ class KinematicModel:
                     )
                     break
 
+    def _refresh(self) -> None:
+        """Per-step conveyor geometry: the active connection of each conveyor (aligned decks),
+        each belt's rank from the end of its chain, and its axes for part extents."""
+        #: Active connections this step: conveyor -> the conveyor its discharge feeds.
+        self.downstream: dict[str, str] = {}
+        for up, tos in self.links.items():
+            for to in tos:
+                if self._aligned(up, to):
+                    self.downstream[up] = to
+                    break
+        #: Belts from the end of a chain: 0 feeds nothing, 1 feeds a 0, ... (loops capped).
+        self._rank: dict[str, int] = {c: self._chain_rank(c) for c in self.carriers}
+        #: |cos|, |sin| of each belt's current heading, for part extents along and across its flow.
+        self._axes: dict[str, tuple[float, float]] = {}
+        for cid, c in self.carriers.items():
+            r = math.radians(self._frame(c)[1])
+            self._axes[cid] = (abs(math.cos(r)), abs(math.sin(r)))
+
+    def _aligned(self, up: str, down: str) -> bool:
+        a, b = self.carriers[up], self.carriers[down]
+        if a.type not in TURNING_TYPES and b.type not in TURNING_TYPES:
+            return True
+        diff = (self._frame(a)[1] - self._frame(b)[1] + 180.0) % 360.0 - 180.0
+        return abs(diff) <= ALIGN_DEG
+
     def _chain_rank(self, carrier_id: str) -> int:
         rank, seen = 0, {carrier_id}
         while carrier_id in self.downstream:
@@ -156,12 +189,27 @@ class KinematicModel:
         return carrier.config.position[1]
 
     @staticmethod
-    def _local(carrier: Component, point: tuple[float, float, float]) -> tuple[float, float, float]:
-        return to_local(carrier.config.position, carrier.config.rotation_deg, point)
+    def _frame(carrier: Component) -> tuple[tuple[float, float, float], float]:
+        """``(origin, rotation_deg)`` of a conveyor's belt frame: origin at the infeed end, flow
+        along local +x. A turntable's deck frame turns with the deck."""
+        frame = getattr(carrier, "frame", None)
+        if frame is not None:
+            return frame()  # type: ignore[no-any-return]
+        return carrier.config.position, carrier.config.rotation_deg
 
-    @staticmethod
-    def _world(carrier: Component, local: tuple[float, float, float]) -> tuple[float, float, float]:
-        return to_world(carrier.config.position, carrier.config.rotation_deg, local)
+    @classmethod
+    def _local(
+        cls, carrier: Component, point: tuple[float, float, float]
+    ) -> tuple[float, float, float]:
+        origin, rotation = cls._frame(carrier)
+        return to_local(origin, rotation, point)
+
+    @classmethod
+    def _world(
+        cls, carrier: Component, local: tuple[float, float, float]
+    ) -> tuple[float, float, float]:
+        origin, rotation = cls._frame(carrier)
+        return to_world(origin, rotation, local)
 
     @staticmethod
     def _plate(pusher: Component) -> float:
@@ -176,6 +224,9 @@ class KinematicModel:
     # -- stepping --------------------------------------------------------------------------------
 
     def step(self, dt: float) -> None:
+        for deck in self.turntables:
+            self._turn(deck)
+        self._refresh()
         for pusher in self.pushers:
             self._push(pusher)
         parts = list(self.world.parts.values())
@@ -297,6 +348,8 @@ class KinematicModel:
         frames = [(carrier.id, 0.0)]
         if carrier.id in self.downstream:
             frames.append((self.downstream[carrier.id], carrier.config.length))
+        elif carrier.id in self.links:  # connected, but no connection lines up: wait at the end
+            room = min(room, carrier.config.length - half_x)
         for belt_id, offset in frames:
             for pid, (ox, oz, o_half_x, o_half_z, oy, oh) in self._boxes[belt_id].items():
                 if pid == part.id or abs(oy - y) >= (oh + height) / 2:
@@ -313,6 +366,28 @@ class KinematicModel:
                     continue  # already over or past the blade line: it passes
                 room = min(room, sx - half_x)
         return room
+
+    def _turn(self, deck: Component) -> None:
+        """Turn the parts on a deck with it, about its centre, by its turn since the last step."""
+        heading = deck.heading  # type: ignore[attr-defined]
+        delta = heading - self._heading_seen[deck.id]
+        self._heading_seen[deck.id] = heading
+        if abs(delta) <= _EPS:
+            return
+        cx, _, cz = deck.config.position
+        for part in self.world.parts.values():
+            if part.carrier == deck.id:
+                x, y, z = part.position
+                dx, _, dz = rotate_y((x - cx, 0.0, z - cz), delta)
+                part.position = (cx + dx, y, cz + dz)
+
+    def follows_core(self, part: Part) -> bool:
+        """True while the viewer should place this part at the core's position instead of
+        simulating it (PLAN §3.3): held by a gripper, or on a turning deck."""
+        if part.held_by is not None:
+            return True
+        deck = self.carriers.get(part.carrier) if part.carrier else None
+        return deck is not None and bool(getattr(deck, "turning", False))
 
     def _push(self, pusher: Component) -> None:
         """Displace parts ahead of the plate by the plate's advance since the last step."""

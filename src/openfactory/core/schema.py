@@ -400,6 +400,29 @@ class RollerConveyor(ComponentBase):
     io: BeltConveyorIO
 
 
+class TurntableIO(IOModel):
+    run: DoTag = port("DO", "Deck conveyor run command", required=True)
+    turn: DoTag = port("DO", "Turn command (held: to turn_deg; released: back to 0)", required=True)
+    running: DiTag | None = port("DI", "Deck conveyor running feedback")
+    at_0: DiTag | None = port("DI", "At 0 degrees")
+    at_90: DiTag | None = port("DI", "At turn_deg (90 degrees)")
+
+
+class Turntable(ComponentBase):
+    """Origin: deck centre (the pivot), at deck-belt top height. At 0 degrees the deck flows along
+    local +x; it turns about +y by ``turn_deg`` (90: counter-clockwise seen from above)."""
+
+    type: Literal["turntable"]
+    length: PositiveFloat
+    width: PositiveFloat
+    speed_mps: PositiveFloat = Field(description="Deck belt surface speed while running.")
+    turn_deg: Literal[90, -90] = Field(
+        90, description="Turn angle: 90 counter-clockwise from above, -90 clockwise."
+    )
+    turn_time_s: PositiveFloat = Field(1.0, description="Time for the full turn, seconds.")
+    io: TurntableIO
+
+
 class PhotoEyeIO(IOModel):
     detect: DiTag = port("DI", "Part detected", required=True)
 
@@ -541,6 +564,7 @@ Component = Annotated[
     BeltConveyor
     | RollerConveyor
     | Stopper
+    | Turntable
     | PhotoEye
     | Pusher
     | BoxEmitter
@@ -558,6 +582,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         BeltConveyor,
         RollerConveyor,
         Stopper,
+        Turntable,
         PhotoEye,
         Pusher,
         BoxEmitter,
@@ -570,7 +595,9 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
 
 
 #: Component types that carry parts on their top surface (PLAN §5). Connections join these.
-CARRIER_TYPES = frozenset({"belt_conveyor", "roller_conveyor"})
+CARRIER_TYPES = frozenset({"belt_conveyor", "roller_conveyor", "turntable"})
+#: Conveyors that may feed, and be fed by, several others: the active connection is the aligned one.
+TURNING_TYPES = frozenset({"turntable"})
 
 
 class Connection(StrictModel):
@@ -619,7 +646,8 @@ class Scene(StrictModel):
     connections: list[Connection] = Field(
         default_factory=list,
         description="Which conveyor feeds which. Loops (recirculation) are allowed; "
-        "each conveyor feeds at most one downstream conveyor.",
+        "each conveyor feeds at most one downstream conveyor, except a turntable, which may "
+        "feed several and hands parts across only while its deck is aligned with one.",
     )
 
     @model_validator(mode="after")
@@ -642,6 +670,8 @@ class Scene(StrictModel):
                     )
             if conn.from_ == conn.to:
                 raise ValueError(f"conveyor {conn.from_!r} cannot feed itself")
+            if types[conn.from_] in TURNING_TYPES:
+                continue  # a turntable feeds whichever connected conveyor its deck lines up with
             if conn.from_ in downstream:
                 raise ValueError(
                     f"conveyor {conn.from_!r} feeds both {downstream[conn.from_]!r} and "

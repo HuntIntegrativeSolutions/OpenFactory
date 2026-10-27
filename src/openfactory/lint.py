@@ -95,7 +95,8 @@ def _footprint(comp) -> tuple[float, float, float, float]:
     cfg = comp.config
     r = math.radians(cfg.rotation_deg)
     corners = []
-    for lx in (0.0, cfg.length):
+    start = -cfg.length / 2 if comp.type == "turntable" else 0.0  # a deck's origin is its centre
+    for lx in (start, start + cfg.length):
         for lz in (-cfg.width / 2, cfg.width / 2):
             corners.append(
                 (cfg.position[0] + lx * math.cos(r) + lz * math.sin(r),

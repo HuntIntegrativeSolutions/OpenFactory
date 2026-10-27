@@ -87,3 +87,37 @@ def test_stopper_raise_coil_and_limit_inputs():
     seen = over_modbus(loaded, session)
     print(f"STP_01 (raised, lowered) over Modbus: first tick, raised 0.2 s, half down: {seen}")
     assert seen == [(False, True), (True, False), (False, False)]
+
+
+def test_roller_conveyor_run_coil_and_running_input():
+    loaded = load(SCENES / "demo-roller.yaml")
+
+    async def session(plc: Plc) -> list[bool]:
+        steps(loaded, 1)
+        seen = [await plc.di("RC_01_RUN_DI")]
+        await plc.coil("RC_01_RUN_DO", True)
+        steps(loaded, 1)
+        return [*seen, await plc.di("RC_01_RUN_DI")]
+
+    seen = over_modbus(loaded, session)
+    print(f"RC_01_RUN_DI over Modbus, before and after RC_01_RUN_DO: {seen}")
+    assert seen == [False, True]
+    assert loaded.component("RC_01").surface_speed > 0
+
+
+def test_turntable_turn_coil_and_position_inputs():
+    loaded = load(SCENES / "demo-turntable.yaml")
+
+    async def session(plc: Plc) -> list[tuple[bool, bool]]:
+        steps(loaded, 1)
+        read = [(await plc.di("TT_01_AT0_DI"), await plc.di("TT_01_AT90_DI"))]
+        await plc.coil("TT_01_TURN_DO", True)
+        steps(loaded, 25)  # half of turn_time_s
+        read.append((await plc.di("TT_01_AT0_DI"), await plc.di("TT_01_AT90_DI")))
+        steps(loaded, 25)
+        read.append((await plc.di("TT_01_AT0_DI"), await plc.di("TT_01_AT90_DI")))
+        return read
+
+    seen = over_modbus(loaded, session)
+    print(f"TT_01 (at_0, at_90) over Modbus: start, mid-turn, turned: {seen}")
+    assert seen == [(True, False), (False, False), (False, True)]

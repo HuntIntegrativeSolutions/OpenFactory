@@ -3,13 +3,14 @@
 Usage::
 
     uv run python tools/screenshot.py SCENE [--seconds N] [--out PNG] [--force TAG=VALUE ...]
-                                            [--size 1280x720] [--build]
+                                            [--script F.py] [--size 1280x720] [--build]
 
 What it does:
 
 1. Optionally runs ``npm run build`` in ``web/`` (``--build``); otherwise it needs ``web/dist``.
 2. Starts ``openfactory run SCENE`` on two free loopback ports (Modbus and viewer), passing any
-   ``--force TAG=VALUE`` through, so a scene can be shown running without a PLC.
+   ``--force TAG=VALUE`` and ``--script F.py`` (a stand-in PLC, PLAN 2.10) through, so a scene can
+   be shown running without a PLC.
 3. Opens the viewer in Playwright's headless Chromium with SwiftShader WebGL and waits until the
    viewer reports ``window.__openfactory.ready``, a simulation time of at least ``--seconds``, and
    (with ``--min-sensor-events N``) at least N photo-eye events sent from its Rapier physics to the
@@ -168,6 +169,7 @@ def running_viewer(
     *,
     forces: list[str],
     size: tuple[int, int] = (1280, 720),
+    script: Path | None = None,
 ) -> Iterator[tuple[Any, int, list[str]]]:
     """Start ``openfactory run SCENE`` on free loopback ports and open its viewer in headless
     Chromium (SwiftShader WebGL). Yields ``(page, web_port, console)``; stops both on exit.
@@ -183,6 +185,8 @@ def running_viewer(
     ]  # fmt: skip
     for force in forces:
         cmd += ["--force", force]
+    if script is not None:
+        cmd += ["--script", str(script)]
     proc = subprocess.Popen(
         cmd, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
@@ -242,8 +246,13 @@ def screenshot(
     size: tuple[int, int],
     min_sensor_events: int = 0,
     timeout: float = 60.0,
+    script: Path | None = None,
 ) -> dict[str, object]:
-    with running_viewer(scene, forces=forces, size=size) as (page, web_port, console):
+    with running_viewer(scene, forces=forces, size=size, script=script) as (
+        page,
+        web_port,
+        console,
+    ):
         status = wait_for_viewer(
             page, console, seconds=seconds, min_sensor_events=min_sensor_events, timeout=timeout
         )
@@ -260,6 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seconds", type=float, default=3.0, help="simulated seconds to wait")
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--force", action="append", default=[], metavar="TAG=VALUE")
+    parser.add_argument("--script", type=Path, default=None, help="stand-in PLC (run --script)")
     parser.add_argument("--size", default="1280x720", help="viewport WIDTHxHEIGHT")
     parser.add_argument("--build", action="store_true", help="run npm run build first")
     parser.add_argument(
@@ -281,6 +291,7 @@ def main(argv: list[str] | None = None) -> int:
         forces=args.force,
         size=(width, height),
         min_sensor_events=args.min_sensor_events,
+        script=args.script.resolve() if args.script else None,
     )
     ok, summary = check_image(out)
     status = result["status"]

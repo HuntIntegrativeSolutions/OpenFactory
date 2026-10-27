@@ -100,6 +100,7 @@ def test_state_websocket_streams_at_least_15_frames_per_second(served):
     part = last["parts"][0]
     assert set(part) == {
         "id", "name", "size", "position", "velocity", "carrier", "spawn_tick", "spawn_position",
+        "follow",
     }  # fmt: skip
     assert 0 < part["spawn_tick"] <= last["tick"] and len(part["spawn_position"]) == 3
 

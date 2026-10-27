@@ -36,7 +36,7 @@ from openfactory.core.component import REGISTRY, Component, ComponentRegistry
 from openfactory.core.geometry import to_world
 from openfactory.core.iotable import IOTable, Tag
 from openfactory.core.kinematics import KinematicModel
-from openfactory.core.schema import CARRIER_TYPES, Scene, load_scene
+from openfactory.core.schema import CARRIER_TYPES, TURNING_TYPES, Scene, load_scene
 from openfactory.core.sizing import resolve_defaults
 from openfactory.core.transforms import TransformStage
 from openfactory.core.world import World
@@ -103,7 +103,10 @@ def build_iotable(scene: Scene) -> IOTable:
 
 def lint(scene: Scene) -> list[str]:
     """Warnings for a valid scene that is probably not what its author meant."""
-    carriers = [c for c in scene.components if c.type in CARRIER_TYPES]
+    # a turntable's connections depend on its angle, so it is left out of the touching check
+    carriers = [
+        c for c in scene.components if c.type in CARRIER_TYPES and c.type not in TURNING_TYPES
+    ]
     joined = {(c.from_, c.to) for c in scene.connections}
     out = []
     for up in carriers:

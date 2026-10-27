@@ -21,6 +21,12 @@
 //   (filterContactPair) ignores the blade's contacts with those parts until they leave its
 //   footprint.
 //
+// - Turntable decks (PLAN 2.5): a belt body whose heading is the scene rotation plus the core's
+//   turn angle, re-posed about the deck centre before every step.
+// - Parts the core places (PLAN §3.3: held by a gripper, or on a turning deck) become
+//   `kinematicPositionBased` and are driven to the core's position (follow); release() makes them
+//   dynamic again with the core's velocity.
+//
 // Frames: geometry.py's convention (x along flow, y up, rotation_deg about +y) is three.js's.
 import type * as RapierNs from "@dimforge/rapier3d-compat";
 import { BELT_TYPES, type ComponentGeometry, type Vec3 } from "./api";
@@ -70,6 +76,8 @@ interface Belt {
   home: Vec3;
   flow: Vec3;
   speed: number;
+  /** Turntable deck: the centre it turns about, its scene rotation, and the core's turn angle. */
+  deck?: { centre: Vec3; rotation: number; angle: number };
 }
 
 interface Plate {
@@ -118,6 +126,7 @@ export class PlantPhysics {
       else if (g.type === "pusher") this.addPlate(g);
       else if (g.type === "photo_eye") this.addBeam(g);
       else if (g.type === "stopper") this.addBlade(g);
+      else if (g.type === "turntable") this.addDeck(g);
     }
     const blades = this.bladeColliders;
     this.hooks = {
@@ -128,6 +137,46 @@ export class PlantPhysics {
       },
       filterIntersectionPair: () => true,
     };
+  }
+
+  private addDeck(g: ComponentGeometry): void {
+    const { R } = this;
+    const length = num(g, "length", 1);
+    const width = num(g, "width", 0.5);
+    const home: Vec3 = [g.position[0], g.position[1] - BELT_HALF_THICKNESS, g.position[2]];
+    const body = this.world.createRigidBody(
+      R.RigidBodyDesc.kinematicVelocityBased().setTranslation(...home).setRotation(quatY(g.rotation_deg)),
+    );
+    this.world.createCollider(
+      R.ColliderDesc.cuboid(length / 2, BELT_HALF_THICKNESS, width / 2).setFriction(this.friction).setRestitution(0),
+      body,
+    );
+    this.belts.set(g.id, {
+      body, home, flow: rotateY([1, 0, 0], g.rotation_deg), speed: 0,
+      deck: { centre: g.position, rotation: g.rotation_deg, angle: 0 },
+    });
+  }
+
+  /** Turntable deck angle in degrees (the core's `angle_deg` state), for the next step. */
+  setTurntable(id: string, angle: number): void {
+    const deck = this.belts.get(id)?.deck;
+    if (deck) deck.angle = angle;
+  }
+
+  /** Drive a part to the core's position for the next step (PLAN §3.3); it stops being simulated. */
+  follow(id: string, position: Vec3): void {
+    const body = this.parts.get(id);
+    if (!body) return;
+    if (!body.isKinematic()) body.setBodyType(this.R.RigidBodyType.KinematicPositionBased, true);
+    body.setNextKinematicTranslation(vec(position));
+  }
+
+  /** Hand a followed part back to the simulation, moving at `velocity` (m/s). */
+  release(id: string, velocity: Vec3 = [0, 0, 0]): void {
+    const body = this.parts.get(id);
+    if (!body || !body.isKinematic()) return;
+    body.setBodyType(this.R.RigidBodyType.Dynamic, true);
+    body.setLinvel(vec(velocity), true);
   }
 
   private addBlade(g: ComponentGeometry): void {
@@ -301,6 +350,11 @@ export class PlantPhysics {
    */
   step(): SensorEdge[] {
     for (const belt of this.belts.values()) {
+      if (belt.deck) {
+        const heading = belt.deck.rotation + belt.deck.angle;
+        belt.flow = rotateY([1, 0, 0], heading);
+        belt.body.setRotation(quatY(heading), true);
+      }
       belt.body.setTranslation(vec(belt.home), true); // never let the belt drift
       belt.body.setLinvel(vec([belt.flow[0] * belt.speed, 0, belt.flow[2] * belt.speed]), true);
     }
