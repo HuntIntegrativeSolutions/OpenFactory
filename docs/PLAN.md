@@ -778,8 +778,34 @@ runs the sorting program against it; a box visibly gets pushed.
       *Rulings (2026-10-27):* stuck faults stay at the device, before transforms (where a real
       fault lives; NC wiring is the transform). The pilot light gained `stuck_off` (a burned
       bulb); the part remover stays fault-free. `/api/fault` needs a token off loopback (§6.4).
-- [ ] 2.7 Scenes: `conveyor-start-stop` (hello world), `sorting-by-height`, `sorting-by-color`,
+- [x] 2.7 Scenes: `conveyor-start-stop` (hello world), `sorting-by-height`, `sorting-by-color`,
       `buffer-and-release`, `palletizer-lite`, `two-lane-merge`
+      *Done (2026-10-28):* one commit per scene, each with both lockfiles, an OpenPLC program
+      (`examples/openplc/`), a stand-in script (`examples/pyplc/`), a guide (`docs/guides/`,
+      indexed in `docs/guides/README.md`; the sorter's is the OpenPLC quickstart), and a clean
+      `openfactory lint`. Each ran 60 s under OpenPLC (`openfactory/openplc:b5d4135`, configured
+      by `tools/openplc_configure.py`) and 60 s headless under its script, with identical
+      remover counts:
+      | Scene | Remover counts, 60 s (OpenPLC = script) |
+      |---|---|
+      | `conveyor-start-stop` | REM_01 {box: 17} |
+      | `buffer-and-release` | REM_01 {box: 21} (batches of exactly 3) |
+      | `two-lane-merge` | REM_OUT {a: 6, b: 6} |
+      | `palletizer-lite` | REM_LYR {box: 8} (two layers of 4) |
+      | `sorting-by-color` | REM_MAIN {blue_box: 5}, REM_RED {red_box: 8} |
+      | `sorting-by-height` | REM_01 {short: 9}, REM_02 {tall: 9} (1.14, 2.10) |
+      `tests/integration/test_shipped_scenes.py` is the CI gate until 2.11's `checks:`: every
+      scene in `scenes/` must ship those files and a guide index row, its ST program and script
+      must use the same tags, and 60 s under the script must give the counts above. Built for
+      these: part `color` and the `color_sensor` component (sorting-by-color had nothing to sense
+      color with). Scene choices: the hello world starts with its selector in RUN so a headless
+      run moves boxes, and binds its stop button NC (`invert: true`); two-lane-merge uses
+      spring-raised stoppers (`invert: true`) ahead of the turntable because the viewer has no
+      wall at a turned deck's side; buffer-and-release counts on a 3x faster outfeed because a
+      queue has no gaps; palletizer-lite is one layer of one row (no stacking in the headless
+      model) and counts placements, since watching the row eye alone let a fifth box ride out
+      with the layer. OpenPLC rejects `STEP` as a variable name (IEC 61131-3 reserved word).
+      `buffer-and-release` is still to be rebuilt on a composite with 2.16.
 - [ ] 2.8 Scene → GRAFCET: feed the example PLC sequence to `/grafcet-chart-creator` for each scene and
       ship the HTML in `docs/sequences/`
 - [ ] 2.9 Performance: 200 parts at 60 fps in the viewer on integrated graphics; profile and fix.

@@ -1,0 +1,81 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 2.7: red and blue boxes share one belt; a color sensor taught red looks down at each box,
+# and a diverter arm swings across the belt to slide red boxes onto a parallel side lane while
+# blue boxes ride straight on. Guide: docs/guides/sorting-by-color.md. PLC programs:
+# examples/openplc/sorting-by-color.st (OpenPLC) and examples/pyplc/sorting-by-color.py.
+openfactory: "0.1"
+scene:
+  name: sorting-by-color
+  description: Red boxes diverted to a side lane by a diverter arm, blue boxes passed straight on.
+  author: HIS Controls
+  seed: 5
+  units: meters
+plc:
+  protocol: modbus_tcp
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Sorting Line Belt Conveyor
+    position: [0, 0, 0]
+    length: 5.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_01_RUN_DO
+      running: CONV_01_RUN_DI
+  - id: CS_01
+    type: color_sensor
+    description: Sorting Line Red Box Color Sensor
+    position: [1.0, 0.6, 0]          # 0.4 m above a 0.2 m box, looking down
+    teach: red
+    io:
+      match: CS_01_RED_DI
+      detect: CS_01_PART_DI
+  - id: DIV_01
+    type: diverter_arm
+    description: Red Box Divert Arm
+    position: [2.6, 0, -0.25]        # pivot on the main belt's -z edge
+    length: 0.78                     # at 45 degrees its tip reaches z 0.30, past the far edge
+    swing_deg: 45
+    extend_time_s: 0.5
+    io:
+      extend: DIV_01_EXT_DO
+      extended: DIV_01_EXT_DI
+      retracted: DIV_01_RET_DI
+  - id: CONV_RED
+    type: belt_conveyor
+    description: Red Box Lane Belt Conveyor
+    position: [2.6, 0, 0.5]          # alongside the main belt, z 0.25 to 0.75
+    length: 2.4
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_RED_RUN_DO
+      running: CONV_RED_RUN_DI
+  - id: PE_RED
+    type: photo_eye
+    description: Red Box Lane Arrival Photo Eye
+    position: [3.4, 0.1, 0.5]        # beam across the side lane only (z 0.25 to 0.75)
+    beam_length: 0.5
+    io:
+      detect: PE_RED_DI
+  - id: EMT_01
+    type: box_emitter
+    description: Sorting Line Box Source
+    position: [0.3, 0.105, 0]
+    interval_s: 4.0
+    parts:
+      - {name: red_box, size: [0.3, 0.2, 0.3], weight: 0.5, color: red}
+      - {name: blue_box, size: [0.3, 0.2, 0.3], weight: 0.5, color: blue}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_MAIN
+    type: part_remover
+    description: Sorting Line Discharge Part Remover
+    position: [5.15, 0, 0]
+    size: [0.3, 1.0, 0.5]
+  - id: REM_RED
+    type: part_remover
+    description: Red Box Lane Discharge Part Remover
+    position: [5.15, 0, 0.5]
+    size: [0.3, 1.0, 0.5]
