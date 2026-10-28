@@ -12,6 +12,11 @@ plc:
   role: server                  # server | client
   # bind/port come from openfactory.toml ([modbus], default 127.0.0.1:5020); plc.bind and
   # plc.port are optional per-scene overrides.
+checks:                            # PLAN 2.11: `openfactory test` grades a program against these
+  duration_s: 60
+  parts_reached: {REM_01: short, REM_02: tall}
+  none_lost: true
+  max_cycle_s: 10                  # measured 7.7 s under the stand-in script
 components:
   - id: CONV_01
     type: belt_conveyor

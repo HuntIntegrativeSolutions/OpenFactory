@@ -121,6 +121,7 @@ def scene_copy(tmp_path, extra_components=(), edit=None):
     """A copy of the example scene in tmp_path (tests never write next to the shipped scene)."""
     data = yaml.safe_load(EXAMPLE.read_text(encoding="utf-8"))
     data["components"] = [c for c in data["components"] if c["id"] in BASE_IDS]
+    data.pop("checks", None)  # the sorter's checks name removers this reduced copy leaves out
     data["components"] += list(extra_components)
     if edit:
         edit(data)

@@ -29,6 +29,7 @@ CHECKS = {
 
 def sorter(checks: dict | None) -> dict:
     doc = yaml.safe_load(SORTER.read_text(encoding="utf-8"))
+    doc.pop("checks", None)  # the shipped sorter's own; each test gives its own or none
     if checks is not None:
         doc["checks"] = checks
     return doc

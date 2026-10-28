@@ -1,5 +1,6 @@
 """PLAN 2.7: every shipped scene comes with both lockfiles, an OpenPLC program, a stand-in script,
-and a guide, and runs 60 s under its script with the result its guide states. The same 60 s
+and a guide, and runs 60 s under its script with the result its guide states and its own
+`checks:` passing (PLAN 2.11). The same 60 s
 under OpenPLC is recorded in each scene's commit (it needs the OpenPLC container, not CI).
 """
 
@@ -11,7 +12,9 @@ from pathlib import Path
 
 import pytest
 
+from openfactory.checks import evaluate
 from openfactory.core.loader import load
+from openfactory.core.schema import load_scene
 from openfactory.pyplc import ScriptPlc
 
 REPO = Path(__file__).resolve().parents[2]
@@ -83,6 +86,10 @@ def test_openplc_program_and_script_use_the_same_tags(name):
 @pytest.mark.parametrize("name", sorted(EXPECTED))
 def test_sixty_seconds_under_the_script(name):
     loaded = run_script(name)
+    checks = load_scene(REPO / "scenes" / f"{name}.yaml").checks
+    assert checks is not None and checks.duration_s == 60, f"{name}: no 60 s checks: block"
+    failed = [f"{r.name}: {r.detail}" for r in evaluate(checks, loaded) if not r.passed]
+    assert not failed, failed  # PLAN 2.11: the scene's own checks pass under its script
     got = removers(loaded)
     lost = dict(loaded.world.lost)
     print(f"{name}: spawned {loaded.world.spawned}, by remover {got}, lost {lost}")

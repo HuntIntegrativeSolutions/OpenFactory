@@ -34,5 +34,17 @@ uv run openfactory run scenes/<scene>.yaml --bind 0.0.0.0 --analog-encoding int1
 uv run openfactory export scenes/<scene>.yaml -o <scene>.csv
 ```
 
+Each scene also declares `checks:` (PLAN 2.11): every part reaches its remover, none is lost, and
+none takes longer than the scene's `max_cycle_s` from spawn to remover. `openfactory test` grades a
+program against them and exits 1 on a failure:
+
+```bash
+uv run openfactory test scenes/<scene>.yaml --script examples/pyplc/<scene>.py   # 60 s, fast
+uv run openfactory test scenes/<scene>.yaml --plc --bind 0.0.0.0 --analog-encoding int16_scaled
+```
+
+With `--plc` the run takes 60 s of real time while your PLC (OpenPLC, as configured above)
+controls the plant.
+
 `tests/integration/test_shipped_scenes.py` runs every scene for 60 s under its stand-in script and
 checks the remover counts each guide states.

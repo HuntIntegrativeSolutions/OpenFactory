@@ -807,34 +807,6 @@ class Scene(StrictModel):
     checks: Checks | None = Field(None, description="Exercise checks for `openfactory test`.")
 
     @model_validator(mode="after")
-    def _checks_name_real_removers_and_parts(self) -> Scene:
-        if self.checks is None:
-            return self
-        types = {c.id: c.type for c in self.components}
-        names = {p.name for c in self.components if isinstance(c, BoxEmitter) for p in c.parts}
-        claimed: dict[str, str] = {}
-        for remover, wanted in self.checks.reached().items():
-            for name in wanted:
-                if name in claimed:
-                    raise ValueError(
-                        f"checks.parts_reached: {name!r} is listed for both {claimed[name]!r} and "
-                        f"{remover!r}; each part name may reach only one remover"
-                    )
-                claimed[name] = remover
-            if types.get(remover) != "part_remover":
-                found = f"a {types[remover]}" if remover in types else "not in the scene"
-                raise ValueError(
-                    f"checks.parts_reached: {remover!r} is {found}, not a part_remover"
-                )
-            for name in wanted:
-                if name not in names:
-                    raise ValueError(
-                        f"checks.parts_reached.{remover}: no box_emitter makes a part named "
-                        f"{name!r} (it makes {', '.join(sorted(names)) or 'none'})"
-                    )
-        return self
-
-    @model_validator(mode="after")
     def _unique_ids_and_tags(self) -> Scene:
         seen_ids: set[str] = set()
         for comp in self.components:
@@ -923,6 +895,34 @@ class Scene(StrictModel):
                         )
                     )
         return out
+
+    @model_validator(mode="after")
+    def _checks_name_real_removers_and_parts(self) -> Scene:
+        if self.checks is None:
+            return self
+        types = {c.id: c.type for c in self.components}
+        names = {p.name for c in self.components if isinstance(c, BoxEmitter) for p in c.parts}
+        claimed: dict[str, str] = {}
+        for remover, wanted in self.checks.reached().items():
+            for name in wanted:
+                if name in claimed:
+                    raise ValueError(
+                        f"checks.parts_reached: {name!r} is listed for both {claimed[name]!r} and "
+                        f"{remover!r}; each part name may reach only one remover"
+                    )
+                claimed[name] = remover
+            if types.get(remover) != "part_remover":
+                found = f"a {types[remover]}" if remover in types else "not in the scene"
+                raise ValueError(
+                    f"checks.parts_reached: {remover!r} is {found}, not a part_remover"
+                )
+            for name in wanted:
+                if name not in names:
+                    raise ValueError(
+                        f"checks.parts_reached.{remover}: no box_emitter makes a part named "
+                        f"{name!r} (it makes {', '.join(sorted(names)) or 'none'})"
+                    )
+        return self
 
 
 # --- YAML loading ------------------------------------------------------------------------------

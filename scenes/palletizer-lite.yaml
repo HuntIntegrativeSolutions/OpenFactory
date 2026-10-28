@@ -14,6 +14,11 @@ scene:
   units: meters
 plc:
   protocol: modbus_tcp
+checks:                            # PLAN 2.11: `openfactory test` grades a program against these
+  duration_s: 60
+  parts_reached: {REM_LYR: box}
+  none_lost: true
+  max_cycle_s: 35                  # measured 27.0 s (a box waiting on the backed-up infeed)
 components:
   - id: CONV_IN
     type: belt_conveyor

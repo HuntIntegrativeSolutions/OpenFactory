@@ -53,6 +53,14 @@ echo "web/public/scene.schema.json is current"
 uv run openfactory validate scenes
 uv run openfactory lint scenes
 
+step "exercise checks: every shipped scene under its stand-in script (PLAN 2.11)"
+for scene in scenes/*.yaml; do
+  case "$scene" in *.modbus.yaml) continue ;; esac
+  name="$(basename "$scene" .yaml)"
+  echo "--- $name"
+  uv run openfactory test "$scene" --script "examples/pyplc/$name.py" -q
+done
+
 step "web: npm ci, npm run build, npm test"
 node --version
 (
