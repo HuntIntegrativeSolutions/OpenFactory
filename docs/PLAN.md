@@ -440,6 +440,14 @@ composite can produce the behavior.
   their own `openfactory.toml` / `openfactory.local.toml`. A scene's `plc.bind` override is restricted
   to loopback (`127.0.0.0/8`, `::1`) and fails at load otherwise, so opening a shared scene file never
   exposes a server.
+- **Fault injection is guarded off loopback (ruled 2026-10-27).** `/api/fault` (PLAN 2.6) changes
+  what a PLC sees, so with the viewer bound to loopback it is open, and bound beyond loopback every
+  request (GET, POST, DELETE) needs the token given by `--fault-token` or `[server] fault_token`
+  (in the git-ignored `openfactory.local.toml`), in the `X-OpenFactory-Fault-Token` header:
+  401 without it or with a wrong one, compared in constant time, never logged. With no token
+  configured the fault API is off there (403) and `run` logs a one-line notice. The viewer's
+  fault menu asks for the token once per browser tab. Built in `server/app.py`
+  (`tests/unit/test_fault_access.py`).
 
 ---
 
@@ -717,7 +725,8 @@ runs the sorting program against it; a box visibly gets pushed.
       else, and every AI raw value was the distance scaled over 0 to 0.8 m. Also built for these:
       `core/sizing.py` (load-time defaults), `Component.frame()` and aligned turntable
       connections, the `follow` flag in state frames, `port(range_from=)` per-instance ranges,
-      `ranges:` in int16_scaled lockfiles, `port(alias=)` for the `raise` keyword, and
+      `ranges:` in int16_scaled lockfiles (ADR-0004 decision 9, amended 2026-10-27), `port(alias=)`
+      for the `raise` keyword, and
       `tools/screenshot.py --script`.
       *Diverter parity, gating again (2026-10-27 ruling):* parts in contact with a diverter arm
       (within 0.1 mm of its face, `Kinematics.guided`) are core-driven like held and turning
@@ -731,6 +740,13 @@ runs the sorting program against it; a box visibly gets pushed.
       arrow in the viewer), and the accumulation (zero-pressure) conveyor, the first
       `scenes/_library/` composite built on 2.16 and 2.0, not a primitive. The W207 gap case (below,
       under 2.20) is settled here with the accumulation work.
+      *Added 2026-10-27 (2.6 rulings):*
+      - Part rotation on turntables: parts on a turning deck turn with it in orientation, not
+        only position (the core keeps every part square to the world axes today, which is right
+        for square boxes and wrong for long ones). Needed before long parts or custom meshes
+        (2.15). Parts gain a yaw in the core, the state frame, and the parity traces.
+      - Pick-and-place pad collision: the lowered pad stops on a part's top (and `lowered`
+        reports the true pad position) instead of passing into it.
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late
@@ -756,8 +772,11 @@ runs the sorting program against it; a box visibly gets pushed.
       `docs/components.md`, checked against the code. Results: sorter 60 s under its script,
       healthy REM_01 {short: 9}, REM_02 {tall: 9}; CYL_01 jammed: CYL_01_EXT_DI on for 0 ticks,
       REM_01 {short: 9, tall: 9}, REM_02 {}; PE_01 stuck_off: extend commanded for 0 ticks, same
-      result. Not done: a CLI flag to inject faults in a headless run (`openfactory run`), and
-      hiding the fault marker from trainees (overlaps 2.11's exam mode).
+      result. Not done here, moved to 2.11 (2026-10-27): a `--fault` flag for headless runs, and
+      hiding the fault marker from trainees in exam mode.
+      *Rulings (2026-10-27):* stuck faults stay at the device, before transforms (where a real
+      fault lives; NC wiring is the transform). The pilot light gained `stuck_off` (a burned
+      bulb); the part remover stays fault-free. `/api/fault` needs a token off loopback (§6.4).
 - [ ] 2.7 Scenes: `conveyor-start-stop` (hello world), `sorting-by-height`, `sorting-by-color`,
       `buffer-and-release`, `palletizer-lite`, `two-lane-merge`
 - [ ] 2.8 Scene → GRAFCET: feed the example PLC sequence to `/grafcet-chart-creator` for each scene and
@@ -776,6 +795,11 @@ runs the sorting program against it; a box visibly gets pushed.
       cache (56.4 ms before it), and it is still quadratic in the parts on a belt. Target under
       4 ms per tick at 200 parts (a spatial index per belt along the flow axis, or sorting once per
       tick and checking only the neighbour ahead).
+      **Measure against a same-session baseline (added 2026-10-27):** absolute tick times on the
+      development machine vary about 30 % from day to day (11.65 ms on 2026-10-26 for the same
+      code that measured 15.4 ms and 15.8 ms on a slower day). Every before/after claim runs the
+      baseline commit and the candidate in the same session on the same machine and reports both;
+      a single absolute number is not evidence of a regression or an improvement.
 - [x] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
       `def step(io, t)` that reads DI/AI and writes DO/AO through the same writer-side rules a protocol
       server obeys. Ship `examples/pyplc/sorting-by-height.py`.
@@ -819,6 +843,12 @@ runs the sorting program against it; a box visibly gets pushed.
       **Exam mode** (`--exam`): the viewer still shows the plant, but every DI the scene marks
       `exam: switch` is driven by an operator toggle in the viewer instead of the simulation, so an
       instructor can test a program against hand-driven inputs while trainees watch the 3D.
+      **Faults in exercises (added 2026-10-27, from 2.6):** `openfactory run|test --fault ID=KIND
+      [--fault-at T]` injects a fault headless (default parameters, or `ID=KIND:key=value,...`),
+      so a check can grade how a program handles a jammed pusher or a stuck eye. Exam mode hides
+      the fault marker (the label's alarm yellow and a misaligned eye's moved beam) from the
+      viewer, so trainees find the fault from the PLC's point of view; the instructor's view keeps
+      it.
 - [ ] 2.12 Record and replay: `--record file.ofrec` logs every I/O table change with its tick;
       `openfactory replay file.ofrec` drives the viewer from the log with no simulation.
       *Why:* reproducible bug reports from users, deterministic screenshots and videos for docs, and the
@@ -1005,6 +1035,11 @@ runs the sorting program against it; a box visibly gets pushed.
 6. **When stuck for more than two attempts**, write the blocker under the task and move on. Do not loop.
 7. **New decisions get an ADR.** Short is fine: context, decision, consequences.
 8. **Never touch** `E:\04_Software`, `E:\Hyper-V VMs`, or `E:\VirtualBox-VMs`.
+9. **A parity trace that does not gate carries a PLAN note** (added 2026-10-27). A trace with
+   `gate=False` in `tools/parity_trace.py` is reported but not held to its tolerance; it needs a
+   note under the task that added it giving the measured worst delta, the model difference that
+   causes it, and the ruling that accepted it. Never widen a tolerance to make a trace pass;
+   report the numbers instead. As of 2026-10-27 every committed trace gates.
 
 ---
 
