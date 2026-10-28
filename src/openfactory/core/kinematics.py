@@ -49,6 +49,8 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   and pokes through it is moved back out along the arm's normal. A part carried into an extended
   arm therefore slides along it, and a swinging arm sweeps what it reaches; a part whose centre
   ends up past the belt edge falls (onto the side conveyor). A retracting arm does not pull parts.
+  Parts the arm touches after the step (within :data:`ARM_CONTACT_M`) are :attr:`guided`, and
+  :meth:`follows_core` is true for them, so the viewer places them at the core's position.
 - **Held (PLAN 2.5):** a part a ``pick_and_place`` gripper holds (:attr:`Part.held_by`) is not
   carried, fenced, or falling here; the gripper moves it. Released, it falls as below.
 - **Falling:** gravity (9.81 m/s², semi-implicit Euler). A falling part lands on the highest
@@ -105,6 +107,8 @@ ALIGN_DEG = 1.0
 #: A diverter arm acts on the belt its pivot stands on, or one this far beside (its edge), meters.
 BESIDE_BELT_M = 0.1
 ARM_CLEARANCE_M = 0.005  # diverter_arm.CLEARANCE_M: the arm's bottom above the belt
+#: A part this close to an arm's face (or through it) is in contact and guided by it, meters.
+ARM_CONTACT_M = 1e-4
 FALL_LIMIT_M = 2.0
 DEFAULT_FRICTION = 0.8
 _EPS = 1e-9
@@ -147,6 +151,8 @@ class KinematicModel:
         self.pushers: list[Component] = [c for c in components if c.type == "pusher"]
         #: Plate position (m out from retracted) each pusher had when parts were last pushed.
         self._plate_seen: dict[str, float] = {c.id: self._plate(c) for c in self.pushers}
+        #: Parts in contact with a diverter arm after the last step (the core places them, §3.3).
+        self.guided: set[str] = set()
         #: Diverter arms and the belt each one's pivot stands on.
         self.arms: list[tuple[Component, str]] = []
         for arm in (c for c in components if c.type == "diverter_arm"):
@@ -276,6 +282,7 @@ class KinematicModel:
             self._boxes[before].pop(part.id, None)  # type: ignore[index]
             if part.carrier is not None:
                 self._record(part)  # its new box, on whichever belt now carries it
+        self.guided = set()
         for arm, belt_id in self.arms:
             self._fence(arm, belt_id)
         for part in falling:
@@ -429,8 +436,11 @@ class KinematicModel:
                 continue  # beyond either end of the arm
             ahead = n[0] * rx + n[2] * rz
             reach_n = abs(n[0]) * hx + abs(n[2]) * hz
-            if ahead < 0 or ahead >= reach_n:
+            if ahead < 0 or ahead >= reach_n + ARM_CONTACT_M:
                 continue  # behind the arm, or clear of it
+            self.guided.add(part.id)
+            if ahead >= reach_n:
+                continue  # touching the arm's face, not through it
             push = reach_n - ahead
             part.position = (x + n[0] * push, y, z + n[2] * push)
             if not self._holds(belt, part.position):
@@ -454,11 +464,20 @@ class KinematicModel:
 
     def follows_core(self, part: Part) -> bool:
         """True while the viewer should place this part at the core's position instead of
-        simulating it (PLAN §3.3): held by a gripper, or on a turning deck."""
-        if part.held_by is not None:
+        simulating it (PLAN §3.3): held by a gripper, in contact with a diverter arm, or on a
+        turning deck."""
+        if part.held_by is not None or part.id in self.guided:
             return True
         deck = self.carriers.get(part.carrier) if part.carrier else None
         return deck is not None and bool(getattr(deck, "turning", False))
+
+    def velocity(self, part: Part) -> tuple[float, float, float]:
+        """World velocity, m/s: along its belt's current heading while carried, else its fall."""
+        carrier = self.carriers.get(part.carrier) if part.carrier else None
+        if carrier is None:
+            return (0.0, part.vy, 0.0)
+        fx, _, fz = rotate_y((1.0, 0.0, 0.0), self._frame(carrier)[1])
+        return (fx * part.v_flow, 0.0, fz * part.v_flow)
 
     def _push(self, pusher: Component) -> None:
         """Displace parts ahead of the plate by the plate's advance since the last step."""

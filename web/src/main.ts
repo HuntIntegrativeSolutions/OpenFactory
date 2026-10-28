@@ -222,6 +222,9 @@ function stepToFrame(frame: StateFrame): void {
   // Parts the core places this frame (held, or on a turning deck) move from their last core
   // position to this frame's across the steps instead of being simulated (PLAN §3.3).
   const following = frame.parts.filter((p) => p.follow && physics!.hasPart(p.id));
+  // A part the core stopped placing during these ticks is simulated again from its last placed
+  // position for all of them, not held still until the next frame.
+  for (const p of frame.parts) if (!p.follow) physics.release(p.id, p.velocity); // no-op unless it was followed
   // Parts the core spawned during this frame's ticks join on the tick it first moved them.
   const known = new Set(physics.partIds());
   const joining = new Map<number, PartState[]>();
@@ -273,7 +276,6 @@ function stepToFrame(frame: StateFrame): void {
   }
   for (const p of frame.parts) {
     if (p.follow && plan.steps === 0) physics.follow(p.id, p.position);
-    if (!p.follow) physics.release(p.id, p.velocity); // no-op unless it was followed
     corePositions.set(p.id, p.position);
   }
   for (const id of corePositions.keys()) if (!frame.parts.some((p) => p.id === id)) corePositions.delete(id);

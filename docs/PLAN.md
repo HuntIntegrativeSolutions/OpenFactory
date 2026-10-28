@@ -172,9 +172,9 @@ fresh with a narrow component model is less work than bending a robotics simulat
   stepping the tick the core first moved it in (`spawn_tick + 1`), not at the next frame.
 - Part authority in the viewer (ruled 2026-10-26, PLAN 2.5). **Rapier-driven:** parts resting on
   or falling onto belt and roller conveyors and a turntable deck that is not turning, parts pushed
-  by a pusher plate or a diverter arm, and parts standing against a stopper blade; these are what
-  the parity traces compare. **Core-driven:** parts held by a `pick_and_place` gripper and parts on
-  a turning turntable deck. A frame marks these `follow: true`; the viewer makes the part's body
+  by a pusher plate, and parts standing against a stopper blade; these are what the parity traces
+  compare. **Core-driven:** parts held by a `pick_and_place` gripper, parts in contact with a
+  `diverter_arm` (ruled 2026-10-27), and parts on a turning turntable deck. A frame marks these `follow: true`; the viewer makes the part's body
   kinematic and moves it to the core's position across the frame's steps, and when `follow` ends
   it becomes dynamic again with the core's `velocity`. A distance sensor's reading is core-only
   (no physics body).
@@ -719,6 +719,12 @@ runs the sorting program against it; a box visibly gets pushed.
       connections, the `follow` flag in state frames, `port(range_from=)` per-instance ranges,
       `ranges:` in int16_scaled lockfiles, `port(alias=)` for the `raise` keyword, and
       `tools/screenshot.py --script`.
+      *Diverter parity, gating again (2026-10-27 ruling):* parts in contact with a diverter arm
+      (within 0.1 mm of its face, `Kinematics.guided`) are core-driven like held and turning
+      parts. Traces now carry `follow` (the core's position after the tick) and `release` inputs,
+      which the replay applies as the live viewer does, and the viewer sets a followed body square
+      to the world axes. `parity-diverter` is a gate again: 12 comparisons, worst |Δ| 1 tick
+      (was 10, informational).
 - [ ] 2.5b Components split from 2.5: `counter_display` (4-digit readout of an AO on a panel),
       `lift` (moves a short conveyor between two heights; at_top/at_bottom DIs), reversible belts
       (belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction

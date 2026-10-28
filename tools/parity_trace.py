@@ -13,6 +13,10 @@ its emitters enabled, and records, per tick k (1-based):
   same inputs at the same time. The kinematic model moves parts in tick k at the belt speeds and
   plate positions the components reached at the end of tick k-1, and parts spawned or removed in
   tick k-1 first appear or disappear in tick k. Only ticks where something changes are listed.
+  Parts the core places (held, against a diverter arm, or on a turning deck; PLAN §3.3) are
+  ``follow``: the core's position *after* tick k, which the replay drives the part to during its
+  step k, as the live viewer does. ``release`` hands a part back to Rapier before step k, moving at
+  the velocity it had after the last tick it was placed.
 - ``edges``: raw (undebounced) photo-eye beam edges ``[tick, blocked]`` after tick k.
 - ``checkpoints``: for each part, the first tick its center passed each x checkpoint on a belt.
 - ``ramp_ticks`` and ``tolerance_ticks``: the parity tolerance for this trace (below).
@@ -101,11 +105,9 @@ TRACES: dict[str, TraceSpec] = {
         },
     ),
     # PLAN 2.5: the diverter arm slides box a onto CONV_SIDE (PE_SIDE sees it), swings back at
-    # tick 175, and box b passes straight on (PE_MAIN sees it). Informational, not a gate: in
-    # Rapier the arm's contact turns the box (about 23 degrees) and it slides along the arm a
-    # little slower than the headless fence's v·cos(swing), so the diverted box arrives up to 10
-    # ticks late; the box that passes agrees within 1 tick (PLAN 2.5 note). Parts the arm pushes
-    # are Rapier-driven (§3.3), so the viewer shows this difference.
+    # tick 175, and box b passes straight on (PE_MAIN sees it). While box a touches the arm the
+    # core places it (ruling 2026-10-27, §3.3), so Rapier simulates only its drop onto CONV_SIDE
+    # and its ride there.
     "parity-diverter": TraceSpec(
         scene=REPO / "tests" / "scenes" / "demo-diverter.yaml",
         seconds=9.0,
@@ -114,7 +116,6 @@ TRACES: dict[str, TraceSpec] = {
             1: {"CONV_01_RUN_DO": True, "CONV_SIDE_RUN_DO": True, "DIV_01_EXT_DO": True},
             175: {"DIV_01_EXT_DO": False},
         },
-        gate=False,
     ),
 }
 
@@ -181,6 +182,7 @@ def trace(
     last_blades: dict[str, float] = {}
     last_arms: dict[str, float] = {}
     known: dict[str, Any] = {}
+    followed: dict[str, list[float]] = {}  # part -> its velocity after the last tick it followed
     blocked = {e.id: False for e in eyes}
     ticks = round(seconds / dt)
     for k in range(1, ticks + 1):
@@ -219,10 +221,29 @@ def trace(
             ]
         if removed:
             entry["remove"] = removed
-        if len(entry) > 1:
-            inputs.append(entry)
         known = dict(loaded.world.parts)
         loaded.step(dt)
+        # Parts the core places (PLAN §3.3): the replay drives them to the core's position after
+        # tick k during its step k, and hands one back, before step k, with the velocity it had
+        # after the last tick it was placed.
+        follow = {
+            p.id: [_r(v) for v in p.position]
+            for p in loaded.world.parts.values()
+            if loaded.kinematics.follows_core(p)
+        }
+        released = {
+            pid: v for pid, v in followed.items() if pid not in follow and pid in loaded.world.parts
+        }
+        if follow:
+            entry["follow"] = follow
+        if released:
+            entry["release"] = released
+        followed = {
+            pid: [_r(v) for v in loaded.kinematics.velocity(loaded.world.parts[pid])]
+            for pid in follow
+        }
+        if len(entry) > 1:
+            inputs.append(entry)
         for eye in eyes:
             if eye.blocked != blocked[eye.id]:
                 blocked[eye.id] = eye.blocked

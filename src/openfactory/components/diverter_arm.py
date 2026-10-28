@@ -12,8 +12,9 @@ The kinematic model (``core/kinematics.py``) treats the arm as a frictionless fe
 the belt its pivot stands on: a part that would pass through the arm is moved back out along the
 arm's normal, so a part carried into an extended arm slides along it at the belt speed's component
 along the arm, and a swinging arm sweeps the parts it reaches. A part slid past the belt edge falls
-onto whatever is below (a side conveyor). The viewer's Rapier physics uses the arm as a frictionless
-kinematic body, so diverted parts stay Rapier-driven (PLAN §3.3).
+onto whatever is below (a side conveyor). While a part touches the arm the core places it and the
+viewer follows the core's position (PLAN §3.3, ruled 2026-10-27); Rapier takes it back as it
+drops onto the side conveyor, so the two models agree within the parity tolerance.
 
 Geometry: the origin is the pivot at belt-top height; at rest the arm lies along local +x, and
 ``swing_deg`` is positive toward local +z. The arm is ``length`` long and :data:`THICKNESS_M`

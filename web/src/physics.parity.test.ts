@@ -27,6 +27,10 @@ interface Trace {
     diverters?: Record<string, number>;
     spawn?: { id: string; size: Vec3; position: Vec3 }[];
     remove?: string[];
+    /** Parts the core places (PLAN §3.3): its position after this tick, applied during the step. */
+    follow?: Record<string, Vec3>;
+    /** Parts handed back to Rapier before this step, with their velocity. */
+    release?: Record<string, Vec3>;
   }[];
   edges: Record<string, [number, boolean][]>;
   checkpoints: Record<string, Record<string, number>>;
@@ -62,6 +66,8 @@ async function replay(trace: Trace) {
     for (const [id, a] of Object.entries(input?.diverters ?? {})) physics.setDiverter(id, a);
     for (const id of input?.remove ?? []) physics.removePart(id);
     for (const p of input?.spawn ?? []) physics.addPart(p.id, p.size, p.position);
+    for (const [id, v] of Object.entries(input?.release ?? {})) physics.release(id, v);
+    for (const [id, pos] of Object.entries(input?.follow ?? {})) physics.follow(id, pos);
     for (const edge of physics.step()) edges[edge.id]?.push([k, edge.blocked]);
     for (const id of physics.partIds()) {
       const x = physics.part(id)!.position[0];

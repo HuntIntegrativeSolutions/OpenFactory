@@ -15,7 +15,7 @@ viewer can start a newly seen part's physics body moving as the core's part alre
 that tick (a part does not move in its spawn tick). A frame covers several ticks, so the viewer
 uses them to add a new part before the step for ``spawn_tick + 1``, the tick the core first moves
 it in, instead of at the frame's tick. ``follow`` is true while the core, not the viewer's physics,
-places the part (held by a gripper, or on a turning deck; PLAN §3.3).
+places the part (held by a gripper, against a diverter arm, or on a turning deck; PLAN §3.3).
 
 The snapshot is built fresh each tick and never mutated afterwards, so the web server can serialize
 the latest one from its own thread at any rate (20 Hz for ``/ws/state``) without locking or racing
@@ -58,7 +58,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from openfactory.core.geometry import rotate_y
 from openfactory.core.loader import LoadedScene
 from openfactory.core.scheduler import DEFAULT_RATE_HZ, RunStats, Scheduler
 from openfactory.pyplc import ScriptPlc
@@ -138,7 +137,7 @@ class Runtime:
                     "name": p.name,
                     "size": list(p.size),
                     "position": list(p.position),
-                    "velocity": self._velocity(p),
+                    "velocity": list(loaded.kinematics.velocity(p)),
                     "carrier": p.carrier,
                     "spawn_tick": p.spawn_tick,
                     "spawn_position": list(p.spawn_position),
@@ -148,13 +147,6 @@ class Runtime:
             ],
             "io": loaded.io.values(),
         }
-
-    def _velocity(self, part: Any) -> list[float]:
-        if part.carrier is None:
-            return [0.0, part.vy, 0.0]
-        rotation = self.loaded.component(part.carrier).config.rotation_deg
-        fx, _, fz = rotate_y((1.0, 0.0, 0.0), rotation)
-        return [fx * part.v_flow, 0.0, fz * part.v_flow]
 
     def start(self, duration_s: float | None = None) -> None:
         """Run the scheduler on a daemon thread until :meth:`stop` (or ``duration_s``)."""

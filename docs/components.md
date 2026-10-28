@@ -44,9 +44,9 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
     enough for 100 ms PLC polling to see; a DI drops to false, an AI reads the top of its range.
     Seeded per component, so a run replays and other random draws are not shifted.
   - `drift` (`rate` units per second, default 0.01): an analog reading grows with simulated time.
-- **Viewer authority (PLAN §3.3).** Parts on conveyors, pushed by a plate or arm, or held by a
-  stopper are simulated by the viewer's Rapier physics. Parts held by a gripper or on a turning
-  turntable deck follow the core's position. Sensors are read by the core only.
+- **Viewer authority (PLAN §3.3).** Parts on conveyors, pushed by a plate, or held by a stopper
+  are simulated by the viewer's Rapier physics. Parts held by a gripper, touching a diverter arm,
+  or on a turning turntable deck follow the core's position. Sensors are read by the core only.
 
 ## Conveyors
 
@@ -214,10 +214,10 @@ lies along local +x.
 The arm is a frictionless fence for parts on its belt and on belts level with it, such as the side
 belt under its tip, so a part already partly across the seam is still guided. A part carried
 into an extended arm slides along it at the belt speed × cos(`swing_deg`) and falls onto the side
-belt once its centre is past the belt edge; a swinging arm sweeps the parts it reaches. In Rapier
-the arm also turns the box about the vertical as it slides, which the headless model does not, so
-the diverted box reaches downstream sensors up to 10 ticks later in the viewer (informational
-trace `parity-diverter`).
+belt once its centre is past the belt edge; a swinging arm sweeps the parts it reaches. While a
+part touches the arm, the viewer places it at the core's position instead of simulating it, so it
+stays square to the world axes as in the headless model; the `parity-diverter` trace agrees within
+1 tick.
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes the arm at its current angle).
 

@@ -91,6 +91,22 @@ def test_an_extended_arm_slides_a_box_along_it_onto_the_side_belt():
     assert carrier == "CONV_SIDE" and z == pytest.approx(0.45, abs=0.01)
 
 
+def test_the_core_places_a_box_while_it_touches_the_arm():
+    """Ruling 2026-10-27 (PLAN §3.3): parts in contact with an arm follow the core in the viewer."""
+    loaded = load(SCENE)
+    for tag in ("CONV_01_RUN_DO", "CONV_SIDE_RUN_DO", "DIV_01_EXT_DO"):
+        loaded.io.set(tag, True, Writer.PLC)
+    guided = []
+    for k in range(1, 251):
+        loaded.step(DT)
+        a = next(p for p in loaded.world.parts.values() if p.name == "a")
+        if loaded.kinematics.follows_core(a):
+            guided.append(k)
+    print(f"box a guided on {len(guided)} ticks, {guided[0]} to {guided[-1]}")
+    assert 90 < guided[0] < 130 and guided[-1] < 200  # from first contact; free on CONV_SIDE
+    assert a.carrier == "CONV_SIDE" and not loaded.kinematics.follows_core(a)
+
+
 def test_divert_then_pass_reaches_each_remover():
     loaded, _ = run(450, retract_at=175)
     print("removed:", dict(loaded.world.removed), "parts left:", list(loaded.world.parts))

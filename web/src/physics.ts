@@ -223,6 +223,7 @@ export class PlantPhysics {
     if (!body) return;
     if (!body.isKinematic()) body.setBodyType(this.R.RigidBodyType.KinematicPositionBased, true);
     body.setNextKinematicTranslation(vec(position));
+    body.setNextKinematicRotation({ x: 0, y: 0, z: 0, w: 1 }); // the core keeps parts square to the world axes
   }
 
   /** Hand a followed part back to the simulation, moving at `velocity` (m/s). */
