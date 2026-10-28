@@ -1,6 +1,6 @@
 # ADR-0004: Modbus address lockfile per scene, with optional pinned addresses
 
-**Status:** Accepted, 2026-10-25. Amended 2026-10-25: one lockfile per analog encoding (decision 7). Amended 2026-10-26: digital tables shared across encodings (decision 8).
+**Status:** Accepted, 2026-10-25. Amended 2026-10-25: one lockfile per analog encoding (decision 7). Amended 2026-10-26: digital tables shared across encodings (decision 8). Amended 2026-10-27: scaling ranges in `int16_scaled` lockfiles, lint E101 (decision 9).
 **Deciders:** HIS Controls (T. Hunt), Claude Opus 5.5
 **Resolves:** the conflict noted under PLAN task 1.7, where §6.1 promised that adding a tag never
 renumbers existing ones and allowed pinning addresses, but allocation (sorted by kind, then tag name,
@@ -66,6 +66,23 @@ so there was also nowhere to pin an address.
    allocated sorted. After creation the two lockfiles grow independently (decisions 2 to 4).
    Adding the same tags to both through runs of the same scene appends them in the same order,
    so they stay equal, but nothing enforces it. Compare the two files in review.
+9. **An `int16_scaled` lockfile records each analog tag's scaling range (amendment, 2026-10-27;
+   built with PLAN 2.5 on 2026-10-26).** The lockfile gains a `ranges:` section after the four
+   tables: one line per AI/AO tag in the scene, `TAG: [lo, hi]`, the engineering values raw 0
+   and raw 32767 stand for. Most ports have a fixed range (a conveyor's speed, 0 to 100 %); a
+   `distance_sensor`'s `distance` and `switching` take theirs from the instance (0 to its
+   `beam_length`), so two sensors in one scene can differ. When the scene's range for a tag no
+   longer matches its `ranges:` line, the resolver raises `AddressError` naming both ranges and
+   the fix, as it does for an address conflict: `run` and `export` exit 1, `openfactory validate`
+   fails, and `openfactory lint` reports **E101** (the lockfile-conflict error, PLAN 2.20). To
+   accept a new range, update the PLC program's scaling, then delete that tag's `ranges:` line;
+   the next run writes the new one. Like addresses, ranges are never edited by hand. A tag with
+   no line yet (a new tag, or a lockfile written before this amendment) gets one on the next
+   write without an error, so the shipped sorter's lockfiles gained the section with no address
+   changes. `float32` lockfiles have no `ranges:`, because floats carry engineering values. Why:
+   a PLC program converts raw counts with the range it was written for, so a changed
+   `beam_length` would otherwise rescale silently and the PLC would read wrong distances with
+   nothing failing (ruling on PLAN 2.5, 2026-10-26).
 
 ## Consequences
 
@@ -86,4 +103,7 @@ so there was also nowhere to pin an address.
   depend on the encoding" is now visible as two files side by side, and a PLC program names the
   one it was written against. The pre-amendment single lockfile was migrated with `git mv` to
   `sorting-by-height.float32.modbus.yaml`, keeping every address.
+- **A range change is a reviewed event (amended).** Changing `beam_length` fails CI's
+  `openfactory lint scenes` (E101) until someone deletes the `ranges:` line, so the PLC scaling
+  change shows up in the same pull request as the scene change.
 - **Other protocols are unaffected.** Logix and OPC UA address by tag name.
