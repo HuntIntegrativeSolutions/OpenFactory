@@ -895,6 +895,18 @@ runs the sorting program against it; a box visibly gets pushed.
       the fault marker (the label's alarm yellow and a misaligned eye's moved beam) from the
       viewer, so trainees find the fault from the PLC's point of view; the instructor's view keeps
       it.
+      *Progress (2026-10-28), not done:* built `checks:` (§4; `duration_s`, `parts_reached`,
+      `none_lost`, `max_cycle_s`, references checked at load) and `openfactory test SCENE
+      --script F.py | --plc` (`src/openfactory/checks.py`), checks on all six shipped scenes
+      graded in CI (`tools/ci_local.sh`), the statistics block (`core/stats.py`, printed by `run`
+      and `test` before the summary line, `GET /api/stats`), and `--fault ID=KIND[:k=v,...]`
+      with `--fault-at T` on `run` and `test`. `test --plc` against OpenPLC on the sorter, 60 s
+      real time: healthy PASS 4 of 4 (CYL_01 9 cycles, mean 1.00 s, against 0.78 s under the
+      script: OpenPLC's polling delays the retract); with `--fault CYL_01=jammed --fault-at 10`
+      FAIL 3 of 4, "parts_reached REM_02: tall: 2 reached REM_02, but 7 to REM_01", exit 1. Each
+      scene's `max_cycle_s` is about 25 to 30 % above its scripted 60 s maximum (the comment in
+      each scene gives it). Not started: exam mode (`--exam`, `exam: switch` DIs driven from the
+      viewer, the fault marker hidden from trainees).
 - [ ] 2.12 Record and replay: `--record file.ofrec` logs every I/O table change with its tick;
       `openfactory replay file.ofrec` drives the viewer from the log with no simulation.
       *Why:* reproducible bug reports from users, deterministic screenshots and videos for docs, and the
