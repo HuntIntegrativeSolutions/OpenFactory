@@ -13,6 +13,7 @@ programs is a safety-rated program.
 |---|---|---|---|
 | `sorting-by-height` | [OpenPLC quickstart](openplc-quickstart.md) | A photo eye above short boxes picks out tall ones; a timed pusher diverts them | belt conveyor, photo eye, pusher, emitter, removers |
 | `conveyor-start-stop` | [Conveyor start/stop](conveyor-start-stop.md) | Hello world: a seal-in start/stop circuit with an NC stop button and a running light | belt conveyor, selector switch, pushbutton, pilot light |
+| `buffer-and-release` | [Buffer and release](buffer-and-release.md) | Boxes queue against a stopper and leave in counted batches of three; a faster outfeed opens the gaps the count eye needs | belt conveyors, stopper, photo eyes |
 
 Every scene runs the same three ways:
 
