@@ -9,6 +9,7 @@ import sorter from "./fixtures/parity-sorter.json";
 import sorterMu03 from "./fixtures/parity-sorter-mu0.3.json";
 import queue from "./fixtures/parity-queue.json";
 import stopper from "./fixtures/parity-stopper.json";
+import stopperTall from "./fixtures/parity-stopper-tall.json";
 import diverter from "./fixtures/parity-diverter.json";
 import { loadRapier, PlantPhysics } from "./physics";
 
@@ -43,6 +44,7 @@ const TRACES: Record<string, Trace> = {
   "parity-sorter-mu0.3": sorterMu03 as unknown as Trace,
   "parity-queue": queue as unknown as Trace, // PLAN 2.0: a placed queue released onto a faster belt
   "parity-stopper": stopper as unknown as Trace, // PLAN 2.5: a queue formed against a stopper
+  "parity-stopper-tall": stopperTall as unknown as Trace, // the same with 0.4 m boxes (no tipping)
   "parity-diverter": diverter as unknown as Trace, // PLAN 2.5: a box slid along a diverter arm
 };
 

@@ -104,6 +104,17 @@ TRACES: dict[str, TraceSpec] = {
             400: {"STP_01_RAISE_DO": False},
         },
     ),
+    # PLAN 2.5 ruling (2026-10-27): the same queue with 0.4 m boxes against the sized blade (0.2 m),
+    # a gate, so a queue that tips in Rapier fails it.
+    "parity-stopper-tall": TraceSpec(
+        scene=REPO / "tests" / "scenes" / "stopper-queue-tall.yaml",
+        seconds=15.0,
+        checkpoints=(2.0, 3.3, 4.0, 4.5),
+        schedule={
+            1: {"CONV_A_RUN_DO": True, "CONV_B_RUN_DO": True, "STP_01_RAISE_DO": True},
+            400: {"STP_01_RAISE_DO": False},
+        },
+    ),
     # PLAN 2.5: the diverter arm slides box a onto CONV_SIDE (PE_SIDE sees it), swings back at
     # tick 175, and box b passes straight on (PE_MAIN sees it). While box a touches the arm the
     # core places it (ruling 2026-10-27, §3.3), so Rapier simulates only its drop onto CONV_SIDE
