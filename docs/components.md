@@ -34,7 +34,9 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   from the next tick; the component's label shows it in ISA-101 alarm yellow.
   - `stuck_on` / `stuck_off` (`port`: one DI port, default all): the device's DI output reads
     true / false. It is the device's output, before any binding transform, so an NC eye stuck on
-    reads false at the PLC. Not for analog outputs.
+    reads false at the PLC. That is where a real fault lives: the sensor's output is what sticks,
+    and NC wiring (`invert: true` on the binding) still inverts it on the way to the PLC. Not for
+    analog outputs.
   - `jammed`: the belt or actuator stops where it is; feedback stays honest.
   - `slow` (`factor`, default 0.5): it moves at that fraction of its speed.
   - `misaligned` (`offset_m`, default 0.05): the sensor sees that far late (or early, negative).
@@ -125,13 +127,15 @@ origin is not the infeed end.
 - A turntable may appear in several `connections`, feeding (or fed by) different conveyors. A
   connection to or from the deck hands parts across only while the two conveyors' headings agree
   within 1 degree. A part reaching the end of a conveyor whose connections are all out of line
-  waits there, as a box held against a turned deck's side would.
+  waits there, as a box held against a turned deck's side would. The viewer's physics has no wall
+  at that end, so a scene stops parts before it (a stopper ahead of the deck, or a stopped
+  belt).
 - In the viewer, parts on a turning deck follow the core's position.
-
-## Actuators
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the deck belt and the turn; stuck
 faults act on `running`, `at_0`, `at_90`).
+
+## Actuators
 
 ### `pusher`
 
@@ -181,6 +185,8 @@ belt-top height; the blade spans local z and stops flow along local +x.
   down, first in, first out.
 - A part already over the blade line when the blade rises passes over it; the next one stops.
 - A spring-raised stopper (up when de-energized) is `raise: {tag: X_DO, invert: true}`.
+- In the viewer the blade's collider is switched off once it is fully lowered, so a part sliding
+  over a blade lying flush with the belt cannot catch on its edge.
 - Queue formation against a raised stopper is a parity trace (`parity-stopper`): Rapier and the
   headless model agree within 2 ticks.
 
@@ -205,7 +211,8 @@ lies along local +x.
 | `extended` | DI | no | Extended limit switch |
 | `retracted` | DI | no | Retracted limit switch |
 
-The arm is a frictionless fence for parts on its belt and on belts level with it. A part carried
+The arm is a frictionless fence for parts on its belt and on belts level with it, such as the side
+belt under its tip, so a part already partly across the seam is still guided. A part carried
 into an extended arm slides along it at the belt speed × cos(`swing_deg`) and falls onto the side
 belt once its centre is past the belt edge; a swinging arm sweeps the parts it reaches. In Rapier
 the arm also turns the box about the vertical as it slides, which the headless model does not, so
@@ -243,10 +250,10 @@ pick point; the traverse runs along local +x and the pad drops along -y.
 - The pad does not collide with parts; size `stroke` so the lowered pad meets the part's top.
 - In the viewer, held parts follow the core's position.
 
-## Sensors
-
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes both axes; a held part stays
 held).
+
+## Sensors
 
 ### `photo_eye`
 
@@ -284,12 +291,13 @@ A laser or ultrasonic range sensor. Origin: the sensor face.
 - Bind `switching` with a window to get a switching output, true while the distance is inside it:
   `switching: {tag: DS_01_TALL_DI, window: [0.1, 0.3]}`. The I/O list CSV shows the window on
   that row (`window 0.1 to 0.3 m`).
-- Looking down at a belt it reads the belt's distance when no part is under it.
-
-## Parts
+- The beam stops at belts as well as parts (a belt is a thin slab under its top surface), so
+  looking down at a belt it reads the belt's distance when no part is under it.
 
 Faults: `misaligned`, `noisy`, `drift` (misaligned adds `offset_m` to the reading; a dropout reads
 `beam_length`).
+
+## Parts
 
 ### `box_emitter`
 
@@ -320,9 +328,9 @@ Deletes parts that enter its volume and counts them by part name. Origin: the vo
 
 It has no ports.
 
-## Operator devices
-
 Faults: none.
+
+## Operator devices
 
 ### `pushbutton`
 
