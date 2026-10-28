@@ -8,8 +8,8 @@ default, or as fast as possible). After every tick, still holding the step lock,
 :class:`dict` snapshot (:attr:`Runtime.snapshot`) of everything the viewer needs:
 
 ``{"t", "tick", "components": {id: state()}, "parts": [{id, name, size, position, velocity,
-carrier, spawn_tick, spawn_position, follow}], "io": {tag: value}}``. A part's ``velocity`` (m/s,
-world frame) is its belt-direction speed while carried or its fall speed while falling, so the
+carrier, spawn_tick, spawn_position, follow, color}], "io": {tag: value}}``. A part's ``velocity``
+(m/s, world frame) is its belt-direction speed while carried or its fall speed while falling, so the
 viewer can start a newly seen part's physics body moving as the core's part already is (PLAN 2.0a).
 ``spawn_tick`` is the tick that spawned the part and ``spawn_position`` where it was at the end of
 that tick (a part does not move in its spawn tick). A frame covers several ticks, so the viewer
@@ -142,6 +142,7 @@ class Runtime:
                     "spawn_tick": p.spawn_tick,
                     "spawn_position": list(p.spawn_position),
                     "follow": loaded.kinematics.follows_core(p),
+                    "color": p.color,
                 }
                 for p in loaded.world.parts.values()
             ],

@@ -5,6 +5,7 @@ import { beltConveyor, rollerConveyor, turntable } from "./conveyor";
 import {
   boxEmitter,
   distanceSensor,
+  colorSensor,
   diverterArm,
   fallback,
   partRemover,
@@ -33,6 +34,7 @@ export const BUILDERS: Record<string, Builder> = {
   diverter_arm: diverterArm,
   pick_and_place: pickAndPlace,
   distance_sensor: distanceSensor,
+  color_sensor: colorSensor,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {

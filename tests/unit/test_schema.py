@@ -87,7 +87,7 @@ def test_analog_encoding_int16_scaled_accepted(example_data):
         pytest.param(lambda d: _component(d, "CONV_01").update(lenght=4.0), id="component"),
         pytest.param(lambda d: _component(d, "CONV_01")["io"].update(stop="X_DO"), id="io"),
         pytest.param(
-            lambda d: _component(d, "EMT_01")["parts"][0].update(color="red"), id="emitter-part"
+            lambda d: _component(d, "EMT_01")["parts"][0].update(colour="red"), id="emitter-part"
         ),
     ],
 )

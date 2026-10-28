@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import type { ComponentGeometry } from "../api";
 import { ISA101 } from "../isa101";
+import { PART_COLORS } from "../parts";
 import { NEUTRAL, box, num, placed, setColor, wireBox, zCylinder, type Builder } from "./types";
 
 /** Photo eye: origin at the beam midpoint; the beam spans local z. */
@@ -329,6 +330,26 @@ export const distanceSensor: Builder = (g) => {
     update(state) {
       setLength(typeof state.distance_m === "number" ? state.distance_m : reach);
       setColor(beam, state.target ? ISA101.running : ISA101.stopped);
+    },
+  };
+};
+
+/**
+ * Color sensor (PLAN 2.7): the distance sensor's housing and beam, drawn to where the beam stops,
+ * with a swatch of the taught color on top. ISA-101: the beam is green while the taught color is
+ * seen (match), grey otherwise.
+ */
+export const colorSensor: Builder = (g, ctx) => {
+  const view = distanceSensor(g, ctx);
+  const down = g.axis === "-y";
+  const tone = PART_COLORS[String(g.teach)] ?? NEUTRAL.frame;
+  const swatch = box([0.04, 0.012, 0.04], tone, down ? [0, 0.066, 0] : [0, 0.036, -0.03]);
+  swatch.name = "teach";
+  view.object.add(swatch);
+  return {
+    ...view,
+    update(state) {
+      view.update({ ...state, target: Boolean(state.match) });
     },
   };
 };

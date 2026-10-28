@@ -301,6 +301,30 @@ A laser or ultrasonic range sensor. Origin: the sensor face.
 Faults: `misaligned`, `noisy`, `drift` (misaligned adds `offset_m` to the reading; a dropout reads
 `beam_length`).
 
+### `color_sensor`
+
+A diffuse color sensor taught one color (added for `scenes/sorting-by-color.yaml`, PLAN 2.7).
+Origin: the sensor face.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `teach` | required | The taught color: `red`, `green`, `blue`, `yellow`, `white`, or `black` |
+| `axis` | `-y` | Beam direction: `-y` straight down, or `+z` across the flow (turned with the sensor) |
+| `beam_length` | 0.5 | Sensing range, meters |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `match` | DI | yes | The nearest part in range has the taught color |
+| `detect` | DI | no | A part is in range, any color |
+
+- The beam stops at the nearest part or belt, as a distance sensor's does, so a sensor looking down
+  at a belt sees only the part on it. A plain part (no `color`) never matches.
+- No debounce: both outputs change at the step boundary. Place it over a belt where a part is
+  seen for at least 200 ms if a PLC polls it every 100 ms.
+
+Faults: `stuck_on`, `stuck_off`, `noisy` (stuck faults act on both outputs unless `port` names
+one).
+
 ## Parts
 
 ### `box_emitter`
@@ -311,14 +335,15 @@ Spawns boxes. Origin: the spawn point, the centre of each new part.
 |---|---|---|
 | `interval_s` | required | Time between spawns, seconds |
 | `jitter_s` | 0.0 | Uniform ± jitter on each interval |
-| `parts` | required | Part types: `{name, size, weight}`; `weight` is the relative chance |
+| `parts` | required | Part types: `{name, size, weight, color}`; `weight` is the relative chance; `color` (optional) is `red`, `green`, `blue`, `yellow`, `white`, or `black`, for a `color_sensor` to see |
 
 | Port | Kind | Required | Meaning |
 |---|---|---|---|
 | `enable` | DO | no | Emitter enable; unbound means always enabled |
 
 A due part waits until its spawn volume is clear, and the next interval starts from that spawn. The
-scene holds at most 200 parts; a spawn over the cap is skipped and counted.
+scene holds at most 200 parts; a spawn over the cap is skipped and counted. A part without a
+`color` is plain cardboard; the viewer draws a colored part in its color.
 
 Faults: `jammed`, `slow` (jammed: nothing is spawned; slow stretches each interval by 1 / `factor`).
 

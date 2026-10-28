@@ -203,3 +203,42 @@ def test_distance_sensor_reads_metres_over_modbus():
     seen = over_modbus(loaded, session)
     print(f"DS_01_DIST_AI over Modbus FC04 (float32 m): clear, box under: {seen}")
     assert seen == [pytest.approx(0.8), pytest.approx(0.2)]
+
+
+def test_color_sensor_match_and_detect_over_modbus():
+    """PLAN 2.7 (sorting-by-color): the taught color and any part, as discrete inputs."""
+    from openfactory.core.loader import build
+    from openfactory.core.schema import Scene
+
+    loaded = build(
+        Scene.model_validate(
+            {
+                "openfactory": "0.1",
+                "scene": {"name": "color", "description": "color sensor over Modbus"},
+                "components": [
+                    {
+                        "id": "CS_01",
+                        "type": "color_sensor",
+                        "description": "Box Color Sensor",
+                        "position": [0, 0.5, 0],
+                        "teach": "blue",
+                        "io": {"match": "CS_01_BLUE_DI", "detect": "CS_01_PART_DI"},
+                    }
+                ],
+            }
+        )
+    )
+
+    async def session(plc: Plc) -> list[tuple[bool, bool]]:
+        seen = []
+        for color in (None, "red", "blue"):
+            loaded.world.parts.clear()
+            if color is not None:
+                loaded.world.spawn("box", (0.3, 0.2, 0.3), (0, 0.1, 0), color=color)
+            loaded.component("CS_01").step(0.02)
+            seen.append((await plc.di("CS_01_PART_DI"), await plc.di("CS_01_BLUE_DI")))
+        return seen
+
+    seen = over_modbus(loaded, session)
+    print(f"CS_01 over Modbus FC02 (detect, match) for none, red, blue: {seen}")
+    assert seen == [(False, False), (True, False), (True, True)]

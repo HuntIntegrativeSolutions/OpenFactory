@@ -327,6 +327,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `diverter_arm` | extend | extended, retracted | Paddle swinging across a belt; parts slide along it onto a side conveyor. | 2 |
 | `pick_and_place` | traverse, lower, grip | at_pick, at_place, lowered, holding | Two-axis gantry with a gripper pad. | 2 |
 | `distance_sensor` | — | distance (AI), switching (AI) | Range to the nearest part or belt along its beam, metres 0 to `beam_length`. | 2 |
+| `color_sensor` | — | match, detect | Diffuse sensor taught one part `color`; `match` while the nearest part in range has it. | 2 (2.7) |
 | `counter_display` | value (AO) | — | 4-digit readout on a panel. | 2 (2.5b) |
 | `tank` | — | level (AI), hi_sw, lo_sw | Mass balance: Σ inflows − Σ outflows. Height from volume and footprint. | 3 |
 | `valve_onoff` | open | opened, closed | Travel time; flow coefficient Cv passes to connected pipe. | 3 |

@@ -352,6 +352,139 @@
       "title": "BoxEmitterIO",
       "type": "object"
     },
+    "ColorSensor": {
+      "additionalProperties": false,
+      "description": "Origin: the sensor face. A diffuse sensor: the beam runs ``beam_length`` from it along\n``axis`` (``-y`` straight down, or ``+z`` across the flow) to the nearest part or belt.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "type": {
+          "const": "color_sensor",
+          "title": "Type",
+          "type": "string"
+        },
+        "teach": {
+          "description": "The taught color: match is true while it is seen.",
+          "enum": [
+            "red",
+            "green",
+            "blue",
+            "yellow",
+            "white",
+            "black"
+          ],
+          "title": "Teach",
+          "type": "string"
+        },
+        "axis": {
+          "default": "-y",
+          "description": "Beam direction in the sensor's frame.",
+          "enum": [
+            "+z",
+            "-y"
+          ],
+          "title": "Axis",
+          "type": "string"
+        },
+        "beam_length": {
+          "default": 0.5,
+          "description": "Sensing range, meters.",
+          "exclusiveMinimum": 0,
+          "title": "Beam Length",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/ColorSensorIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type",
+        "teach",
+        "io"
+      ],
+      "title": "ColorSensor",
+      "type": "object"
+    },
+    "ColorSensorIO": {
+      "additionalProperties": false,
+      "properties": {
+        "match": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            }
+          ],
+          "description": "Taught color seen",
+          "title": "Match",
+          "x-io-kind": "DI"
+        },
+        "detect": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Part in range",
+          "title": "Detect",
+          "x-io-kind": "DI"
+        }
+      },
+      "required": [
+        "match"
+      ],
+      "title": "ColorSensorIO",
+      "type": "object"
+    },
     "Connection": {
       "additionalProperties": false,
       "description": "One conveyor feeding another: parts leaving ``from``'s discharge end land on ``to``'s infeed.\n\nThe handoff bridges any gap, height step, or turn between the two, like a transfer plate.",
@@ -917,6 +1050,27 @@
           "exclusiveMinimum": 0,
           "title": "Weight",
           "type": "number"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "enum": [
+                "red",
+                "green",
+                "blue",
+                "yellow",
+                "white",
+                "black"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Part color, seen by a color_sensor; unset: plain cardboard.",
+          "title": "Color"
         }
       },
       "required": [
@@ -2342,6 +2496,7 @@
           "mapping": {
             "belt_conveyor": "#/$defs/BeltConveyor",
             "box_emitter": "#/$defs/BoxEmitter",
+            "color_sensor": "#/$defs/ColorSensor",
             "distance_sensor": "#/$defs/DistanceSensor",
             "diverter_arm": "#/$defs/DiverterArm",
             "part_remover": "#/$defs/PartRemover",
@@ -2378,6 +2533,9 @@
           },
           {
             "$ref": "#/$defs/DistanceSensor"
+          },
+          {
+            "$ref": "#/$defs/ColorSensor"
           },
           {
             "$ref": "#/$defs/PhotoEye"

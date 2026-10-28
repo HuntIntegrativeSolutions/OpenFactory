@@ -71,7 +71,8 @@
        0.2,
        0.3
       ],
-      "weight": 1.0
+      "weight": 1.0,
+      "color": null
      }
     ],
     "description": "Queue Box 1 Placement"
@@ -93,7 +94,8 @@
        0.2,
        0.3
       ],
-      "weight": 1.0
+      "weight": 1.0,
+      "color": null
      }
     ],
     "description": "Queue Box 2 Placement"
@@ -115,7 +117,8 @@
        0.2,
        0.3
       ],
-      "weight": 1.0
+      "weight": 1.0,
+      "color": null
      }
     ],
     "description": "Queue Box 3 Placement"
@@ -137,7 +140,8 @@
        0.2,
        0.3
       ],
-      "weight": 1.0
+      "weight": 1.0,
+      "color": null
      }
     ],
     "description": "Queue Box 4 Placement"
@@ -159,7 +163,8 @@
        0.2,
        0.3
       ],
-      "weight": 1.0
+      "weight": 1.0,
+      "color": null
      }
     ],
     "description": "Queue Box 5 Placement"

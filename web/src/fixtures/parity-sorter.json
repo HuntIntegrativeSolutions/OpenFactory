@@ -72,7 +72,8 @@
        0.4,
        0.3
       ],
-      "weight": 0.5
+      "weight": 0.5,
+      "color": null
      },
      {
       "name": "short",
@@ -81,7 +82,8 @@
        0.2,
        0.3
       ],
-      "weight": 0.5
+      "weight": 0.5,
+      "color": null
      }
     ],
     "description": "Infeed Box Source"

@@ -585,10 +585,33 @@ class DistanceSensor(ComponentBase):
     io: DistanceSensorIO
 
 
+#: Colors a part may have (PLAN 2.7, sorting-by-color); a part without one is plain cardboard.
+PartColor = Literal["red", "green", "blue", "yellow", "white", "black"]
+
+
+class ColorSensorIO(IOModel):
+    match: DiTag = port("DI", "Taught color seen", required=True)
+    detect: DiTag | None = port("DI", "Part in range")
+
+
+class ColorSensor(ComponentBase):
+    """Origin: the sensor face. A diffuse sensor: the beam runs ``beam_length`` from it along
+    ``axis`` (``-y`` straight down, or ``+z`` across the flow) to the nearest part or belt."""
+
+    type: Literal["color_sensor"]
+    teach: PartColor = Field(description="The taught color: match is true while it is seen.")
+    axis: Literal["+z", "-y"] = Field("-y", description="Beam direction in the sensor's frame.")
+    beam_length: PositiveFloat = Field(0.5, description="Sensing range, meters.")
+    io: ColorSensorIO
+
+
 class PartSpec(StrictModel):
     name: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
     size: Size3 = Field(description="Box size x, y, z in meters.")
     weight: PositiveFloat = Field(description="Relative selection weight within the emitter.")
+    color: PartColor | None = Field(
+        None, description="Part color, seen by a color_sensor; unset: plain cardboard."
+    )
 
 
 class BoxEmitterIO(IOModel):
@@ -672,6 +695,7 @@ Component = Annotated[
     | DiverterArm
     | PickAndPlace
     | DistanceSensor
+    | ColorSensor
     | PhotoEye
     | Pusher
     | BoxEmitter
@@ -693,6 +717,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         DiverterArm,
         PickAndPlace,
         DistanceSensor,
+        ColorSensor,
         PhotoEye,
         Pusher,
         BoxEmitter,

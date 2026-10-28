@@ -51,6 +51,8 @@ class Part:
     spawn_position: Vec3 | None = None
     #: Id of the gripper holding the part (``pick_and_place``), or None.
     held_by: str | None = None
+    #: Color from the emitter's part spec (seen by a ``color_sensor``), or None: plain cardboard.
+    color: str | None = None
 
     def __post_init__(self) -> None:
         if self.spawn_position is None:
@@ -84,12 +86,16 @@ class World:
         """A deterministic random generator owned by one component."""
         return random.Random(f"{self.seed}:{component_id}")
 
-    def spawn(self, name: str, size: Vec3, position: Vec3, source: str = "") -> Part | None:
+    def spawn(
+        self, name: str, size: Vec3, position: Vec3, source: str = "", color: str | None = None
+    ) -> Part | None:
         """Add a part, or return None if the scene already holds :data:`MAX_PARTS`."""
         if len(self.parts) >= MAX_PARTS:
             return None
         self.spawned += 1
-        part = Part(f"P{self.spawned:06d}", name, size, position, source, spawn_tick=self.tick)
+        part = Part(
+            f"P{self.spawned:06d}", name, size, position, source, spawn_tick=self.tick, color=color
+        )
         self.parts[part.id] = part
         return part
 

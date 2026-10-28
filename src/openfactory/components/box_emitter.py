@@ -16,6 +16,10 @@ burst. A chattering enable (on, off, on within a part's fall time, as seen with 
 therefore can no longer stack two boxes. When the scene already holds 200 parts
 (:data:`~openfactory.core.world.MAX_PARTS`) a due spawn is skipped and counted, not queued.
 
+A part spec may give a ``color`` (``red``, ``green``, ``blue``, ``yellow``, ``white``, ``black``),
+which the part carries for a ``color_sensor`` to see and the viewer to draw; without one a part
+is plain cardboard.
+
 Geometry: the origin is the spawn point (the center of each new part).
 """
 
@@ -69,7 +73,9 @@ class BoxEmitter(Component):
             self._waited = True
             return False
         self._held = None
-        part = self.world.spawn(spec.name, spec.size, self.config.position, source=self.id)
+        part = self.world.spawn(
+            spec.name, spec.size, self.config.position, source=self.id, color=spec.color
+        )
         if part is None:
             self.skipped += 1
         else:

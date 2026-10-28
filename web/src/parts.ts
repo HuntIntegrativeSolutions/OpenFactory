@@ -9,6 +9,15 @@ import type { PartState } from "./api";
 import { NEUTRAL } from "./components/types";
 
 const EASE = 0.35;
+/** Product tones for colored parts (PLAN 2.7): muted, so they do not read as ISA-101 status colors. */
+export const PART_COLORS: Record<string, number> = {
+  red: 0xa8473c,
+  green: 0x4f8a4c,
+  blue: 0x3f6aa8,
+  yellow: 0xc9a63a,
+  white: 0xe2ded4,
+  black: 0x2e2e2e,
+};
 /** A pose this far from the mesh is a jump (respawn, reset): snap instead of easing. */
 const SNAP_M = 0.5;
 
@@ -20,12 +29,18 @@ export class PartMeshes {
   >();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
 
-  private material(name: string): THREE.MeshStandardMaterial {
-    let m = this.materials.get(name);
+  /** One material per part name (alternating cardboard tones), or per color for a colored part. */
+  private material(name: string, color?: string | null): THREE.MeshStandardMaterial {
+    const key = color && color in PART_COLORS ? `color:${color}` : name;
+    let m = this.materials.get(key);
     if (!m) {
-      const tone = this.materials.size % 2 ? NEUTRAL.productAlt : NEUTRAL.product;
+      const tone = color && color in PART_COLORS
+        ? PART_COLORS[color]
+        : [...this.materials.keys()].filter((k) => !k.startsWith("color:")).length % 2
+          ? NEUTRAL.productAlt
+          : NEUTRAL.product;
       m = new THREE.MeshStandardMaterial({ color: tone, roughness: 0.9 });
-      this.materials.set(name, m);
+      this.materials.set(key, m);
     }
     return m;
   }
@@ -37,7 +52,7 @@ export class PartMeshes {
       seen.add(p.id);
       let entry = this.meshes.get(p.id);
       if (!entry) {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(...p.size), this.material(p.name));
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(...p.size), this.material(p.name, p.color));
         mesh.name = p.id;
         mesh.position.set(...p.position);
         const edges = new THREE.LineSegments(
