@@ -10,8 +10,9 @@ Behavior spec
   command was on;
 - **cycles** per actuator (pusher, stopper, diverter arm, turntable, pick and place): completed
   cycles and their mean time. A cycle starts when the actuator leaves its home position and ends
-  when it is back: a pusher retracted, an arm or deck at 0 degrees, a gantry at the pick side and
-  raised, a stopper fully raised (its holding position). A stopper starts lowered, so its first
+  when it is back: a pusher retracted, an arm or deck at 0 degrees, a gantry's carriage at the
+  pick side (one trip to the place side and back per part; the pick's lower and rise come before
+  it leaves), a stopper fully raised (its holding position). A stopper starts lowered, so its first
   rise is not a cycle;
 - **dwell** of the parts removed, from the tick they spawned to the tick a remover took them:
   mean and max seconds, plus the oldest part still in the scene;
@@ -45,7 +46,7 @@ def _home(comp: Any) -> bool | None:
     if kind == "stopper":
         return comp.position >= 1.0 - _EPS
     if kind == "pick_and_place":
-        return comp.x <= _EPS and comp.y <= _EPS
+        return comp.x <= _EPS  # at the pick side: lowering there to pick is part of the cycle
     return None
 
 
