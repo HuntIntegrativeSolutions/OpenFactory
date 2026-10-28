@@ -23,6 +23,7 @@ EXPECTED: dict[str, dict[str, dict[str, int]]] = {
     "conveyor-start-stop": {"REM_01": {"box": 17}},
     "buffer-and-release": {"REM_01": {"box": 21}},
     "two-lane-merge": {"REM_OUT": {"a": 6, "b": 6}},
+    "palletizer-lite": {"REM_LYR": {"box": 8}},
 }
 #: The sorter's guide is the OpenPLC quickstart (PLAN 1.14).
 GUIDES = {"sorting-by-height": "openplc-quickstart.md"}
@@ -108,6 +109,12 @@ def test_buffer_releases_batches_of_exactly_three():
         raised = now
     print("boxes past the blade per release cycle:", cycles[1:], "+", count)
     assert cycles[0] == 0 and cycles[1:] == [3] * 7 and count == 2  # the 8th is under way
+
+
+def test_palletizer_layers_are_four_boxes():
+    for seconds, layers in ((30.0, 1), (50.0, 2)):  # layers leave at about 21 s and 41 s
+        loaded = run_script("palletizer-lite", seconds=seconds)
+        assert removers(loaded) == {"REM_LYR": {"box": 4 * layers}}, seconds
 
 
 def test_hello_world_stop_drops_the_seal_in_and_a_selector_cycle_restarts():

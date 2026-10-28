@@ -15,6 +15,7 @@ programs is a safety-rated program.
 | `conveyor-start-stop` | [Conveyor start/stop](conveyor-start-stop.md) | Hello world: a seal-in start/stop circuit with an NC stop button and a running light | belt conveyor, selector switch, pushbutton, pilot light |
 | `buffer-and-release` | [Buffer and release](buffer-and-release.md) | Boxes queue against a stopper and leave in counted batches of three; a faster outfeed opens the gaps the count eye needs | belt conveyors, stopper, photo eyes |
 | `two-lane-merge` | [Two-lane merge](two-lane-merge.md) | Two lanes merged through a turntable that turns to take side-lane boxes, alternating lanes; spring-raised stoppers | belt conveyors, turntable, stoppers, photo eyes |
+| `palletizer-lite` | [Palletizer lite](palletizer-lite.md) | A gantry forms single layers of four on a layer-forming belt; a nine-step pick sequence and a placement count | belt conveyors, pick and place, stoppers, photo eyes |
 
 Every scene runs the same three ways:
 

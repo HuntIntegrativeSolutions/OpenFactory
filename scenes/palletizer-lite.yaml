@@ -1,0 +1,94 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 2.7: a single-layer palletizer. A two-axis gantry picks each box at the end of the infeed
+# and sets it on a layer-forming belt, where boxes queue four in a row against a stopper; each
+# complete row (one layer) is released to the discharge. "Lite": one layer, no stacking and no
+# pallets, because the headless model has no part-on-part stacking (PLAN 2.0). Guide:
+# docs/guides/palletizer-lite.md. PLC programs: examples/openplc/palletizer-lite.st (OpenPLC) and
+# examples/pyplc/palletizer-lite.py (stand-in script).
+openfactory: "0.1"
+scene:
+  name: palletizer-lite
+  description: Gantry pick and place forming single layers of four boxes on a layer-forming belt.
+  author: HIS Controls
+  seed: 31
+  units: meters
+plc:
+  protocol: modbus_tcp
+components:
+  - id: CONV_IN
+    type: belt_conveyor
+    description: Palletizer Infeed Belt Conveyor
+    position: [0, 0, 0]
+    length: 2.4
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_IN_RUN_DO
+      running: CONV_IN_RUN_DI
+  - id: STP_IN
+    type: stopper
+    description: Infeed Pick Position Stopper
+    position: [2.2, 0, 0]            # holds a 0.3 m box centred at x 2.05, under the gantry
+    io:
+      raise: STP_IN_RAISE_DO
+  - id: PE_PICK
+    type: photo_eye
+    description: Infeed Box At Pick Position Photo Eye
+    position: [2.05, 0.1, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_PICK_DI
+  - id: PP_01
+    type: pick_and_place
+    description: Palletizer Transfer Gantry
+    position: [2.05, 0.45, 0]        # pad bottom, raised, over the pick point
+    rotation_deg: -90                # traverses toward +z, onto the layer-forming belt
+    travel: 1.0
+    stroke: 0.25                     # lowered pad bottom at 0.20: the top of a 0.2 m box
+    travel_time_s: 1.0
+    lower_time_s: 0.3
+    io:
+      traverse: PP_01_TRAV_DO
+      lower: PP_01_LOWER_DO
+      grip: PP_01_GRIP_DO
+      at_pick: PP_01_AT_PICK_DI
+      at_place: PP_01_AT_PLACE_DI
+      lowered: PP_01_DOWN_DI
+      holding: PP_01_HOLD_DI
+  - id: CONV_LYR
+    type: belt_conveyor
+    description: Layer Forming Belt Conveyor
+    position: [1.5, 0, 1.0]          # the gantry sets boxes down at x 2.05
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_LYR_RUN_DO
+      running: CONV_LYR_RUN_DI
+  - id: STP_LYR
+    type: stopper
+    description: Layer Forming Stopper
+    position: [4.2, 0, 1.0]          # a row of four queues from x 4.2 back to 3.0
+    io:
+      raise: STP_LYR_RAISE_DO
+  - id: PE_ROW
+    type: photo_eye
+    description: Layer Row Complete Photo Eye
+    position: [3.15, 0.1, 1.0]       # under the fourth queued box (x 3.0 to 3.3)
+    beam_length: 0.6
+    io:
+      detect: PE_ROW_DI
+  - id: EMT_01
+    type: box_emitter
+    description: Palletizer Infeed Box Source
+    position: [0.3, 0.105, 0]
+    interval_s: 4.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_LYR
+    type: part_remover
+    description: Layer Discharge Part Remover
+    position: [4.65, 0, 1.0]
+    size: [0.3, 1.0, 0.5]
