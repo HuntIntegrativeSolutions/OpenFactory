@@ -22,6 +22,7 @@ EXPECTED: dict[str, dict[str, dict[str, int]]] = {
     "sorting-by-height": {"REM_01": {"short": 9}, "REM_02": {"tall": 9}},
     "conveyor-start-stop": {"REM_01": {"box": 17}},
     "buffer-and-release": {"REM_01": {"box": 21}},
+    "two-lane-merge": {"REM_OUT": {"a": 6, "b": 6}},
 }
 #: The sorter's guide is the OpenPLC quickstart (PLAN 1.14).
 GUIDES = {"sorting-by-height": "openplc-quickstart.md"}

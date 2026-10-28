@@ -133,7 +133,7 @@ origin is not the infeed end.
   within 1 degree. A part reaching the end of a conveyor whose connections are all out of line
   waits there, as a box held against a turned deck's side would. The viewer's physics has no wall
   at that end, so a scene stops parts before it (a stopper ahead of the deck, or a stopped
-  belt).
+  belt), as `scenes/two-lane-merge.yaml` does.
 - In the viewer, parts on a turning deck follow the core's position.
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the deck belt and the turn; stuck
