@@ -352,6 +352,64 @@
       "title": "BoxEmitterIO",
       "type": "object"
     },
+    "Checks": {
+      "additionalProperties": false,
+      "description": "Exercise checks (PLAN 2.11), evaluated by ``openfactory test`` at the end of a run.",
+      "properties": {
+        "duration_s": {
+          "default": 60.0,
+          "description": "How long `openfactory test` runs.",
+          "exclusiveMinimum": 0,
+          "title": "Duration S",
+          "type": "number"
+        },
+        "parts_reached": {
+          "description": "Part remover -> part name(s): at least one part of each name reaches that remover, and no part of that name reaches any other.",
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]*$": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 40
+          },
+          "title": "Parts Reached",
+          "type": "object"
+        },
+        "none_lost": {
+          "default": false,
+          "description": "No part falls out of the scene.",
+          "title": "None Lost",
+          "type": "boolean"
+        },
+        "max_cycle_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Every removed part spent at most this long from spawn to remover, and no part still in the scene at the end is older.",
+          "title": "Max Cycle S"
+        }
+      },
+      "title": "Checks",
+      "type": "object"
+    },
     "ColorSensor": {
       "additionalProperties": false,
       "description": "Origin: the sensor face. A diffuse sensor: the beam runs ``beam_length`` from it along\n``axis`` (``-y`` straight down, or ``+z`` across the flow) to the nearest part or belt.",
@@ -2571,6 +2629,18 @@
       },
       "title": "Connections",
       "type": "array"
+    },
+    "checks": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Checks"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Exercise checks for `openfactory test`."
     }
   },
   "required": [

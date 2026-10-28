@@ -1,4 +1,5 @@
-"""``openfactory`` command line (PLAN task 1.10): ``run``, ``validate``, ``lint``, ``export``.
+"""``openfactory`` command line (PLAN task 1.10): ``run``, ``test``, ``validate``, ``lint``,
+``export``.
 
 Behavior spec
 -------------
@@ -22,6 +23,11 @@ Behavior spec
   ``--port`` is the Modbus port and ``--web-port`` the viewer port. With the viewer bound beyond
   loopback, ``/api/fault`` needs ``--fault-token`` or ``[server] fault_token``; with neither, the
   fault API is off and ``run`` logs a one-line notice (PLAN §6.4).
+- ``openfactory test SCENE --script FILE.py | --plc`` (PLAN 2.11) runs the scene headless for its
+  ``checks.duration_s`` (or ``--duration``) and grades the run against its ``checks:`` block
+  (:mod:`openfactory.checks`): as fast as possible under a stand-in script, or in real time with
+  the Modbus server up while a real PLC controls the plant. It prints one PASS/FAIL line per check
+  and a verdict, then the run summary line, and exits 1 if any check fails.
 - ``openfactory validate SCENE...`` checks each scene: schema, component build, loader warnings,
   and the Modbus register map against each of its lockfiles that exists (read only). A directory
   is expanded to its ``*.yaml`` scenes, skipping ``*.modbus.yaml`` lockfiles. Exit code 1 if any
@@ -231,6 +237,113 @@ def run(
         raise typer.Exit(1) from None
     log.info("OpenFactory %s: %s (training and demo tool, not safety-rated)", __version__, scene)
 
+    _apply_forces(loaded, force or [])
+    _, wall = _simulate(
+        scene,
+        parsed,
+        loaded,
+        encoding=encoding,
+        headless=headless,
+        fast=as_fast_as_possible,
+        duration=duration,
+        bind=bind,
+        port=port,
+        web_port=web_port,
+        script=script,
+        fault_token=fault_token,
+    )
+    _summary(loaded, wall)
+
+
+@app.command()
+def test(
+    scene: Annotated[
+        Path, typer.Argument(help="Scene file with a checks: block.", metavar="SCENE")
+    ],
+    script: Annotated[
+        Path | None,
+        typer.Option(help="Grade a stand-in PLC script (step(io, t)); runs as fast as possible."),
+    ] = None,
+    plc: Annotated[
+        bool,
+        typer.Option(
+            "--plc",
+            help="Grade a real PLC: serve Modbus and run in real time while the PLC controls it.",
+        ),
+    ] = False,
+    duration: Annotated[
+        float | None,
+        typer.Option(help="Simulated seconds to run (default: checks.duration_s).", min=0),
+    ] = None,
+    bind: Annotated[
+        str | None,
+        typer.Option(help="Listen address for the Modbus server with --plc. Default: loopback."),
+    ] = None,
+    port: Annotated[int | None, typer.Option(help="Modbus TCP port (default 5020).")] = None,
+    analog_encoding: AnalogEncoding = None,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings only.")] = False,
+) -> None:
+    """Grade a PLC program against the scene's checks (PLAN 2.11); exit 1 if any check fails."""
+    from openfactory.checks import evaluate, format_results
+
+    _setup_logging(quiet)
+    if (script is None) == (not plc):
+        raise typer.BadParameter("give exactly one of --script FILE.py or --plc")
+    encoding = _encoding(analog_encoding)
+    try:
+        parsed, loaded = _load(scene)
+    except (OSError, ValueError, ValidationError) as exc:
+        typer.echo(f"error: {scene}: {exc}", err=True)
+        raise typer.Exit(1) from None
+    if parsed.checks is None:
+        typer.echo(f"error: {scene}: the scene has no checks: block to grade against", err=True)
+        raise typer.Exit(1)
+    seconds = duration if duration is not None else parsed.checks.duration_s
+    log.info(
+        "OpenFactory %s: testing %s for %g s with %s", __version__, scene, seconds,
+        f"--script {script}" if script else "a PLC over Modbus",
+    )  # fmt: skip
+    _, wall = _simulate(
+        scene,
+        parsed,
+        loaded,
+        encoding=encoding,
+        headless=True,
+        fast=script is not None,
+        duration=seconds,
+        bind=bind,
+        port=port,
+        web_port=None,
+        script=script,
+        fault_token=None,
+        serve_modbus=plc,  # a script needs no Modbus server; the lockfile is still checked
+    )
+    results = evaluate(parsed.checks, loaded)
+    typer.echo(format_results(results))
+    _summary(loaded, wall)
+    if not all(r.passed for r in results):
+        raise typer.Exit(1)
+
+
+def _simulate(
+    scene: Path,
+    parsed: Scene,
+    loaded: LoadedScene,
+    *,
+    encoding: Encoding | None,
+    headless: bool,
+    fast: bool,
+    duration: float | None,
+    bind: str | None,
+    port: int | None,
+    web_port: int | None,
+    script: Path | None,
+    fault_token: str | None,
+    serve_modbus: bool = True,
+):  # -> tuple[Runtime, float]; Runtime is imported lazily with the web stack
+    """Serve and step a loaded scene until ``duration`` (or Ctrl+C); returns the runtime and
+    the wall time it took. Exits 1 on a lockfile conflict, a script load error, or a script
+    exception. Shared by ``run`` and ``test``."""
     from openfactory.server.app import (  # web stack only when running
         create_app,
         fault_api_notice,
@@ -238,7 +351,6 @@ def run(
     )
     from openfactory.server.runtime import Runtime
 
-    _apply_forces(loaded, force or [])
     settings = load_settings()
     modbus = None
     if parsed.plc.protocol == "modbus_tcp":
@@ -247,9 +359,10 @@ def run(
         except AddressError as exc:
             typer.echo(f"error: {scene}: {exc}", err=True)
             raise typer.Exit(1) from None
-        endpoint = resolve_endpoint(settings.modbus, parsed.plc, cli_bind=bind, cli_port=port)
-        modbus = ModbusServer(loaded.io, register_map.encoding, endpoint, register_map)
         log.info("address lockfile: %s", lockfile_path(scene, register_map.encoding))
+        if serve_modbus:
+            endpoint = resolve_endpoint(settings.modbus, parsed.plc, cli_bind=bind, cli_port=port)
+            modbus = ModbusServer(loaded.io, register_map.encoding, endpoint, register_map)
     elif parsed.plc.protocol != "none":
         log.warning(
             "plc.protocol %s is not implemented yet; running without a PLC server",
@@ -270,7 +383,7 @@ def run(
                 "--script writes the PLC outputs every tick; a PLC connected over Modbus would "
                 "fight it. Use the Modbus server for reading (an HMI) only."
             )
-    runtime = Runtime(loaded, realtime=not as_fast_as_possible, controller=controller)
+    runtime = Runtime(loaded, realtime=not fast, controller=controller)
     web = None
     if not headless:
         web_endpoint = Endpoint(bind=bind or settings.web.bind, port=web_port or settings.web.port)
@@ -288,6 +401,11 @@ def run(
             err=True,
         )
         raise typer.Exit(1)
+    return runtime, time.perf_counter() - wall
+
+
+def _summary(loaded: LoadedScene, wall: float) -> None:
+    """The one-line run summary, the last line ``run`` and ``test`` print."""
     world = loaded.world
     removers = {
         c.id: dict(c.removed)  # type: ignore[attr-defined]
@@ -299,7 +417,7 @@ def run(
         "by remover %s",
         loaded.tick,
         loaded.time,
-        time.perf_counter() - wall,
+        wall,
         world.spawned,
         dict(world.removed),
         dict(world.lost),

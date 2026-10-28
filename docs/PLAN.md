@@ -292,6 +292,19 @@ Rules:
   - `pushbutton.mode` (`momentary` or `maintained`) and `color` on pushbuttons and pilot lights.
   - `pusher.plate_width` (local x, default 0.3 m) and `pusher.plate_height` (default: the plate
     top reaches 3/4 of the tallest emitted part's height above the belt it sweeps, else 0.15 m).
+  - `checks:` (PLAN 2.11), the exercise checks `openfactory test` grades a run against:
+    ```yaml
+    checks:
+      duration_s: 60                                 # how long `test` runs (default 60)
+      parts_reached: {REM_01: short, REM_02: [tall]} # each name reaches only that remover
+      none_lost: true                                # no part falls out of the scene
+      max_cycle_s: 12                                # spawn to remover, and oldest part left
+    ```
+    Every key is optional. `parts_reached` names part removers and part names an emitter makes,
+    each name under one remover only; a wrong id or name fails at load. A name passes when at
+    least one part of it reached that remover and none reached another, so a stopped line fails.
+    `max_cycle_s` fails on a removed part that took longer, and on a part still in the scene at
+    the end that is older, so a jammed line fails too.
 - Connection settings live in `openfactory.toml` (git-ignored overrides in `openfactory.local.toml`),
   never in scenes. The `plc` block selects `protocol` and `role`; `bind` and `port` are optional
   per-scene overrides of the server's listen address, and a PLC's own address is only ever a named
@@ -867,6 +880,12 @@ runs the sorting program against it; a box visibly gets pushed.
       from emitter to remover, and parts lost. Keep it to counters and timers the components already
       have; this is not discrete-event simulation (see Non-Goals), it is the plant manager's view of
       a run so a demo persuades the operations side as well as the controls engineer.
+      *Done when (defined 2026-10-28, the task had none):* every shipped scene declares
+      `checks:` and passes `openfactory test --script` with its stand-in program in CI; a wrong
+      or jammed program fails with a readable reason (the sorter with `--fault CYL_01=jammed`);
+      `run` and `test` print the statistics block and `/api/stats` serves it; one scene passes
+      `openfactory test --plc` with its OpenPLC program in control; and exam mode lets an
+      instructor drive an `exam: switch` DI from the viewer while the fault marker is hidden.
       **Exam mode** (`--exam`): the viewer still shows the plant, but every DI the scene marks
       `exam: switch` is driven by an operator toggle in the viewer instead of the simulation, so an
       instructor can test a program against hand-driven inputs while trainees watch the 3D.

@@ -70,6 +70,17 @@ class Part:
         return lo, hi
 
 
+@dataclass(frozen=True)
+class Removal:
+    """One part a remover took (PLAN 2.11 checks and statistics)."""
+
+    tick: int
+    part_id: str
+    name: str
+    spawn_tick: int
+    by: str
+
+
 @dataclass
 class World:
     seed: int = 0
@@ -81,6 +92,8 @@ class World:
     tick: int = 0
     #: The scene's conveyor components (set by the loader), for sensors that see belt surfaces.
     conveyors: list[Any] = field(default_factory=list)
+    #: Every part a remover took, in order (PLAN 2.11).
+    removals: list[Removal] = field(default_factory=list)
 
     def rng(self, component_id: str) -> random.Random:
         """A deterministic random generator owned by one component."""
@@ -99,10 +112,11 @@ class World:
         self.parts[part.id] = part
         return part
 
-    def remove(self, part_id: str) -> Part:
-        """Remove a part (a part remover took it) and count it by name."""
+    def remove(self, part_id: str, by: str = "") -> Part:
+        """Remove a part (part remover ``by`` took it), count it by name, and log it."""
         part = self.parts.pop(part_id)
         self.removed[part.name] += 1
+        self.removals.append(Removal(self.tick, part.id, part.name, part.spawn_tick, by))
         return part
 
     def lose(self, part_id: str) -> Part:

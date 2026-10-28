@@ -765,6 +765,26 @@ class TagBinding:
         return self.port.description
 
 
+class Checks(StrictModel):
+    """Exercise checks (PLAN 2.11), evaluated by ``openfactory test`` at the end of a run."""
+
+    duration_s: PositiveFloat = Field(60.0, description="How long `openfactory test` runs.")
+    parts_reached: dict[ComponentId, str | list[str]] = Field(
+        default_factory=dict,
+        description="Part remover -> part name(s): at least one part of each name reaches that "
+        "remover, and no part of that name reaches any other.",
+    )
+    none_lost: bool = Field(False, description="No part falls out of the scene.")
+    max_cycle_s: PositiveFloat | None = Field(
+        None,
+        description="Every removed part spent at most this long from spawn to remover, and no "
+        "part still in the scene at the end is older.",
+    )
+
+    def reached(self) -> dict[str, list[str]]:
+        return {r: [n] if isinstance(n, str) else list(n) for r, n in self.parts_reached.items()}
+
+
 class Scene(StrictModel):
     """A complete scene file (PLAN §4)."""
 
@@ -784,6 +804,35 @@ class Scene(StrictModel):
         "each conveyor feeds at most one downstream conveyor, except a turntable, which may "
         "feed several and hands parts across only while its deck is aligned with one.",
     )
+    checks: Checks | None = Field(None, description="Exercise checks for `openfactory test`.")
+
+    @model_validator(mode="after")
+    def _checks_name_real_removers_and_parts(self) -> Scene:
+        if self.checks is None:
+            return self
+        types = {c.id: c.type for c in self.components}
+        names = {p.name for c in self.components if isinstance(c, BoxEmitter) for p in c.parts}
+        claimed: dict[str, str] = {}
+        for remover, wanted in self.checks.reached().items():
+            for name in wanted:
+                if name in claimed:
+                    raise ValueError(
+                        f"checks.parts_reached: {name!r} is listed for both {claimed[name]!r} and "
+                        f"{remover!r}; each part name may reach only one remover"
+                    )
+                claimed[name] = remover
+            if types.get(remover) != "part_remover":
+                found = f"a {types[remover]}" if remover in types else "not in the scene"
+                raise ValueError(
+                    f"checks.parts_reached: {remover!r} is {found}, not a part_remover"
+                )
+            for name in wanted:
+                if name not in names:
+                    raise ValueError(
+                        f"checks.parts_reached.{remover}: no box_emitter makes a part named "
+                        f"{name!r} (it makes {', '.join(sorted(names)) or 'none'})"
+                    )
+        return self
 
     @model_validator(mode="after")
     def _unique_ids_and_tags(self) -> Scene:

@@ -35,7 +35,7 @@ class PartRemover(Component):
     def step(self, dt: float) -> None:
         inside = [p.id for p in self.world.parts.values() if self.contains(p.position)]
         for part_id in inside:
-            self.removed[self.world.remove(part_id).name] += 1
+            self.removed[self.world.remove(part_id, by=self.id).name] += 1
 
     def state(self) -> dict[str, Any]:
         return {"removed": sum(self.removed.values()), "by_name": dict(self.removed)}
