@@ -51,6 +51,7 @@ traces compare, not the debounced DI the PLC reads.
 
 from __future__ import annotations
 
+import logging
 import threading
 import traceback
 from collections import Counter, deque
@@ -62,6 +63,8 @@ from openfactory.core.loader import LoadedScene
 from openfactory.core.scheduler import DEFAULT_RATE_HZ, RunStats, Scheduler
 from openfactory.core.stats import SceneStats
 from openfactory.pyplc import ScriptPlc
+
+log = logging.getLogger(__name__)
 
 EVENT_LOG_SIZE = 1000
 
@@ -92,6 +95,8 @@ class Runtime:
         #: Traceback of a controller exception; the run stops when one is set.
         self.fault: str | None = None
         self.lock = threading.Lock()
+        #: Faults to inject at a simulated time, ``(t, id, kind, params)`` (``--fault``).
+        self.scheduled_faults: list[tuple[float, str, str, dict[str, Any]]] = []
         self.scheduler = Scheduler(self._step, rate_hz, realtime=realtime)
         self.snapshot: dict[str, Any] = self._take_snapshot()
         self.events: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
@@ -108,6 +113,10 @@ class Runtime:
 
     def _step(self, dt: float) -> None:
         with self.lock:
+            due = [f for f in self.scheduled_faults if f[0] <= self.loaded.time + 1e-9]
+            for fault in due:  # between ticks, as an /api/fault request is applied
+                self.scheduled_faults.remove(fault)
+                self._inject(*fault[1:])
             if self.controller is not None:
                 try:
                     self.controller.scan(self.loaded.time)
@@ -238,11 +247,17 @@ class Runtime:
         """Inject a fault (replacing the component's current one). Raises KeyError for an
         unknown component and ValueError for a kind or parameters it does not support."""
         with self.lock:
-            comp = self._component(component_id)
-            replaced = comp.fault_inject(kind, **(params or {}))
-            fault = {"id": comp.id, "type": comp.type, **comp.fault.describe()}
-            self._log_fault("fault", fault)
-            return {"fault": fault, "replaced": replaced.describe() if replaced else None}
+            return self._inject(component_id, kind, params)
+
+    def _inject(
+        self, component_id: str, kind: str, params: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        comp = self._component(component_id)
+        replaced = comp.fault_inject(kind, **(params or {}))
+        fault = {"id": comp.id, "type": comp.type, **comp.fault.describe()}
+        self._log_fault("fault", fault)
+        log.info("fault at t = %.2f s: %s %s %s", self.loaded.time, comp.id, kind, fault["params"])
+        return {"fault": fault, "replaced": replaced.describe() if replaced else None}
 
     def clear_fault(self, component_id: str) -> dict[str, Any]:
         """Clear a component's fault. Raises KeyError for an unknown component."""

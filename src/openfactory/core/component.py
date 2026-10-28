@@ -212,6 +212,15 @@ class Component(ABC):
 
     def fault_inject(self, kind: str, **params: Any) -> Fault | None:
         """Inject a fault, replacing any current one; returns the one it replaced."""
+        values = self.check_fault(kind, **params)
+        replaced, self.fault = self.fault, Fault(kind, values, tick=self.world.tick)
+        if kind == "noisy":
+            self._fault_rng = self.world.rng(f"{self.id}:fault")
+        return replaced
+
+    def check_fault(self, kind: str, **params: Any) -> dict[str, Any]:
+        """The fault's parameters with defaults filled in; ValueError if this type does not
+        support ``kind`` or a parameter is unknown or out of range. Injects nothing."""
         if kind not in self.FAULTS:
             supported = ", ".join(self.FAULTS) or "none"
             raise ValueError(
@@ -226,10 +235,7 @@ class Component(ABC):
             )
         values = {**allowed, **params}
         self._check_fault(kind, values)
-        replaced, self.fault = self.fault, Fault(kind, values, tick=self.world.tick)
-        if kind == "noisy":
-            self._fault_rng = self.world.rng(f"{self.id}:fault")
-        return replaced
+        return values
 
     def clear_fault(self) -> Fault | None:
         """Remove the fault; returns it (None if there was none)."""

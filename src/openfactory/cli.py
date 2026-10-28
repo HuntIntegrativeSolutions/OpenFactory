@@ -25,6 +25,10 @@ Behavior spec
   ``--port`` is the Modbus port and ``--web-port`` the viewer port. With the viewer bound beyond
   loopback, ``/api/fault`` needs ``--fault-token`` or ``[server] fault_token``; with neither, the
   fault API is off and ``run`` logs a one-line notice (PLAN §6.4).
+- ``run`` and ``test`` take ``--fault ID=KIND[:key=value,...]`` (repeatable) and ``--fault-at T``
+  (simulated seconds, default 0): each fault is checked against its component before the run and
+  injected between ticks once the simulated time reaches T, logged like an ``/api/fault`` request,
+  so a headless run or a graded exercise can include a jammed pusher or a stuck eye (PLAN 2.11).
 - ``openfactory test SCENE --script FILE.py | --plc`` (PLAN 2.11) runs the scene headless for its
   ``checks.duration_s`` (or ``--duration``) and grades the run against its ``checks:`` block
   (:mod:`openfactory.checks`): as fast as possible under a stand-in script, or in real time with
@@ -50,7 +54,7 @@ import logging
 import signal
 import time
 from pathlib import Path
-from typing import Annotated, get_args
+from typing import Annotated, Any, get_args
 
 import typer
 import uvicorn
@@ -217,6 +221,15 @@ def run(
         ),
     ] = None,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings only.")] = False,
+    fault: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="ID=KIND[:key=value,...]: inject a fault (PLAN 2.6) at --fault-at; repeatable.",
+        ),
+    ] = None,
+    fault_at: Annotated[
+        float, typer.Option(help="Simulated time, seconds, to inject the --fault faults.", min=0)
+    ] = 0.0,
     fault_token: Annotated[
         str | None,
         typer.Option(
@@ -240,6 +253,7 @@ def run(
     log.info("OpenFactory %s: %s (training and demo tool, not safety-rated)", __version__, scene)
 
     _apply_forces(loaded, force or [])
+    faults = _faults(loaded, fault or [], fault_at)
     runtime, wall = _simulate(
         scene,
         parsed,
@@ -253,6 +267,7 @@ def run(
         web_port=web_port,
         script=script,
         fault_token=fault_token,
+        faults=faults,
     )
     _statistics(runtime)
     _summary(loaded, wall)
@@ -284,6 +299,15 @@ def test(
     ] = None,
     port: Annotated[int | None, typer.Option(help="Modbus TCP port (default 5020).")] = None,
     analog_encoding: AnalogEncoding = None,
+    fault: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="ID=KIND[:key=value,...]: inject a fault (PLAN 2.6) at --fault-at; repeatable.",
+        ),
+    ] = None,
+    fault_at: Annotated[
+        float, typer.Option(help="Simulated time, seconds, to inject the --fault faults.", min=0)
+    ] = 0.0,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings only.")] = False,
 ) -> None:
     """Grade a PLC program against the scene's checks (PLAN 2.11); exit 1 if any check fails."""
@@ -301,6 +325,7 @@ def test(
     if parsed.checks is None:
         typer.echo(f"error: {scene}: the scene has no checks: block to grade against", err=True)
         raise typer.Exit(1)
+    faults = _faults(loaded, fault or [], fault_at)
     seconds = duration if duration is not None else parsed.checks.duration_s
     log.info(
         "OpenFactory %s: testing %s for %g s with %s", __version__, scene, seconds,
@@ -320,6 +345,7 @@ def test(
         script=script,
         fault_token=None,
         serve_modbus=plc,  # a script needs no Modbus server; the lockfile is still checked
+        faults=faults,
     )
     results = evaluate(parsed.checks, loaded)
     typer.echo(format_results(results))
@@ -344,6 +370,7 @@ def _simulate(
     script: Path | None,
     fault_token: str | None,
     serve_modbus: bool = True,
+    faults: list[tuple[float, str, str, dict[str, Any]]] | None = None,
 ):  # -> tuple[Runtime, float]; Runtime is imported lazily with the web stack
     """Serve and step a loaded scene until ``duration`` (or Ctrl+C); returns the runtime and
     the wall time it took. Exits 1 on a lockfile conflict, a script load error, or a script
@@ -388,6 +415,7 @@ def _simulate(
                 "fight it. Use the Modbus server for reading (an HMI) only."
             )
     runtime = Runtime(loaded, realtime=not fast, controller=controller)
+    runtime.scheduled_faults = list(faults or [])
     web = None
     if not headless:
         web_endpoint = Endpoint(bind=bind or settings.web.bind, port=web_port or settings.web.port)
@@ -406,6 +434,39 @@ def _simulate(
         )
         raise typer.Exit(1)
     return runtime, time.perf_counter() - wall
+
+
+def _faults(
+    loaded: LoadedScene, items: list[str], at: float
+) -> list[tuple[float, str, str, dict[str, Any]]]:
+    """Parse ``--fault ID=KIND[:key=value,...]`` and check each against its component now, so a
+    typo fails before the run instead of in the middle of it."""
+    out = []
+    for item in items:
+        target, sep, rest = item.partition("=")
+        kind, _, raw = rest.partition(":")
+        if not sep or not kind:
+            raise typer.BadParameter(
+                f"{item!r}: expected ID=KIND[:key=value,...]", param_hint="--fault"
+            )
+        comp = next((c for c in loaded.components if c.id == target), None)
+        if comp is None:
+            raise typer.BadParameter(f"unknown component {target!r}", param_hint="--fault")
+        params: dict[str, Any] = {}
+        for pair in filter(None, raw.split(",")):
+            key, eq, value = pair.partition("=")
+            if not eq:
+                raise typer.BadParameter(f"{item!r}: parameter {pair!r} is not key=value")
+            try:
+                params[key] = float(value)
+            except ValueError:
+                params[key] = value  # a port name
+        try:
+            comp.check_fault(kind, **params)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc), param_hint="--fault") from None
+        out.append((at, target, kind, params))
+    return out
 
 
 def _statistics(runtime) -> None:  # noqa: ANN001 - Runtime is imported lazily

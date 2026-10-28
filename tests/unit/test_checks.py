@@ -119,3 +119,50 @@ def test_cli_test_needs_checks_and_exactly_one_controller(tmp_path):
     neither = runner.invoke(app, ["test", str(SORTER)])
     for result in (both, neither):
         assert result.exit_code == 2 and "exactly one of --script" in result.output
+
+
+def test_cli_fault_makes_the_grade_fail_with_a_reason(tmp_path):
+    """PLAN 2.11: a headless --fault, so a check can grade how a program handles it."""
+    path = str(scene_file(tmp_path, CHECKS))
+    args = ["test", path, "--script", str(SCRIPT), "--fault", "CYL_01=jammed", "--fault-at", "10"]
+    result = runner.invoke(app, args)
+    print(result.output)
+    assert result.exit_code == 1
+    assert "FAIL  parts_reached REM_02: tall: 1 reached REM_02, but 8 to REM_01" in result.output
+    slow = runner.invoke(app, [*args[:4], "--fault", "CYL_01=slow:factor=0.9"])
+    assert slow.exit_code == 0, slow.output  # a little slow still sorts
+
+
+@pytest.mark.parametrize(
+    ("spec", "message"),
+    [
+        ("CYL_09=jammed", "unknown component 'CYL_09'"),
+        ("CYL_01=misaligned", "a pusher has no 'misaligned' fault"),
+        ("CYL_01=slow:factor=2", "slow factor must be between 0 and 1"),
+        ("CYL_01=slow:speed=0.5", "takes factor, not speed"),
+        ("CYL_01", "expected ID=KIND"),
+    ],
+)
+def test_cli_rejects_a_bad_fault_before_running(spec, message, strip_ansi):
+    result = runner.invoke(app, ["test", str(SORTER), "--script", str(SCRIPT), "--fault", spec])
+    assert result.exit_code == 2
+    assert message in " ".join(strip_ansi(result.output).split()), result.output
+
+
+def test_scheduled_fault_is_applied_between_ticks_and_logged_with_its_tick():
+    from openfactory.server.runtime import Runtime
+
+    loaded = build(Scene.model_validate(sorter(None)))
+    runtime = Runtime(loaded, realtime=False)
+    runtime.scheduled_faults = [(0.5, "PE_01", "stuck_on", {})]
+    for _ in range(24):
+        runtime._step(0.02)
+    assert loaded.component("PE_01").fault is None  # t = 0.48 s
+    runtime._step(0.02)
+    runtime._step(0.02)  # applied before the tick that starts at t = 0.50 s
+    assert loaded.component("PE_01").fault.kind == "stuck_on"
+    event = runtime.events[-1]
+    assert (event["type"], event["id"], event["kind"], event["core_tick"]) == (
+        "fault", "PE_01", "stuck_on", 25,
+    )  # fmt: skip
+    assert runtime.scheduled_faults == []

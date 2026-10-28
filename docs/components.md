@@ -35,7 +35,9 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   fault API is open; with the viewer bound beyond loopback it needs the token set with
   `--fault-token` or `[server] fault_token` (in `openfactory.local.toml`), sent in the
   `X-OpenFactory-Fault-Token` header (the menu asks for it once), and with no token it is off
-  (PLAN §6.4).
+  (PLAN §6.4). Headless, `openfactory run` and `openfactory test` take
+  `--fault ID=KIND[:key=value,...]` and `--fault-at T` (PLAN 2.11), for example
+  `--fault CYL_01=slow:factor=0.25 --fault-at 10`.
   - `stuck_on` / `stuck_off` (`port`: one DI port, default all): the device's DI output reads
     true / false. It is the device's output, before any binding transform, so an NC eye stuck on
     reads false at the PLC. That is where a real fault lives: the sensor's output is what sticks,
