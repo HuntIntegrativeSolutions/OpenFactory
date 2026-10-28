@@ -14,7 +14,10 @@ Behavior spec
   supported kinds (PLAN 2.6). ``POST /api/fault`` with ``{"id", "kind", "params"}`` injects one,
   replacing that component's current fault, and returns it with the one it replaced;
   ``DELETE /api/fault/{id}`` clears it. Unknown components are 404, unsupported kinds or bad
-  parameters 400. Faults act from the next tick.
+  parameters 400. Faults act from the next tick. Access (PLAN §6.4, ruled 2026-10-27): open when
+  the server is bound to a loopback address; bound beyond loopback, every ``/api/fault`` request
+  needs the configured token in the :data:`FAULT_TOKEN_HEADER` header (401 without it or with a
+  wrong one), and with no token configured the fault API is off (403).
 - ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
   sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
 - ``WS /ws/state``: sends the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines,
@@ -36,13 +39,15 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import hmac
+import ipaddress
 import json
 import logging
 from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -55,6 +60,28 @@ from openfactory.server.runtime import Runtime
 log = logging.getLogger(__name__)
 
 STATE_RATE_HZ = 20.0
+#: Request header carrying the fault token when the server is bound beyond loopback (PLAN §6.4).
+FAULT_TOKEN_HEADER = "X-OpenFactory-Fault-Token"
+
+
+def is_loopback(bind: str) -> bool:
+    """True for ``localhost`` and loopback addresses (``127.0.0.0/8``, ``::1``)."""
+    if bind == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(bind).is_loopback
+    except ValueError:
+        return False  # a host name other than localhost: assume it reaches the network
+
+
+def fault_api_notice(bind: str, token: str | None) -> str | None:
+    """The one-line notice ``run`` prints when the fault API is off, else None."""
+    if is_loopback(bind) or token:
+        return None
+    return (
+        f"fault API off: the viewer is bound to {bind}, beyond loopback, and no fault token is set "
+        "(--fault-token or [server] fault_token in openfactory.local.toml)"
+    )
 
 
 class FaultRequest(BaseModel):
@@ -76,9 +103,32 @@ _NO_BUILD = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 The API is up: <a style="color:#60A5FA" href="/api/scene">/api/scene</a>.</p></body></html>"""
 
 
-def create_app(runtime: Runtime, web_dist: Path | None = WEB_DIST) -> FastAPI:
+def create_app(
+    runtime: Runtime,
+    web_dist: Path | None = WEB_DIST,
+    *,
+    bind: str = "127.0.0.1",
+    fault_token: str | None = None,
+) -> FastAPI:
+    """The app for one runtime. ``bind`` is the address the server listens on; it decides
+    whether ``/api/fault`` is open (loopback) or needs ``fault_token`` (PLAN §6.4)."""
     app = FastAPI(title="OpenFactory", version=__version__, docs_url="/api/docs")
     app.state.runtime = runtime
+    faults_open = is_loopback(bind)
+    expected = fault_token.encode() if fault_token else None
+
+    def fault_access(
+        token: str | None = Header(default=None, alias=FAULT_TOKEN_HEADER),
+    ) -> None:
+        if faults_open:
+            return
+        if expected is None:
+            raise HTTPException(
+                403,
+                "fault API off: this server is bound beyond loopback and has no fault token",
+            )
+        if token is None or not hmac.compare_digest(token.encode(), expected):
+            raise HTTPException(401, f"fault API: missing or wrong {FAULT_TOKEN_HEADER}")
 
     @app.get("/api/scene")
     def scene() -> dict[str, Any]:
@@ -96,11 +146,13 @@ def create_app(runtime: Runtime, web_dist: Path | None = WEB_DIST) -> FastAPI:
     def events(limit: int = 100) -> list[dict[str, Any]]:
         return list(runtime.events)[-limit:] if limit > 0 else []
 
-    @app.get("/api/fault")
+    guarded = [Depends(fault_access)]
+
+    @app.get("/api/fault", dependencies=guarded)
     def faults() -> dict[str, Any]:
         return runtime.faults()
 
-    @app.post("/api/fault")
+    @app.post("/api/fault", dependencies=guarded)
     def inject_fault(request: FaultRequest) -> dict[str, Any]:
         try:
             return runtime.inject_fault(request.id, request.kind, request.params)
@@ -109,7 +161,7 @@ def create_app(runtime: Runtime, web_dist: Path | None = WEB_DIST) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from None
 
-    @app.delete("/api/fault/{component_id}")
+    @app.delete("/api/fault/{component_id}", dependencies=guarded)
     def clear_fault(component_id: str) -> dict[str, Any]:
         try:
             return runtime.clear_fault(component_id)
@@ -179,13 +231,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=None)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    web = load_settings().web
+    settings = load_settings()
+    web = settings.web
     endpoint = Endpoint(bind=args.bind or web.bind, port=args.port or web.port)
+    token = settings.server.fault_token
     runtime = Runtime(load(args.scene))
     runtime.start()
     log.info("viewer and API on http://%s:%d/", endpoint.bind, endpoint.port)
+    if notice := fault_api_notice(endpoint.bind, token):
+        log.warning(notice)
+    app = create_app(runtime, bind=endpoint.bind, fault_token=token)
     try:
-        uvicorn.Server(server_config(create_app(runtime), endpoint)).run()
+        uvicorn.Server(server_config(app, endpoint)).run()
     finally:
         with contextlib.suppress(Exception):
             runtime.stop()

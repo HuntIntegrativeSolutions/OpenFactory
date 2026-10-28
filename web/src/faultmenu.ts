@@ -4,6 +4,10 @@
 // POST /api/fault or DELETE /api/fault/{id}; the core applies it from the next tick, and the
 // component's label shows the fault in ISA-101 alarm yellow once a state frame carries it.
 //
+// A server bound beyond loopback guards /api/fault with a token (PLAN §6.4): on a 401 the menu
+// asks for it once, keeps it for the browser tab (sessionStorage), and sends it in the
+// X-OpenFactory-Fault-Token header; a 403 means the server has the fault API off.
+//
 // OrbitControls pans on a right-button drag, so the menu opens only when the right button moved no
 // more than CLICK_SLOP_PX between press and release; a long-press is 600 ms with no more than
 // TOUCH_SLOP_PX of movement.
@@ -12,6 +16,25 @@ import { cssColor } from "./isa101";
 const CLICK_SLOP_PX = 5;
 const TOUCH_SLOP_PX = 10;
 const LONG_PRESS_MS = 600;
+const TOKEN_HEADER = "X-OpenFactory-Fault-Token";
+const TOKEN_KEY = "openfactory.faultToken";
+
+function storedToken(): string | null {
+  try {
+    return window.sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null; // storage blocked: ask again next time
+  }
+}
+
+function storeToken(token: string | null): void {
+  try {
+    if (token) window.sessionStorage.setItem(TOKEN_KEY, token);
+    else window.sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // storage blocked: the token lives only in this menu instance
+  }
+}
 
 interface FaultList {
   active: { id: string; kind: string; params: Record<string, unknown>; tick: number }[];
@@ -30,6 +53,7 @@ export class FaultMenu {
   private down: { x: number; y: number } | null = null;
   private press: { x: number; y: number; timer: number } | null = null;
   private readonly options: FaultMenuOptions;
+  private token: string | null = storedToken();
 
   constructor(options: FaultMenuOptions) {
     this.options = options;
@@ -75,12 +99,36 @@ export class FaultMenu {
     this.element.replaceChildren();
   }
 
+  /** fetch() on the fault API with the token, asking for it once if the server answers 401. */
+  private async call(url: string, init: RequestInit = {}): Promise<Response> {
+    const send = () => {
+      const headers = new Headers(init.headers);
+      if (this.token) headers.set(TOKEN_HEADER, this.token);
+      return fetch(url, { ...init, headers });
+    };
+    let res = await send();
+    if (res.status === 401) {
+      const entered = window.prompt("This server needs its fault token to inject faults:");
+      this.token = entered ? entered.trim() : null;
+      storeToken(this.token);
+      if (this.token) res = await send();
+    }
+    return res;
+  }
+
   /** Open the menu for the component under a viewport point (exposed for the screenshot runner). */
   async openAt(clientX: number, clientY: number): Promise<string | null> {
     const hit = this.options.pick(clientX, clientY);
     this.close();
     if (!hit) return null;
-    const res = await fetch("/api/fault");
+    const res = await this.call("/api/fault");
+    if (!res.ok) {
+      if (res.status === 401) storeToken((this.token = null)); // wrong token: ask again next time
+      this.add(`${hit.id} · ${hit.type}`, null, true);
+      this.add(res.status === 403 ? "Fault injection is off on this server" : "Fault token not accepted", null);
+      this.show(clientX, clientY);
+      return hit.id;
+    }
     const faults = (await res.json()) as FaultList;
     const kinds = faults.supported[hit.id] ?? [];
     const active = faults.active.find((f) => f.id === hit.id);
@@ -88,19 +136,23 @@ export class FaultMenu {
     if (!kinds.length) this.add(`No faults for a ${hit.type}`, null);
     for (const kind of kinds) {
       this.add(`${kind === active?.kind ? "● " : ""}${kind.replace("_", " ")}`, () =>
-        fetch("/api/fault", {
+        this.call("/api/fault", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: hit.id, kind }),
         }),
       );
     }
-    if (active) this.add(`Clear fault (${active.kind.replace("_", " ")})`, () => fetch(`/api/fault/${hit.id}`, { method: "DELETE" }));
+    if (active) this.add(`Clear fault (${active.kind.replace("_", " ")})`, () => this.call(`/api/fault/${hit.id}`, { method: "DELETE" }));
+    this.show(clientX, clientY);
+    return hit.id;
+  }
+
+  private show(clientX: number, clientY: number): void {
     const { style } = this.element;
     style.display = "block";
     style.left = `${Math.min(clientX, window.innerWidth - 200)}px`;
     style.top = `${Math.min(clientY, window.innerHeight - this.element.offsetHeight - 8)}px`;
-    return hit.id;
   }
 
   private add(text: string, action: (() => Promise<Response>) | null, title = false): void {

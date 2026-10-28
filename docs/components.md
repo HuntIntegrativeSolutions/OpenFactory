@@ -31,7 +31,11 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   replaces the current one. Inject from the viewer (right-click a component, or long-press it on a
   touch screen) or over HTTP (`POST /api/fault` with `{"id", "kind", "params"}`, `GET /api/fault`
   for the active ones and what each component supports, `DELETE /api/fault/{id}`). A fault acts
-  from the next tick; the component's label shows it in ISA-101 alarm yellow.
+  from the next tick; the component's label shows it in ISA-101 alarm yellow. On loopback the
+  fault API is open; with the viewer bound beyond loopback it needs the token set with
+  `--fault-token` or `[server] fault_token` (in `openfactory.local.toml`), sent in the
+  `X-OpenFactory-Fault-Token` header (the menu asks for it once), and with no token it is off
+  (PLAN §6.4).
   - `stuck_on` / `stuck_off` (`port`: one DI port, default all): the device's DI output reads
     true / false. It is the device's output, before any binding transform, so an NC eye stuck on
     reads false at the PLC. That is where a real fault lives: the sensor's output is what sticks,

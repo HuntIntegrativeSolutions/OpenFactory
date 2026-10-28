@@ -19,7 +19,9 @@ Behavior spec
   spawned, removed and lost by part name, and removed per part remover.
 - Listen addresses follow ``openfactory.toml`` precedence (:mod:`openfactory.core.config`).
   ``--bind`` applies to every server and is the only way to leave loopback from the command line;
-  ``--port`` is the Modbus port and ``--web-port`` the viewer port.
+  ``--port`` is the Modbus port and ``--web-port`` the viewer port. With the viewer bound beyond
+  loopback, ``/api/fault`` needs ``--fault-token`` or ``[server] fault_token``; with neither, the
+  fault API is off and ``run`` logs a one-line notice (PLAN §6.4).
 - ``openfactory validate SCENE...`` checks each scene: schema, component build, loader warnings,
   and the Modbus register map against each of its lockfiles that exists (read only). A directory
   is expanded to its ``*.yaml`` scenes, skipping ``*.modbus.yaml`` lockfiles. Exit code 1 if any
@@ -207,6 +209,14 @@ def run(
         ),
     ] = None,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings only.")] = False,
+    fault_token: Annotated[
+        str | None,
+        typer.Option(
+            help="Token /api/fault requires when the viewer is bound beyond loopback (PLAN 6.4); "
+            "prefer [server] fault_token in openfactory.local.toml, which ps cannot show.",
+            show_default=False,
+        ),
+    ] = None,
 ) -> None:
     """Run a scene: Modbus server, viewer, and the 50 Hz simulation."""
     _setup_logging(quiet)
@@ -221,7 +231,11 @@ def run(
         raise typer.Exit(1) from None
     log.info("OpenFactory %s: %s (training and demo tool, not safety-rated)", __version__, scene)
 
-    from openfactory.server.app import create_app, server_config  # web stack only when running
+    from openfactory.server.app import (  # web stack only when running
+        create_app,
+        fault_api_notice,
+        server_config,
+    )
     from openfactory.server.runtime import Runtime
 
     _apply_forces(loaded, force or [])
@@ -260,8 +274,12 @@ def run(
     web = None
     if not headless:
         web_endpoint = Endpoint(bind=bind or settings.web.bind, port=web_port or settings.web.port)
-        web = uvicorn.Server(server_config(create_app(runtime), web_endpoint))
+        token = fault_token or settings.server.fault_token
+        app = create_app(runtime, bind=web_endpoint.bind, fault_token=token)
+        web = uvicorn.Server(server_config(app, web_endpoint))
         log.info("viewer: http://%s:%d/", web_endpoint.bind, web_endpoint.port)
+        if notice := fault_api_notice(web_endpoint.bind, token):
+            log.warning(notice)
     wall = time.perf_counter()
     asyncio.run(_serve(runtime, modbus, web, duration))
     if runtime.fault is not None:

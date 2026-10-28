@@ -42,10 +42,17 @@ class Connection(_Strict):
     path: str
 
 
+class ServerSettings(_Strict):
+    #: Token ``/api/fault`` requires when the web server is bound beyond loopback (PLAN §6.4).
+    #: Put it in the git-ignored ``openfactory.local.toml``, never in the committed file.
+    fault_token: str | None = Field(default=None, min_length=1)
+
+
 class Settings(_Strict):
     modbus: Endpoint = Endpoint(port=5020)
     opcua: Endpoint = Endpoint(port=4840)
     web: Endpoint = Endpoint(port=8000)
+    server: ServerSettings = ServerSettings()
     connections: dict[str, Connection] = {}
 
 

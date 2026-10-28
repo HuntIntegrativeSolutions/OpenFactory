@@ -25,6 +25,14 @@ port = 4840
 bind = "127.0.0.1"   # viewer and WebSocket server
 port = 8000
 
+# Fault injection (PLAN 2.6, §6.4). On loopback /api/fault is open. With the viewer bound beyond
+# loopback (--bind 0.0.0.0), every /api/fault request needs this token in the
+# X-OpenFactory-Fault-Token header (the viewer's fault menu asks for it once); without a token the
+# fault API is off. Set the token in openfactory.local.toml (git-ignored), not here:
+#
+# [server]
+# fault_token = "choose-a-long-random-string"
+
 # Named PLC connections, used by scenes with `plc.role: client` and `plc.connection: <name>`.
 # Example (192.0.2.0/24 is a documentation-only address range):
 #
