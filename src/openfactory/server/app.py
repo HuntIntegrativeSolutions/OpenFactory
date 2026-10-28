@@ -18,6 +18,8 @@ Behavior spec
   the server is bound to a loopback address; bound beyond loopback, every ``/api/fault`` request
   needs the configured token in the :data:`FAULT_TOKEN_HEADER` header (401 without it or with a
   wrong one), and with no token configured the fault API is off (403).
+- ``GET /api/stats``: the run's statistics so far (PLAN 2.11, :mod:`openfactory.core.stats`):
+  throughput per remover, conveyor utilization, actuator cycles, part dwell, and losses.
 - ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
   sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
 - ``WS /ws/state``: sends the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines,
@@ -167,6 +169,10 @@ def create_app(
             return runtime.clear_fault(component_id)
         except KeyError as exc:
             raise HTTPException(404, str(exc.args[0])) from None
+
+    @app.get("/api/stats")
+    def stats() -> dict[str, Any]:
+        return runtime.statistics()
 
     @app.get("/api/parity")
     def parity() -> dict[str, Any]:

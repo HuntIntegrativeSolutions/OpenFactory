@@ -60,6 +60,7 @@ from pydantic import BaseModel, ConfigDict
 
 from openfactory.core.loader import LoadedScene
 from openfactory.core.scheduler import DEFAULT_RATE_HZ, RunStats, Scheduler
+from openfactory.core.stats import SceneStats
 from openfactory.pyplc import ScriptPlc
 
 EVENT_LOG_SIZE = 1000
@@ -96,6 +97,8 @@ class Runtime:
         self.events: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
         self.event_counts: Counter[str] = Counter()
         self.stats: RunStats | None = None
+        #: Throughput, utilization, cycles, dwell, and losses (PLAN 2.11), updated every tick.
+        self.scene_stats = SceneStats(loaded)
         self._thread: threading.Thread | None = None
         self._eyes = [c for c in loaded.components if c.type == "photo_eye"]
         self._beam = {c.id: bool(getattr(c, "blocked", False)) for c in self._eyes}
@@ -113,6 +116,7 @@ class Runtime:
                     self.scheduler.stop()
                     return
             self.loaded.step(dt)
+            self.scene_stats.observe()
             for eye in self._eyes:
                 blocked = bool(eye.blocked)  # type: ignore[attr-defined]
                 if blocked != self._beam[eye.id]:
@@ -265,6 +269,11 @@ class Runtime:
         entry.update({k: data[k] for k in ("kind", "params") if k in data})
         self.events.append({**entry, "core_t": self.loaded.time, "core_tick": self.loaded.tick})
         self.event_counts[f"{event}:{data['id']}"] += 1
+
+    def statistics(self) -> dict[str, Any]:
+        """The run's statistics so far (PLAN 2.11), as ``GET /api/stats`` serves them."""
+        with self.lock:
+            return self.scene_stats.report()
 
     def parity(self) -> dict[str, Any]:
         """Core beam edges and browser sensor events, for ``tools/parity_trace.py --live``."""

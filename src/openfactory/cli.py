@@ -16,8 +16,10 @@ Behavior spec
   Python (``step(io, t)`` every tick, :mod:`openfactory.pyplc`); a script exception stops the run
   with exit code 1. ``--analog-encoding float32|int16_scaled`` overrides
   the scene's ``plc.analog_encoding`` for this run and selects that encoding's lockfile; the other
-  encoding's lockfile is left alone. At the end it prints a one-line run summary: ticks, parts
-  spawned, removed and lost by part name, and removed per part remover.
+  encoding's lockfile is left alone. At the end it prints the statistics block (PLAN 2.11:
+  throughput, utilization, actuator cycles, dwell, losses; also ``GET /api/stats``) and then a
+  one-line run summary, always the last line: ticks, parts spawned, removed and lost by part name,
+  and removed per part remover.
 - Listen addresses follow ``openfactory.toml`` precedence (:mod:`openfactory.core.config`).
   ``--bind`` applies to every server and is the only way to leave loopback from the command line;
   ``--port`` is the Modbus port and ``--web-port`` the viewer port. With the viewer bound beyond
@@ -238,7 +240,7 @@ def run(
     log.info("OpenFactory %s: %s (training and demo tool, not safety-rated)", __version__, scene)
 
     _apply_forces(loaded, force or [])
-    _, wall = _simulate(
+    runtime, wall = _simulate(
         scene,
         parsed,
         loaded,
@@ -252,6 +254,7 @@ def run(
         script=script,
         fault_token=fault_token,
     )
+    _statistics(runtime)
     _summary(loaded, wall)
 
 
@@ -303,7 +306,7 @@ def test(
         "OpenFactory %s: testing %s for %g s with %s", __version__, scene, seconds,
         f"--script {script}" if script else "a PLC over Modbus",
     )  # fmt: skip
-    _, wall = _simulate(
+    runtime, wall = _simulate(
         scene,
         parsed,
         loaded,
@@ -320,6 +323,7 @@ def test(
     )
     results = evaluate(parsed.checks, loaded)
     typer.echo(format_results(results))
+    _statistics(runtime)
     _summary(loaded, wall)
     if not all(r.passed for r in results):
         raise typer.Exit(1)
@@ -402,6 +406,13 @@ def _simulate(
         )
         raise typer.Exit(1)
     return runtime, time.perf_counter() - wall
+
+
+def _statistics(runtime) -> None:  # noqa: ANN001 - Runtime is imported lazily
+    """The statistics block (PLAN 2.11), printed just before the run summary."""
+    from openfactory.core.stats import format_report
+
+    typer.echo(format_report(runtime.statistics()))
 
 
 def _summary(loaded: LoadedScene, wall: float) -> None:
