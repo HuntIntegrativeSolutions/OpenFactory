@@ -359,7 +359,7 @@ Origin: the lens centre. Lit while `on` is true; viewer only.
 |---|---|---|---|
 | `on` | DO | yes | Light on command |
 
-Faults: none.
+Faults: `stuck_off` (a burned-out bulb: the light stays dark whatever `on` says).
 
 ### `selector_switch`
 

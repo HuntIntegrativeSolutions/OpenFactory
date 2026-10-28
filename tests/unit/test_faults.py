@@ -67,10 +67,10 @@ def test_every_type_supports_only_known_kinds_and_rejects_the_rest(rig):
         r["CYL_01"].fault_inject("slow", factor=1.5)
     with pytest.raises(ValueError, match="needs a DI port .extended, retracted., not 'extend'"):
         r["CYL_01"].fault_inject("stuck_on", port="extend")
-    light = rig({"id": "PL_01", "type": "pilot_light", "description": "Light",
-                 "position": [0, 1, 0], "io": {"on": "PL_01_DO"}})  # fmt: skip
+    remover = rig({"id": "REM_01", "type": "part_remover", "description": "Remover",
+                   "position": [0, 0, 0], "size": [0.3, 1.0, 1.0]})  # fmt: skip
     with pytest.raises(ValueError, match="supports: none"):
-        light["PL_01"].fault_inject("stuck_off")
+        remover["REM_01"].fault_inject("stuck_off")
 
 
 def test_one_fault_at_a_time_injecting_replaces_and_clear_removes(rig):

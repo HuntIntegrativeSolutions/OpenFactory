@@ -89,6 +89,20 @@ def test_pilot_light_follows_command(rig):
     assert light.geometry()["color"] == "green"
 
 
+def test_pilot_light_with_a_burned_bulb_stays_dark_until_cleared(rig):
+    r = rig(PL)
+    light = r["PL_01"]
+    r.plc("PL_01_DO", True)
+    light.fault_inject("stuck_off")
+    r.step()
+    assert light.state() == {"lit": False}
+    light.clear_fault()
+    r.step()
+    assert light.state() == {"lit": True}
+    with pytest.raises(ValueError, match="supports: stuck_off"):
+        light.fault_inject("stuck_on")
+
+
 # --- selector switch ---------------------------------------------------------------------------
 
 
