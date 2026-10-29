@@ -804,7 +804,7 @@ runs the sorting program against it; a box visibly gets pushed.
       | `conveyor-start-stop` | REM_01 {box: 17} |
       | `buffer-and-release` | REM_01 {box: 21} (batches of exactly 3) |
       | `two-lane-merge` | REM_OUT {a: 6, b: 6} |
-      | `palletizer-lite` | REM_LYR {box: 8} (two layers of 4) |
+      | `palletizer-lite` | REM_LYR {box: 8} (two layers of 4; see the 6 s note below) |
       | `sorting-by-color` | REM_MAIN {blue_box: 5}, REM_RED {red_box: 8} |
       | `sorting-by-height` | REM_01 {short: 9}, REM_02 {tall: 9} (1.14, 2.10) |
       `tests/integration/test_shipped_scenes.py` is the CI gate until 2.11's `checks:`: every
@@ -819,6 +819,11 @@ runs the sorting program against it; a box visibly gets pushed.
       model) and counts placements, since watching the row eye alone let a fifth box ride out
       with the layer. OpenPLC rejects `STEP` as a variable name (IEC 61131-3 reserved word).
       `buffer-and-release` is still to be rebuilt on a composite with 2.16.
+      *Palletizer rate (ruled 2026-10-28):* at a box every 4 s the line was over capacity (about
+      4.8 s a box), so `max_cycle_s` 35 passed at 60 s and failed from 120 s (47 s at 300 s). The
+      emitter now runs every 6 s: longest dwell 27.4 s at 60, 300 and 600 s, 48 boxes out in
+      300 s. Its 60 s count is unchanged (8) under the script; the OpenPLC re-run at 6 s waits
+      for Docker (not available in this WSL session on 2026-10-28).
 - [ ] 2.8 Scene → GRAFCET: feed the example PLC sequence to `/grafcet-chart-creator` for each scene and
       ship the HTML in `docs/sequences/`
 - [ ] 2.9 Performance: 200 parts at 60 fps in the viewer on integrated graphics; profile and fix.
@@ -1098,6 +1103,8 @@ runs the sorting program against it; a box visibly gets pushed.
    note under the task that added it giving the measured worst delta, the model difference that
    causes it, and the ruling that accepted it. Never widen a tolerance to make a trace pass;
    report the numbers instead. As of 2026-10-27 every committed trace gates.
+10. **A scene's Done-when includes a 300 s `openfactory test` run** (ruled 2026-10-28), as well as
+   the 60 s run CI does, so a scene over capacity cannot pass by running short.
 
 ---
 

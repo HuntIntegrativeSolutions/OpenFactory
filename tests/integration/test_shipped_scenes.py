@@ -120,7 +120,7 @@ def test_buffer_releases_batches_of_exactly_three():
 
 
 def test_palletizer_layers_are_four_boxes():
-    for seconds, layers in ((30.0, 1), (50.0, 2)):  # layers leave at about 21 s and 41 s
+    for seconds, layers in ((35.0, 1), (58.0, 2)):  # layers leave at about 27 s and 51 s
         loaded = run_script("palletizer-lite", seconds=seconds)
         assert removers(loaded) == {"REM_LYR": {"box": 4 * layers}}, seconds
 

@@ -70,5 +70,5 @@ def test_a_gantry_cycle_is_one_trip_to_the_place_side_and_back():
     report = scripted("palletizer-lite").report()
     print(format_report(report))
     pp = report["cycles"]["PP_01"]
-    assert pp["count"] == 12  # 12 placed in 60 s: two layers out and the third row of four formed
+    assert pp["count"] == 9  # 9 placed in 60 s: two layers of four out, one box of the third
     assert pp["mean_s"] == pytest.approx(2.9, abs=0.2)  # 1 s out, lower, release, rise, 1 s back

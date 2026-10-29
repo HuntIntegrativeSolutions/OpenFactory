@@ -24,7 +24,7 @@ program.
 | `CONV_LYR` | belt conveyor | Layer-forming belt at z 1.0 m, 3 m at 0.5 m/s; boxes are set down at x 2.05 m |
 | `STP_LYR` | stopper | At x 4.2 m; a row of four queues from there back to x 3.0 m |
 | `PE_ROW` | photo eye | Under the fourth queued box (x 3.15 m) |
-| `EMT_01` | box emitter | A 0.3 m × 0.2 m box every 4 s |
+| `EMT_01` | box emitter | A 0.3 m × 0.2 m box every 6 s, under the line's capacity |
 | `REM_LYR` | part remover | End of the layer-forming belt; counts boxes |
 
 ## I/O
@@ -85,16 +85,23 @@ Devices then shows `%IX100.0 to %IX100.7` and `%QX100.0 to %QX100.7`.
 
 ## Expected result
 
-60 s from start, under either program: 15 boxes spawned and `REM_LYR` takes 8, two layers of four,
-none lost. The first layer leaves at about 21 s, the second at about 41 s, and the third starts
-leaving just before 60 s. The infeed backs up between layers, because the gantry waits while a
-layer forms and leaves. The run summary line reads
-`spawned 15, removed {'box': 8}, lost {}; by remover {'REM_LYR': {'box': 8}}`.
+60 s from start under the stand-in script: 10 boxes spawned and `REM_LYR` takes 8, two layers of
+four, none lost. (Under OpenPLC at the original 4 s interval the result matched the script exactly;
+the 6 s interval has not yet been re-run under OpenPLC.) The first layer leaves at about 27 s and the second at about 51 s. The run summary line
+reads `spawned 10, removed {'box': 8}, lost {}; by remover {'REM_LYR': {'box': 8}}`.
+
+Why a box every 6 s: a layer of four takes the gantry and the layer stopper about 19 s, roughly
+4.8 s a box. At the original 4 s interval the infeed backed up without limit, so the longest
+spawn-to-remover time kept growing (27 s at 60 s, 47 s at 300 s) and the scene passed its
+`max_cycle_s` only because the check ran for 60 s. At 6 s the longest is 27.4 s (the first box of
+a layer waiting for the other three) at 60, 300 and 600 s alike.
 
 ## Try this
 
-- Inject `slow` on `PP_01`. Each cycle takes longer, the infeed backs up further, and the emitter
-  starts waiting for a clear spawn space (its `waiting_ticks` in `/api/state` grows).
+- Inject `slow` on `PP_01` (half speed). The gantry now needs more than 6 s a box, so the line is
+  over capacity again: in 60 s only 5 boxes leave, and
+  `openfactory test ... --duration 300 --fault PP_01=slow` fails `max_cycle_s` (measured: 70 s
+  spawn to remover).
 - Inject `jammed` on `PP_01` while it holds a box mid-traverse. Neither `at_pick` nor `at_place`
   makes and the sequence waits forever: add a step timeout and an alarm.
 - Change the layer to three boxes. What else must move?
