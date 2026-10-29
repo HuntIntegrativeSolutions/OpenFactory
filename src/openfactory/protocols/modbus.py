@@ -52,6 +52,20 @@ allocation returns ILLEGAL ADDRESS (2), a NaN or infinite float returns ILLEGAL 
 any other failure is logged and returns SERVER DEVICE FAILURE (4). A write to part of a float32 pair
 (FC06, or FC16 starting mid-pair) is merged with the tag's current other word.
 
+**Comms faults (PLAN 2.13).** :attr:`ModbusServer.comms` (:class:`CommsFault`) stalls or delays
+the server without touching the simulation, so a PLC program's comms watchdog and stale-data
+handling can be exercised. ``drop``: every request is ignored, with no reply at all, as on a pulled
+cable; the PLC's requests time out, and a write in a dropped request is not applied. The hook
+raises pymodbus's ``NoSuchIdException`` and the server is built with
+``ignore_missing_devices=True``, which makes pymodbus send nothing (``requesthandler.py``,
+pymodbus 3.16.1); with the one ``SimDevice`` answering every unit id this cannot happen otherwise.
+``latency_ms``: each request is answered that much later (the hook awaits before doing its work,
+once per request: for FC05, FC06 and FC23, which call the hook twice, only on the first call).
+pymodbus answers a delayed request using the connection's latest request header, so latency is
+for clients that wait for each reply before the next request, which PLC Modbus masters
+(OpenPLC included) do. Comms faults are injected through ``/api/fault`` (``{"comms": {...}}``) or
+``--fault comms=drop`` / ``--fault comms=latency:ms=N``.
+
 Unallocated addresses inside a table (holes left by pins or retired lockfile entries) read as 0 or
 False, and a write that touches one is rejected with ILLEGAL ADDRESS. Bit reads past the last
 allocated bit but inside its final 16-bit word return False (pymodbus hands the hook a word count
@@ -73,10 +87,11 @@ import struct
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import yaml
 from pymodbus.constants import ExcCodes
+from pymodbus.exceptions import NoSuchIdException
 from pymodbus.server import ModbusTcpServer
 from pymodbus.simulator import DataType, SimData, SimDevice
 from pymodbus.simulator.simutils import SimUtils
@@ -464,6 +479,26 @@ def _block(table: Table, size: int) -> list[SimData]:
     return [SimData(0, count=size, values=0, datatype=DataType.REGISTERS)]
 
 
+#: Function codes for which pymodbus calls the action hook twice (set, then get the echo).
+_TWO_CALL_FCS = frozenset({5, 6, 23})
+
+
+@dataclass
+class CommsFault:
+    """A comms fault on a protocol server (PLAN 2.13); all defaults mean healthy."""
+
+    #: Ignore every request: no reply, the client times out.
+    drop: bool = False
+    #: Answer every request this much later, milliseconds.
+    latency_ms: float = 0.0
+
+    def active(self) -> bool:
+        return self.drop or self.latency_ms > 0
+
+    def describe(self) -> dict[str, Any]:
+        return {"drop": self.drop, "latency_ms": self.latency_ms}
+
+
 class ModbusServer:
     """Modbus TCP server whose registers are the I/O table."""
 
@@ -491,6 +526,8 @@ class ModbusServer:
             action=self._hook,
         )
         self._server: ModbusTcpServer | None = None
+        #: Comms fault (PLAN 2.13), read on every request.
+        self.comms = CommsFault()
 
     # -- table images ----------------------------------------------------------------------------
 
@@ -523,6 +560,11 @@ class ModbusServer:
         registers: list[int],
         set_values: list[int] | list[bool] | None,
     ) -> ExcCodes | None:
+        comms = self.comms
+        if comms.drop:  # no reply at all: pymodbus drops it (ignore_missing_devices=True)
+            raise NoSuchIdException("comms fault: drop")
+        if comms.latency_ms > 0 and (set_values is not None or function_code not in _TWO_CALL_FCS):
+            await asyncio.sleep(comms.latency_ms / 1000.0)
         try:
             table = FC_TABLE.get(function_code)
             if table is None:
@@ -581,7 +623,9 @@ class ModbusServer:
         if reachable:
             log.info("%s", reachable)
         self._server = ModbusTcpServer(
-            self.device, address=(self.endpoint.bind, self.endpoint.port)
+            self.device,
+            address=(self.endpoint.bind, self.endpoint.port),
+            ignore_missing_devices=True,  # a dropped request (comms fault) gets no reply
         )
         await self._server.serve_forever()
 

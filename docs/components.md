@@ -38,6 +38,14 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   (PLAN §6.4). Headless, `openfactory run` and `openfactory test` take
   `--fault ID=KIND[:key=value,...]` and `--fault-at T` (PLAN 2.11), for example
   `--fault CYL_01=slow:factor=0.25 --fault-at 10`.
+- **Comms faults (PLAN 2.13)** belong to the Modbus server, not a component, and leave the
+  simulation running. `POST /api/fault` with `{"comms": {"drop": true}}` makes the server ignore
+  every request (no reply: the PLC's requests time out, and a write in a dropped request is not
+  applied, as on a pulled cable); `{"comms": {"latency_ms": 300}}` answers every request 300 ms
+  late. `DELETE /api/fault/comms` clears it and `GET /api/fault` shows it under `comms`. Headless:
+  `--fault comms=drop` or `--fault comms=latency:ms=300`, with `--fault-at T`. Use it to test a
+  program's comms watchdog and how it treats stale inputs. Latency assumes the PLC waits for each
+  reply before its next request, as PLC Modbus masters (OpenPLC included) do.
   - `stuck_on` / `stuck_off` (`port`: one DI port, default all): the device's DI output reads
     true / false. It is the device's output, before any binding transform, so an NC eye stuck on
     reads false at the PLC. That is where a real fault lives: the sensor's output is what sticks,

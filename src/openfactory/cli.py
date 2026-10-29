@@ -36,6 +36,8 @@ Behavior spec
   (simulated seconds, default 0): each fault is checked against its component before the run and
   injected between ticks once the simulated time reaches T, logged like an ``/api/fault`` request,
   so a headless run or a graded exercise can include a jammed pusher or a stuck eye (PLAN 2.11).
+  ``--fault comms=drop`` or ``--fault comms=latency:ms=N`` stalls or delays the Modbus server
+  instead (PLAN 2.13); the simulation keeps running.
 - ``openfactory test SCENE --script FILE.py | --plc`` (PLAN 2.11) runs the scene headless for its
   ``checks.duration_s`` (or ``--duration``) and grades the run against its ``checks:`` block
   (:mod:`openfactory.checks`): as fast as possible under a stand-in script, or in real time with
@@ -452,6 +454,10 @@ def _simulate(
             )
     runtime = Runtime(loaded, realtime=not fast, controller=controller)
     runtime.scheduled_faults = list(faults or [])
+    runtime.comms = modbus.comms if modbus is not None else None  # PLAN 2.13
+    if modbus is None and any(f[1] == "comms" for f in runtime.scheduled_faults):
+        typer.echo("error: --fault comms=...: this run has no protocol server", err=True)
+        raise typer.Exit(1)
     web = None
     if not headless:
         web_endpoint = Endpoint(bind=bind or settings.web.bind, port=web_port or settings.web.port)
@@ -502,6 +508,9 @@ def _faults(
             raise typer.BadParameter(
                 f"{item!r}: expected ID=KIND[:key=value,...]", param_hint="--fault"
             )
+        if target == "comms":  # PLAN 2.13: the protocol server, not a component
+            out.append((at, "comms", kind, _comms_params(item, kind, raw)))
+            continue
         comp = next((c for c in loaded.components if c.id == target), None)
         if comp is None:
             raise typer.BadParameter(f"unknown component {target!r}", param_hint="--fault")
@@ -538,6 +547,22 @@ def _end_record(loaded: LoadedScene, runtime) -> dict[str, Any]:  # noqa: ANN001
         "statistics": runtime.scene_stats.report(),
         "error": runtime.fault,
     }
+
+
+def _comms_params(item: str, kind: str, raw: str) -> dict[str, Any]:
+    """``--fault comms=drop`` or ``--fault comms=latency:ms=N``, as set_comms arguments."""
+    if kind == "drop" and not raw:
+        return {"drop": True}
+    key, _, value = raw.partition("=")
+    if kind == "latency" and key == "ms":
+        try:
+            if float(value) > 0:
+                return {"latency_ms": float(value)}
+        except ValueError:
+            pass
+    raise typer.BadParameter(
+        f"{item!r}: a comms fault is comms=drop or comms=latency:ms=N (N > 0)", param_hint="--fault"
+    )
 
 
 def _statistics(runtime) -> None:  # noqa: ANN001 - Runtime is imported lazily

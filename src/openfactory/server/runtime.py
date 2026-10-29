@@ -99,6 +99,8 @@ class Runtime:
         self.scheduled_faults: list[tuple[float, str, str, dict[str, Any]]] = []
         #: A run being recorded (PLAN 2.12, ``--record``), fed each tick's snapshot and each event.
         self.recorder: Any = None
+        #: The protocol server's comms fault (PLAN 2.13), or None with no protocol server.
+        self.comms: Any = None
         self.scheduler = Scheduler(self._step, rate_hz, realtime=realtime)
         self.snapshot: dict[str, Any] = self._take_snapshot()
         self.events: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
@@ -118,7 +120,10 @@ class Runtime:
             due = [f for f in self.scheduled_faults if f[0] <= self.loaded.time + 1e-9]
             for fault in due:  # between ticks, as an /api/fault request is applied
                 self.scheduled_faults.remove(fault)
-                self._inject(*fault[1:])
+                if fault[1] == "comms":
+                    self._set_comms(**fault[3])
+                else:
+                    self._inject(*fault[1:])
             if self.controller is not None:
                 try:
                     self.controller.scan(self.loaded.time)
@@ -265,8 +270,29 @@ class Runtime:
         log.info("fault at t = %.2f s: %s %s %s", self.loaded.time, comp.id, kind, fault["params"])
         return {"fault": fault, "replaced": replaced.describe() if replaced else None}
 
+    def set_comms(self, *, drop: bool = False, latency_ms: float = 0.0) -> dict[str, Any]:
+        """Stall (``drop``) or delay (``latency_ms``) the protocol server; the sim keeps running.
+        ValueError with no protocol server or a negative latency."""
+        with self.lock:
+            return self._set_comms(drop=drop, latency_ms=latency_ms)
+
+    def _set_comms(self, *, drop: bool = False, latency_ms: float = 0.0) -> dict[str, Any]:
+        if self.comms is None:
+            raise ValueError("comms fault: this run has no protocol server")
+        if latency_ms < 0:
+            raise ValueError("comms fault: latency_ms must not be negative")
+        self.comms.drop, self.comms.latency_ms = bool(drop), float(latency_ms)
+        state = self.comms.describe()
+        self._event({"type": "comms", "id": "comms", "params": state,
+                     "core_t": self.loaded.time, "core_tick": self.loaded.tick})  # fmt: skip
+        self.event_counts["comms:comms"] += 1
+        log.info("comms fault at t = %.2f s: %s", self.loaded.time, state)
+        return {"comms": state}
+
     def clear_fault(self, component_id: str) -> dict[str, Any]:
-        """Clear a component's fault. Raises KeyError for an unknown component."""
+        """Clear a component's fault (``comms``: the comms fault). KeyError for an unknown id."""
+        if component_id == "comms" and self.comms is not None:
+            return self.set_comms()
         with self.lock:
             comp = self._component(component_id)
             cleared = comp.clear_fault()
@@ -282,6 +308,8 @@ class Runtime:
                     if c.fault is not None
                 ],
                 "supported": {c.id: list(c.FAULTS) for c in self.loaded.components},
+                # PLAN 2.13: the protocol server's comms fault; None with no protocol server
+                "comms": self.comms.describe() if self.comms is not None else None,
             }
 
     def _log_fault(self, event: str, data: dict[str, Any]) -> None:

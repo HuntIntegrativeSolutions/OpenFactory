@@ -13,7 +13,10 @@ Behavior spec
 - ``GET /api/fault``: active faults (``{id, type, kind, params, tick}``) and each component's
   supported kinds (PLAN 2.6). ``POST /api/fault`` with ``{"id", "kind", "params"}`` injects one,
   replacing that component's current fault, and returns it with the one it replaced;
-  ``DELETE /api/fault/{id}`` clears it. Unknown components are 404, unsupported kinds or bad
+  ``DELETE /api/fault/{id}`` clears it. ``{"comms": {"drop": true}}`` or
+  ``{"comms": {"latency_ms": N}}`` stalls or delays the protocol server instead (PLAN 2.13; 400
+  with no protocol server), ``DELETE /api/fault/comms`` clears that, and ``GET`` shows it as
+  ``comms``. Unknown components are 404, unsupported kinds or bad
   parameters 400. Faults act from the next tick. Access (PLAN §6.4, ruled 2026-10-27): open when
   the server is bound to a loopback address; bound beyond loopback, every ``/api/fault`` request
   needs the configured token in the :data:`FAULT_TOKEN_HEADER` header (401 without it or with a
@@ -57,7 +60,7 @@ import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from openfactory import __version__
 from openfactory.core.config import Endpoint, load_settings
@@ -100,14 +103,32 @@ class ExamSwitch(BaseModel):
     on: bool
 
 
-class FaultRequest(BaseModel):
-    """Body of ``POST /api/fault`` (PLAN 2.6)."""
+class CommsRequest(BaseModel):
+    """The ``comms`` body of ``POST /api/fault`` (PLAN 2.13)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str
-    kind: str
+    drop: bool = False
+    latency_ms: float = Field(0.0, ge=0)
+
+
+class FaultRequest(BaseModel):
+    """Body of ``POST /api/fault``: a component fault ``{id, kind, params}`` (PLAN 2.6) or a comms
+    fault ``{comms: {drop, latency_ms}}`` (PLAN 2.13), not both."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = None
+    kind: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
+    comms: CommsRequest | None = None
+
+    @model_validator(mode="after")
+    def _one_kind_of_fault(self) -> FaultRequest:
+        component = self.id is not None and self.kind is not None
+        if component == (self.comms is not None):
+            raise ValueError("give either id and kind, or comms")
+        return self
 
 
 WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
@@ -171,6 +192,8 @@ def create_app(
     @app.post("/api/fault", dependencies=guarded)
     def inject_fault(request: FaultRequest) -> dict[str, Any]:
         try:
+            if request.comms is not None:
+                return runtime.set_comms(**request.comms.model_dump())
             return runtime.inject_fault(request.id, request.kind, request.params)
         except KeyError as exc:
             raise HTTPException(404, str(exc.args[0])) from None
