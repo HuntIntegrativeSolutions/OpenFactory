@@ -79,6 +79,9 @@ class TraceSpec(NamedTuple):
     schedule: dict[int, dict[str, bool | float]] | None = None
     #: False: the replay is reported but not held to the tolerance (a known model difference).
     gate: bool = True
+    #: A stand-in PLC (PLAN 2.10) scanned before every tick, for scenes a fixed schedule cannot
+    #: drive (a turntable or gantry sequence). Applied after the schedule.
+    script: Path | None = None
 
 
 TRACES: dict[str, TraceSpec] = {
@@ -114,6 +117,29 @@ TRACES: dict[str, TraceSpec] = {
             1: {"CONV_A_RUN_DO": True, "CONV_B_RUN_DO": True, "STP_01_RAISE_DO": True},
             400: {"STP_01_RAISE_DO": False},
         },
+    ),
+    # Ruled 2026-10-28: the turntable demo under its script. Straight boxes ride the deck at 0;
+    # every other box is centred, turned 90 degrees (core-placed while turning, §3.3), and run off
+    # onto CONV_SIDE. PE_TT sees each box arrive on the deck. Not a gate (PLAN §9 rule 9, note
+    # under PLAN 2.5): worst 3 ticks, on the straight boxes' PE_TT edges, from the ~1.2 tick a box
+    # loses crossing an equal-speed belt seam in Rapier (a plain belt in the deck's place loses the
+    # same) on top of the eye's usual 1 tick; the turned boxes agree within 2.
+    "parity-turntable": TraceSpec(
+        scene=REPO / "tests" / "scenes" / "demo-turntable.yaml",
+        script=REPO / "tests" / "scenes" / "demo-turntable.py",
+        seconds=25.0,
+        checkpoints=(1.0, 2.0, 3.0, 4.0),
+        schedule={},
+        gate=False,
+    ),
+    # Ruled 2026-10-28: the pick-and-place demo under its script. The gantry lifts each box off
+    # CONV_A (core-placed while held, §3.3), sets it on CONV_B, and Rapier carries it from there.
+    "parity-pick-place": TraceSpec(
+        scene=REPO / "tests" / "scenes" / "demo-pick-place.yaml",
+        script=REPO / "tests" / "scenes" / "demo-pick-place.py",
+        seconds=25.0,
+        checkpoints=(1.0, 1.5, 2.5, 3.0),
+        schedule={},
     ),
     # PLAN 2.5: the diverter arm slides box a onto CONV_SIDE (PE_SIDE sees it), swings back at
     # tick 175, and box b passes straight on (PE_MAIN sees it). While box a touches the arm the
@@ -152,10 +178,12 @@ def trace(
     *,
     checkpoints_x: tuple[float, ...] = CHECKPOINTS_X,
     schedule: dict[int, dict[str, bool | float]] | None = None,
+    script: Path | None = None,
 ) -> dict[str, Any]:
     from openfactory.core.iotable import Writer
     from openfactory.core.loader import build
     from openfactory.core.schema import load_scene
+    from openfactory.pyplc import ScriptPlc
     from openfactory.server.runtime import Runtime
 
     scene = load_scene(scene_path)
@@ -179,7 +207,11 @@ def trace(
         elif tag.kind == "AO":
             loaded.io.set(tag.name, 100.0, Writer.PLC)
     dt = doc["dt"]
-    belts = [c for c in loaded.components if c.type == "belt_conveyor"]
+    plc = ScriptPlc(script, loaded.io) if script is not None else None
+    belts = [
+        c for c in loaded.components if c.type in ("belt_conveyor", "roller_conveyor", "turntable")
+    ]
+    decks = [c for c in loaded.components if c.type == "turntable"]
     pushers = [c for c in loaded.components if c.type == "pusher"]
     stoppers = [c for c in loaded.components if c.type == "stopper"]
     arms = [c for c in loaded.components if c.type == "diverter_arm"]
@@ -192,6 +224,7 @@ def trace(
     last_plates: dict[str, float] = {}
     last_blades: dict[str, float] = {}
     last_arms: dict[str, float] = {}
+    last_decks: dict[str, float] = {}
     known: dict[str, Any] = {}
     followed: dict[str, list[float]] = {}  # part -> its velocity after the last tick it followed
     blocked = {e.id: False for e in eyes}
@@ -199,6 +232,8 @@ def trace(
     for k in range(1, ticks + 1):
         for tag, value in (schedule or {}).get(k, {}).items():
             loaded.io.set(tag, value, Writer.PLC)  # takes effect when the component steps in tick k
+        if plc is not None:
+            plc.scan(loaded.time)  # as the runtime scans a script before every tick
         entry: dict[str, Any] = {"tick": k}
         speeds = {
             b.id: _r(b.surface_speed) for b in belts if _r(b.surface_speed) != last_belts.get(b.id)
@@ -206,6 +241,7 @@ def trace(
         plates = {p.id: _r(p.position) for p in pushers if _r(p.position) != last_plates.get(p.id)}
         blades = {s.id: _r(s.position) for s in stoppers if _r(s.position) != last_blades.get(s.id)}
         swings = {a.id: _r(a.angle) for a in arms if _r(a.angle) != last_arms.get(a.id)}
+        turns = {d.id: _r(d.angle) for d in decks if _r(d.angle) != last_decks.get(d.id)}
         spawned = [p for pid, p in loaded.world.parts.items() if pid not in known]
         removed = [pid for pid in known if pid not in loaded.world.parts]
         if speeds:
@@ -220,6 +256,9 @@ def trace(
         if swings:
             entry["diverters"] = swings
             last_arms.update(swings)
+        if turns:
+            entry["turntables"] = turns
+            last_decks.update(turns)
         if spawned:
             entry["spawn"] = [
                 {
@@ -391,6 +430,7 @@ def trace_text(spec: TraceSpec) -> str:
         spec.friction,
         checkpoints_x=spec.checkpoints,
         schedule=spec.schedule,
+        script=spec.script,
     )
     data["gate"] = spec.gate
     return json.dumps(data, indent=1, ensure_ascii=False) + "\n"

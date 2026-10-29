@@ -11,6 +11,8 @@ import queue from "./fixtures/parity-queue.json";
 import stopper from "./fixtures/parity-stopper.json";
 import stopperTall from "./fixtures/parity-stopper-tall.json";
 import diverter from "./fixtures/parity-diverter.json";
+import turntable from "./fixtures/parity-turntable.json";
+import pickPlace from "./fixtures/parity-pick-place.json";
 import { loadRapier, PlantPhysics } from "./physics";
 
 interface Trace {
@@ -26,6 +28,7 @@ interface Trace {
     pushers?: Record<string, number>;
     stoppers?: Record<string, number>;
     diverters?: Record<string, number>;
+    turntables?: Record<string, number>;
     spawn?: { id: string; size: Vec3; position: Vec3 }[];
     remove?: string[];
     /** Parts the core places (PLAN §3.3): its position after this tick, applied during the step. */
@@ -46,6 +49,8 @@ const TRACES: Record<string, Trace> = {
   "parity-stopper": stopper as unknown as Trace, // PLAN 2.5: a queue formed against a stopper
   "parity-stopper-tall": stopperTall as unknown as Trace, // the same with 0.4 m boxes (no tipping)
   "parity-diverter": diverter as unknown as Trace, // PLAN 2.5: a box slid along a diverter arm
+  "parity-turntable": turntable as unknown as Trace, // boxes straight on and turned 90 degrees
+  "parity-pick-place": pickPlace as unknown as Trace, // boxes lifted across by a gantry
 };
 
 function load(name: string): Trace {
@@ -66,6 +71,7 @@ async function replay(trace: Trace) {
     for (const [id, s] of Object.entries(input?.pushers ?? {})) physics.setPusher(id, s);
     for (const [id, f] of Object.entries(input?.stoppers ?? {})) physics.setStopper(id, f);
     for (const [id, a] of Object.entries(input?.diverters ?? {})) physics.setDiverter(id, a);
+    for (const [id, a] of Object.entries(input?.turntables ?? {})) physics.setTurntable(id, a);
     for (const id of input?.remove ?? []) physics.removePart(id);
     for (const p of input?.spawn ?? []) physics.addPart(p.id, p.size, p.position);
     for (const [id, v] of Object.entries(input?.release ?? {})) physics.release(id, v);

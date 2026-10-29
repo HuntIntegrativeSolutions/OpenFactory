@@ -749,6 +749,22 @@ runs the sorting program against it; a box visibly gets pushed.
       which the replay applies as the live viewer does, and the viewer sets a followed body square
       to the world axes. `parity-diverter` is a gate again: 12 comparisons, worst |Δ| 1 tick
       (was 10, informational).
+      *Turntable and gantry traces (ruled 2026-10-28, built 2026-10-29):* `parity-pick-place` and
+      `parity-turntable` replay the two demos under their stand-in scripts (`TraceSpec.script`;
+      traces also carry `turntables` angles). Building them found a viewer bug: Rapier's default
+      active collision types leave out kinematic-vs-fixed pairs, so a core-placed part (held, on
+      a turning deck, against an arm) was invisible to every photo-eye sensor; the pick eye
+      cleared 8 ticks early the moment the gripper took the box. Beams now include
+      `KINEMATIC_FIXED`. `parity-pick-place`: 23 comparisons, worst |Δ| 1 tick, a gate.
+      `parity-turntable` is **not a gate** (§9 rule 9): 20 comparisons, worst |Δ| 3 ticks against
+      a tolerance of 2, all on the straight-through boxes' PE_TT edges (+3, +3 for each). The
+      turned boxes agree within 2 and every checkpoint within 2. Cause: a box crossing from
+      CONV_IN onto the deck at equal speed loses about 0.012 m (1.2 ticks) at the seam in Rapier,
+      and the eye adds its usual 1 tick (the sorter shows the same +1). A plain belt in the
+      deck's place loses exactly the same, so it is the seam, not the deck. Belt edge radius 2 mm
+      left it at 3, 1 mm made it 5; 5 mm stays. Other seam traces stay within 2 because their
+      downstream belt is faster and pulls the box across. Needs a ruling: accept as
+      informational, or a seam model (in Rapier or the core) as a 2.9 item.
 - [ ] 2.5b Components split from 2.5: `counter_display` (4-digit readout of an AO on a panel),
       `lift` (moves a short conveyor between two heights; at_top/at_bottom DIs), reversible belts
       (belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction

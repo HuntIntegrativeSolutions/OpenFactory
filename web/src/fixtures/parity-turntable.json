@@ -1,0 +1,3052 @@
+{
+ "generator": "tools/parity_trace.py",
+ "scene": {
+  "openfactory": "0.1",
+  "scene": {
+   "name": "demo-turntable",
+   "description": "Turntable routing boxes straight on or 90 degrees to a side conveyor.",
+   "author": null,
+   "seed": 1,
+   "units": "meters",
+   "friction": 0.8
+  },
+  "plc": {
+   "protocol": "modbus_tcp",
+   "role": "server"
+  },
+  "dt": 0.02,
+  "components": [
+   {
+    "id": "CONV_IN",
+    "type": "belt_conveyor",
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "length": 2.0,
+    "width": 0.5,
+    "description": "Infeed Belt Conveyor"
+   },
+   {
+    "id": "TT_01",
+    "type": "turntable",
+    "position": [
+     2.4,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "length": 0.8,
+    "width": 0.5,
+    "turn_deg": 90,
+    "description": "Routing Turntable"
+   },
+   {
+    "id": "PE_TT",
+    "type": "photo_eye",
+    "position": [
+     2.6,
+     0.1,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "beam_length": 0.6,
+    "description": "Turntable Deck Centre Photo Eye"
+   },
+   {
+    "id": "CONV_OUT",
+    "type": "belt_conveyor",
+    "position": [
+     2.8,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "length": 1.5,
+    "width": 0.5,
+    "description": "Straight Outfeed Belt Conveyor"
+   },
+   {
+    "id": "CONV_SIDE",
+    "type": "belt_conveyor",
+    "position": [
+     2.4,
+     0.0,
+     -0.4
+    ],
+    "rotation_deg": 90.0,
+    "length": 1.5,
+    "width": 0.5,
+    "description": "Side Outfeed Belt Conveyor"
+   },
+   {
+    "id": "EMT_01",
+    "type": "box_emitter",
+    "position": [
+     0.3,
+     0.15,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "parts": [
+     {
+      "name": "box",
+      "size": [
+       0.3,
+       0.2,
+       0.3
+      ],
+      "weight": 1.0,
+      "color": null
+     }
+    ],
+    "description": "Infeed Box Source"
+   },
+   {
+    "id": "REM_OUT",
+    "type": "part_remover",
+    "position": [
+     4.45,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": 0.0,
+    "size": [
+     0.3,
+     1.0,
+     1.0
+    ],
+    "description": "Straight Outfeed Part Remover"
+   },
+   {
+    "id": "REM_SIDE",
+    "type": "part_remover",
+    "position": [
+     2.4,
+     0.0,
+     -2.05
+    ],
+    "rotation_deg": 0.0,
+    "size": [
+     1.0,
+     1.0,
+     0.3
+    ],
+    "description": "Side Outfeed Part Remover"
+   }
+  ],
+  "connections": [
+   {
+    "from": "CONV_IN",
+    "to": "TT_01"
+   },
+   {
+    "from": "TT_01",
+    "to": "CONV_OUT"
+   },
+   {
+    "from": "TT_01",
+    "to": "CONV_SIDE"
+   }
+  ],
+  "tags": [
+   {
+    "name": "CONV_IN_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_IN",
+    "description": "Infeed Belt Conveyor — Run command"
+   },
+   {
+    "name": "TT_01_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "TT_01",
+    "description": "Routing Turntable — Deck conveyor run command"
+   },
+   {
+    "name": "TT_01_TURN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "TT_01",
+    "description": "Routing Turntable — Turn command (held: to turn_deg; released: back to 0)"
+   },
+   {
+    "name": "TT_01_RUN_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "TT_01",
+    "description": "Routing Turntable — Deck conveyor running feedback"
+   },
+   {
+    "name": "TT_01_AT0_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "TT_01",
+    "description": "Routing Turntable — At 0 degrees"
+   },
+   {
+    "name": "TT_01_AT90_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "TT_01",
+    "description": "Routing Turntable — At turn_deg (90 degrees)"
+   },
+   {
+    "name": "PE_TT_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "PE_TT",
+    "description": "Turntable Deck Centre Photo Eye — Part detected"
+   },
+   {
+    "name": "CONV_OUT_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_OUT",
+    "description": "Straight Outfeed Belt Conveyor — Run command"
+   },
+   {
+    "name": "CONV_SIDE_RUN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "CONV_SIDE",
+    "description": "Side Outfeed Belt Conveyor — Run command"
+   },
+   {
+    "name": "EMT_01_EN_DO",
+    "kind": "DO",
+    "dtype": "bool",
+    "owner": "EMT_01",
+    "description": "Infeed Box Source — Emitter enable"
+   }
+  ],
+  "warnings": []
+ },
+ "dt": 0.02,
+ "ticks": 1250,
+ "friction": 0.8,
+ "ramp_ticks": 3.185525,
+ "tolerance_ticks": 2.0,
+ "inputs": [
+  {
+   "tick": 1,
+   "belts": {
+    "CONV_IN": 0.0,
+    "TT_01": 0.0,
+    "CONV_OUT": 0.0,
+    "CONV_SIDE": 0.0
+   },
+   "turntables": {
+    "TT_01": 0.0
+   }
+  },
+  {
+   "tick": 2,
+   "belts": {
+    "CONV_IN": 0.033333,
+    "TT_01": 0.033333,
+    "CONV_OUT": 0.033333,
+    "CONV_SIDE": 0.033333
+   },
+   "spawn": [
+    {
+     "id": "P000001",
+     "name": "box",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.3,
+      0.15,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 3,
+   "belts": {
+    "CONV_IN": 0.066667,
+    "TT_01": 0.066667,
+    "CONV_OUT": 0.066667,
+    "CONV_SIDE": 0.066667
+   }
+  },
+  {
+   "tick": 4,
+   "belts": {
+    "CONV_IN": 0.1,
+    "TT_01": 0.1,
+    "CONV_OUT": 0.1,
+    "CONV_SIDE": 0.1
+   }
+  },
+  {
+   "tick": 5,
+   "belts": {
+    "CONV_IN": 0.133333,
+    "TT_01": 0.133333,
+    "CONV_OUT": 0.133333,
+    "CONV_SIDE": 0.133333
+   }
+  },
+  {
+   "tick": 6,
+   "belts": {
+    "CONV_IN": 0.166667,
+    "TT_01": 0.166667,
+    "CONV_OUT": 0.166667,
+    "CONV_SIDE": 0.166667
+   }
+  },
+  {
+   "tick": 7,
+   "belts": {
+    "CONV_IN": 0.2,
+    "TT_01": 0.2,
+    "CONV_OUT": 0.2,
+    "CONV_SIDE": 0.2
+   }
+  },
+  {
+   "tick": 8,
+   "belts": {
+    "CONV_IN": 0.233333,
+    "TT_01": 0.233333,
+    "CONV_OUT": 0.233333,
+    "CONV_SIDE": 0.233333
+   }
+  },
+  {
+   "tick": 9,
+   "belts": {
+    "CONV_IN": 0.266667,
+    "TT_01": 0.266667,
+    "CONV_OUT": 0.266667,
+    "CONV_SIDE": 0.266667
+   }
+  },
+  {
+   "tick": 10,
+   "belts": {
+    "CONV_IN": 0.3,
+    "TT_01": 0.3,
+    "CONV_OUT": 0.3,
+    "CONV_SIDE": 0.3
+   }
+  },
+  {
+   "tick": 11,
+   "belts": {
+    "CONV_IN": 0.333333,
+    "TT_01": 0.333333,
+    "CONV_OUT": 0.333333,
+    "CONV_SIDE": 0.333333
+   }
+  },
+  {
+   "tick": 12,
+   "belts": {
+    "CONV_IN": 0.366667,
+    "TT_01": 0.366667,
+    "CONV_OUT": 0.366667,
+    "CONV_SIDE": 0.366667
+   }
+  },
+  {
+   "tick": 13,
+   "belts": {
+    "CONV_IN": 0.4,
+    "TT_01": 0.4,
+    "CONV_OUT": 0.4,
+    "CONV_SIDE": 0.4
+   }
+  },
+  {
+   "tick": 14,
+   "belts": {
+    "CONV_IN": 0.433333,
+    "TT_01": 0.433333,
+    "CONV_OUT": 0.433333,
+    "CONV_SIDE": 0.433333
+   }
+  },
+  {
+   "tick": 15,
+   "belts": {
+    "CONV_IN": 0.466667,
+    "TT_01": 0.466667,
+    "CONV_OUT": 0.466667,
+    "CONV_SIDE": 0.466667
+   }
+  },
+  {
+   "tick": 16,
+   "belts": {
+    "CONV_IN": 0.5,
+    "TT_01": 0.5,
+    "CONV_OUT": 0.5,
+    "CONV_SIDE": 0.5
+   }
+  },
+  {
+   "tick": 252,
+   "spawn": [
+    {
+     "id": "P000002",
+     "name": "box",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.3,
+      0.15,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 410,
+   "remove": [
+    "P000001"
+   ]
+  },
+  {
+   "tick": 473,
+   "follow": {
+    "P000002": [
+     2.47,
+     0.1,
+     0.0
+    ]
+   }
+  },
+  {
+   "tick": 474,
+   "belts": {
+    "CONV_IN": 0.466667,
+    "TT_01": 0.466667
+   },
+   "turntables": {
+    "TT_01": 1.8
+   },
+   "follow": {
+    "P000002": [
+     2.479294,
+     0.1,
+     -0.002492
+    ]
+   }
+  },
+  {
+   "tick": 475,
+   "belts": {
+    "CONV_IN": 0.433333,
+    "TT_01": 0.433333
+   },
+   "turntables": {
+    "TT_01": 3.6
+   },
+   "follow": {
+    "P000002": [
+     2.487826,
+     0.1,
+     -0.005526
+    ]
+   }
+  },
+  {
+   "tick": 476,
+   "belts": {
+    "CONV_IN": 0.4,
+    "TT_01": 0.4
+   },
+   "turntables": {
+    "TT_01": 5.4
+   },
+   "follow": {
+    "P000002": [
+     2.495574,
+     0.1,
+     -0.009034
+    ]
+   }
+  },
+  {
+   "tick": 477,
+   "belts": {
+    "CONV_IN": 0.366667,
+    "TT_01": 0.366667
+   },
+   "turntables": {
+    "TT_01": 7.2
+   },
+   "follow": {
+    "P000002": [
+     2.502519,
+     0.1,
+     -0.012951
+    ]
+   }
+  },
+  {
+   "tick": 478,
+   "belts": {
+    "CONV_IN": 0.333333,
+    "TT_01": 0.333333
+   },
+   "turntables": {
+    "TT_01": 9.0
+   },
+   "follow": {
+    "P000002": [
+     2.508646,
+     0.1,
+     -0.017208
+    ]
+   }
+  },
+  {
+   "tick": 479,
+   "belts": {
+    "CONV_IN": 0.3,
+    "TT_01": 0.3
+   },
+   "turntables": {
+    "TT_01": 10.8
+   },
+   "follow": {
+    "P000002": [
+     2.513945,
+     0.1,
+     -0.021736
+    ]
+   }
+  },
+  {
+   "tick": 480,
+   "belts": {
+    "CONV_IN": 0.266667,
+    "TT_01": 0.266667
+   },
+   "turntables": {
+    "TT_01": 12.6
+   },
+   "follow": {
+    "P000002": [
+     2.518411,
+     0.1,
+     -0.026468
+    ]
+   }
+  },
+  {
+   "tick": 481,
+   "belts": {
+    "CONV_IN": 0.233333,
+    "TT_01": 0.233333
+   },
+   "turntables": {
+    "TT_01": 14.4
+   },
+   "follow": {
+    "P000002": [
+     2.522041,
+     0.1,
+     -0.031335
+    ]
+   }
+  },
+  {
+   "tick": 482,
+   "belts": {
+    "CONV_IN": 0.2,
+    "TT_01": 0.2
+   },
+   "turntables": {
+    "TT_01": 16.2
+   },
+   "follow": {
+    "P000002": [
+     2.524838,
+     0.1,
+     -0.036269
+    ]
+   }
+  },
+  {
+   "tick": 483,
+   "belts": {
+    "CONV_IN": 0.166667,
+    "TT_01": 0.166667
+   },
+   "turntables": {
+    "TT_01": 18.0
+   },
+   "follow": {
+    "P000002": [
+     2.526808,
+     0.1,
+     -0.041202
+    ]
+   }
+  },
+  {
+   "tick": 484,
+   "belts": {
+    "CONV_IN": 0.133333,
+    "TT_01": 0.133333
+   },
+   "turntables": {
+    "TT_01": 19.8
+   },
+   "follow": {
+    "P000002": [
+     2.52796,
+     0.1,
+     -0.046068
+    ]
+   }
+  },
+  {
+   "tick": 485,
+   "belts": {
+    "CONV_IN": 0.1,
+    "TT_01": 0.1
+   },
+   "turntables": {
+    "TT_01": 21.6
+   },
+   "follow": {
+    "P000002": [
+     2.528309,
+     0.1,
+     -0.050801
+    ]
+   }
+  },
+  {
+   "tick": 486,
+   "belts": {
+    "CONV_IN": 0.066667,
+    "TT_01": 0.066667
+   },
+   "turntables": {
+    "TT_01": 23.4
+   },
+   "follow": {
+    "P000002": [
+     2.527874,
+     0.1,
+     -0.055336
+    ]
+   }
+  },
+  {
+   "tick": 487,
+   "belts": {
+    "CONV_IN": 0.033333,
+    "TT_01": 0.033333
+   },
+   "turntables": {
+    "TT_01": 25.2
+   },
+   "follow": {
+    "P000002": [
+     2.526676,
+     0.1,
+     -0.059609
+    ]
+   }
+  },
+  {
+   "tick": 488,
+   "belts": {
+    "CONV_IN": 0.0,
+    "TT_01": 0.0
+   },
+   "turntables": {
+    "TT_01": 27.0
+   },
+   "follow": {
+    "P000002": [
+     2.524741,
+     0.1,
+     -0.063559
+    ]
+   }
+  },
+  {
+   "tick": 489,
+   "turntables": {
+    "TT_01": 28.8
+   },
+   "follow": {
+    "P000002": [
+     2.522683,
+     0.1,
+     -0.067446
+    ]
+   }
+  },
+  {
+   "tick": 490,
+   "turntables": {
+    "TT_01": 30.6
+   },
+   "follow": {
+    "P000002": [
+     2.520504,
+     0.1,
+     -0.071266
+    ]
+   }
+  },
+  {
+   "tick": 491,
+   "turntables": {
+    "TT_01": 32.4
+   },
+   "follow": {
+    "P000002": [
+     2.518206,
+     0.1,
+     -0.075016
+    ]
+   }
+  },
+  {
+   "tick": 492,
+   "turntables": {
+    "TT_01": 34.2
+   },
+   "follow": {
+    "P000002": [
+     2.515791,
+     0.1,
+     -0.078692
+    ]
+   }
+  },
+  {
+   "tick": 493,
+   "turntables": {
+    "TT_01": 36.0
+   },
+   "follow": {
+    "P000002": [
+     2.513262,
+     0.1,
+     -0.08229
+    ]
+   }
+  },
+  {
+   "tick": 494,
+   "turntables": {
+    "TT_01": 37.8
+   },
+   "follow": {
+    "P000002": [
+     2.510622,
+     0.1,
+     -0.085807
+    ]
+   }
+  },
+  {
+   "tick": 495,
+   "turntables": {
+    "TT_01": 39.6
+   },
+   "follow": {
+    "P000002": [
+     2.507872,
+     0.1,
+     -0.089239
+    ]
+   }
+  },
+  {
+   "tick": 496,
+   "turntables": {
+    "TT_01": 41.4
+   },
+   "follow": {
+    "P000002": [
+     2.505016,
+     0.1,
+     -0.092584
+    ]
+   }
+  },
+  {
+   "tick": 497,
+   "turntables": {
+    "TT_01": 43.2
+   },
+   "follow": {
+    "P000002": [
+     2.502056,
+     0.1,
+     -0.095837
+    ]
+   }
+  },
+  {
+   "tick": 498,
+   "turntables": {
+    "TT_01": 45.0
+   },
+   "follow": {
+    "P000002": [
+     2.498995,
+     0.1,
+     -0.098995
+    ]
+   }
+  },
+  {
+   "tick": 499,
+   "turntables": {
+    "TT_01": 46.8
+   },
+   "follow": {
+    "P000002": [
+     2.495837,
+     0.1,
+     -0.102056
+    ]
+   }
+  },
+  {
+   "tick": 500,
+   "turntables": {
+    "TT_01": 48.6
+   },
+   "follow": {
+    "P000002": [
+     2.492584,
+     0.1,
+     -0.105016
+    ]
+   }
+  },
+  {
+   "tick": 501,
+   "turntables": {
+    "TT_01": 50.4
+   },
+   "follow": {
+    "P000002": [
+     2.489239,
+     0.1,
+     -0.107872
+    ]
+   }
+  },
+  {
+   "tick": 502,
+   "turntables": {
+    "TT_01": 52.2
+   },
+   "spawn": [
+    {
+     "id": "P000003",
+     "name": "box",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.3,
+      0.15,
+      0.0
+     ]
+    }
+   ],
+   "follow": {
+    "P000002": [
+     2.485807,
+     0.1,
+     -0.110622
+    ]
+   }
+  },
+  {
+   "tick": 503,
+   "turntables": {
+    "TT_01": 54.0
+   },
+   "follow": {
+    "P000002": [
+     2.48229,
+     0.1,
+     -0.113262
+    ]
+   }
+  },
+  {
+   "tick": 504,
+   "turntables": {
+    "TT_01": 55.8
+   },
+   "follow": {
+    "P000002": [
+     2.478692,
+     0.1,
+     -0.115791
+    ]
+   }
+  },
+  {
+   "tick": 505,
+   "turntables": {
+    "TT_01": 57.6
+   },
+   "follow": {
+    "P000002": [
+     2.475016,
+     0.1,
+     -0.118206
+    ]
+   }
+  },
+  {
+   "tick": 506,
+   "turntables": {
+    "TT_01": 59.4
+   },
+   "follow": {
+    "P000002": [
+     2.471266,
+     0.1,
+     -0.120504
+    ]
+   }
+  },
+  {
+   "tick": 507,
+   "turntables": {
+    "TT_01": 61.2
+   },
+   "follow": {
+    "P000002": [
+     2.467446,
+     0.1,
+     -0.122683
+    ]
+   }
+  },
+  {
+   "tick": 508,
+   "turntables": {
+    "TT_01": 63.0
+   },
+   "follow": {
+    "P000002": [
+     2.463559,
+     0.1,
+     -0.124741
+    ]
+   }
+  },
+  {
+   "tick": 509,
+   "turntables": {
+    "TT_01": 64.8
+   },
+   "follow": {
+    "P000002": [
+     2.459609,
+     0.1,
+     -0.126676
+    ]
+   }
+  },
+  {
+   "tick": 510,
+   "turntables": {
+    "TT_01": 66.6
+   },
+   "follow": {
+    "P000002": [
+     2.455601,
+     0.1,
+     -0.128486
+    ]
+   }
+  },
+  {
+   "tick": 511,
+   "turntables": {
+    "TT_01": 68.4
+   },
+   "follow": {
+    "P000002": [
+     2.451537,
+     0.1,
+     -0.130169
+    ]
+   }
+  },
+  {
+   "tick": 512,
+   "turntables": {
+    "TT_01": 70.2
+   },
+   "follow": {
+    "P000002": [
+     2.447423,
+     0.1,
+     -0.131723
+    ]
+   }
+  },
+  {
+   "tick": 513,
+   "turntables": {
+    "TT_01": 72.0
+   },
+   "follow": {
+    "P000002": [
+     2.443262,
+     0.1,
+     -0.133148
+    ]
+   }
+  },
+  {
+   "tick": 514,
+   "turntables": {
+    "TT_01": 73.8
+   },
+   "follow": {
+    "P000002": [
+     2.439059,
+     0.1,
+     -0.134441
+    ]
+   }
+  },
+  {
+   "tick": 515,
+   "turntables": {
+    "TT_01": 75.6
+   },
+   "follow": {
+    "P000002": [
+     2.434817,
+     0.1,
+     -0.135602
+    ]
+   }
+  },
+  {
+   "tick": 516,
+   "turntables": {
+    "TT_01": 77.4
+   },
+   "follow": {
+    "P000002": [
+     2.43054,
+     0.1,
+     -0.136628
+    ]
+   }
+  },
+  {
+   "tick": 517,
+   "turntables": {
+    "TT_01": 79.2
+   },
+   "follow": {
+    "P000002": [
+     2.426233,
+     0.1,
+     -0.13752
+    ]
+   }
+  },
+  {
+   "tick": 518,
+   "turntables": {
+    "TT_01": 81.0
+   },
+   "follow": {
+    "P000002": [
+     2.421901,
+     0.1,
+     -0.138276
+    ]
+   }
+  },
+  {
+   "tick": 519,
+   "turntables": {
+    "TT_01": 82.8
+   },
+   "follow": {
+    "P000002": [
+     2.417547,
+     0.1,
+     -0.138896
+    ]
+   }
+  },
+  {
+   "tick": 520,
+   "turntables": {
+    "TT_01": 84.6
+   },
+   "follow": {
+    "P000002": [
+     2.413175,
+     0.1,
+     -0.139379
+    ]
+   }
+  },
+  {
+   "tick": 521,
+   "turntables": {
+    "TT_01": 86.4
+   },
+   "follow": {
+    "P000002": [
+     2.408791,
+     0.1,
+     -0.139724
+    ]
+   }
+  },
+  {
+   "tick": 522,
+   "turntables": {
+    "TT_01": 88.2
+   },
+   "release": {
+    "P000002": [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   }
+  },
+  {
+   "tick": 523,
+   "turntables": {
+    "TT_01": 90.0
+   }
+  },
+  {
+   "tick": 524,
+   "belts": {
+    "TT_01": 0.033333
+   }
+  },
+  {
+   "tick": 525,
+   "belts": {
+    "TT_01": 0.066667
+   }
+  },
+  {
+   "tick": 526,
+   "belts": {
+    "TT_01": 0.1
+   }
+  },
+  {
+   "tick": 527,
+   "belts": {
+    "TT_01": 0.133333
+   }
+  },
+  {
+   "tick": 528,
+   "belts": {
+    "TT_01": 0.166667
+   }
+  },
+  {
+   "tick": 529,
+   "belts": {
+    "TT_01": 0.2
+   }
+  },
+  {
+   "tick": 530,
+   "belts": {
+    "TT_01": 0.233333
+   }
+  },
+  {
+   "tick": 531,
+   "belts": {
+    "TT_01": 0.266667
+   }
+  },
+  {
+   "tick": 532,
+   "belts": {
+    "TT_01": 0.3
+   }
+  },
+  {
+   "tick": 533,
+   "belts": {
+    "TT_01": 0.333333
+   }
+  },
+  {
+   "tick": 534,
+   "belts": {
+    "TT_01": 0.366667
+   }
+  },
+  {
+   "tick": 535,
+   "belts": {
+    "TT_01": 0.4
+   }
+  },
+  {
+   "tick": 536,
+   "belts": {
+    "TT_01": 0.433333
+   }
+  },
+  {
+   "tick": 537,
+   "belts": {
+    "TT_01": 0.466667
+   }
+  },
+  {
+   "tick": 538,
+   "belts": {
+    "TT_01": 0.5
+   }
+  },
+  {
+   "tick": 649,
+   "belts": {
+    "TT_01": 0.466667
+   },
+   "turntables": {
+    "TT_01": 88.2
+   }
+  },
+  {
+   "tick": 650,
+   "belts": {
+    "TT_01": 0.433333
+   },
+   "turntables": {
+    "TT_01": 86.4
+   }
+  },
+  {
+   "tick": 651,
+   "belts": {
+    "TT_01": 0.4
+   },
+   "turntables": {
+    "TT_01": 84.6
+   }
+  },
+  {
+   "tick": 652,
+   "belts": {
+    "TT_01": 0.366667
+   },
+   "turntables": {
+    "TT_01": 82.8
+   }
+  },
+  {
+   "tick": 653,
+   "belts": {
+    "TT_01": 0.333333
+   },
+   "turntables": {
+    "TT_01": 81.0
+   }
+  },
+  {
+   "tick": 654,
+   "belts": {
+    "TT_01": 0.3
+   },
+   "turntables": {
+    "TT_01": 79.2
+   }
+  },
+  {
+   "tick": 655,
+   "belts": {
+    "TT_01": 0.266667
+   },
+   "turntables": {
+    "TT_01": 77.4
+   }
+  },
+  {
+   "tick": 656,
+   "belts": {
+    "TT_01": 0.233333
+   },
+   "turntables": {
+    "TT_01": 75.6
+   }
+  },
+  {
+   "tick": 657,
+   "belts": {
+    "TT_01": 0.2
+   },
+   "turntables": {
+    "TT_01": 73.8
+   }
+  },
+  {
+   "tick": 658,
+   "belts": {
+    "TT_01": 0.166667
+   },
+   "turntables": {
+    "TT_01": 72.0
+   }
+  },
+  {
+   "tick": 659,
+   "belts": {
+    "TT_01": 0.133333
+   },
+   "turntables": {
+    "TT_01": 70.2
+   }
+  },
+  {
+   "tick": 660,
+   "belts": {
+    "TT_01": 0.1
+   },
+   "turntables": {
+    "TT_01": 68.4
+   }
+  },
+  {
+   "tick": 661,
+   "belts": {
+    "TT_01": 0.066667
+   },
+   "turntables": {
+    "TT_01": 66.6
+   }
+  },
+  {
+   "tick": 662,
+   "belts": {
+    "TT_01": 0.033333
+   },
+   "turntables": {
+    "TT_01": 64.8
+   }
+  },
+  {
+   "tick": 663,
+   "belts": {
+    "TT_01": 0.0
+   },
+   "turntables": {
+    "TT_01": 63.0
+   }
+  },
+  {
+   "tick": 664,
+   "turntables": {
+    "TT_01": 61.2
+   }
+  },
+  {
+   "tick": 665,
+   "turntables": {
+    "TT_01": 59.4
+   }
+  },
+  {
+   "tick": 666,
+   "turntables": {
+    "TT_01": 57.6
+   }
+  },
+  {
+   "tick": 667,
+   "turntables": {
+    "TT_01": 55.8
+   }
+  },
+  {
+   "tick": 668,
+   "turntables": {
+    "TT_01": 54.0
+   }
+  },
+  {
+   "tick": 669,
+   "turntables": {
+    "TT_01": 52.2
+   }
+  },
+  {
+   "tick": 670,
+   "turntables": {
+    "TT_01": 50.4
+   }
+  },
+  {
+   "tick": 671,
+   "turntables": {
+    "TT_01": 48.6
+   }
+  },
+  {
+   "tick": 672,
+   "turntables": {
+    "TT_01": 46.8
+   }
+  },
+  {
+   "tick": 673,
+   "turntables": {
+    "TT_01": 45.0
+   }
+  },
+  {
+   "tick": 674,
+   "turntables": {
+    "TT_01": 43.2
+   }
+  },
+  {
+   "tick": 675,
+   "turntables": {
+    "TT_01": 41.4
+   }
+  },
+  {
+   "tick": 676,
+   "turntables": {
+    "TT_01": 39.6
+   }
+  },
+  {
+   "tick": 677,
+   "turntables": {
+    "TT_01": 37.8
+   }
+  },
+  {
+   "tick": 678,
+   "turntables": {
+    "TT_01": 36.0
+   }
+  },
+  {
+   "tick": 679,
+   "turntables": {
+    "TT_01": 34.2
+   }
+  },
+  {
+   "tick": 680,
+   "turntables": {
+    "TT_01": 32.4
+   }
+  },
+  {
+   "tick": 681,
+   "turntables": {
+    "TT_01": 30.6
+   }
+  },
+  {
+   "tick": 682,
+   "turntables": {
+    "TT_01": 28.8
+   }
+  },
+  {
+   "tick": 683,
+   "turntables": {
+    "TT_01": 27.0
+   }
+  },
+  {
+   "tick": 684,
+   "turntables": {
+    "TT_01": 25.2
+   }
+  },
+  {
+   "tick": 685,
+   "turntables": {
+    "TT_01": 23.4
+   }
+  },
+  {
+   "tick": 686,
+   "turntables": {
+    "TT_01": 21.6
+   }
+  },
+  {
+   "tick": 687,
+   "turntables": {
+    "TT_01": 19.8
+   }
+  },
+  {
+   "tick": 688,
+   "turntables": {
+    "TT_01": 18.0
+   }
+  },
+  {
+   "tick": 689,
+   "turntables": {
+    "TT_01": 16.2
+   }
+  },
+  {
+   "tick": 690,
+   "turntables": {
+    "TT_01": 14.4
+   }
+  },
+  {
+   "tick": 691,
+   "turntables": {
+    "TT_01": 12.6
+   }
+  },
+  {
+   "tick": 692,
+   "turntables": {
+    "TT_01": 10.8
+   }
+  },
+  {
+   "tick": 693,
+   "turntables": {
+    "TT_01": 9.0
+   }
+  },
+  {
+   "tick": 694,
+   "turntables": {
+    "TT_01": 7.2
+   }
+  },
+  {
+   "tick": 695,
+   "turntables": {
+    "TT_01": 5.4
+   }
+  },
+  {
+   "tick": 696,
+   "turntables": {
+    "TT_01": 3.6
+   }
+  },
+  {
+   "tick": 697,
+   "turntables": {
+    "TT_01": 1.8
+   }
+  },
+  {
+   "tick": 698,
+   "turntables": {
+    "TT_01": 0.0
+   }
+  },
+  {
+   "tick": 699,
+   "belts": {
+    "CONV_IN": 0.033333,
+    "TT_01": 0.033333
+   }
+  },
+  {
+   "tick": 700,
+   "belts": {
+    "CONV_IN": 0.066667,
+    "TT_01": 0.066667
+   }
+  },
+  {
+   "tick": 701,
+   "belts": {
+    "CONV_IN": 0.1,
+    "TT_01": 0.1
+   }
+  },
+  {
+   "tick": 702,
+   "belts": {
+    "CONV_IN": 0.133333,
+    "TT_01": 0.133333
+   }
+  },
+  {
+   "tick": 703,
+   "belts": {
+    "CONV_IN": 0.166667,
+    "TT_01": 0.166667
+   }
+  },
+  {
+   "tick": 704,
+   "belts": {
+    "CONV_IN": 0.2,
+    "TT_01": 0.2
+   }
+  },
+  {
+   "tick": 705,
+   "belts": {
+    "CONV_IN": 0.233333,
+    "TT_01": 0.233333
+   }
+  },
+  {
+   "tick": 706,
+   "belts": {
+    "CONV_IN": 0.266667,
+    "TT_01": 0.266667
+   }
+  },
+  {
+   "tick": 707,
+   "belts": {
+    "CONV_IN": 0.3,
+    "TT_01": 0.3
+   },
+   "remove": [
+    "P000002"
+   ]
+  },
+  {
+   "tick": 708,
+   "belts": {
+    "CONV_IN": 0.333333,
+    "TT_01": 0.333333
+   }
+  },
+  {
+   "tick": 709,
+   "belts": {
+    "CONV_IN": 0.366667,
+    "TT_01": 0.366667
+   }
+  },
+  {
+   "tick": 710,
+   "belts": {
+    "CONV_IN": 0.4,
+    "TT_01": 0.4
+   }
+  },
+  {
+   "tick": 711,
+   "belts": {
+    "CONV_IN": 0.433333,
+    "TT_01": 0.433333
+   }
+  },
+  {
+   "tick": 712,
+   "belts": {
+    "CONV_IN": 0.466667,
+    "TT_01": 0.466667
+   }
+  },
+  {
+   "tick": 713,
+   "belts": {
+    "CONV_IN": 0.5,
+    "TT_01": 0.5
+   }
+  },
+  {
+   "tick": 752,
+   "spawn": [
+    {
+     "id": "P000004",
+     "name": "box",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.3,
+      0.15,
+      0.0
+     ]
+    }
+   ]
+  },
+  {
+   "tick": 973,
+   "follow": {
+    "P000004": [
+     2.47,
+     0.1,
+     0.0
+    ]
+   }
+  },
+  {
+   "tick": 974,
+   "belts": {
+    "CONV_IN": 0.466667,
+    "TT_01": 0.466667
+   },
+   "turntables": {
+    "TT_01": 1.8
+   },
+   "follow": {
+    "P000004": [
+     2.479294,
+     0.1,
+     -0.002492
+    ]
+   }
+  },
+  {
+   "tick": 975,
+   "belts": {
+    "CONV_IN": 0.433333,
+    "TT_01": 0.433333
+   },
+   "turntables": {
+    "TT_01": 3.6
+   },
+   "follow": {
+    "P000004": [
+     2.487826,
+     0.1,
+     -0.005526
+    ]
+   }
+  },
+  {
+   "tick": 976,
+   "belts": {
+    "CONV_IN": 0.4,
+    "TT_01": 0.4
+   },
+   "turntables": {
+    "TT_01": 5.4
+   },
+   "follow": {
+    "P000004": [
+     2.495574,
+     0.1,
+     -0.009034
+    ]
+   }
+  },
+  {
+   "tick": 977,
+   "belts": {
+    "CONV_IN": 0.366667,
+    "TT_01": 0.366667
+   },
+   "turntables": {
+    "TT_01": 7.2
+   },
+   "follow": {
+    "P000004": [
+     2.502519,
+     0.1,
+     -0.012951
+    ]
+   }
+  },
+  {
+   "tick": 978,
+   "belts": {
+    "CONV_IN": 0.333333,
+    "TT_01": 0.333333
+   },
+   "turntables": {
+    "TT_01": 9.0
+   },
+   "follow": {
+    "P000004": [
+     2.508646,
+     0.1,
+     -0.017208
+    ]
+   }
+  },
+  {
+   "tick": 979,
+   "belts": {
+    "CONV_IN": 0.3,
+    "TT_01": 0.3
+   },
+   "turntables": {
+    "TT_01": 10.8
+   },
+   "follow": {
+    "P000004": [
+     2.513945,
+     0.1,
+     -0.021736
+    ]
+   }
+  },
+  {
+   "tick": 980,
+   "belts": {
+    "CONV_IN": 0.266667,
+    "TT_01": 0.266667
+   },
+   "turntables": {
+    "TT_01": 12.6
+   },
+   "follow": {
+    "P000004": [
+     2.518411,
+     0.1,
+     -0.026468
+    ]
+   }
+  },
+  {
+   "tick": 981,
+   "belts": {
+    "CONV_IN": 0.233333,
+    "TT_01": 0.233333
+   },
+   "turntables": {
+    "TT_01": 14.4
+   },
+   "follow": {
+    "P000004": [
+     2.522041,
+     0.1,
+     -0.031335
+    ]
+   }
+  },
+  {
+   "tick": 982,
+   "belts": {
+    "CONV_IN": 0.2,
+    "TT_01": 0.2
+   },
+   "turntables": {
+    "TT_01": 16.2
+   },
+   "follow": {
+    "P000004": [
+     2.524838,
+     0.1,
+     -0.036269
+    ]
+   }
+  },
+  {
+   "tick": 983,
+   "belts": {
+    "CONV_IN": 0.166667,
+    "TT_01": 0.166667
+   },
+   "turntables": {
+    "TT_01": 18.0
+   },
+   "follow": {
+    "P000004": [
+     2.526808,
+     0.1,
+     -0.041202
+    ]
+   }
+  },
+  {
+   "tick": 984,
+   "belts": {
+    "CONV_IN": 0.133333,
+    "TT_01": 0.133333
+   },
+   "turntables": {
+    "TT_01": 19.8
+   },
+   "follow": {
+    "P000004": [
+     2.52796,
+     0.1,
+     -0.046068
+    ]
+   }
+  },
+  {
+   "tick": 985,
+   "belts": {
+    "CONV_IN": 0.1,
+    "TT_01": 0.1
+   },
+   "turntables": {
+    "TT_01": 21.6
+   },
+   "follow": {
+    "P000004": [
+     2.528309,
+     0.1,
+     -0.050801
+    ]
+   }
+  },
+  {
+   "tick": 986,
+   "belts": {
+    "CONV_IN": 0.066667,
+    "TT_01": 0.066667
+   },
+   "turntables": {
+    "TT_01": 23.4
+   },
+   "follow": {
+    "P000004": [
+     2.527874,
+     0.1,
+     -0.055336
+    ]
+   }
+  },
+  {
+   "tick": 987,
+   "belts": {
+    "CONV_IN": 0.033333,
+    "TT_01": 0.033333
+   },
+   "turntables": {
+    "TT_01": 25.2
+   },
+   "follow": {
+    "P000004": [
+     2.526676,
+     0.1,
+     -0.059609
+    ]
+   }
+  },
+  {
+   "tick": 988,
+   "belts": {
+    "CONV_IN": 0.0,
+    "TT_01": 0.0
+   },
+   "turntables": {
+    "TT_01": 27.0
+   },
+   "follow": {
+    "P000004": [
+     2.524741,
+     0.1,
+     -0.063559
+    ]
+   }
+  },
+  {
+   "tick": 989,
+   "turntables": {
+    "TT_01": 28.8
+   },
+   "follow": {
+    "P000004": [
+     2.522683,
+     0.1,
+     -0.067446
+    ]
+   }
+  },
+  {
+   "tick": 990,
+   "turntables": {
+    "TT_01": 30.6
+   },
+   "follow": {
+    "P000004": [
+     2.520504,
+     0.1,
+     -0.071266
+    ]
+   }
+  },
+  {
+   "tick": 991,
+   "turntables": {
+    "TT_01": 32.4
+   },
+   "follow": {
+    "P000004": [
+     2.518206,
+     0.1,
+     -0.075016
+    ]
+   }
+  },
+  {
+   "tick": 992,
+   "turntables": {
+    "TT_01": 34.2
+   },
+   "follow": {
+    "P000004": [
+     2.515791,
+     0.1,
+     -0.078692
+    ]
+   }
+  },
+  {
+   "tick": 993,
+   "turntables": {
+    "TT_01": 36.0
+   },
+   "follow": {
+    "P000004": [
+     2.513262,
+     0.1,
+     -0.08229
+    ]
+   }
+  },
+  {
+   "tick": 994,
+   "turntables": {
+    "TT_01": 37.8
+   },
+   "follow": {
+    "P000004": [
+     2.510622,
+     0.1,
+     -0.085807
+    ]
+   }
+  },
+  {
+   "tick": 995,
+   "turntables": {
+    "TT_01": 39.6
+   },
+   "follow": {
+    "P000004": [
+     2.507872,
+     0.1,
+     -0.089239
+    ]
+   }
+  },
+  {
+   "tick": 996,
+   "turntables": {
+    "TT_01": 41.4
+   },
+   "follow": {
+    "P000004": [
+     2.505016,
+     0.1,
+     -0.092584
+    ]
+   }
+  },
+  {
+   "tick": 997,
+   "turntables": {
+    "TT_01": 43.2
+   },
+   "follow": {
+    "P000004": [
+     2.502056,
+     0.1,
+     -0.095837
+    ]
+   }
+  },
+  {
+   "tick": 998,
+   "turntables": {
+    "TT_01": 45.0
+   },
+   "follow": {
+    "P000004": [
+     2.498995,
+     0.1,
+     -0.098995
+    ]
+   }
+  },
+  {
+   "tick": 999,
+   "turntables": {
+    "TT_01": 46.8
+   },
+   "follow": {
+    "P000004": [
+     2.495837,
+     0.1,
+     -0.102056
+    ]
+   }
+  },
+  {
+   "tick": 1000,
+   "turntables": {
+    "TT_01": 48.6
+   },
+   "follow": {
+    "P000004": [
+     2.492584,
+     0.1,
+     -0.105016
+    ]
+   }
+  },
+  {
+   "tick": 1001,
+   "turntables": {
+    "TT_01": 50.4
+   },
+   "follow": {
+    "P000004": [
+     2.489239,
+     0.1,
+     -0.107872
+    ]
+   }
+  },
+  {
+   "tick": 1002,
+   "turntables": {
+    "TT_01": 52.2
+   },
+   "spawn": [
+    {
+     "id": "P000005",
+     "name": "box",
+     "size": [
+      0.3,
+      0.2,
+      0.3
+     ],
+     "position": [
+      0.3,
+      0.15,
+      0.0
+     ]
+    }
+   ],
+   "follow": {
+    "P000004": [
+     2.485807,
+     0.1,
+     -0.110622
+    ]
+   }
+  },
+  {
+   "tick": 1003,
+   "turntables": {
+    "TT_01": 54.0
+   },
+   "follow": {
+    "P000004": [
+     2.48229,
+     0.1,
+     -0.113262
+    ]
+   }
+  },
+  {
+   "tick": 1004,
+   "turntables": {
+    "TT_01": 55.8
+   },
+   "follow": {
+    "P000004": [
+     2.478692,
+     0.1,
+     -0.115791
+    ]
+   }
+  },
+  {
+   "tick": 1005,
+   "turntables": {
+    "TT_01": 57.6
+   },
+   "follow": {
+    "P000004": [
+     2.475016,
+     0.1,
+     -0.118206
+    ]
+   }
+  },
+  {
+   "tick": 1006,
+   "turntables": {
+    "TT_01": 59.4
+   },
+   "follow": {
+    "P000004": [
+     2.471266,
+     0.1,
+     -0.120504
+    ]
+   }
+  },
+  {
+   "tick": 1007,
+   "turntables": {
+    "TT_01": 61.2
+   },
+   "follow": {
+    "P000004": [
+     2.467446,
+     0.1,
+     -0.122683
+    ]
+   }
+  },
+  {
+   "tick": 1008,
+   "turntables": {
+    "TT_01": 63.0
+   },
+   "follow": {
+    "P000004": [
+     2.463559,
+     0.1,
+     -0.124741
+    ]
+   }
+  },
+  {
+   "tick": 1009,
+   "turntables": {
+    "TT_01": 64.8
+   },
+   "follow": {
+    "P000004": [
+     2.459609,
+     0.1,
+     -0.126676
+    ]
+   }
+  },
+  {
+   "tick": 1010,
+   "turntables": {
+    "TT_01": 66.6
+   },
+   "follow": {
+    "P000004": [
+     2.455601,
+     0.1,
+     -0.128486
+    ]
+   }
+  },
+  {
+   "tick": 1011,
+   "turntables": {
+    "TT_01": 68.4
+   },
+   "follow": {
+    "P000004": [
+     2.451537,
+     0.1,
+     -0.130169
+    ]
+   }
+  },
+  {
+   "tick": 1012,
+   "turntables": {
+    "TT_01": 70.2
+   },
+   "follow": {
+    "P000004": [
+     2.447423,
+     0.1,
+     -0.131723
+    ]
+   }
+  },
+  {
+   "tick": 1013,
+   "turntables": {
+    "TT_01": 72.0
+   },
+   "follow": {
+    "P000004": [
+     2.443262,
+     0.1,
+     -0.133148
+    ]
+   }
+  },
+  {
+   "tick": 1014,
+   "turntables": {
+    "TT_01": 73.8
+   },
+   "follow": {
+    "P000004": [
+     2.439059,
+     0.1,
+     -0.134441
+    ]
+   }
+  },
+  {
+   "tick": 1015,
+   "turntables": {
+    "TT_01": 75.6
+   },
+   "follow": {
+    "P000004": [
+     2.434817,
+     0.1,
+     -0.135602
+    ]
+   }
+  },
+  {
+   "tick": 1016,
+   "turntables": {
+    "TT_01": 77.4
+   },
+   "follow": {
+    "P000004": [
+     2.43054,
+     0.1,
+     -0.136628
+    ]
+   }
+  },
+  {
+   "tick": 1017,
+   "turntables": {
+    "TT_01": 79.2
+   },
+   "follow": {
+    "P000004": [
+     2.426233,
+     0.1,
+     -0.13752
+    ]
+   }
+  },
+  {
+   "tick": 1018,
+   "turntables": {
+    "TT_01": 81.0
+   },
+   "follow": {
+    "P000004": [
+     2.421901,
+     0.1,
+     -0.138276
+    ]
+   }
+  },
+  {
+   "tick": 1019,
+   "turntables": {
+    "TT_01": 82.8
+   },
+   "follow": {
+    "P000004": [
+     2.417547,
+     0.1,
+     -0.138896
+    ]
+   }
+  },
+  {
+   "tick": 1020,
+   "turntables": {
+    "TT_01": 84.6
+   },
+   "follow": {
+    "P000004": [
+     2.413175,
+     0.1,
+     -0.139379
+    ]
+   }
+  },
+  {
+   "tick": 1021,
+   "turntables": {
+    "TT_01": 86.4
+   },
+   "follow": {
+    "P000004": [
+     2.408791,
+     0.1,
+     -0.139724
+    ]
+   }
+  },
+  {
+   "tick": 1022,
+   "turntables": {
+    "TT_01": 88.2
+   },
+   "release": {
+    "P000004": [
+     0.0,
+     0.0,
+     -0.0
+    ]
+   }
+  },
+  {
+   "tick": 1023,
+   "turntables": {
+    "TT_01": 90.0
+   }
+  },
+  {
+   "tick": 1024,
+   "belts": {
+    "TT_01": 0.033333
+   }
+  },
+  {
+   "tick": 1025,
+   "belts": {
+    "TT_01": 0.066667
+   }
+  },
+  {
+   "tick": 1026,
+   "belts": {
+    "TT_01": 0.1
+   }
+  },
+  {
+   "tick": 1027,
+   "belts": {
+    "TT_01": 0.133333
+   }
+  },
+  {
+   "tick": 1028,
+   "belts": {
+    "TT_01": 0.166667
+   }
+  },
+  {
+   "tick": 1029,
+   "belts": {
+    "TT_01": 0.2
+   }
+  },
+  {
+   "tick": 1030,
+   "belts": {
+    "TT_01": 0.233333
+   }
+  },
+  {
+   "tick": 1031,
+   "belts": {
+    "TT_01": 0.266667
+   }
+  },
+  {
+   "tick": 1032,
+   "belts": {
+    "TT_01": 0.3
+   }
+  },
+  {
+   "tick": 1033,
+   "belts": {
+    "TT_01": 0.333333
+   }
+  },
+  {
+   "tick": 1034,
+   "belts": {
+    "TT_01": 0.366667
+   }
+  },
+  {
+   "tick": 1035,
+   "belts": {
+    "TT_01": 0.4
+   }
+  },
+  {
+   "tick": 1036,
+   "belts": {
+    "TT_01": 0.433333
+   }
+  },
+  {
+   "tick": 1037,
+   "belts": {
+    "TT_01": 0.466667
+   }
+  },
+  {
+   "tick": 1038,
+   "belts": {
+    "TT_01": 0.5
+   }
+  },
+  {
+   "tick": 1106,
+   "remove": [
+    "P000003"
+   ]
+  },
+  {
+   "tick": 1149,
+   "belts": {
+    "TT_01": 0.466667
+   },
+   "turntables": {
+    "TT_01": 88.2
+   }
+  },
+  {
+   "tick": 1150,
+   "belts": {
+    "TT_01": 0.433333
+   },
+   "turntables": {
+    "TT_01": 86.4
+   }
+  },
+  {
+   "tick": 1151,
+   "belts": {
+    "TT_01": 0.4
+   },
+   "turntables": {
+    "TT_01": 84.6
+   }
+  },
+  {
+   "tick": 1152,
+   "belts": {
+    "TT_01": 0.366667
+   },
+   "turntables": {
+    "TT_01": 82.8
+   }
+  },
+  {
+   "tick": 1153,
+   "belts": {
+    "TT_01": 0.333333
+   },
+   "turntables": {
+    "TT_01": 81.0
+   }
+  },
+  {
+   "tick": 1154,
+   "belts": {
+    "TT_01": 0.3
+   },
+   "turntables": {
+    "TT_01": 79.2
+   }
+  },
+  {
+   "tick": 1155,
+   "belts": {
+    "TT_01": 0.266667
+   },
+   "turntables": {
+    "TT_01": 77.4
+   }
+  },
+  {
+   "tick": 1156,
+   "belts": {
+    "TT_01": 0.233333
+   },
+   "turntables": {
+    "TT_01": 75.6
+   }
+  },
+  {
+   "tick": 1157,
+   "belts": {
+    "TT_01": 0.2
+   },
+   "turntables": {
+    "TT_01": 73.8
+   }
+  },
+  {
+   "tick": 1158,
+   "belts": {
+    "TT_01": 0.166667
+   },
+   "turntables": {
+    "TT_01": 72.0
+   }
+  },
+  {
+   "tick": 1159,
+   "belts": {
+    "TT_01": 0.133333
+   },
+   "turntables": {
+    "TT_01": 70.2
+   }
+  },
+  {
+   "tick": 1160,
+   "belts": {
+    "TT_01": 0.1
+   },
+   "turntables": {
+    "TT_01": 68.4
+   }
+  },
+  {
+   "tick": 1161,
+   "belts": {
+    "TT_01": 0.066667
+   },
+   "turntables": {
+    "TT_01": 66.6
+   }
+  },
+  {
+   "tick": 1162,
+   "belts": {
+    "TT_01": 0.033333
+   },
+   "turntables": {
+    "TT_01": 64.8
+   }
+  },
+  {
+   "tick": 1163,
+   "belts": {
+    "TT_01": 0.0
+   },
+   "turntables": {
+    "TT_01": 63.0
+   }
+  },
+  {
+   "tick": 1164,
+   "turntables": {
+    "TT_01": 61.2
+   }
+  },
+  {
+   "tick": 1165,
+   "turntables": {
+    "TT_01": 59.4
+   }
+  },
+  {
+   "tick": 1166,
+   "turntables": {
+    "TT_01": 57.6
+   }
+  },
+  {
+   "tick": 1167,
+   "turntables": {
+    "TT_01": 55.8
+   }
+  },
+  {
+   "tick": 1168,
+   "turntables": {
+    "TT_01": 54.0
+   }
+  },
+  {
+   "tick": 1169,
+   "turntables": {
+    "TT_01": 52.2
+   }
+  },
+  {
+   "tick": 1170,
+   "turntables": {
+    "TT_01": 50.4
+   }
+  },
+  {
+   "tick": 1171,
+   "turntables": {
+    "TT_01": 48.6
+   }
+  },
+  {
+   "tick": 1172,
+   "turntables": {
+    "TT_01": 46.8
+   }
+  },
+  {
+   "tick": 1173,
+   "turntables": {
+    "TT_01": 45.0
+   }
+  },
+  {
+   "tick": 1174,
+   "turntables": {
+    "TT_01": 43.2
+   }
+  },
+  {
+   "tick": 1175,
+   "turntables": {
+    "TT_01": 41.4
+   }
+  },
+  {
+   "tick": 1176,
+   "turntables": {
+    "TT_01": 39.6
+   }
+  },
+  {
+   "tick": 1177,
+   "turntables": {
+    "TT_01": 37.8
+   }
+  },
+  {
+   "tick": 1178,
+   "turntables": {
+    "TT_01": 36.0
+   }
+  },
+  {
+   "tick": 1179,
+   "turntables": {
+    "TT_01": 34.2
+   }
+  },
+  {
+   "tick": 1180,
+   "turntables": {
+    "TT_01": 32.4
+   }
+  },
+  {
+   "tick": 1181,
+   "turntables": {
+    "TT_01": 30.6
+   }
+  },
+  {
+   "tick": 1182,
+   "turntables": {
+    "TT_01": 28.8
+   }
+  },
+  {
+   "tick": 1183,
+   "turntables": {
+    "TT_01": 27.0
+   }
+  },
+  {
+   "tick": 1184,
+   "turntables": {
+    "TT_01": 25.2
+   }
+  },
+  {
+   "tick": 1185,
+   "turntables": {
+    "TT_01": 23.4
+   }
+  },
+  {
+   "tick": 1186,
+   "turntables": {
+    "TT_01": 21.6
+   }
+  },
+  {
+   "tick": 1187,
+   "turntables": {
+    "TT_01": 19.8
+   }
+  },
+  {
+   "tick": 1188,
+   "turntables": {
+    "TT_01": 18.0
+   }
+  },
+  {
+   "tick": 1189,
+   "turntables": {
+    "TT_01": 16.2
+   }
+  },
+  {
+   "tick": 1190,
+   "turntables": {
+    "TT_01": 14.4
+   }
+  },
+  {
+   "tick": 1191,
+   "turntables": {
+    "TT_01": 12.6
+   }
+  },
+  {
+   "tick": 1192,
+   "turntables": {
+    "TT_01": 10.8
+   }
+  },
+  {
+   "tick": 1193,
+   "turntables": {
+    "TT_01": 9.0
+   }
+  },
+  {
+   "tick": 1194,
+   "turntables": {
+    "TT_01": 7.2
+   }
+  },
+  {
+   "tick": 1195,
+   "turntables": {
+    "TT_01": 5.4
+   }
+  },
+  {
+   "tick": 1196,
+   "turntables": {
+    "TT_01": 3.6
+   }
+  },
+  {
+   "tick": 1197,
+   "turntables": {
+    "TT_01": 1.8
+   }
+  },
+  {
+   "tick": 1198,
+   "turntables": {
+    "TT_01": 0.0
+   }
+  },
+  {
+   "tick": 1199,
+   "belts": {
+    "CONV_IN": 0.033333,
+    "TT_01": 0.033333
+   }
+  },
+  {
+   "tick": 1200,
+   "belts": {
+    "CONV_IN": 0.066667,
+    "TT_01": 0.066667
+   }
+  },
+  {
+   "tick": 1201,
+   "belts": {
+    "CONV_IN": 0.1,
+    "TT_01": 0.1
+   }
+  },
+  {
+   "tick": 1202,
+   "belts": {
+    "CONV_IN": 0.133333,
+    "TT_01": 0.133333
+   }
+  },
+  {
+   "tick": 1203,
+   "belts": {
+    "CONV_IN": 0.166667,
+    "TT_01": 0.166667
+   }
+  },
+  {
+   "tick": 1204,
+   "belts": {
+    "CONV_IN": 0.2,
+    "TT_01": 0.2
+   }
+  },
+  {
+   "tick": 1205,
+   "belts": {
+    "CONV_IN": 0.233333,
+    "TT_01": 0.233333
+   }
+  },
+  {
+   "tick": 1206,
+   "belts": {
+    "CONV_IN": 0.266667,
+    "TT_01": 0.266667
+   }
+  },
+  {
+   "tick": 1207,
+   "belts": {
+    "CONV_IN": 0.3,
+    "TT_01": 0.3
+   },
+   "remove": [
+    "P000004"
+   ]
+  },
+  {
+   "tick": 1208,
+   "belts": {
+    "CONV_IN": 0.333333,
+    "TT_01": 0.333333
+   }
+  },
+  {
+   "tick": 1209,
+   "belts": {
+    "CONV_IN": 0.366667,
+    "TT_01": 0.366667
+   }
+  },
+  {
+   "tick": 1210,
+   "belts": {
+    "CONV_IN": 0.4,
+    "TT_01": 0.4
+   }
+  },
+  {
+   "tick": 1211,
+   "belts": {
+    "CONV_IN": 0.433333,
+    "TT_01": 0.433333
+   }
+  },
+  {
+   "tick": 1212,
+   "belts": {
+    "CONV_IN": 0.466667,
+    "TT_01": 0.466667
+   }
+  },
+  {
+   "tick": 1213,
+   "belts": {
+    "CONV_IN": 0.5,
+    "TT_01": 0.5
+   }
+  }
+ ],
+ "edges": {
+  "PE_TT": [
+   [
+    224,
+    true
+   ],
+   [
+    255,
+    false
+   ],
+   [
+    471,
+    true
+   ],
+   [
+    512,
+    false
+   ],
+   [
+    920,
+    true
+   ],
+   [
+    951,
+    false
+   ],
+   [
+    971,
+    true
+   ],
+   [
+    1012,
+    false
+   ]
+  ]
+ },
+ "checkpoints": {
+  "P000001": {
+   "1": 79,
+   "2": 179,
+   "3": 280,
+   "4": 380
+  },
+  "P000002": {
+   "1": 326,
+   "2": 426
+  },
+  "P000003": {
+   "1": 775,
+   "2": 875,
+   "3": 976,
+   "4": 1076
+  },
+  "P000004": {
+   "1": 826,
+   "2": 926
+  },
+  "P000005": {}
+ },
+ "gate": false
+}

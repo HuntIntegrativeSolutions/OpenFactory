@@ -121,6 +121,8 @@ export class PlantPhysics {
   private readonly arms = new Map<string, { body: RapierNs.RigidBody; g: ComponentGeometry }>();
   private readonly beams = new Map<number, string>(); // sensor collider handle -> eye id
   private readonly inBeam = new Map<string, Set<number>>(); // eye id -> part collider handles
+  /** Collider handles of parts: only these block a beam, as in the core's photo eye. */
+  private readonly partHandles = new Set<number>();
   private readonly parts = new Map<string, RapierNs.RigidBody>();
   private readonly sizes = new Map<string, Vec3>();
   private readonly blades = new Map<string, Blade>();
@@ -299,7 +301,11 @@ export class PlantPhysics {
     const collider = this.world.createCollider(
       R.ColliderDesc.cuboid(BEAM_HALF_THICKNESS, BEAM_HALF_THICKNESS, num(g, "beam_length", 0.5) / 2)
         .setSensor(true)
-        .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS),
+        .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS)
+        // Rapier's default leaves out kinematic-vs-fixed pairs, and a part the core places (held,
+        // against an arm, on a turning deck, §3.3) is kinematic: without this it is invisible to
+        // the beam (the pick eye cleared 8 ticks early the moment the gripper took the box).
+        .setActiveCollisionTypes(R.ActiveCollisionTypes.DEFAULT | R.ActiveCollisionTypes.KINEMATIC_FIXED),
       body,
     );
     this.beams.set(collider.handle, g.id);
@@ -358,10 +364,11 @@ export class PlantPhysics {
     const body = this.world.createRigidBody(
       R.RigidBodyDesc.dynamic().setTranslation(...position).setLinvel(...velocity),
     );
-    this.world.createCollider(
+    const collider = this.world.createCollider(
       R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setFriction(this.friction).setRestitution(0),
       body,
     );
+    this.partHandles.add(collider.handle);
     this.parts.set(id, body);
     this.sizes.set(id, size);
   }
@@ -372,6 +379,7 @@ export class PlantPhysics {
     for (let i = 0; i < body.numColliders(); i++) {
       const handle = body.collider(i).handle;
       for (const handles of this.inBeam.values()) handles.delete(handle);
+      this.partHandles.delete(handle);
     }
     for (const blade of this.blades.values()) blade.exempt.delete(body.collider(0).handle);
     this.world.removeRigidBody(body);
@@ -424,6 +432,9 @@ export class PlantPhysics {
       const eye = this.beams.get(h1) ?? this.beams.get(h2);
       if (eye === undefined) return;
       const other = this.beams.has(h1) ? h2 : h1;
+      // Beams see kinematic bodies too (core-placed parts, below), so ignore plates, blades, arms
+      // and belts that cross one: only parts block a beam, as in the core's photo eye.
+      if (!this.partHandles.has(other)) return;
       const set = this.inBeam.get(eye)!;
       if (started) set.add(other);
       else set.delete(other);
