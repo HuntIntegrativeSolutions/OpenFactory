@@ -44,7 +44,8 @@ uv run openfactory test scenes/<scene>.yaml --plc --bind 0.0.0.0 --analog-encodi
 ```
 
 With `--plc` the run takes 60 s of real time while your PLC (OpenPLC, as configured above)
-controls the plant.
+controls the plant. What each check means, and why a stopped or jammed line fails, is in
+[the scene format reference](../scene-format.md).
 
 `tests/integration/test_shipped_scenes.py` runs every scene for 60 s under its stand-in script and
 checks the remover counts each guide states.

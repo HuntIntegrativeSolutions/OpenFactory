@@ -300,6 +300,7 @@ Rules:
       none_lost: true                                # no part falls out of the scene
       max_cycle_s: 12                                # spawn to remover, and oldest part left
     ```
+    Reference with both failure rules spelled out: `docs/scene-format.md`.
     Every key is optional. `parts_reached` names part removers and part names an emitter makes,
     each name under one remover only; a wrong id or name fails at load. A name passes when at
     least one part of it reached that remover and none reached another, so a stopped line fails.
@@ -761,6 +762,8 @@ runs the sorting program against it; a box visibly gets pushed.
         (2.15). Parts gain a yaw in the core, the state frame, and the parity traces.
       - Pick-and-place pad collision: the lowered pad stops on a part's top (and `lowered`
         reports the true pad position) instead of passing into it.
+      - `color_sensor.debounce_ms` (ruled 2026-10-28): an on/off debounce on `match` and
+        `detect`, like the photo eye's 20 ms, default 0 so existing scenes keep their timing.
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late
