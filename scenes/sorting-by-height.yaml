@@ -36,7 +36,7 @@ components:
     position: [1.5, 0.3, 0]       # beam above short boxes (0.2 m), below tall boxes (0.4 m)
     beam_length: 0.6
     io:
-      detect: PE_01_DI
+      detect: {tag: PE_01_DI, exam: switch}  # exam mode: an operator switch drives it (PLAN 2.11)
   - id: CYL_01
     type: pusher
     description: Tall Box Divert Pusher

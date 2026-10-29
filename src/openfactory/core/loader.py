@@ -34,7 +34,7 @@ from pathlib import Path
 import openfactory.components  # noqa: F401 - registers the built-in types and their defaults
 from openfactory.core.component import REGISTRY, Component, ComponentRegistry
 from openfactory.core.geometry import to_world
-from openfactory.core.iotable import IOTable, Tag
+from openfactory.core.iotable import IOTable, Tag, Writer
 from openfactory.core.kinematics import KinematicModel
 from openfactory.core.schema import CARRIER_TYPES, TURNING_TYPES, Scene, load_scene
 from openfactory.core.sizing import resolve_defaults
@@ -62,6 +62,26 @@ class LoadedScene:
     warnings: list[str] = field(default_factory=list)
     #: Binding-level signal transforms (PLAN 2.17), applied after the components each tick.
     transforms: TransformStage | None = None
+    #: Exam mode (PLAN 2.11): ``exam: switch`` tag -> the operator switch's position, written
+    #: over what the simulation computed at the end of every tick. None when not in exam mode.
+    exam: dict[str, bool] | None = None
+
+    def enable_exam(self) -> dict[str, bool]:
+        """Start exam mode: every ``exam: switch`` DI follows its operator switch (all off)."""
+        self.exam = {b.name: False for b in self.scene.tag_bindings() if b.exam}
+        self._write_exam()
+        return self.exam
+
+    def set_exam_switch(self, tag: str, on: bool) -> None:
+        """Turn one operator switch; KeyError if exam mode is off or the tag has no switch."""
+        if self.exam is None or tag not in self.exam:
+            raise KeyError(f"{tag!r} has no exam switch (exam mode off, or not `exam: switch`)")
+        self.exam[tag] = bool(on)
+        self._write_exam()
+
+    def _write_exam(self) -> None:
+        for tag, on in (self.exam or {}).items():
+            self.io.set(tag, on, Writer.SIM)
 
     def step(self, dt: float) -> None:
         """One tick: move parts, step components in scene order, then write transformed tags.
@@ -72,6 +92,7 @@ class LoadedScene:
             comp.tick(dt)  # advances an injected fault's clock, then steps
         if self.transforms is not None:
             self.transforms.step(dt)
+        self._write_exam()  # the switch, not the sensor, is what the PLC sees
         self.tick += 1
         self.time += dt
 

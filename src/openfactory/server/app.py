@@ -18,6 +18,11 @@ Behavior spec
   the server is bound to a loopback address; bound beyond loopback, every ``/api/fault`` request
   needs the configured token in the :data:`FAULT_TOKEN_HEADER` header (401 without it or with a
   wrong one), and with no token configured the fault API is off (403).
+- ``GET /api/exam``: exam mode (PLAN 2.11) and its operator switches, ``{enabled, switches:
+  [{tag, component, port, description, on}]}``. ``POST /api/exam`` with ``{"tag", "on"}`` turns
+  one (404 for a tag without a switch); it is guarded like ``/api/fault`` (open on loopback, the
+  fault token beyond it), since the instructor drives it. In exam mode state frames carry no
+  fault markers.
 - ``GET /api/stats``: the run's statistics so far (PLAN 2.11, :mod:`openfactory.core.stats`):
   throughput per remover, conveyor utilization, actuator cycles, part dwell, and losses.
 - ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
@@ -84,6 +89,15 @@ def fault_api_notice(bind: str, token: str | None) -> str | None:
         f"fault API off: the viewer is bound to {bind}, beyond loopback, and no fault token is set "
         "(--fault-token or [server] fault_token in openfactory.local.toml)"
     )
+
+
+class ExamSwitch(BaseModel):
+    """Body of ``POST /api/exam`` (PLAN 2.11)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tag: str
+    on: bool
 
 
 class FaultRequest(BaseModel):
@@ -167,6 +181,17 @@ def create_app(
     def clear_fault(component_id: str) -> dict[str, Any]:
         try:
             return runtime.clear_fault(component_id)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc.args[0])) from None
+
+    @app.get("/api/exam")
+    def exam() -> dict[str, Any]:
+        return runtime.exam()
+
+    @app.post("/api/exam", dependencies=guarded)
+    def set_exam(request: ExamSwitch) -> dict[str, Any]:
+        try:
+            return runtime.set_exam_switch(request.tag, request.on)
         except KeyError as exc:
             raise HTTPException(404, str(exc.args[0])) from None
 

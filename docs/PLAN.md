@@ -301,6 +301,8 @@ Rules:
       max_cycle_s: 12                                # spawn to remover, and oldest part left
     ```
     Reference with both failure rules spelled out: `docs/scene-format.md`.
+  - `exam: switch` on a DI binding (PLAN 2.11): with `run --exam` an operator switch in the viewer
+    drives that tag instead of the simulation (`docs/scene-format.md`).
     Every key is optional. `parts_reached` names part removers and part names an emitter makes,
     each name under one remover only; a wrong id or name fails at load. A name passes when at
     least one part of it reached that remover and none reached another, so a stopped line fails.
@@ -892,7 +894,7 @@ runs the sorting program against it; a box visibly gets pushed.
       `DIVERT_OVERRUN` if a fifth box finds its slot busy). Stress scene
       `tests/scenes/sorter-tall-pairs.yaml` (every box tall, 1.5 s apart): OpenPLC, 60 s,
       REM_01 {} and REM_02 {tall: 35}; the old program sent 17 of 35 to REM_01.
-- [ ] 2.11 Exercise checks: a scene may declare `checks:` (for example `parts_reached: {REM_02: tall}`,
+- [x] 2.11 Exercise checks: a scene may declare `checks:` (for example `parts_reached: {REM_02: tall}`,
       `none_lost: true`, `max_cycle_s: 12`) evaluated by `openfactory test scene.yaml --script|--plc`
       with a pass/fail report.
       *Why:* this is the auto-grading a training tool needs and the acceptance test a client demo
@@ -929,8 +931,22 @@ runs the sorting program against it; a box visibly gets pushed.
       script: OpenPLC's polling delays the retract); with `--fault CYL_01=jammed --fault-at 10`
       FAIL 3 of 4, "parts_reached REM_02: tall: 2 reached REM_02, but 7 to REM_01", exit 1. Each
       scene's `max_cycle_s` is about 25 to 30 % above its scripted 60 s maximum (the comment in
-      each scene gives it). Not started: exam mode (`--exam`, `exam: switch` DIs driven from the
-      viewer, the fault marker hidden from trainees).
+      each scene gives it).
+      *Done (2026-10-29), exam mode:* a DI binding may carry `exam: switch`
+      (`docs/scene-format.md`); `openfactory run --exam` makes each such tag follow an operator
+      switch (`LoadedScene.enable_exam`, written after the components and transforms each tick,
+      and at once when turned), listed at `GET /api/exam` and turned by `POST /api/exam`
+      (guarded like `/api/fault`). The viewer shows an exam panel, and in exam mode state frames
+      carry no fault markers for anyone; the instructor sees active faults through the fault
+      menu and `/api/fault` rather than a separate instructor view. The sorter marks `PE_01_DI`.
+      Done when, `tests/integration/test_exam_mode.py` (Playwright): the sorter under its script
+      with `--exam`; a real tall box blocked PE_01 with the switch off and CYL_01 made 0 cycles;
+      a click on PE_01's switch in the viewer, held for 10+ ticks, then off: CYL_01 made exactly
+      1 cycle (mean 0.78 s); a fault injected meanwhile is absent from the frame and present at
+      `/api/fault`. Found on the way: under a software-rendered browser the server's sim can
+      stall and catch up in bursts, so a 0.4 s wall-clock switch pulse fell between two ticks;
+      the test holds the switch for 10 ticks and counts the pusher's cycles with `/api/stats`
+      instead of polling `io`.
 - [ ] 2.12 Record and replay: `--record file.ofrec` logs every I/O table change with its tick;
       `openfactory replay file.ofrec` drives the viewer from the log with no simulation.
       *Why:* reproducible bug reports from users, deterministic screenshots and videos for docs, and the

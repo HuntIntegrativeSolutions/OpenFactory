@@ -25,6 +25,9 @@ Behavior spec
   ``--port`` is the Modbus port and ``--web-port`` the viewer port. With the viewer bound beyond
   loopback, ``/api/fault`` needs ``--fault-token`` or ``[server] fault_token``; with neither, the
   fault API is off and ``run`` logs a one-line notice (PLAN §6.4).
+- ``run --exam`` (PLAN 2.11): every DI bound with ``exam: switch`` follows an operator switch
+  in the viewer (``/api/exam``) instead of the simulation, starting off, and state frames carry
+  no fault markers, so trainees find faults from the PLC's side.
 - ``run`` and ``test`` take ``--fault ID=KIND[:key=value,...]`` (repeatable) and ``--fault-at T``
   (simulated seconds, default 0): each fault is checked against its component before the run and
   injected between ticks once the simulated time reaches T, logged like an ``/api/fault`` request,
@@ -230,6 +233,14 @@ def run(
     fault_at: Annotated[
         float, typer.Option(help="Simulated time, seconds, to inject the --fault faults.", min=0)
     ] = 0.0,
+    exam: Annotated[
+        bool,
+        typer.Option(
+            "--exam",
+            help="Exam mode (PLAN 2.11): DIs bound with `exam: switch` follow operator switches "
+            "in the viewer instead of the simulation, and fault markers are hidden.",
+        ),
+    ] = False,
     fault_token: Annotated[
         str | None,
         typer.Option(
@@ -254,6 +265,12 @@ def run(
 
     _apply_forces(loaded, force or [])
     faults = _faults(loaded, fault or [], fault_at)
+    if exam:
+        switches = loaded.enable_exam()
+        if switches:
+            log.info("exam mode: operator switches for %s (all off)", ", ".join(switches))
+        else:
+            log.warning("exam mode: the scene binds no DI with `exam: switch`; nothing to drive")
     runtime, wall = _simulate(
         scene,
         parsed,

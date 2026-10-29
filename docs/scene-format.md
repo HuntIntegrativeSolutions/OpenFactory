@@ -60,3 +60,29 @@ at simulated time T, so an exercise can ask how a program handles a jammed pushe
 `run` and `test` also print a statistics block (throughput, utilization, actuator cycles, dwell,
 losses) just before the run summary line; `GET /api/stats` serves the same block while a scene
 runs.
+
+## `exam: switch`: exam mode (PLAN 2.11)
+
+A DI binding may carry `exam: switch`:
+
+```yaml
+- id: PE_01
+  type: photo_eye
+  io:
+    detect: {tag: PE_01_DI, exam: switch}
+```
+
+Without `--exam` it changes nothing. With `openfactory run SCENE --exam`, each such tag follows an
+operator switch instead of the simulation, starting off. The viewer shows an exam panel (top
+right) with one switch per tag, so an instructor can test a program against hand-driven inputs
+while trainees watch the plant: the sensor still sees the parts in 3D, but the PLC sees the switch.
+A switch takes effect between ticks and the program sees it on its next scan, so hold it for at
+least one PLC scan, as you would a real switch. In exam mode state frames carry no fault markers
+(no alarm-yellow label, a misaligned eye drawn where it belongs), so trainees have to find an
+injected fault from the PLC's side; the instructor still sees active faults in the fault menu and
+at `GET /api/fault`.
+
+`GET /api/exam` lists the switches; `POST /api/exam` with `{"tag", "on"}` turns one. Turning a
+switch is an instructor action, guarded like `/api/fault`: open on loopback, and beyond loopback
+it needs the fault token (`--fault-token` or `[server] fault_token`). Only a DI binding takes
+`exam`; `switch` is the only value. The shipped sorter marks `PE_01_DI`.

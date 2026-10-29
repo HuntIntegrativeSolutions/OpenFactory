@@ -27,6 +27,7 @@ import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type Sc
 import { loadRapier, PlantPhysics, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { cssColor, ISA101 } from "./isa101";
+import { ExamPanel } from "./exampanel";
 import { FaultMenu } from "./faultmenu";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
@@ -45,6 +46,7 @@ window.__openfactory = {
   droppedTicks: 0,
   firstTick: null,
   reloads: 0,
+  exam: false,
 };
 
 /** Phones report a device pixel ratio of 3 or more; rendering at that drops frames for no gain. */
@@ -375,6 +377,12 @@ async function start(): Promise<void> {
   await loadScene();
   wireClicks();
   const menu = new FaultMenu({ target: renderer.domElement, pick: pickComponent });
+  const exam = new ExamPanel();
+  const refreshExam = () =>
+    exam.refresh().then((on) => {
+      window.__openfactory.exam = on;
+    });
+  await refreshExam();
   Object.assign(window, { __openfactoryFaultMenu: menu, __openfactoryScreenOf: screenOf });
   try {
     rapier = await loadRapier();
@@ -384,7 +392,7 @@ async function start(): Promise<void> {
     window.__openfactory.physics = `off: ${String(err)}`; // parts follow the core positions instead
   }
   streamState(onFrame, () => {
-    loadScene().catch((err: unknown) => {
+    loadScene().then(refreshExam).catch((err: unknown) => {
       window.__openfactory.error = String(err);
       hud.textContent = `OpenFactory: ${String(err)}`;
     });

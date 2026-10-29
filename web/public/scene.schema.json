@@ -649,6 +649,20 @@
           "default": null,
           "description": "Ports combined into this tag, as COMPONENT.port; must include this port.",
           "title": "From"
+        },
+        "exam": {
+          "anyOf": [
+            {
+              "const": "switch",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exam mode (PLAN 2.11, `run --exam`): an operator switch in the viewer drives this tag instead of the simulation.",
+          "title": "Exam"
         }
       },
       "required": [

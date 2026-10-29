@@ -105,6 +105,11 @@ class DiTagSpec(TagSpec):
         min_length=2,
         description="Ports combined into this tag, as COMPONENT.port; must include this port.",
     )
+    exam: Literal["switch"] | None = Field(
+        None,
+        description="Exam mode (PLAN 2.11, `run --exam`): an operator switch in the viewer drives "
+        "this tag instead of the simulation.",
+    )
 
     @model_validator(mode="after")
     def _combine_needs_from(self) -> DiTagSpec:
@@ -759,6 +764,8 @@ class TagBinding:
     initial: bool | float | None = None
     #: Signal conditioning applied in the I/O layer (PLAN 2.17).
     transform: Transform = Transform()
+    #: Marked ``exam: switch``: in exam mode an operator switch drives the tag (PLAN 2.11).
+    exam: bool = False
 
     @property
     def description(self) -> str:
@@ -892,6 +899,7 @@ class Scene(StrictModel):
                             binding_address(value),
                             binding_initial(value),
                             transform,
+                            getattr(value, "exam", None) == "switch",
                         )
                     )
         return out

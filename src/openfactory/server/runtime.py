@@ -140,10 +140,7 @@ class Runtime:
         return {
             "t": round(loaded.time, 6),
             "tick": loaded.tick,
-            "components": {
-                c.id: {**c.state(), **({"fault": c.fault.kind} if c.fault else {})}
-                for c in loaded.components
-            },
+            "components": {c.id: self._component_state(c) for c in loaded.components},
             "parts": [
                 {
                     "id": p.id,
@@ -284,6 +281,47 @@ class Runtime:
         entry.update({k: data[k] for k in ("kind", "params") if k in data})
         self.events.append({**entry, "core_t": self.loaded.time, "core_tick": self.loaded.tick})
         self.event_counts[f"{event}:{data['id']}"] += 1
+
+    def _component_state(self, comp: Any) -> dict[str, Any]:
+        state = comp.state()
+        if self.loaded.exam is not None:  # exam mode (PLAN 2.11): trainees find faults via the PLC
+            if "beam_offset_m" in state:
+                state = {**state, "beam_offset_m": 0.0}  # draw a misaligned eye where it belongs
+            return state
+        return {**state, **({"fault": comp.fault.kind} if comp.fault else {})}
+
+    def exam(self) -> dict[str, Any]:
+        """Exam mode and its operator switches (PLAN 2.11), as ``GET /api/exam`` serves them."""
+        with self.lock:
+            loaded = self.loaded
+            if loaded.exam is None:
+                return {"enabled": False, "switches": []}
+            bindings = {b.name: b for b in loaded.scene.tag_bindings() if b.exam}
+            return {
+                "enabled": True,
+                "switches": [
+                    {
+                        "tag": tag,
+                        "component": bindings[tag].component_id,
+                        "port": bindings[tag].port.name,
+                        "description": bindings[tag].description,
+                        "on": on,
+                    }
+                    for tag, on in loaded.exam.items()
+                ],
+            }
+
+    def set_exam_switch(self, tag: str, on: bool) -> dict[str, Any]:
+        """Turn an operator switch between ticks; KeyError for a tag without one."""
+        with self.lock:
+            self.loaded.set_exam_switch(tag, on)
+            self.events.append(
+                {"type": "exam", "id": tag, "value": bool(on), "core_t": self.loaded.time,
+                 "core_tick": self.loaded.tick}
+            )  # fmt: skip
+            self.event_counts[f"exam:{tag}"] += 1
+            self.snapshot = self._take_snapshot()
+            return {"tag": tag, "on": bool(on)}
 
     def statistics(self) -> dict[str, Any]:
         """The run's statistics so far (PLAN 2.11), as ``GET /api/stats`` serves them."""
