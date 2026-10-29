@@ -88,6 +88,11 @@ export class PartMeshes {
     entry.physics = true;
   }
 
+  /** Where each part is headed (the core's position without physics), for tests and replay. */
+  targets(): Record<string, [number, number, number]> {
+    return Object.fromEntries([...this.meshes].map(([id, e]) => [id, [e.target.x, e.target.y, e.target.z]]));
+  }
+
   /** Call once per rendered frame. */
   animate(): void {
     for (const { mesh, target, turn, physics } of this.meshes.values()) {

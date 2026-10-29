@@ -26,6 +26,8 @@ export interface SceneDocument {
   connections: { from: string; to: string }[];
   tags: { name: string; kind: string; dtype: string; owner: string; description: string }[];
   warnings: string[];
+  /** "replay" when `openfactory replay` serves a recording (PLAN 2.12): no viewer physics. */
+  mode?: string;
 }
 
 export interface PartState {

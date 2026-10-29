@@ -28,6 +28,10 @@ Behavior spec
 - ``run --exam`` (PLAN 2.11): every DI bound with ``exam: switch`` follows an operator switch
   in the viewer (``/api/exam``) instead of the simulation, starting off, and state frames carry
   no fault markers, so trainees find faults from the PLC's side.
+- ``run`` and ``test`` take ``--record FILE.ofrec`` (PLAN 2.12, :mod:`openfactory.record`): the
+  run's I/O changes, state frames and events, with the scene itself, so ``openfactory replay
+  FILE.ofrec [--speed X] [--loop] [--exit-at-end]`` can show it in the viewer with no scene file and
+  no simulation, and ``openfactory replay FILE.ofrec --io`` prints the I/O change log.
 - ``run`` and ``test`` take ``--fault ID=KIND[:key=value,...]`` (repeatable) and ``--fault-at T``
   (simulated seconds, default 0): each fault is checked against its component before the run and
   injected between ticks once the simulated time reaches T, logged like an ``/api/fault`` request,
@@ -224,6 +228,12 @@ def run(
         ),
     ] = None,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings only.")] = False,
+    record: Annotated[
+        Path | None,
+        typer.Option(
+            help="Record the run to FILE.ofrec (PLAN 2.12): replay it with `openfactory replay`.",
+        ),
+    ] = None,
     fault: Annotated[
         list[str] | None,
         typer.Option(
@@ -285,6 +295,7 @@ def run(
         script=script,
         fault_token=fault_token,
         faults=faults,
+        record=record,
     )
     _statistics(runtime)
     _summary(loaded, wall)
@@ -316,6 +327,12 @@ def test(
     ] = None,
     port: Annotated[int | None, typer.Option(help="Modbus TCP port (default 5020).")] = None,
     analog_encoding: AnalogEncoding = None,
+    record: Annotated[
+        Path | None,
+        typer.Option(
+            help="Record the run to FILE.ofrec (PLAN 2.12): replay it with `openfactory replay`.",
+        ),
+    ] = None,
     fault: Annotated[
         list[str] | None,
         typer.Option(
@@ -363,6 +380,7 @@ def test(
         fault_token=None,
         serve_modbus=plc,  # a script needs no Modbus server; the lockfile is still checked
         faults=faults,
+        record=record,
     )
     results = evaluate(parsed.checks, loaded)
     typer.echo(format_results(results))
@@ -388,6 +406,7 @@ def _simulate(
     fault_token: str | None,
     serve_modbus: bool = True,
     faults: list[tuple[float, str, str, dict[str, Any]]] | None = None,
+    record: Path | None = None,
 ):  # -> tuple[Runtime, float]; Runtime is imported lazily with the web stack
     """Serve and step a loaded scene until ``duration`` (or Ctrl+C); returns the runtime and
     the wall time it took. Exits 1 on a lockfile conflict, a script load error, or a script
@@ -442,8 +461,25 @@ def _simulate(
         log.info("viewer: http://%s:%d/", web_endpoint.bind, web_endpoint.port)
         if notice := fault_api_notice(web_endpoint.bind, token):
             log.warning(notice)
+    if record is not None:
+        from openfactory.record import FRAME_EVERY, Recorder
+
+        header = {
+            "openfactory": __version__,
+            "scene_yaml": scene.read_text(encoding="utf-8"),
+            "scene": runtime.scene_document(),
+            "dt": runtime.scheduler.dt,
+            "encoding": encoding or parsed.plc.analog_encoding,
+            "frame_every": FRAME_EVERY,
+        }
+        runtime.recorder = Recorder(record, header, runtime.snapshot)
+        log.info("recording to %s", record)
     wall = time.perf_counter()
-    asyncio.run(_serve(runtime, modbus, web, duration))
+    try:
+        asyncio.run(_serve(runtime, modbus, web, duration))
+    finally:
+        if runtime.recorder is not None:  # Ctrl+C or a script fault still leaves a whole file
+            runtime.recorder.close(_end_record(loaded, runtime))
     if runtime.fault is not None:
         typer.echo(
             f"error: --script {script} faulted at t = {loaded.time:.2f} s:\n{runtime.fault}",
@@ -486,6 +522,24 @@ def _faults(
     return out
 
 
+def _end_record(loaded: LoadedScene, runtime) -> dict[str, Any]:  # noqa: ANN001
+    """The last line of a recording: the run summary, statistics, and any script traceback."""
+    return {
+        "ticks": loaded.tick,
+        "t": round(loaded.time, 6),
+        "spawned": loaded.world.spawned,
+        "removed": dict(loaded.world.removed),
+        "lost": dict(loaded.world.lost),
+        "by_remover": {
+            c.id: dict(c.removed)  # type: ignore[attr-defined]
+            for c in loaded.components
+            if c.type == "part_remover"
+        },
+        "statistics": runtime.scene_stats.report(),
+        "error": runtime.fault,
+    }
+
+
 def _statistics(runtime) -> None:  # noqa: ANN001 - Runtime is imported lazily
     """The statistics block (PLAN 2.11), printed just before the run summary."""
     from openfactory.core.stats import format_report
@@ -512,6 +566,69 @@ def _summary(loaded: LoadedScene, wall: float) -> None:
         dict(world.lost),
         removers,
     )
+
+
+@app.command()
+def replay(
+    recording: Annotated[
+        Path, typer.Argument(help="A recording made with --record.", metavar="FILE.ofrec")
+    ],
+    speed: Annotated[
+        float, typer.Option(help="Playback speed; 2 is twice as fast.", min=0.01)
+    ] = 1.0,
+    io: Annotated[
+        bool, typer.Option("--io", help="Print the I/O change log (time, tick, tag, value).")
+    ] = False,
+    loop: Annotated[bool, typer.Option(help="Start again at the end.")] = False,
+    exit_at_end: Annotated[
+        bool, typer.Option("--exit-at-end", help="Stop the server when playback ends.")
+    ] = False,
+    bind: Annotated[
+        str | None, typer.Option(help="Listen address for the viewer (default: loopback).")
+    ] = None,
+    web_port: Annotated[int | None, typer.Option(help="Viewer port (default 8000).")] = None,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings only.")] = False,
+) -> None:
+    """Replay a recording in the viewer with no simulation (PLAN 2.12)."""
+    from openfactory.record import ReplayRuntime, io_table, read_recording
+
+    _setup_logging(quiet)
+    try:
+        rec = read_recording(recording)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"error: {recording}: {exc}", err=True)
+        raise typer.Exit(1) from None
+    if rec.truncated:
+        log.warning("%s was cut short: replaying its %d frames", recording, len(rec.frames))
+    if io:
+        typer.echo(io_table(rec))
+        return
+    from openfactory.server.app import create_app, server_config
+
+    runtime = ReplayRuntime(rec, speed=speed, loop=loop)
+    settings = load_settings()
+    endpoint = Endpoint(bind=bind or settings.web.bind, port=web_port or settings.web.port)
+    web = uvicorn.Server(server_config(create_app(runtime, bind=endpoint.bind), endpoint))
+    last = rec.frames[-1][0]
+    log.info(
+        "replaying %s: %s, %d ticks (%.2f s simulated) at %gx; viewer: http://%s:%d/",
+        recording, rec.header["scene"]["scene"]["name"], last, last * rec.dt, speed,
+        endpoint.bind, endpoint.port,
+    )  # fmt: skip
+
+    async def serve() -> None:
+        task = asyncio.create_task(web.serve())
+        runtime.start()
+        try:
+            while not task.done():
+                if exit_at_end and runtime.finished:
+                    web.should_exit = True
+                await asyncio.sleep(0.1)
+        finally:
+            runtime.stop()
+
+    with contextlib.suppress(KeyboardInterrupt):
+        asyncio.run(serve())
 
 
 def _scene_files(paths: list[Path]) -> list[Path]:

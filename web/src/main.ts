@@ -309,7 +309,7 @@ function onFrame(frame: StateFrame): void {
   status.ready = true;
   const running = views.filter((v) => (BELT_TYPES.has(v.type) || v.type === "turntable") && frame.components[v.id]?.running);
   hud.textContent =
-    `OpenFactory · ${doc.scene.name}\n` +
+    `OpenFactory · ${doc.scene.name}${doc.mode === "replay" ? "   REPLAY" : ""}\n` +
     `t = ${frame.t.toFixed(2)} s   tick ${frame.tick}   parts ${frame.parts.length}\n` +
     `running: ${running.map((v) => v.id).join(", ") || "none"}`;
 }
@@ -319,6 +319,12 @@ function onFrame(frame: StateFrame): void {
  * physics world, part set, tick sync, and event link, because a reconnect may follow a server
  * restart (ticks and part ids start again).
  */
+/** A recording served by `openfactory replay` (PLAN 2.12): parts are drawn where it has them,
+ * with no viewer physics, as when Rapier fails to load. */
+function replaying(): boolean {
+  return doc?.mode === "replay";
+}
+
 async function loadScene(): Promise<void> {
   loading = true;
   const next = await fetchScene();
@@ -340,7 +346,7 @@ async function loadScene(): Promise<void> {
   lastFrame = null;
   events = new EventLink();
   if (rapier) {
-    physics = new PlantPhysics(rapier, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
+    physics = replaying() ? null : new PlantPhysics(rapier, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
   }
   loading = false;
 }
@@ -383,11 +389,15 @@ async function start(): Promise<void> {
       window.__openfactory.exam = on;
     });
   await refreshExam();
-  Object.assign(window, { __openfactoryFaultMenu: menu, __openfactoryScreenOf: screenOf });
+  Object.assign(window, {
+    __openfactoryFaultMenu: menu,
+    __openfactoryScreenOf: screenOf,
+    __openfactoryPartTargets: () => parts.targets(),
+  });
   try {
     rapier = await loadRapier();
-    if (doc) physics = new PlantPhysics(rapier, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
-    window.__openfactory.physics = `rapier ${rapier.version()}`;
+    if (doc && !replaying()) physics = new PlantPhysics(rapier, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
+    window.__openfactory.physics = replaying() ? "off: replay" : `rapier ${rapier.version()}`;
   } catch (err) {
     window.__openfactory.physics = `off: ${String(err)}`; // parts follow the core positions instead
   }

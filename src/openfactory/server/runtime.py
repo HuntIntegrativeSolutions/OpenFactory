@@ -97,6 +97,8 @@ class Runtime:
         self.lock = threading.Lock()
         #: Faults to inject at a simulated time, ``(t, id, kind, params)`` (``--fault``).
         self.scheduled_faults: list[tuple[float, str, str, dict[str, Any]]] = []
+        #: A run being recorded (PLAN 2.12, ``--record``), fed each tick's snapshot and each event.
+        self.recorder: Any = None
         self.scheduler = Scheduler(self._step, rate_hz, realtime=realtime)
         self.snapshot: dict[str, Any] = self._take_snapshot()
         self.events: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
@@ -134,6 +136,13 @@ class Runtime:
                         {"id": eye.id, "blocked": blocked, "tick": self.loaded.tick}
                     )
             self.snapshot = self._take_snapshot()
+            if self.recorder is not None:
+                self.recorder.tick(self.snapshot)
+
+    def _event(self, entry: dict[str, Any]) -> None:
+        self.events.append(entry)
+        if self.recorder is not None:
+            self.recorder.event(entry)
 
     def _take_snapshot(self) -> dict[str, Any]:
         loaded = self.loaded
@@ -224,7 +233,7 @@ class Runtime:
                 if comp.type != "selector_switch":
                     raise ValueError(f"{event.id} is a {comp.type}, not a selector_switch")
                 comp.set_position(str(event.value))  # type: ignore[attr-defined]
-            self.events.append(
+            self._event(
                 {**event.model_dump(), "core_t": self.loaded.time, "core_tick": self.loaded.tick}
             )
             self.event_counts[f"{event.type}:{event.id}"] += 1
@@ -279,7 +288,7 @@ class Runtime:
         """Record a ``fault`` or ``clear`` event (the fault's own kind stays under ``kind``)."""
         entry = {"type": event, "id": data["id"], "component_type": data["type"]}
         entry.update({k: data[k] for k in ("kind", "params") if k in data})
-        self.events.append({**entry, "core_t": self.loaded.time, "core_tick": self.loaded.tick})
+        self._event({**entry, "core_t": self.loaded.time, "core_tick": self.loaded.tick})
         self.event_counts[f"{event}:{data['id']}"] += 1
 
     def _component_state(self, comp: Any) -> dict[str, Any]:
@@ -315,7 +324,7 @@ class Runtime:
         """Turn an operator switch between ticks; KeyError for a tag without one."""
         with self.lock:
             self.loaded.set_exam_switch(tag, on)
-            self.events.append(
+            self._event(
                 {"type": "exam", "id": tag, "value": bool(on), "core_t": self.loaded.time,
                  "core_tick": self.loaded.tick}
             )  # fmt: skip

@@ -49,3 +49,20 @@ controls the plant. What each check means, and why a stopped or jammed line fail
 
 `tests/integration/test_shipped_scenes.py` runs every scene for 60 s under its stand-in script and
 checks the remover counts each guide states.
+
+## Record a run, replay it anywhere
+
+`--record` on `run` or `test` writes the whole run, scene included, to one file; anyone can replay
+it in the viewer with no scene file and no PLC (PLAN 2.12). Attach it to a bug report, or use it for
+a screenshot that comes out the same every time:
+
+```bash
+uv run openfactory test scenes/<scene>.yaml --plc --record run.ofrec   # or run ... --record
+uv run openfactory replay run.ofrec                 # open http://127.0.0.1:8000/ (REPLAY on the HUD)
+uv run openfactory replay run.ofrec --speed 4 --loop
+uv run openfactory replay run.ofrec --io            # every I/O change with its time and tick
+```
+
+A recording holds simulated time only and nothing about your machine (no paths, host names or
+tokens), so two recordings of the same scripted run are identical byte for byte. A 60 s sorter
+run is about 40 KB. Recordings are not committed to the repository (CLAUDE.md, 1 MB rule).

@@ -947,10 +947,27 @@ runs the sorting program against it; a box visibly gets pushed.
       stall and catch up in bursts, so a 0.4 s wall-clock switch pulse fell between two ticks;
       the test holds the switch for 10 ticks and counts the pusher's cycles with `/api/stats`
       instead of polling `io`.
-- [ ] 2.12 Record and replay: `--record file.ofrec` logs every I/O table change with its tick;
+- [x] 2.12 Record and replay: `--record file.ofrec` logs every I/O table change with its tick;
       `openfactory replay file.ofrec` drives the viewer from the log with no simulation.
       *Why:* reproducible bug reports from users, deterministic screenshots and videos for docs, and the
       raw material for a sequence-of-operations document (feeds 2.8).
+      *Done when (defined 2026-10-29, the task had none):* the sorter recorded 60 s under its
+      script with a fault at 10 s; two such recordings are byte-identical; with the scene deleted,
+      the replay in the viewer draws every part where the recording has it and shows the fault
+      from its tick; `replay --io` lists the same PE_01 edges as the live core, tick for tick.
+      *Done (2026-10-29):* `src/openfactory/record.py`. Format: gzip (mtime 0) JSON Lines, a
+      header with the scene's own YAML and resolved document, `dt` and encoding; I/O changes
+      every tick; a full state frame every 5 ticks (10 Hz); events (faults, exam switches, button
+      presses); an end record with the summary, statistics and any script traceback. Simulated
+      time only, nothing machine-specific. A writer thread does the diffing, JSON and gzip off
+      the step lock; the file is closed in a `finally`, and the reader takes a file cut short.
+      `replay` serves the frames to the normal viewer (`mode: "replay"`: no Rapier, REPLAY on
+      the HUD) and refuses fault and exam requests ("replay: no simulation"). Results: 60 s
+      sorter 39,929 bytes, byte-identical twice; Playwright replay from the file alone matched
+      every part at ticks 690, 700, 710, 1005 (12 parts compared) and showed "CYL_01 ⚠ jammed"; PE_01_DI edges
+      match the core (20 edges). Cost at 200 parts, same session: about 1.4 ms a tick (gzip
+      level 1, frames at 10 Hz) against up to 12 ms at level 9 with 25 Hz frames; about 2.2 MB a
+      minute at 200 parts.
 - [ ] 2.13 Comms-loss injection: `/api/fault` gains `comms: {drop: true}` and `comms: {latency_ms: N}`
       that stall or delay the protocol servers without stopping the sim, so a PLC program's watchdog
       and stale-data handling can be exercised. Pairs with the SIM_HEARTBEAT tag in §6.2.
