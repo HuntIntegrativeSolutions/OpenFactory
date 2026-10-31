@@ -16,11 +16,13 @@ because the simulator (or Modbus mapping logic) writes the inputs and reads the 
 
 The root is ``RSLogix5000Content`` with ``SchemaRevision="1.0"``, ``SoftwareRevision="35.00"``
 (default), ``TargetType="Controller"`` and ``ContainsContext="true"``, the controller wrapped as
-``Use="Context"`` so Studio 5000 imports only the tags. Attributes and tag layout follow the
-HIS Controls L5X rules and the vendor-docs store's ``studio5000/L5X_Schema_Rules.md`` (which lists
-``Owner`` and ``ExportDate`` as optional). There is no ``ExportDate`` and no ``<Data>`` element:
-the file is byte-identical for the same scene (PLAN 2.14 regenerates it), and Studio 5000 gives
-imported BOOL and REAL tags their default value 0, as the L5X generation SOP's tag template does.
+``Use="Context"`` so Studio 5000 imports only the tags. The L5X format reference is Rockwell
+Automation, Logix 5000 Controllers Import/Export Reference Manual, publication 1756-RM084:
+https://literature.rockwellautomation.com/idc/groups/literature/documents/rm/1756-rm084_-en-p.pdf
+Attributes and tag layout also follow the HIS Controls L5X rules. There is no ``ExportDate`` and
+no ``<Data>`` element, so the file is byte-identical for the same scene (PLAN 2.14 regenerates
+it) and the tags take Studio 5000's defaults; an import into Studio 5000 has not been tested yet
+(PLAN 2.3).
 The text is parsed back before it is returned, so a malformed file is never written.
 
 These are stubs for a training and demo setup, not a controller program; anything bound for a

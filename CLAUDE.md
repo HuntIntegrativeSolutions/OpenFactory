@@ -96,8 +96,9 @@ OpenFactory/
 ### Before coding
 1. Read the current milestone in `docs/PLAN.md` and pick the next unchecked task. Do not skip ahead.
 2. Check `docs/adr/` for a decision that already covers your question before proposing a new approach.
-3. For any new protocol work, query `ai-memory-vendor-docs` and `deep-research` MCP first. Do not guess
-   register maps or CIP service codes.
+3. For any new protocol work, read the public specification, the vendor's published manual, and the
+   library's own documentation and source first (public sources only, per the clean-room rule).
+   Do not guess register maps or CIP service codes.
 4. On a drive without symlink support (WSL `/mnt/e`), set up uv and npm as in `CONTRIBUTING.md`,
    "Required setup on drives without symlink support" (`UV_PROJECT_ENVIRONMENT`, `UV_LINK_MODE=copy`,
    npm `bin-links=false`) before running any `uv` or `npm` command.

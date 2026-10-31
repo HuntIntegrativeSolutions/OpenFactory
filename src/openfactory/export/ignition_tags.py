@@ -9,8 +9,9 @@ Structure"; ``docs/ignition.md`` here):
 - the root is ``{"version": "8.3.0", "tags": [...]}``;
 - first a ``_types_`` folder with one ``UdtType`` per component type the scene uses, named
   ``OF_<Type>`` (``OF_BeltConveyor``) so it cannot clash with a client's own UDTs, imported before
-  any instance (the vendor-docs store's Ignition 8.3 tag export schema: "UdtType must be imported
-  before any UdtInstance that references it");
+  any instance (Ignition 8.3 manual, "Exporting and Importing Tags": "it is recommended to
+  import UDT definitions before importing any instances",
+  https://docs.inductiveautomation.com/docs/8.3/platform/tags/exporting-and-importing-tags);
 - then one ``Folder`` per area holding one ``UdtInstance`` per component, named by component id.
   A scene has no areas yet, so there is one area: ``--area`` or the scene name in capitals
   (``SORTING_BY_HEIGHT``). ``SIM_HEARTBEAT_DI`` (PLAN §6.1), which belongs to no component, is an

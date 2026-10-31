@@ -719,9 +719,10 @@ runs the sorting program against it; a box visibly gets pushed.
       descriptions end with the range, `[0 to 100 %]`. Tag names are the scene's own (the Logix
       path and the example programs use them), checked against `^[A-Z][A-Z0-9_]{0,39}$` and for
       duplicates; scene tags follow the project's `EQUIP_NN_SUFFIX` form and carry no area
-      prefix. No `ExportDate` (optional in the vendor-docs store's L5X schema rules), so the
-      file is byte-identical per scene for 2.14, and no `<Data>` (Studio 5000 defaults BOOL and
-      REAL to 0, as in the L5X generation SOP's tag template). The text is parsed back before it
+      prefix. The L5X format reference is Rockwell publication 1756-RM084 (Logix 5000
+      Controllers Import/Export Reference Manual). No `ExportDate` and no `<Data>`, so the file
+      is byte-identical per scene for 2.14 and the tags take Studio 5000's defaults; whether an
+      import accepts both omissions is part of the Studio 5000 import test below. The text is parsed back before it
       is returned. `tests/unit/test_l5x_stub.py`: "sorter: 11 bound tags + SIM_HEARTBEAT_DI = 12
       I/O list rows; L5X tags 12", names equal to the CSV's in order, root attributes, types,
       radixes and descriptions checked, every shipped scene exports unique valid names twice
@@ -763,8 +764,9 @@ runs the sorting program against it; a box visibly gets pushed.
       exactly once, deterministic. *Decisions:* a scene has no areas, so one area folder per
       scene (`--area`, default the scene name in capitals); UDT names carry an `OF_` prefix;
       history on AI members only; no alarms (no rationalized setpoints). The root wrapper
-      follows the HIS Ignition conventions; the vendor-docs store notes that a Designer folder
-      export has `name`/`tagType`/`tags` at the root instead, so check the import on a gateway.
+      follows the HIS Ignition conventions; the example export in the Ignition 8.3 manual
+      ("Exporting and Importing Tags", https://docs.inductiveautomation.com/docs/8.3/platform/tags/exporting-and-importing-tags)
+      has a single `tags` root key and no `version`, so check the import on a gateway.
       *Not done:* the first Done-when (an Ignition 8.3 gateway showing Good quality, a
       Perspective view starting the conveyor; no gateway in this session); the comms faults of
       2.13 apply to Modbus only.
@@ -1105,8 +1107,8 @@ runs the sorting program against it; a box visibly gets pushed.
       *Done (2026-10-29):* `protocols/modbus.py` `CommsFault` on `ModbusServer.comms`. Drop
       raises pymodbus's `NoSuchIdException` from the action hook, and the server is built with
       `ignore_missing_devices=True`, so pymodbus sends nothing (pymodbus 3.16.1
-      `requesthandler.py`; the vendor-docs store and a web search had nothing on this, so the
-      design rests on the library source). Latency awaits in the hook, once per request (FC05,
+      `requesthandler.py`; public documentation had nothing on this, so the design rests on the
+      library source). Latency awaits in the hook, once per request (FC05,
       FC06 and FC23 call the hook twice). Also `--fault comms=drop` / `comms=latency:ms=N` with
       `--fault-at`, `DELETE /api/fault/comms`, comms events in `/api/events` and recordings.
       `tests/integration/test_comms_fault.py`: healthy read 1 ms; dropped read no reply, the
@@ -1347,8 +1349,9 @@ runs the sorting program against it; a box visibly gets pushed.
 3. **Test before claim.** "Done when" is the acceptance test. Run it. Paste the result in the commit
    body or PR description.
 4. **Visual work is verified visually.** Use `tools/screenshot.py` and look at the PNG.
-5. **Protocol facts come from docs**, retrieved through `ai-memory-vendor-docs` or `deep-research`, not
-   from memory. Cite the source in a code comment.
+5. **Protocol facts come from public documents** (specifications, vendor manuals by publication
+   number, library documentation and source), not from memory. Cite the source, a publication
+   number or URL, in a code comment.
 6. **When stuck for more than two attempts**, write the blocker under the task and move on. Do not loop.
 7. **New decisions get an ADR.** Short is fine: context, decision, consequences.
 8. **Never touch** `E:\04_Software`, `E:\Hyper-V VMs`, or `E:\VirtualBox-VMs`.
