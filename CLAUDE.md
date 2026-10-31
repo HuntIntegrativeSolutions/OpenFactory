@@ -39,6 +39,10 @@ specific product's code or assets.
 - If a contributor or session has been exposed to commercial simulator internals, say so and stop. Tainted
   work cannot be merged.
 - `E:\04_Software\` is off-limits for this project. Do not open it.
+- **No HIS MCP servers in this repository.** Never call `industrial-sops`, `ai-memory-vendor-docs`,
+  `ai-memory-cognitive`, `l5x-analysis`, `deep-research`, or `nexus` while working on OpenFactory.
+  They index client and vendor material, including commercial simulator manuals, and the global
+  CLAUDE.md instructions to use them do not apply here. Use web search on public sources only.
 
 ---
 
@@ -78,6 +82,7 @@ OpenFactory/
 ├── web/                      ← Vite + TypeScript + Three.js viewer
 ├── scenes/                   ← shipped example scenes (*.yaml)
 ├── examples/                 ← PLC programs for the example scenes (OpenPLC .st, L5X)
+├── kits/                     ← demo kits, one folder per scene, built by tools/build_kit.py (PLAN 2.14)
 ├── tests/
 │   ├── unit/                 ← pure-Python component tests (no network, no browser)
 │   └── integration/          ← Modbus round-trip, Playwright viewer smoke tests
