@@ -28,6 +28,10 @@ SETTINGS_FILE = "openfactory.toml"
 LOCAL_SETTINGS_FILE = "openfactory.local.toml"
 
 
+#: The OpenFactory OPC UA server's namespace URI (PLAN §6.3); Ignition paths use it, not the index.
+OPCUA_NAMESPACE = "urn:openfactory:sim"
+
+
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

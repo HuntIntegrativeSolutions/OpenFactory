@@ -66,3 +66,16 @@ uv run openfactory replay run.ofrec --io            # every I/O change with its 
 A recording holds simulated time only and nothing about your machine (no paths, host names or
 tokens), so two recordings of the same scripted run are identical byte for byte. A 60 s sorter
 run is about 40 KB. Recordings are not committed to the repository (CLAUDE.md, 1 MB rule).
+
+## Studio 5000 tags and Ignition
+
+Every scene exports controller tag stubs for Studio 5000 and Ignition 8.3 tags, and `run --opcua`
+serves the I/O table over OPC UA for an Ignition HMI (PLAN 2.3, 2.4; details in
+[docs/ignition.md](../ignition.md)). Both files are for training and demos and need PE review
+before any client use.
+
+```bash
+uv run openfactory export scenes/<scene>.yaml --format l5x -o <scene>-tags.L5X
+uv run openfactory export scenes/<scene>.yaml --format ignition -o <scene>-tags.json
+uv run openfactory run scenes/<scene>.yaml --opcua      # opc.tcp://127.0.0.1:4840/openfactory/
+```

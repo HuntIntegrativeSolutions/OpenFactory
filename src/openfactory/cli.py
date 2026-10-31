@@ -104,7 +104,7 @@ AnalogEncoding = Annotated[
     ),
 ]
 
-EXPORT_FORMATS = ("csv", "l5x")
+EXPORT_FORMATS = ("csv", "l5x", "ignition")
 ExportFormat = str
 
 _TRUE = {"1", "true", "on", "yes"}
@@ -163,7 +163,7 @@ def _apply_forces(loaded: LoadedScene, forces: list[str]) -> None:
 
 async def _serve(
     runtime,  # openfactory.server.runtime.Runtime (imported lazily with the web stack)
-    modbus: ModbusServer | None,
+    servers: list,  # protocol servers: ModbusServer, OpcUaServer (serve_forever/wait_ready)
     web: uvicorn.Server | None,
     duration: float | None,
 ) -> None:
@@ -173,9 +173,9 @@ async def _serve(
         with contextlib.suppress(NotImplementedError, RuntimeError):  # Windows
             loop.add_signal_handler(sig, stop.set)
     tasks = []
-    if modbus is not None:
-        tasks.append(asyncio.create_task(modbus.serve_forever()))
-        await modbus.wait_ready()
+    for server in servers:
+        tasks.append(asyncio.create_task(server.serve_forever()))
+        await server.wait_ready()
     # The simulation starts before the viewer server, so the API never shows a sim not yet running.
     runtime.start(duration)
     try:
@@ -189,8 +189,8 @@ async def _serve(
             await asyncio.sleep(0.05)
     finally:
         runtime.stop()
-        if modbus is not None:
-            await modbus.shutdown()
+        for server in servers:
+            await server.shutdown()
         if web is not None:
             web.should_exit = True
         for task in tasks:
@@ -221,6 +221,17 @@ def run(
     ] = None,
     port: Annotated[int | None, typer.Option(help="Modbus TCP port (default 5020).")] = None,
     web_port: Annotated[int | None, typer.Option(help="Viewer/API port (default 8000).")] = None,
+    opcua: Annotated[
+        bool,
+        typer.Option(
+            "--opcua",
+            help="Also serve the I/O table over OPC UA (PLAN 2.4; for Ignition as the HMI). "
+            "Needs the opcua extra.",
+        ),
+    ] = False,
+    opcua_port: Annotated[
+        int | None, typer.Option(help="OPC UA port with --opcua (default 4840).")
+    ] = None,
     force: Annotated[
         list[str] | None,
         typer.Option(help="TAG=VALUE: set a DO/AO tag at startup as if the PLC wrote it."),
@@ -299,6 +310,8 @@ def run(
         web_port=web_port,
         script=script,
         fault_token=fault_token,
+        serve_opcua=opcua,
+        opcua_port=opcua_port,
         faults=faults,
         record=record,
     )
@@ -410,6 +423,8 @@ def _simulate(
     script: Path | None,
     fault_token: str | None,
     serve_modbus: bool = True,
+    serve_opcua: bool = False,
+    opcua_port: int | None = None,
     faults: list[tuple[float, str, str, dict[str, Any]]] | None = None,
     record: Path | None = None,
 ):  # -> tuple[Runtime, float]; Runtime is imported lazily with the web stack
@@ -435,7 +450,20 @@ def _simulate(
         if serve_modbus:
             endpoint = resolve_endpoint(settings.modbus, parsed.plc, cli_bind=bind, cli_port=port)
             modbus = ModbusServer(loaded.io, register_map.encoding, endpoint, register_map)
-    elif parsed.plc.protocol != "none":
+    opcua = None
+    if serve_opcua or (parsed.plc.protocol == "opcua" and serve_modbus):
+        from openfactory.protocols.opcua import OpcUaServer  # the opcua extra (asyncua, LGPL)
+
+        primary = parsed.plc if parsed.plc.protocol == "opcua" else None
+        cli_port = port if primary is not None else opcua_port
+        endpoint = resolve_endpoint(settings.opcua, primary, cli_bind=bind, cli_port=cli_port)
+        opcua = OpcUaServer(
+            loaded.io,
+            endpoint,
+            scene_name=parsed.scene.name,
+            folders={c.id: c.description for c in parsed.components},
+        )
+    elif parsed.plc.protocol not in ("none", "modbus_tcp", "opcua"):
         log.warning(
             "plc.protocol %s is not implemented yet; running without a PLC server",
             parsed.plc.protocol,
@@ -485,7 +513,8 @@ def _simulate(
         log.info("recording to %s", record)
     wall = time.perf_counter()
     try:
-        asyncio.run(_serve(runtime, modbus, web, duration))
+        servers = [s for s in (modbus, opcua) if s is not None]
+        asyncio.run(_serve(runtime, servers, web, duration))
     finally:
         if runtime.recorder is not None:  # Ctrl+C or a script fault still leaves a whole file
             runtime.recorder.close(_end_record(loaded, runtime))
@@ -760,14 +789,31 @@ def export(
         typer.Option(
             "--format",
             help="csv: the I/O list with Modbus addresses. l5x: Studio 5000 controller tag "
-            "stubs, one per I/O list row (PLAN 2.3).",
+            "stubs, one per I/O list row (PLAN 2.3). ignition: Ignition 8.3 tag JSON, a UDT "
+            "instance per component (PLAN 2.4).",
         ),
     ] = "csv",
     controller: Annotated[
         str, typer.Option(help="l5x: the controller name in TargetName and the Controller element.")
     ] = "OpenFactory",
+    area: Annotated[
+        str | None,
+        typer.Option(help="ignition: the area folder (default: the scene name in capitals)."),
+    ] = None,
+    opc_server: Annotated[
+        str,
+        typer.Option(help="ignition: the gateway's OPC connection to OpenFactory's OPC UA server."),
+    ] = "OpenFactory",
+    device: Annotated[
+        str | None,
+        typer.Option(
+            help="ignition: address a Logix device through Ignition's driver instead "
+            "(ns=1;s=[DEVICE]TAG); the device alias from the gateway, never an IP.",
+        ),
+    ] = None,
 ) -> None:
-    """Export the I/O list CSV or L5X tag stubs (updates the address lockfile)."""
+    """Export the I/O list CSV, L5X tag stubs, or Ignition tag JSON (updates the lockfile)."""
+    from openfactory.export.ignition_tags import ignition_tags_json
     from openfactory.export.io_list_csv import io_list_csv
     from openfactory.export.l5x_stub import l5x_stub
 
@@ -780,6 +826,9 @@ def export(
         parsed, _ = _load(scene)
         if format_ == "l5x":
             text = l5x_stub(parsed, encoding, scene_path=scene, controller=controller)
+        elif format_ == "ignition":
+            scene_register_map(parsed, encoding, scene_path=scene)  # lockfile, as for csv
+            text = ignition_tags_json(parsed, area=area, opc_server=opc_server, device=device)
         else:
             text = io_list_csv(parsed, encoding, scene_path=scene)
     except (OSError, ValueError, ValidationError) as exc:

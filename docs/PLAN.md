@@ -457,6 +457,9 @@ composite can produce the behavior.
 - Namespace `urn:openfactory:sim`. Folder per component, variable per tag, writable for DO/AO.
 - Ignition connects with its OPC UA client, tags land under `[OpenFactory]`. This is also the path for
   FactoryTalk Linx Gateway and Kepware.
+- Built in 2.4 (`protocols/opcua.py`, `docs/ignition.md`): a variable's NodeId is its tag name as
+  a string, so clients and Ignition item paths (`nsu=urn:openfactory:sim;s=TAG`) survive a
+  restart; DI/AI are read-only; `run --opcua` or `plc.protocol: opcua`.
 
 ### 6.4 Security defaults
 - Bind to loopback unless `--bind` given. No authentication on Modbus (protocol has none); OPC UA
@@ -726,9 +729,38 @@ runs the sorting program against it; a box visibly gets pushed.
       `OpenFactory`, context true, revision 35.00, BOOL/REAL controller-scope tags with their
       descriptions. *Not done:* a Studio 5000 import (no Studio 5000 in this session); stubs are
       for training and demos and need PE review before any client use.
-- [ ] 2.4 `protocols/opcua.py` with asyncua; `export/ignition_tags.py` producing 8.3 tag JSON
-      *Done when:* Ignition 8.3 gateway shows Good quality on all tags; a Perspective view from
-      `/perspective-view` starts the conveyor.
+- [x] 2.4 `protocols/opcua.py` with asyncua; `export/ignition_tags.py` producing 8.3 tag JSON
+      *Done when (first written):* Ignition 8.3 gateway shows Good quality on all tags; a
+      Perspective view from `/perspective-view` starts the conveyor.
+      *Done when (ruled 2026-10-30, replaces the above for this task):* an asyncua client reads a
+      sensor and writes a belt run bit, with reconnect verified by restarting the server under a
+      connected client; the Ignition JSON validates against the structure in docs (folder per
+      area, UDT instance per component).
+      *Done (2026-10-30):* `OpcUaServer` (§6.3, `docs/ignition.md`): namespace
+      `urn:openfactory:sim`, scene folder, a folder per component, a variable per tag with the
+      tag name as its string NodeId; DI/AI read-only, DO/AO writable, a client write lands as the
+      PLC side; I/O table changes reach the variables through `on_change` and
+      `call_soon_threadsafe`, never under the step lock. `run --opcua [--opcua-port]` serves it
+      beside the scene's protocol; `plc.protocol: opcua` serves it as the PLC server.
+      `export --format ignition [--area] [--opc-server | --device]`: `{"version": "8.3.0"}`,
+      `_types_` first (a UdtType `OF_<Type>` per component type, members per bound port with a
+      `Tag_<Member>` parameter), then one area folder with a UdtInstance per component that has
+      I/O and `SIM_HEARTBEAT`. Results: `tests/integration/test_opcua.py`, the sorter: wrote
+      CONV_01_RUN_DO, CONV_02_RUN_DO, EMT_01_EN_DO = True; read CONV_01_RUN_DI True and
+      PE_01_DI True after 5.5 s; a write to PE_01_DI refused; server restarted under the
+      connected client: reconnected 1.5 s after it went down, same NodeIds, CONV_01_RUN_DI read
+      True, CONV_01_RUN_DO written False, the sim ran 98 ticks meanwhile. `run --opcua` from the
+      CLI: all 12 item paths of the sorter's Ignition export resolve on the live server to nodes
+      of the exported data type, and the heartbeat changes. `tests/unit/test_ignition_tags.py`:
+      all six shipped scenes validate against the documented structure, every I/O list tag
+      exactly once, deterministic. *Decisions:* a scene has no areas, so one area folder per
+      scene (`--area`, default the scene name in capitals); UDT names carry an `OF_` prefix;
+      history on AI members only; no alarms (no rationalized setpoints). The root wrapper
+      follows the HIS Ignition conventions; the vendor-docs store notes that a Designer folder
+      export has `name`/`tagType`/`tags` at the root instead, so check the import on a gateway.
+      *Not done:* the first Done-when (an Ignition 8.3 gateway showing Good quality, a
+      Perspective view starting the conveyor; no gateway in this session); the comms faults of
+      2.13 apply to Modbus only.
 - [x] 2.5 Components: `roller_conveyor`, `stopper`, `turntable`, `diverter_arm`, `pick_and_place`,
       `distance_sensor` (split 2026-10-26: the rest of the original list moved to 2.5b).
       Each component ships headless kinematics, a viewer device, a Modbus binding, a unit test, and
