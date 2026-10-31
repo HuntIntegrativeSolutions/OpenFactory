@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="OpenFactory" TargetType="Controller" ContainsContext="true" Owner="OpenFactory">
+<Controller Use="Context" Name="OpenFactory">
+<Tags>
+<Tag Name="CONV_01_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Infeed Belt Conveyor — Sorting Line — Running feedback]]></Description>
+</Tag>
+<Tag Name="CYL_01_EXT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Tall Box Divert Pusher — Extended limit switch]]></Description>
+</Tag>
+<Tag Name="CYL_01_RET_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Tall Box Divert Pusher — Retracted limit switch]]></Description>
+</Tag>
+<Tag Name="PE_01_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Infeed Tall Box Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="CONV_02_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Divert Lane Belt Conveyor — Tall Boxes — Running feedback]]></Description>
+</Tag>
+<Tag Name="SIM_HEARTBEAT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops]]></Description>
+</Tag>
+<Tag Name="CONV_01_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Infeed Belt Conveyor — Sorting Line — Run command]]></Description>
+</Tag>
+<Tag Name="CYL_01_EXT_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Tall Box Divert Pusher — Extend command]]></Description>
+</Tag>
+<Tag Name="EMT_01_EN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Infeed Box Source — Emitter enable]]></Description>
+</Tag>
+<Tag Name="CONV_02_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Divert Lane Belt Conveyor — Tall Boxes — Run command]]></Description>
+</Tag>
+<Tag Name="CONV_01_SPD_AO" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Infeed Belt Conveyor — Sorting Line — Speed command [0 to 100 %]]]></Description>
+</Tag>
+<Tag Name="CONV_02_SPD_AO" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Divert Lane Belt Conveyor — Tall Boxes — Speed command [0 to 100 %]]]></Description>
+</Tag>
+</Tags>
+</Controller>
+</RSLogix5000Content>

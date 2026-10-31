@@ -65,7 +65,8 @@ uv run openfactory replay run.ofrec --io            # every I/O change with its 
 
 A recording holds simulated time only and nothing about your machine (no paths, host names or
 tokens), so two recordings of the same scripted run are identical byte for byte. A 60 s sorter
-run is about 40 KB. Recordings are not committed to the repository (CLAUDE.md, 1 MB rule).
+run is about 40 KB. Recordings are not committed to the repository (CLAUDE.md, 1 MB rule),
+except the one in each demo kit (`kits/`, PLAN 2.14).
 
 ## Studio 5000 tags and Ignition
 

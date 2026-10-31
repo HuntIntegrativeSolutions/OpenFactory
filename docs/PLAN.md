@@ -728,7 +728,9 @@ runs the sorting program against it; a box visibly gets pushed.
       byte-identical. The `l5x-analysis` MCP parser read the sorter file as controller
       `OpenFactory`, context true, revision 35.00, BOOL/REAL controller-scope tags with their
       descriptions. *Not done:* a Studio 5000 import (no Studio 5000 in this session); stubs are
-      for training and demos and need PE review before any client use.
+      for training and demos and need PE review before any client use. (The 2.14 ruling of the
+      same day puts one generated L5X per kit under `kits/`, which supersedes "never here" for
+      kits only.)
 - [x] 2.4 `protocols/opcua.py` with asyncua; `export/ignition_tags.py` producing 8.3 tag JSON
       *Done when (first written):* Ignition 8.3 gateway shows Good quality on all tags; a
       Perspective view from `/perspective-view` starts the conveyor.
@@ -1079,6 +1081,22 @@ runs the sorting program against it; a box visibly gets pushed.
       the kit folder. Outputs only the HIS skills can make (the full L5X, the Perspective view,
       the GRAFCET chart) are committed with the header line "generated, pending PE review".
       Order: 2.3, then 2.4, then 2.14.
+      *Done when (defined 2026-10-30, the task had none):* `tools/build_kit.py` builds
+      `kits/sorting-by-height/` from the repository alone; `--check` rebuilds into a temporary
+      folder and finds it current, and finds a changed, extra or missing file; the kit's CSV,
+      L5X and Ignition JSON name the same tags; its recording replays with no scene file; CI
+      runs `--check`. The skill-made files are listed as missing until they are committed.
+      *Progress (2026-10-30), not done:* `tools/build_kit.py` (kit README generated, the
+      recording made with `test --script --record` so a failing scene cannot build a kit, and
+      compared decompressed so another zlib build cannot make it stale); the sorter kit is
+      committed (12 files, the recording 42 KB); `tools/ci_local.sh` step 10 runs `--check`;
+      `tests/integration/test_demo_kit.py`. `--check` on a kit with a changed CSV, a new
+      GRAFCET file and a stray file: "sorting-by-height-io.csv is stale", "README.md is stale",
+      "stray.txt is not a kit file", exit 1; restored, "kits current", exit 0.
+      *Not done:* the skill-made files (full L5X from `/io-to-l5x`, the Perspective view, the
+      GRAFCET chart, which waits on 2.8); none has been generated or reviewed. A JSON file
+      cannot start with a header line, so `build_kit.py` accepts the marker text anywhere in the
+      first 300 characters (for JSON, a field near the top); this needs a ruling.
 - [ ] 2.15 Custom mesh per component: an optional `mesh: {file: models/press.glb, scale: 1.0,
       offset: [0,0,0]}` on any component replaces the viewer's primitive with a user-supplied GLTF
       (`.glb`/`.gltf`; OBJ via a one-off `tools/convert_mesh.py`). The headless model and physics

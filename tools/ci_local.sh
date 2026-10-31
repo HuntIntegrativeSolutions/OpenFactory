@@ -100,6 +100,9 @@ step "parity traces current"
 uv run python tools/parity_trace.py --check
 echo "web/src/fixtures/parity-*.json match core/kinematics.py"
 
+step "demo kits current (PLAN 2.14)"
+uv run python tools/build_kit.py --check
+
 step "working tree unchanged"
 git status --short
 git diff --exit-code

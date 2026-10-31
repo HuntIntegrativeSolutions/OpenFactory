@@ -1,0 +1,325 @@
+{
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "OF_BeltConveyor",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Speed": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Run command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Run",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Run}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Float4",
+              "documentation": "Speed command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Speed",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Speed}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Running feedback",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Running",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Running}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_BoxEmitter",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Enable": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Emitter enable",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Enable",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Enable}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_PhotoEye",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Detect": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Part detected",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Detect",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Detect}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_Pusher",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Extend": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Extended": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Retracted": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Extend command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Extend",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Extend}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Extended limit switch",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Extended",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Extended}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Retracted limit switch",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Retracted",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Retracted}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SORTING_BY_HEIGHT",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "Infeed Belt Conveyor — Sorting Line",
+          "name": "CONV_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "CONV_01"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "CONV_01_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "CONV_01_RUN_DI"
+            },
+            "Tag_Speed": {
+              "dataType": "String",
+              "value": "CONV_01_SPD_AO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 100.0,
+              "engLow": 0.0,
+              "engUnit": "%",
+              "name": "Speed"
+            }
+          ],
+          "typeId": "OF_BeltConveyor"
+        },
+        {
+          "documentation": "Infeed Tall Box Photo Eye",
+          "name": "PE_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "PE_01"
+            },
+            "Tag_Detect": {
+              "dataType": "String",
+              "value": "PE_01_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_PhotoEye"
+        },
+        {
+          "documentation": "Tall Box Divert Pusher",
+          "name": "CYL_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "CYL_01"
+            },
+            "Tag_Extend": {
+              "dataType": "String",
+              "value": "CYL_01_EXT_DO"
+            },
+            "Tag_Extended": {
+              "dataType": "String",
+              "value": "CYL_01_EXT_DI"
+            },
+            "Tag_Retracted": {
+              "dataType": "String",
+              "value": "CYL_01_RET_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Pusher"
+        },
+        {
+          "documentation": "Infeed Box Source",
+          "name": "EMT_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "EMT_01"
+            },
+            "Tag_Enable": {
+              "dataType": "String",
+              "value": "EMT_01_EN_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_BoxEmitter"
+        },
+        {
+          "documentation": "Divert Lane Belt Conveyor — Tall Boxes",
+          "name": "CONV_02",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "CONV_02"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "CONV_02_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "CONV_02_RUN_DI"
+            },
+            "Tag_Speed": {
+              "dataType": "String",
+              "value": "CONV_02_SPD_AO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 100.0,
+              "engLow": 0.0,
+              "engUnit": "%",
+              "name": "Speed"
+            }
+          ],
+          "typeId": "OF_BeltConveyor"
+        },
+        {
+          "accessRights": "Read_Only",
+          "dataType": "Boolean",
+          "documentation": "OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",
+          "enabled": true,
+          "historyEnabled": false,
+          "name": "SIM_HEARTBEAT",
+          "opcItemPath": "nsu=urn:openfactory:sim;s=SIM_HEARTBEAT_DI",
+          "opcServer": "OpenFactory",
+          "tagType": "AtomicTag",
+          "valueSource": "opc"
+        }
+      ]
+    }
+  ],
+  "version": "8.3.0"
+}
