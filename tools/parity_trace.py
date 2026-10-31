@@ -123,7 +123,8 @@ TRACES: dict[str, TraceSpec] = {
     # onto CONV_SIDE. PE_TT sees each box arrive on the deck. Not a gate (PLAN §9 rule 9, note
     # under PLAN 2.5): worst 3 ticks, on the straight boxes' PE_TT edges, from the ~1.2 tick a box
     # loses crossing an equal-speed belt seam in Rapier (a plain belt in the deck's place loses the
-    # same) on top of the eye's usual 1 tick; the turned boxes agree within 2.
+    # same) on top of the eye's usual 1 tick; the turned boxes agree within 2. Accepted as
+    # informational on 2026-10-30; the seam loss is a PLAN 2.9 item.
     "parity-turntable": TraceSpec(
         scene=REPO / "tests" / "scenes" / "demo-turntable.yaml",
         script=REPO / "tests" / "scenes" / "demo-turntable.py",

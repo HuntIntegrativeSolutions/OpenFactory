@@ -86,3 +86,8 @@ at `GET /api/fault`.
 switch is an instructor action, guarded like `/api/fault`: open on loopback, and beyond loopback
 it needs the fault token (`--fault-token` or `[server] fault_token`). Only a DI binding takes
 `exam`; `switch` is the only value. The shipped sorter marks `PE_01_DI`.
+
+## Recordings (PLAN 2.12)
+
+A recording (`run --record FILE.ofrec`) contains the full scene file, comments included, so sharing
+a recording shares the scene.
