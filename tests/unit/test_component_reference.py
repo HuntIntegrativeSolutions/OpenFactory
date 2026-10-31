@@ -11,7 +11,7 @@ from openfactory.core.component import REGISTRY
 from openfactory.core.schema import COMPONENT_MODELS, port_specs
 
 DOC = Path(__file__).resolve().parents[2] / "docs" / "components.md"
-COMMON = {"id", "type", "description", "position", "rotation_deg", "io"}
+COMMON = {"id", "type", "description", "position", "rotation_deg", "io", "mesh"}
 
 
 def sections() -> dict[str, str]:

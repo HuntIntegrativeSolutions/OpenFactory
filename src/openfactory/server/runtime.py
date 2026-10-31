@@ -214,17 +214,38 @@ class Runtime:
 
     # -- static scene description ----------------------------------------------------------------
 
-    def scene_document(self) -> dict[str, Any]:
-        """The resolved scene for ``GET /api/scene``: metadata, geometry, connections, tags."""
+    def scene_document(self, *, meshes: bool = True) -> dict[str, Any]:
+        """The resolved scene for ``GET /api/scene``: metadata, geometry, connections, tags.
+
+        A component whose custom mesh resolved (PLAN 2.15) gets a ``mesh`` entry with the URL the
+        app serves it at, ``/models/<id>.glb``; no other component has the key, so scenes without
+        meshes keep their exact document. ``meshes=False`` leaves every ``mesh`` out (recordings).
+        """
         scene = self.loaded.scene
         descriptions = {c.id: c.description for c in scene.components}
+        config = {c.id: c for c in scene.components}
+
+        def mesh(comp_id: str) -> dict[str, Any]:
+            if not meshes or comp_id not in self.loaded.meshes:
+                return {}
+            m = config[comp_id].mesh
+            return {
+                "mesh": {
+                    "url": f"/models/{comp_id}.glb",
+                    "scale": list(m.scale3()),
+                    "offset": list(m.offset),
+                    "rotation_deg": m.rotation_deg,
+                }
+            }
+
         return {
             "openfactory": scene.openfactory,
             "scene": scene.scene.model_dump(),
             "plc": {"protocol": scene.plc.protocol, "role": scene.plc.role},
             "dt": self.scheduler.dt,
             "components": [
-                {**c.geometry(), "description": descriptions[c.id]} for c in self.loaded.components
+                {**c.geometry(), "description": descriptions[c.id], **mesh(c.id)}
+                for c in self.loaded.components
             ],
             "connections": [{"from": c.from_, "to": c.to} for c in scene.connections],
             "tags": [

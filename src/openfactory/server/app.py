@@ -59,7 +59,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -171,6 +171,16 @@ def create_app(
     @app.get("/api/scene")
     def scene() -> dict[str, Any]:
         return runtime.scene_document()
+
+    @app.get("/models/{name}")
+    def model(name: str) -> FileResponse:
+        """A custom mesh the scene declares (PLAN 2.15), by component id; nothing else is served.
+        A replay has no ``meshes`` and serves none."""
+        meshes = getattr(getattr(runtime, "loaded", None), "meshes", {})
+        comp_id, _, ext = name.rpartition(".")
+        if ext != "glb" or comp_id not in meshes:
+            raise HTTPException(status_code=404, detail=f"no mesh {name!r} in this scene")
+        return FileResponse(meshes[comp_id], media_type="model/gltf-binary")
 
     @app.get("/api/state")
     def state() -> dict[str, Any]:

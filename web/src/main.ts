@@ -26,6 +26,7 @@ import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer
 import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame, type Vec3 } from "./api";
 import { loadRapier, PlantPhysics, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
+import { attachMeshes } from "./meshes";
 import { cssColor, ISA101 } from "./isa101";
 import { ExamPanel } from "./exampanel";
 import { FaultMenu } from "./faultmenu";
@@ -47,6 +48,7 @@ window.__openfactory = {
   firstTick: null,
   reloads: 0,
   exam: false,
+  meshes: { loaded: 0, failed: 0 },
 };
 
 /** Phones report a device pixel ratio of 3 or more; rendering at that drops frames for no gain. */
@@ -334,6 +336,9 @@ async function loadScene(): Promise<void> {
     clearScene();
     doc = next;
     buildScene(doc);
+    // custom housings (PLAN 2.15) are in place before the first frame is drawn, or have failed
+    const specs = new Map(doc.components.filter((g) => g.mesh).map((g) => [g.id, g.mesh!]));
+    status.meshes = await attachMeshes(views, specs);
     status.scene = doc.scene.name;
     status.components = doc.components.length;
   }

@@ -138,6 +138,18 @@
           "title": "Rotation Deg",
           "type": "number"
         },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
         "type": {
           "const": "belt_conveyor",
           "title": "Type",
@@ -282,6 +294,18 @@
           "description": "Rotation about the vertical (y) axis, degrees.",
           "title": "Rotation Deg",
           "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
         "type": {
           "const": "box_emitter",
@@ -448,6 +472,18 @@
           "description": "Rotation about the vertical (y) axis, degrees.",
           "title": "Rotation Deg",
           "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
         "type": {
           "const": "color_sensor",
@@ -710,6 +746,18 @@
           "title": "Rotation Deg",
           "type": "number"
         },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
         "type": {
           "const": "distance_sensor",
           "title": "Type",
@@ -832,6 +880,18 @@
           "description": "Rotation about the vertical (y) axis, degrees.",
           "title": "Rotation Deg",
           "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
         "type": {
           "const": "diverter_arm",
@@ -1001,6 +1061,81 @@
       "title": "DoTagSpec",
       "type": "object"
     },
+    "MeshSpec": {
+      "additionalProperties": false,
+      "description": "A custom housing for the viewer (PLAN 2.15): a ``.glb`` file beside the scene, drawn in\nplace of the component's fixed housing. Visual only; the core, colliders, sensors, and parity\nuse the declared dimensions.",
+      "properties": {
+        "file": {
+          "description": "Path relative to the scene file's folder, e.g. models/press.glb. A .glb (binary glTF 2.0) only; no absolute path, no '..', no URL.",
+          "title": "File",
+          "type": "string"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "number"
+                },
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "number"
+                },
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "default": 1.0,
+          "description": "Uniform scale, or [sx, sy, sz].",
+          "title": "Scale"
+        },
+        "offset": {
+          "default": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "description": "Meters in the component's local frame, applied after scale and rotation.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Offset",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Extra turn about local y, for a model authored facing another way.",
+          "title": "Rotation Deg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "MeshSpec",
+      "type": "object"
+    },
     "NoIO": {
       "additionalProperties": false,
       "description": "A component with no PLC-visible ports.",
@@ -1046,6 +1181,18 @@
           "description": "Rotation about the vertical (y) axis, degrees.",
           "title": "Rotation Deg",
           "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
         "type": {
           "const": "part_remover",
@@ -1192,6 +1339,18 @@
           "title": "Rotation Deg",
           "type": "number"
         },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
         "type": {
           "const": "photo_eye",
           "title": "Type",
@@ -1280,6 +1439,18 @@
           "description": "Rotation about the vertical (y) axis, degrees.",
           "title": "Rotation Deg",
           "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
         "type": {
           "const": "pick_and_place",
@@ -1525,6 +1696,18 @@
           "title": "Rotation Deg",
           "type": "number"
         },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
         "type": {
           "const": "pilot_light",
           "title": "Type",
@@ -1697,6 +1880,18 @@
           "title": "Rotation Deg",
           "type": "number"
         },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
         "type": {
           "const": "pushbutton",
           "title": "Type",
@@ -1801,6 +1996,18 @@
           "description": "Rotation about the vertical (y) axis, degrees.",
           "title": "Rotation Deg",
           "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
         "type": {
           "const": "pusher",
@@ -1956,6 +2163,18 @@
           "title": "Rotation Deg",
           "type": "number"
         },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
         "type": {
           "const": "roller_conveyor",
           "title": "Type",
@@ -2108,6 +2327,18 @@
           "title": "Rotation Deg",
           "type": "number"
         },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
         "type": {
           "const": "selector_switch",
           "title": "Type",
@@ -2228,6 +2459,18 @@
           "description": "Rotation about the vertical (y) axis, degrees.",
           "title": "Rotation Deg",
           "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
         "type": {
           "const": "stopper",
@@ -2384,6 +2627,18 @@
           "description": "Rotation about the vertical (y) axis, degrees.",
           "title": "Rotation Deg",
           "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
         "type": {
           "const": "turntable",

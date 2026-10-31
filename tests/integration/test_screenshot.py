@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
 from pathlib import Path
 
 import pytest
@@ -69,3 +70,23 @@ def test_viewer_physics_carries_a_box_and_its_photo_eye_event_reaches_the_core(
     assert code == 0, printed
     assert "viewer physics: rapier 0.21.0, sensor events sent: " in printed
     assert "'sensor:PE_01': " in printed  # the core's /api/status counted the viewer's event
+
+
+def test_a_custom_pusher_housing_is_drawn(tmp_path, capsys):
+    """PLAN 2.15 Done-when: the sorter with a .glb housing on CYL_01 renders the mesh."""
+    folder = tmp_path / "scene"
+    shutil.copytree(REPO / "tests" / "scenes" / "models", folder / "models")
+    scene = folder / "sorter-custom-housing.yaml"
+    scene.write_text(
+        (REPO / "tests" / "scenes" / scene.name).read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    out = tmp_path / "housing.png"
+    code = screenshot.main(
+        [str(scene), "--seconds", "1", "--out", str(out), "--min-meshes", "1",
+         "--force", "CONV_01_RUN_DO=1"]
+    )  # fmt: skip
+    printed = capsys.readouterr().out
+    print(printed)
+    assert code == 0, printed
+    assert "custom meshes: 1 drawn, 0 failed" in printed
+    assert "OK: 1280x720" in printed

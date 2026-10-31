@@ -62,6 +62,7 @@ import contextlib
 import logging
 import signal
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Annotated, Any, get_args
 
@@ -120,11 +121,23 @@ def _setup_logging(quiet: bool) -> None:
     )
 
 
+@contextlib.contextmanager
+def _loader_quiet() -> Iterator[None]:
+    """Silence the loader's own warning log lines for a caller that prints them itself."""
+    logger = logging.getLogger("openfactory.core.loader")
+    level = logger.level
+    logger.setLevel(logging.ERROR)
+    try:
+        yield
+    finally:
+        logger.setLevel(level)
+
+
 def _load(path: Path) -> tuple[Scene, LoadedScene]:
     if path.name.endswith(LOCKFILE_SUFFIX):
         raise ValueError(f"{path} is a Modbus address lockfile, not a scene")
     scene = load_scene(path)
-    return scene, build(scene)
+    return scene, build(scene, base_dir=path.parent)
 
 
 def _encoding(value: str | None) -> Encoding | None:
@@ -504,7 +517,8 @@ def _simulate(
         header = {
             "openfactory": __version__,
             "scene_yaml": scene.read_text(encoding="utf-8"),
-            "scene": runtime.scene_document(),
+            # no mesh URLs: a replay serves no /models/ and draws the primitives (PLAN 2.15)
+            "scene": runtime.scene_document(meshes=False),
             "dt": runtime.scheduler.dt,
             "encoding": encoding or parsed.plc.analog_encoding,
             "frame_every": FRAME_EVERY,
@@ -711,7 +725,8 @@ def validate(
     files = _scene_files(scenes)
     for path in files:
         try:
-            parsed, loaded = _load(path)
+            with _loader_quiet():  # its warnings are echoed under the scene below, once
+                parsed, loaded = _load(path)
             # The scene's own encoding, plus any other encoding that has a lockfile (ADR-0004).
             encodings = [parsed.plc.analog_encoding] + [
                 e

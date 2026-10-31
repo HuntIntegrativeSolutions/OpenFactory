@@ -10,6 +10,12 @@ dependency because it is only needed to refresh this file.
 
 Exits 1 if any package declares a license outside the ADR-0001 allowlist (:data:`ALLOWED_FAMILIES`,
 plus LGPL for the dynamically imported packages in :data:`LGPL_DYNAMIC`).
+
+3D models (PLAN 2.15): every ``.glb`` tracked in the repository carries a sidecar
+``<file>.license.txt`` with ``Author:``, ``License:`` and ``Source:`` lines, and the last section of
+THIRD_PARTY.md lists them from those sidecars. ``--models`` rewrites only that section and needs
+neither pip-licenses nor license-checker, so adding a mesh does not refresh the package tables.
+Either mode exits 1 when a tracked ``.glb`` has no sidecar or a sidecar lacks one of the lines.
 """
 
 from __future__ import annotations
@@ -140,6 +146,57 @@ def npm_licenses(checker: Path, production: bool) -> dict[str, dict[str, str]]:
     return {k: v for k, v in data.items() if k.rsplit("@", 1)[0] not in SELF}
 
 
+MODELS_HEADING = "## 3D models (in this repository)"
+MODEL_FIELDS = ("Author", "License", "Source")
+
+
+def model_files() -> list[Path]:
+    out = run(["git", "ls-files", "*.glb"])
+    return sorted(REPO / line for line in out.splitlines() if line)
+
+
+def models_section() -> tuple[list[str], list[str]]:
+    """The 3D-models section's lines, and problems (a mesh with no usable sidecar)."""
+    rows, problems = [], []
+    for mesh in model_files():
+        rel = mesh.relative_to(REPO).as_posix()
+        sidecar = mesh.with_name(mesh.name + ".license.txt")
+        if not sidecar.is_file():
+            problems.append(f"{rel}: no {sidecar.name}")
+            continue
+        found = dict(
+            line.split(":", 1)
+            for line in sidecar.read_text(encoding="utf-8").splitlines()
+            if ":" in line
+        )
+        fields = [found.get(f, "").strip() for f in MODEL_FIELDS]
+        if not all(fields):
+            problems.append(f"{rel}: {sidecar.name} needs {', '.join(MODEL_FIELDS)} lines")
+            continue
+        rows.append(f"| `{rel}` | {' | '.join(fields)} |")
+    lines = [
+        MODELS_HEADING,
+        "",
+        "Each file's record is its sidecar `<file>.license.txt`; `openfactory lint` warns",
+        "(W209) on a scene mesh with neither a sidecar nor an entry here.",
+        "",
+        "| File | Author | License | Source |",
+        "|------|--------|---------|--------|",
+        *rows,
+        "",
+    ]
+    return lines, problems
+
+
+def write_models_section() -> list[str]:
+    """Replace (or append) the 3D-models section of THIRD_PARTY.md; return problems."""
+    lines, problems = models_section()
+    text = OUT.read_text(encoding="utf-8")
+    head = text.split(MODELS_HEADING)[0].rstrip("\n") + "\n\n"
+    OUT.write_text(head + "\n".join(lines), encoding="utf-8")
+    return problems
+
+
 def table(rows: list[tuple[str, str, str, str]]) -> list[str]:
     lines = ["| Package | Version | License | Source |", "|---------|---------|---------|--------|"]
     lines += [f"| {n} | {v} | {lic} | {url} |" for n, v, lic, url in rows]
@@ -147,6 +204,13 @@ def table(rows: list[tuple[str, str, str, str]]) -> list[str]:
 
 
 def main() -> int:
+    if "--models" in sys.argv[1:]:
+        problems = write_models_section()
+        print(f"wrote the 3D-models section of {OUT}: {len(model_files())} file(s)")
+        if problems:
+            print("3D models without a license record:", *problems, sep="\n  ", file=sys.stderr)
+            return 1
+        return 0
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--license-checker", type=Path, required=True)
     args = parser.parse_args()
@@ -209,7 +273,9 @@ def main() -> int:
         "",
         *table(npm_rows({k: v for k, v in npm_all.items() if k not in npm_prod})),
         "",
+        *(models := models_section())[0],
     ]
+    problems += models[1]
     OUT.write_text("\n".join(lines), encoding="utf-8")
     print(
         f"wrote {OUT}: {len(py_runtime)} Python runtime, {len(py_dev)} Python dev, "

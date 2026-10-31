@@ -26,6 +26,12 @@ export interface ComponentView {
   labelAnchor: THREE.Vector3;
   /** Meshes a click on which is an operator action (pushbutton press, selector turn). */
   pickable: THREE.Object3D[];
+  /**
+   * The fixed housing a scene `mesh` replaces (PLAN 2.15): parts that never move and carry no
+   * status color. Moving parts (plate, rod, blade, arm, carriage, deck, belt) stay primitives.
+   * Empty when a type has none; a mesh is then drawn beside the primitive.
+   */
+  housing?: THREE.Object3D[];
   update(state: Record<string, unknown>): void;
 }
 

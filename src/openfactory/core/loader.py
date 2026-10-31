@@ -19,6 +19,12 @@ Scene lint: when one conveyor's discharge end (center of the end at belt-top hei
 logs a warning and records it in :attr:`LoadedScene.warnings`. The headless model does not hand
 parts across touching belts on its own (PLAN §4), so such a scene usually forgot a connection.
 The connection is never inferred: the scene author decides.
+
+Custom meshes (PLAN 2.15): a component's ``mesh.file`` is resolved against the scene file's folder
+(``base_dir``; :func:`load` passes it). A file that is missing, outside that folder once symlinks
+are followed, or not binary glTF 2.0 (the 12-byte GLB header: magic ``glTF``, version 2, and a
+length equal to the file size) gives one warning and is left out of :attr:`LoadedScene.meshes`,
+so the viewer draws the primitive. Meshes are visual only and never change the simulation.
 :meth:`LoadedScene.step` is one simulation tick: the kinematic model moves parts first, then each
 component steps in scene order, then binding transforms (PLAN 2.17) write their conditioned DI tags
 from the components' raw values, then exam switches (PLAN 2.11), then the heartbeat.
@@ -29,6 +35,7 @@ from __future__ import annotations
 import importlib
 import logging
 import math
+import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -64,6 +71,8 @@ class LoadedScene:
     warnings: list[str] = field(default_factory=list)
     #: Binding-level signal transforms (PLAN 2.17), applied after the components each tick.
     transforms: TransformStage | None = None
+    #: Custom meshes (PLAN 2.15) that resolved to a usable file: component id -> file.
+    meshes: dict[str, Path] = field(default_factory=dict)
     #: Exam mode (PLAN 2.11): ``exam: switch`` tag -> the operator switch's position, written
     #: over what the simulation computed at the end of every tick. None when not in exam mode.
     exam: dict[str, bool] | None = None
@@ -148,8 +157,55 @@ def lint(scene: Scene) -> list[str]:
     return out
 
 
-def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScene:
-    """Instantiate a validated scene. Uses the default registry unless one is given."""
+def glb_problem(path: Path) -> str | None:
+    """Why ``path`` is not a binary glTF 2.0 file, or None when its header is sound."""
+    with path.open("rb") as f:
+        header = f.read(12)
+    if len(header) < 12 or header[:4] != b"glTF":
+        return "is not a binary glTF (.glb) file"
+    version, length = struct.unpack("<II", header[4:])
+    if version != 2:
+        return f"is glTF version {version}, not 2"
+    if length != path.stat().st_size:
+        return (
+            f"is truncated or padded (header says {length} bytes, file has {path.stat().st_size})"
+        )
+    return None
+
+
+def resolve_meshes(scene: Scene, base_dir: Path | None) -> tuple[dict[str, Path], list[str]]:
+    """Usable mesh files by component id, and one warning per mesh that is not usable."""
+    meshes: dict[str, Path] = {}
+    warnings: list[str] = []
+    for comp in scene.components:
+        if comp.mesh is None:
+            continue
+        name = comp.mesh.file
+        fallback = "; drawing the primitive housing"
+        if base_dir is None:
+            warnings.append(f"{comp.id}: mesh {name} not resolved (scene not loaded from a file)"
+                            f"{fallback}")  # fmt: skip
+            continue
+        root = base_dir.resolve()
+        path = (root / name).resolve()
+        if not path.is_relative_to(root):
+            why = f"resolves outside the scene's folder ({path})"
+        elif not path.is_file():
+            why = "not found"
+        else:
+            why = glb_problem(path)
+        if why:
+            warnings.append(f"{comp.id}: mesh file {name} {why}{fallback}")
+        else:
+            meshes[comp.id] = path
+    return meshes, warnings
+
+
+def build(
+    scene: Scene, registry: ComponentRegistry | None = None, *, base_dir: Path | None = None
+) -> LoadedScene:
+    """Instantiate a validated scene. Uses the default registry unless one is given.
+    ``base_dir`` is the scene file's folder, against which mesh files resolve."""
     if registry is None:
         importlib.import_module("openfactory.components")  # registers the built-in types
         registry = REGISTRY
@@ -159,16 +215,24 @@ def build(scene: Scene, registry: ComponentRegistry | None = None) -> LoadedScen
     components = [registry.resolve(c.type)(c, io, world) for c in configs]
     world.conveyors = [c for c in components if c.type in CARRIER_TYPES]
     kinematics = KinematicModel(world, components, scene.connections, scene.scene.friction)
-    warnings = lint(scene)
+    meshes, mesh_warnings = resolve_meshes(scene, base_dir)
+    warnings = lint(scene) + mesh_warnings
     for warning in warnings:
         log.warning("%s: %s", scene.scene.name, warning)
     transforms = TransformStage.build(io, components, scene.tag_bindings())
     transforms.prime()
     return LoadedScene(
-        scene, io, world, components, kinematics, warnings=warnings, transforms=transforms
+        scene,
+        io,
+        world,
+        components,
+        kinematics,
+        warnings=warnings,
+        transforms=transforms,
+        meshes=meshes,
     )
 
 
 def load(path: str | Path, registry: ComponentRegistry | None = None) -> LoadedScene:
     """Load, validate, and instantiate a scene file."""
-    return build(load_scene(path), registry)
+    return build(load_scene(path), registry, base_dir=Path(path).parent)

@@ -383,11 +383,62 @@ class PlcConfig(StrictModel):
 # --- Components (Milestone 1 types, PLAN §5) -------------------------------------------------
 
 
+#: A URL scheme (``http:``, ``file:``, ``data:``); a Windows drive letter is caught separately.
+_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]+:")
+
+
+class MeshSpec(StrictModel):
+    """A custom housing for the viewer (PLAN 2.15): a ``.glb`` file beside the scene, drawn in
+    place of the component's fixed housing. Visual only; the core, colliders, sensors, and parity
+    use the declared dimensions."""
+
+    file: str = Field(
+        description="Path relative to the scene file's folder, e.g. models/press.glb. A .glb "
+        "(binary glTF 2.0) only; no absolute path, no '..', no URL."
+    )
+    scale: PositiveFloat | tuple[PositiveFloat, PositiveFloat, PositiveFloat] = Field(
+        1.0, description="Uniform scale, or [sx, sy, sz]."
+    )
+    offset: Vec3 = Field(
+        (0.0, 0.0, 0.0),
+        description="Meters in the component's local frame, applied after scale and rotation.",
+    )
+    rotation_deg: float = Field(
+        0.0, description="Extra turn about local y, for a model authored facing another way."
+    )
+
+    @field_validator("file")
+    @classmethod
+    def _file_is_a_local_glb(cls, value: str) -> str:
+        path = value.replace("\\", "/")
+        why = None
+        if _SCHEME.match(path) and not re.match(r"^[A-Za-z]:", path):
+            why = "is a URL; give a path relative to the scene file"
+        elif path.startswith("/") or re.match(r"^[A-Za-z]:", path):
+            why = "is absolute; give a path relative to the scene file"
+        elif ".." in path.split("/"):
+            why = "leaves the scene's folder ('..'); keep meshes beside the scene"
+        elif not path.lower().endswith(".glb"):
+            why = "is not a .glb file (binary glTF 2.0 is the only mesh format)"
+        elif path in ("", ".glb") or path.endswith("/"):
+            why = "names no file"
+        if why:
+            raise ValueError(f"mesh.file {value!r} {why}")
+        return path
+
+    def scale3(self) -> tuple[float, float, float]:
+        s = self.scale
+        return (s, s, s) if isinstance(s, float | int) else tuple(s)  # type: ignore[return-value]
+
+
 class ComponentBase(StrictModel):
     id: ComponentId
     description: Annotated[str, StringConstraints(min_length=1)]
     position: Vec3 = Field(description="Local origin in meters, x along flow, y up.")
     rotation_deg: float = Field(0.0, description="Rotation about the vertical (y) axis, degrees.")
+    mesh: MeshSpec | None = Field(
+        None, description="Custom housing drawn by the viewer (PLAN 2.15); visual only."
+    )
 
 
 class BeltConveyorIO(IOModel):

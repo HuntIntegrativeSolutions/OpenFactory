@@ -41,7 +41,8 @@ export const pusher: Builder = (g) => {
   const plateH = num(g, "plate_height", 0.15);
   const group = placed(g);
   const bodyLength = stroke + 0.1;
-  group.add(zCylinder(0.045, bodyLength, NEUTRAL.structure, [0, 0, -0.06 - bodyLength / 2]));
+  const body = zCylinder(0.045, bodyLength, NEUTRAL.structure, [0, 0, -0.06 - bodyLength / 2]);
+  group.add(body);
   const rod = zCylinder(0.012, 1, NEUTRAL.structure);
   group.add(rod);
   const plate = box([plateW, plateH, 0.02], ISA101.stopped, [0, 0, -0.01]);
@@ -59,6 +60,7 @@ export const pusher: Builder = (g) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, plateH / 2 + 0.08, -0.1),
     pickable: [],
+    housing: [body],
     update(state) {
       setStroke(typeof state.position_m === "number" ? state.position_m : 0);
       setColor(plate, state.extending ? ISA101.running : ISA101.stopped);
@@ -119,7 +121,8 @@ function lens(color: number): THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStand
 /** Pushbutton: origin at the button face center, facing local +z. Click to press. */
 export const pushbutton: Builder = (g) => {
   const group = placed(g);
-  group.add(box([0.08, 0.08, 0.02], NEUTRAL.frame, [0, 0, -0.03]));
+  const plate = box([0.08, 0.08, 0.02], NEUTRAL.frame, [0, 0, -0.03]);
+  group.add(plate);
   const cap = lens(LAMP[String(g.color ?? "green")] ?? ISA101.running);
   cap.position.z = -0.0125;
   group.add(cap);
@@ -129,6 +132,7 @@ export const pushbutton: Builder = (g) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, 0.07, 0),
     pickable: [cap],
+    housing: [plate],
     update(state) {
       cap.material.emissiveIntensity = state.pressed ? 0.8 : 0;
       cap.position.z = state.pressed ? -0.02 : -0.0125;
@@ -139,7 +143,8 @@ export const pushbutton: Builder = (g) => {
 /** Pilot light: origin at the lens center; lit while `on`. */
 export const pilotLight: Builder = (g) => {
   const group = placed(g);
-  group.add(box([0.08, 0.08, 0.02], NEUTRAL.frame, [0, 0, -0.03]));
+  const plate = box([0.08, 0.08, 0.02], NEUTRAL.frame, [0, 0, -0.03]);
+  group.add(plate);
   const lamp = lens(LAMP[String(g.color ?? "green")] ?? ISA101.running);
   lamp.position.z = -0.0125;
   group.add(lamp);
@@ -149,6 +154,7 @@ export const pilotLight: Builder = (g) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, 0.07, 0),
     pickable: [],
+    housing: [plate],
     update(state) {
       lamp.material.emissiveIntensity = state.lit ? 1.2 : 0;
     },
@@ -160,8 +166,9 @@ const SELECTOR_ANGLE: Record<string, number> = { a: Math.PI / 4, center: 0, b: -
 /** Selector switch: origin at the switch face center; the handle turns a / center / b. */
 export const selectorSwitch: Builder = (g) => {
   const group = placed(g);
-  group.add(box([0.08, 0.08, 0.02], NEUTRAL.frame, [0, 0, -0.03]));
-  group.add(zCylinder(0.03, 0.02, NEUTRAL.structure, [0, 0, -0.01]));
+  const plate = box([0.08, 0.08, 0.02], NEUTRAL.frame, [0, 0, -0.03]);
+  const bezel = zCylinder(0.03, 0.02, NEUTRAL.structure, [0, 0, -0.01]);
+  group.add(plate, bezel);
   const handle = box([0.012, 0.05, 0.02], ISA101.normalText, [0, 0, 0.005]);
   group.add(handle);
   return {
@@ -170,6 +177,7 @@ export const selectorSwitch: Builder = (g) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, 0.07, 0),
     pickable: [handle],
+    housing: [plate, bezel],
     update(state) {
       handle.rotation.z = SELECTOR_ANGLE[String(state.position ?? "a")] ?? 0;
     },
@@ -179,13 +187,15 @@ export const selectorSwitch: Builder = (g) => {
 /** Any type without a builder still renders, as a grey box at its origin (PLAN G4). */
 export const fallback: Builder = (g: ComponentGeometry) => {
   const group = placed(g);
-  group.add(box([0.15, 0.15, 0.15], ISA101.stopped));
+  const marker = box([0.15, 0.15, 0.15], ISA101.stopped);
+  group.add(marker);
   return {
     id: g.id,
     type: g.type,
     object: group,
     labelAnchor: new THREE.Vector3(0, 0.12, 0),
     pickable: [],
+    housing: [marker],
     update() {},
   };
 };
@@ -204,13 +214,15 @@ export const stopper: Builder = (g) => {
   blade.name = "blade";
   group.add(blade);
   // actuator housing under the belt, so a lowered stopper is still visible
-  group.add(box([0.08, 0.06, 0.12], NEUTRAL.structure, [thickness / 2, -0.11, 0]));
+  const actuator = box([0.08, 0.06, 0.12], NEUTRAL.structure, [thickness / 2, -0.11, 0]);
+  group.add(actuator);
   return {
     id: g.id,
     type: g.type,
     object: group,
     labelAnchor: new THREE.Vector3(0, height + 0.08, -width / 2),
     pickable: [],
+    housing: [actuator],
     update(state) {
       const raised = typeof state.position === "number" ? state.position : 0;
       blade.position.y = height * raised - height / 2;
@@ -230,7 +242,8 @@ export const diverterArm: Builder = (g) => {
   const clearance = num(g, "clearance", 0.005);
   const thickness = num(g, "thickness", 0.02);
   const group = placed(g);
-  group.add(zCylinder(0.03, 0.06, NEUTRAL.structure, [0, height + 0.03, 0]).rotateX(Math.PI / 2));
+  const pivot = zCylinder(0.03, 0.06, NEUTRAL.structure, [0, height + 0.03, 0]).rotateX(Math.PI / 2);
+  group.add(pivot);
   const swing = new THREE.Group();
   swing.name = "arm";
   group.add(swing);
@@ -243,6 +256,7 @@ export const diverterArm: Builder = (g) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, height + 0.12, 0),
     pickable: [],
+    housing: [pivot],
     update(state) {
       const angle = typeof state.angle_deg === "number" ? state.angle_deg : 0;
       swing.rotation.y = -THREE.MathUtils.degToRad(angle); // local +x turned toward +z
@@ -261,12 +275,13 @@ export const pickAndPlace: Builder = (g, ctx) => {
   const grip = (g.grip_size as number[] | undefined) ?? [0.25, 0.05, 0.25];
   const beamY = 0.35;
   const group = placed(g);
-  group.add(box([travel + 0.6, 0.06, 0.08], NEUTRAL.frame, [travel / 2, beamY, 0]));
+  const frame = [box([travel + 0.6, 0.06, 0.08], NEUTRAL.frame, [travel / 2, beamY, 0])];
   const legH = g.position[1] + beamY - ctx.floorY;
   for (const x of [-0.3, travel + 0.3]) {
-    group.add(box([0.06, 0.06, 0.9], NEUTRAL.frame, [x, beamY, 0]));
-    for (const z of [-0.42, 0.42]) group.add(box([0.06, legH, 0.06], NEUTRAL.frame, [x, beamY - legH / 2, z]));
+    frame.push(box([0.06, 0.06, 0.9], NEUTRAL.frame, [x, beamY, 0]));
+    for (const z of [-0.42, 0.42]) frame.push(box([0.06, legH, 0.06], NEUTRAL.frame, [x, beamY - legH / 2, z]));
   }
+  group.add(...frame);
   const carriage = new THREE.Group();
   carriage.name = "carriage";
   group.add(carriage);
@@ -291,6 +306,7 @@ export const pickAndPlace: Builder = (g, ctx) => {
     object: group,
     labelAnchor: new THREE.Vector3(travel / 2, beamY + 0.1, 0),
     pickable: [],
+    housing: frame,
     update(state) {
       setPose(typeof state.x_m === "number" ? state.x_m : 0, typeof state.y_m === "number" ? state.y_m : 0);
       setColor(pad, state.gripping ? ISA101.running : ISA101.stopped);
@@ -327,6 +343,7 @@ export const distanceSensor: Builder = (g) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, 0.1, 0),
     pickable: [],
+    housing: [housing],
     update(state) {
       setLength(typeof state.distance_m === "number" ? state.distance_m : reach);
       setColor(beam, state.target ? ISA101.running : ISA101.stopped);

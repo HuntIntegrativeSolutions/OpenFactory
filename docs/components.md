@@ -58,6 +58,18 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
     enough for 100 ms PLC polling to see; a DI drops to false, an AI reads the top of its range.
     Seeded per component, so a run replays and other random draws are not shifted.
   - `drift` (`rate` units per second, default 0.01): an analog reading grows with simulated time.
+- **Custom mesh (PLAN 2.15).** Any component may add `mesh: {file, scale, offset, rotation_deg}`
+  to draw its own `.glb` model in place of its fixed housing; `docs/scene-format.md` has the
+  fields. The mesh is visual only. What it replaces, per type: the cylinder body (`pusher`), the
+  actuator housing under the belt (`stopper`), the pivot (`diverter_arm`), the gantry beam,
+  portal frames, and legs (`pick_and_place`), the sensor housing (`distance_sensor`,
+  `color_sensor`; the taught-color swatch stays), side rails, legs, and end drums
+  (`belt_conveyor`), side rails and legs (`roller_conveyor`), the pedestal (`turntable`), and the
+  panel plate (`pushbutton`, `pilot_light`; `selector_switch` also its bezel). Moving and
+  status-colored parts (plate, rod, blade, arm, carriage, pad, deck, belt, rollers, beams, lamps)
+  stay primitives. `photo_eye` (its heads move with a `misaligned` fault), `box_emitter`, and
+  `part_remover` (outlines of a zone, not equipment) have no housing: their mesh is drawn beside
+  the primitive.
 - **Viewer authority (PLAN §3.3).** Parts on conveyors, pushed by a plate, or held by a stopper
   are simulated by the viewer's Rapier physics. Parts held by a gripper, touching a diverter arm,
   or on a turning turntable deck follow the core's position. Sensors are read by the core only.

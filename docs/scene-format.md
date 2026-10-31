@@ -91,3 +91,42 @@ it needs the fault token (`--fault-token` or `[server] fault_token`). Only a DI 
 
 A recording (`run --record FILE.ofrec`) contains the full scene file, comments included, so sharing
 a recording shares the scene.
+
+## `mesh:`: a custom housing (PLAN 2.15)
+
+Any component may draw its own model in the viewer in place of its fixed housing:
+
+```yaml
+  - id: CYL_01
+    type: pusher
+    ...
+    mesh:
+      file: models/pusher-housing.glb   # relative to this scene file's folder
+      scale: 1.0                        # or [sx, sy, sz]; each > 0
+      offset: [0, 0, 0]                 # meters, local frame, applied after scale and rotation
+      rotation_deg: 0                   # extra turn about local y
+```
+
+- **Visual only.** The core, the viewer's physics colliders, the sensors, and the parity traces
+  all use the component's declared dimensions. The mesh replaces only the fixed housing
+  (`docs/components.md`, "Custom mesh", lists it per type); moving and status-colored parts stay
+  primitives, so ISA-101 status still shows.
+- **`.glb` only** (binary glTF 2.0, one self-contained file). The file is in the component's local
+  frame: the same origin and axes as the primitive (`docs/components.md` gives each type's
+  origin), in meters.
+- **Paths.** `file` is relative to the scene file's folder and must stay in it: an absolute path,
+  a `..` segment, or a URL fails validation (`openfactory validate` exits 1). The viewer fetches
+  the file from `/models/<component id>.glb`; the server serves only the files a scene declares,
+  and only from the scene's folder.
+- **Missing or broken file.** A file that is not there, leaves the scene's folder through a
+  symlink, or is not a sound `.glb` gives one warning line at load, and the viewer draws the
+  primitive. A replay (`openfactory replay`) always draws the primitives: a recording does not
+  carry mesh files.
+- **Size and license.** The 1 MB rule for binaries in git covers meshes, so meshes shipped in
+  this repository stay small (the example, `tests/scenes/models/pusher-housing.glb`, made by
+  `tools/make_example_mesh.py`, is under 7 kB); larger models belong in your own scene folder.
+  Every mesh in the repository has a sidecar `<file>.license.txt` (`Author:`, `License:`,
+  `Source:` lines) and a row in `THIRD_PARTY.md` (`tools/third_party.py --models` writes it).
+  `openfactory lint` warns (W209) on a scene mesh with neither a sidecar nor a `THIRD_PARTY.md`
+  entry naming it, in the mesh's folder or any folder above.
+- OBJ or `.gltf` with separate buffers is not read; convert to `.glb` in a 3D tool first.

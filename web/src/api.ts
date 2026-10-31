@@ -7,12 +7,21 @@ export type Vec3 = [number, number, number];
 /** Conveyor types with a straight running surface (schema.CARRIER_TYPES, less the turntable). */
 export const BELT_TYPES = new Set(["belt_conveyor", "roller_conveyor"]);
 
+/** A custom housing the server serves (PLAN 2.15); present only when the file is usable. */
+export interface MeshSpec {
+  url: string;
+  scale: Vec3;
+  offset: Vec3;
+  rotation_deg: number;
+}
+
 export interface ComponentGeometry {
   id: string;
   type: string;
   description: string;
   position: Vec3;
   rotation_deg: number;
+  mesh?: MeshSpec;
   // type-specific dimensions (length, width, beam_length, stroke, size, ...)
   [key: string]: unknown;
 }

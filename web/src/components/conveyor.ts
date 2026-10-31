@@ -4,8 +4,9 @@
 // The mesh is always drawn at the scene position ("home"); viewer physics (PLAN 1.12) moves its
 // own kinematic body, never this mesh.
 import * as THREE from "three";
+import type { ComponentGeometry } from "../api";
 import { ISA101 } from "../isa101";
-import { NEUTRAL, box, num, placed, setColor, zCylinder, type Builder } from "./types";
+import { NEUTRAL, box, num, placed, setColor, zCylinder, type BuildContext, type Builder } from "./types";
 
 const BELT_T = 0.02;
 const RAIL_H = 0.08;
@@ -19,19 +20,9 @@ export const beltConveyor: Builder = (g, ctx) => {
   const belt = box([length, BELT_T, width], ISA101.stopped, [length / 2, -BELT_T / 2, 0]);
   belt.name = "belt";
   group.add(belt);
-  for (const side of [-1, 1]) {
-    group.add(box([length + 0.08, RAIL_H, 0.03], NEUTRAL.frame, [length / 2, -RAIL_H / 2 + 0.01, side * (width / 2 + 0.015)]));
-  }
-  for (const x of [0, length]) group.add(zCylinder(0.04, width, NEUTRAL.structure, [x, -0.045, 0]));
-
-  const legHeight = g.position[1] - RAIL_H - ctx.floorY;
-  if (legHeight > 0.01) {
-    for (const x of [0.15, length - 0.15]) {
-      for (const side of [-1, 1]) {
-        group.add(box([0.05, legHeight, 0.05], NEUTRAL.frame, [x, -RAIL_H - legHeight / 2, side * (width / 2 + 0.015)]));
-      }
-    }
-  }
+  const frame = railsAndLegs(g, ctx, length, width);
+  for (const x of [0, length]) frame.push(zCylinder(0.04, width, NEUTRAL.structure, [x, -0.045, 0]));
+  group.add(...frame);
 
   const slats: THREE.Mesh[] = [];
   const count = Math.max(1, Math.floor(length / SLAT_PITCH));
@@ -47,6 +38,7 @@ export const beltConveyor: Builder = (g, ctx) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, 0.12, -width / 2),
     pickable: [],
+    housing: frame,
     update(state) {
       setColor(belt, state.running ? ISA101.running : ISA101.stopped);
       const travel = typeof state.travel_m === "number" ? state.travel_m : 0;
@@ -60,6 +52,23 @@ export const beltConveyor: Builder = (g, ctx) => {
 
 const ROLLER_R = 0.025;
 
+/** Side rails and floor legs of a straight conveyor: its fixed frame (PLAN 2.15 housing). */
+function railsAndLegs(g: ComponentGeometry, ctx: BuildContext, length: number, width: number): THREE.Mesh[] {
+  const parts: THREE.Mesh[] = [];
+  for (const side of [-1, 1]) {
+    parts.push(box([length + 0.08, RAIL_H, 0.03], NEUTRAL.frame, [length / 2, -RAIL_H / 2 + 0.01, side * (width / 2 + 0.015)]));
+  }
+  const legHeight = g.position[1] - RAIL_H - ctx.floorY;
+  if (legHeight > 0.01) {
+    for (const x of [0.15, length - 0.15]) {
+      for (const side of [-1, 1]) {
+        parts.push(box([0.05, legHeight, 0.05], NEUTRAL.frame, [x, -RAIL_H - legHeight / 2, side * (width / 2 + 0.015)]));
+      }
+    }
+  }
+  return parts;
+}
+
 /**
  * roller_conveyor: same frame and status colors as the belt, drawn as rollers across the flow every
  * `roller_pitch` m. The rollers turn with the core's travel_m (angle = travel / radius) and show
@@ -70,17 +79,8 @@ export const rollerConveyor: Builder = (g, ctx) => {
   const width = num(g, "width", 0.5);
   const pitch = num(g, "roller_pitch", 0.1);
   const group = placed(g);
-  for (const side of [-1, 1]) {
-    group.add(box([length + 0.08, RAIL_H, 0.03], NEUTRAL.frame, [length / 2, -RAIL_H / 2 + 0.01, side * (width / 2 + 0.015)]));
-  }
-  const legHeight = g.position[1] - RAIL_H - ctx.floorY;
-  if (legHeight > 0.01) {
-    for (const x of [0.15, length - 0.15]) {
-      for (const side of [-1, 1]) {
-        group.add(box([0.05, legHeight, 0.05], NEUTRAL.frame, [x, -RAIL_H - legHeight / 2, side * (width / 2 + 0.015)]));
-      }
-    }
-  }
+  const frame = railsAndLegs(g, ctx, length, width);
+  group.add(...frame);
   const rollers: ReturnType<typeof zCylinder>[] = [];
   const count = Math.max(2, Math.floor(length / pitch) + 1);
   for (let i = 0; i < count; i++) {
@@ -97,6 +97,7 @@ export const rollerConveyor: Builder = (g, ctx) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, 0.12, -width / 2),
     pickable: [],
+    housing: frame,
     update(state) {
       const color = state.running ? ISA101.running : ISA101.stopped;
       const travel = typeof state.travel_m === "number" ? state.travel_m : 0;
@@ -126,7 +127,9 @@ export const turntable: Builder = (g, ctx) => {
   platform.position.y = -RAIL_H - 0.02;
   group.add(platform);
   const pedestal = g.position[1] - RAIL_H - 0.04 - ctx.floorY;
-  if (pedestal > 0.01) group.add(box([0.2, pedestal, 0.2], NEUTRAL.frame, [0, -RAIL_H - 0.04 - pedestal / 2, 0]));
+  const fixed: THREE.Mesh[] = [];
+  if (pedestal > 0.01) fixed.push(box([0.2, pedestal, 0.2], NEUTRAL.frame, [0, -RAIL_H - 0.04 - pedestal / 2, 0]));
+  if (fixed.length) group.add(...fixed); // add() with no argument logs an error
   const deck = new THREE.Group();
   deck.name = "deck";
   group.add(deck);
@@ -149,6 +152,7 @@ export const turntable: Builder = (g, ctx) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, 0.15, -radius),
     pickable: [],
+    housing: fixed,
     update(state) {
       deck.rotation.y = THREE.MathUtils.degToRad(typeof state.angle_deg === "number" ? state.angle_deg : 0);
       setColor(belt, state.running ? ISA101.running : ISA101.stopped);

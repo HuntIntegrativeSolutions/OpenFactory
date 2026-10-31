@@ -30,6 +30,11 @@ Warnings (exit 0 unless there are errors):
 W206 and W207 use :func:`openfactory.components.pusher.push_path`, the first belt along the plate's
 centre line, and the plate height after the loader's default.
 
+- ``W209`` a component ``mesh`` (PLAN 2.15) whose file has no license record: neither a sidecar
+  ``<file>.license.txt`` beside it nor an entry in a ``THIRD_PARTY.md`` in the mesh's folder or
+  any folder above it that names the mesh's path relative to that file. A mesh in a scene is a
+  third-party asset until someone says whose it is and under what terms.
+
 Composite components (PLAN 2.16) do not exist yet; their "exposes no I/O" check arrives with them.
 
 Scripts are scanned as text, not run: ``io["TAG"] = ...`` counts as a write and any other
@@ -111,7 +116,8 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
     scripts = scripts or []
     try:
         scene = load_scene(path)
-        loaded = build(scene)
+        loaded = build(scene, base_dir=path.parent)
+        scene_dir = path.parent  # `path` is reused below for a pusher's push path
     except (OSError, ValueError, ValidationError) as exc:
         return [Finding("error", "E100", f"{path}: does not load:\n{exc}")]
     findings: list[Finding] = []
@@ -197,4 +203,27 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                             "part low and can tip it. Raise height, or leave it unset to size it "
                             "from the parts")
                 )  # fmt: skip
+    for comp in (c for c in scene.components if c.mesh is not None):
+        mesh = scene_dir / comp.mesh.file
+        if not has_license_record(mesh):
+            findings.append(
+                Finding("warning", "W209", f"{comp.id}: mesh {comp.mesh.file} has no license "
+                        f"record; add {mesh.name}.license.txt beside it (who made it, the license, "
+                        "the source) or list it in THIRD_PARTY.md")
+            )  # fmt: skip
     return findings
+
+
+def has_license_record(mesh: Path) -> bool:
+    """A ``<file>.license.txt`` sidecar, or a ``THIRD_PARTY.md`` at or above the mesh's folder
+    that names the mesh's path relative to it (W209)."""
+    if mesh.with_name(mesh.name + ".license.txt").is_file():
+        return True
+    mesh = mesh.resolve()
+    for folder in mesh.parents:
+        record = folder / "THIRD_PARTY.md"
+        if record.is_file():
+            rel = mesh.relative_to(folder).as_posix()
+            if rel in record.read_text(encoding="utf-8"):
+                return True
+    return False

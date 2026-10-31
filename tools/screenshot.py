@@ -14,8 +14,10 @@ What it does:
 3. Opens the viewer in Playwright's headless Chromium with SwiftShader WebGL and waits until the
    viewer reports ``window.__openfactory.ready``, a simulation time of at least ``--seconds``, and
    (with ``--min-sensor-events N``) at least N photo-eye events sent from its Rapier physics to the
-   core (it waits on the viewer's own flags, never on a fixed sleep). It then prints the viewer's
-   physics backend and the core's ``/api/status`` counts of events received.
+   core (it waits on the viewer's own flags, never on a fixed sleep). With ``--min-meshes N`` it
+   also requires N custom meshes drawn and none failed (PLAN 2.15; the viewer settles every mesh
+   before its first frame, so ``ready`` already implies they have loaded or failed). It then
+   prints the viewer's physics backend and the core's ``/api/status`` counts of events received.
 4. Saves a PNG (default ``tools/screenshots/<scene>-<N>s.png``, git-ignored) and checks it is not
    blank: at least 2 % of pixels must differ from the ISA-101 background ``#1F2A36`` and at most
    90 % may be near-black. A failed check, a viewer error, or a timeout exits 1.
@@ -247,6 +249,7 @@ def screenshot(
     min_sensor_events: int = 0,
     timeout: float = 60.0,
     script: Path | None = None,
+    min_meshes: int = 0,
 ) -> dict[str, object]:
     with running_viewer(scene, forces=forces, size=size, script=script) as (
         page,
@@ -256,6 +259,12 @@ def screenshot(
         status = wait_for_viewer(
             page, console, seconds=seconds, min_sensor_events=min_sensor_events, timeout=timeout
         )
+        meshes = status.get("meshes") or {"loaded": 0, "failed": 0}
+        if meshes["loaded"] < min_meshes or (min_meshes and meshes["failed"]):
+            raise RuntimeError(
+                f"custom meshes: {meshes['loaded']} drawn, {meshes['failed']} failed, "
+                f"{min_meshes} wanted\n" + "\n".join(console)
+            )
         page.wait_for_timeout(200)  # let the last frame paint
         out.parent.mkdir(parents=True, exist_ok=True)
         page.screenshot(path=str(out))
@@ -279,6 +288,13 @@ def main(argv: list[str] | None = None) -> int:
         metavar="N",
         help="also wait until the viewer physics has sent N photo-eye events to the core",
     )
+    parser.add_argument(
+        "--min-meshes",
+        type=int,
+        default=0,
+        metavar="N",
+        help="fail unless the viewer drew N custom meshes and none failed (PLAN 2.15)",
+    )
     args = parser.parse_args(argv)
     width, height = (int(v) for v in args.size.lower().split("x"))
     out = args.out or DEFAULT_DIR / f"{args.scene.stem}-{args.seconds:g}s.png"
@@ -291,6 +307,7 @@ def main(argv: list[str] | None = None) -> int:
         forces=args.force,
         size=(width, height),
         min_sensor_events=args.min_sensor_events,
+        min_meshes=args.min_meshes,
         script=args.script.resolve() if args.script else None,
     )
     ok, summary = check_image(out)
@@ -303,6 +320,9 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"viewer physics: {status.get('physics')}, sensor events sent: {status.get('sensorEvents')}"
     )
+    meshes = status.get("meshes") or {}
+    if meshes.get("loaded") or meshes.get("failed"):
+        print(f"custom meshes: {meshes['loaded']} drawn, {meshes['failed']} failed")
     core = result["core"]
     print(f"core /api/status: t = {core['t']:.2f} s, events received {core['events']}")  # type: ignore[index]
     print(summary)
