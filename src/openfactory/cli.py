@@ -104,6 +104,9 @@ AnalogEncoding = Annotated[
     ),
 ]
 
+EXPORT_FORMATS = ("csv", "l5x")
+ExportFormat = str
+
 _TRUE = {"1", "true", "on", "yes"}
 _FALSE = {"0", "false", "off", "no"}
 
@@ -749,17 +752,36 @@ def _indent(text: str) -> str:
 def export(
     scene: Annotated[Path, typer.Argument(help="Scene file.", metavar="SCENE")],
     output: Annotated[
-        Path | None, typer.Option("--output", "-o", help="CSV file (default: stdout).")
+        Path | None, typer.Option("--output", "-o", help="Output file (default: stdout).")
     ] = None,
     analog_encoding: AnalogEncoding = None,
+    format_: Annotated[
+        ExportFormat,
+        typer.Option(
+            "--format",
+            help="csv: the I/O list with Modbus addresses. l5x: Studio 5000 controller tag "
+            "stubs, one per I/O list row (PLAN 2.3).",
+        ),
+    ] = "csv",
+    controller: Annotated[
+        str, typer.Option(help="l5x: the controller name in TargetName and the Controller element.")
+    ] = "OpenFactory",
 ) -> None:
-    """Export the I/O list CSV with Modbus addresses (updates the address lockfile)."""
+    """Export the I/O list CSV or L5X tag stubs (updates the address lockfile)."""
     from openfactory.export.io_list_csv import io_list_csv
+    from openfactory.export.l5x_stub import l5x_stub
 
+    if format_ not in EXPORT_FORMATS:
+        raise typer.BadParameter(
+            f"{format_!r}: use one of {', '.join(EXPORT_FORMATS)}", param_hint="--format"
+        )
     encoding = _encoding(analog_encoding)
     try:
         parsed, _ = _load(scene)
-        text = io_list_csv(parsed, encoding, scene_path=scene)
+        if format_ == "l5x":
+            text = l5x_stub(parsed, encoding, scene_path=scene, controller=controller)
+        else:
+            text = io_list_csv(parsed, encoding, scene_path=scene)
     except (OSError, ValueError, ValidationError) as exc:
         typer.echo(f"error: {scene}: {exc}", err=True)
         raise typer.Exit(1) from None
