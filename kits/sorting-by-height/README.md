@@ -24,7 +24,7 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | File | Made by | Status |
 |------|---------|--------|
 | `sorting-by-height-full.L5X` | `/io-to-l5x` on the I/O CSV (PlantPAx AOI instances) | missing |
-| `sorting-by-height-perspective.json` | `/perspective-view` (Ignition Perspective demo screen) | missing |
+| `sorting-by-height-perspective.json` | `/perspective-view` (Ignition Perspective demo screen) | present, pending PE review |
 | `sorting-by-height-grafcet.html` | `/grafcet-chart-creator` on the OpenPLC program (PLAN 2.8) | present, pending PE review |
 
 ## Use it

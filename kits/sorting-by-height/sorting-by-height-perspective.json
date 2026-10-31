@@ -1,0 +1,417 @@
+{
+  "custom": {
+    "generated": "generated, pending PE review",
+    "made_by": "/perspective-view CONV_01 motor SORTING_BY_HEIGHT (OpenFactory PLAN 2.14)",
+    "binds_to": "sorting-by-height-ignition-tags.json: UDT OF_BeltConveyor (Run, Running, Speed)",
+    "notes": "No Mode, Fault, alarm or historized members in the UDT: mode shown as n/a, a fail-to-start indication instead of a fault bit, alarms stated as none, no trend panel. START/STOP shown only on Good quality; Operator and Engineer are assumed gateway role names. Not loaded in a Designer yet. Not safety-rated; HIS Controls PE review before any client use.",
+    "run": false,
+    "running": false,
+    "speed": 0.0
+  },
+  "params": {
+    "tagPath": "[default]SORTING_BY_HEIGHT/CONV_01",
+    "equipmentName": "CONV_01"
+  },
+  "propConfig": {
+    "custom.run": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "fallbackDelay": 2.5,
+          "mode": "indirect",
+          "references": {
+            "Root": "{view.params.tagPath}"
+          },
+          "tagPath": "{Root}/Run"
+        }
+      },
+      "persistent": true
+    },
+    "custom.running": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "fallbackDelay": 2.5,
+          "mode": "indirect",
+          "references": {
+            "Root": "{view.params.tagPath}"
+          },
+          "tagPath": "{Root}/Running"
+        }
+      },
+      "persistent": true
+    },
+    "custom.speed": {
+      "binding": {
+        "type": "tag",
+        "config": {
+          "fallbackDelay": 2.5,
+          "mode": "indirect",
+          "references": {
+            "Root": "{view.params.tagPath}"
+          },
+          "tagPath": "{Root}/Speed"
+        }
+      },
+      "persistent": true
+    },
+    "params.tagPath": {
+      "paramDirection": "input",
+      "persistent": true
+    },
+    "params.equipmentName": {
+      "paramDirection": "input",
+      "persistent": true
+    }
+  },
+  "props": {
+    "defaultSize": {
+      "width": 400,
+      "height": 600
+    }
+  },
+  "root": {
+    "type": "ia.container.flex",
+    "version": 0,
+    "meta": {
+      "name": "root"
+    },
+    "props": {
+      "direction": "column",
+      "style": {
+        "backgroundColor": "#1F2A36"
+      }
+    },
+    "children": [
+      {
+        "type": "ia.container.flex",
+        "version": 0,
+        "meta": {
+          "name": "Header"
+        },
+        "props": {
+          "direction": "column",
+          "style": {
+            "backgroundColor": "#0F172A",
+            "padding": "8px"
+          }
+        },
+        "children": [
+          {
+            "type": "ia.display.label",
+            "version": 0,
+            "meta": {
+              "name": "TagName"
+            },
+            "props": {
+              "style": {
+                "color": "#E5E7EB",
+                "fontSize": "16px",
+                "fontWeight": "bold"
+              }
+            },
+            "propConfig": {
+              "props.text": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "{view.params.equipmentName}"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "ia.display.label",
+            "version": 0,
+            "meta": {
+              "name": "Description"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "12px"
+              }
+            },
+            "propConfig": {
+              "props.text": {
+                "binding": {
+                  "type": "tag",
+                  "config": {
+                    "fallbackDelay": 2.5,
+                    "mode": "indirect",
+                    "references": {
+                      "Root": "{view.params.tagPath}"
+                    },
+                    "tagPath": "{Root}.Documentation"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "ia.display.label",
+            "version": 0,
+            "meta": {
+              "name": "Mode"
+            },
+            "props": {
+              "style": {
+                "color": "#60A5FA",
+                "fontSize": "12px"
+              },
+              "text": "Mode: n/a (simulated I/O)"
+            }
+          }
+        ]
+      },
+      {
+        "type": "ia.container.flex",
+        "version": 0,
+        "meta": {
+          "name": "Status"
+        },
+        "props": {
+          "direction": "column",
+          "style": {
+            "padding": "16px"
+          }
+        },
+        "children": [
+          {
+            "type": "ia.display.label",
+            "version": 0,
+            "meta": {
+              "name": "StatusLabel"
+            },
+            "props": {
+              "style": {
+                "fontSize": "24px",
+                "fontWeight": "bold"
+              }
+            },
+            "propConfig": {
+              "props.text": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "if({view.custom.running}, \"RUNNING\", \"STOPPED\")"
+                  }
+                }
+              },
+              "props.style.color": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "if({view.custom.running}, \"#22C55E\", \"#9CA3AF\")"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "ia.display.label",
+            "version": 0,
+            "meta": {
+              "name": "SpeedLabel"
+            },
+            "props": {
+              "style": {
+                "color": "#E5E7EB",
+                "fontSize": "14px"
+              }
+            },
+            "propConfig": {
+              "props.text": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "\"Speed command: \" + numberFormat({view.custom.speed}, \"0.0\") + \" %\""
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "ia.display.label",
+            "version": 0,
+            "meta": {
+              "name": "FailToStart"
+            },
+            "props": {
+              "style": {
+                "color": "#FACC15",
+                "fontWeight": "bold"
+              },
+              "text": "⚠ RUN COMMANDED, NO RUNNING FEEDBACK"
+            },
+            "propConfig": {
+              "props.visible": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "{view.custom.run} && !{view.custom.running}"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "ia.input.button",
+            "version": 0,
+            "meta": {
+              "name": "StartButton"
+            },
+            "props": {
+              "text": "START",
+              "style": {
+                "backgroundColor": "#374151",
+                "color": "#E5E7EB",
+                "fontWeight": "bold",
+                "margin": "4px"
+              }
+            },
+            "propConfig": {
+              "props.visible": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "isGood({view.custom.run}) && !{view.custom.run}"
+                  }
+                }
+              }
+            },
+            "events": {
+              "component": {
+                "onActionPerformed": {
+                  "type": "script",
+                  "scope": "G",
+                  "config": {
+                    "script": "\t# Operators and engineers only (HIS Ignition conventions: role check on every write)\n\tpath = self.view.params.tagPath\n\tif not path:\n\t\tsystem.perspective.print('START refused: no tagPath')\n\t\treturn\n\troles = self.session.props.auth.user.roles\n\tif 'Operator' not in roles and 'Engineer' not in roles:\n\t\tsystem.perspective.print('START refused: Operator or Engineer role required')\n\t\treturn\n\tquality = system.tag.writeBlocking([path + '/Run'], [True])[0]\n\tif not quality.isGood():\n\t\tsystem.perspective.print('START write failed: %s' % quality)"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "ia.input.button",
+            "version": 0,
+            "meta": {
+              "name": "StopButton"
+            },
+            "props": {
+              "text": "STOP",
+              "style": {
+                "backgroundColor": "#374151",
+                "color": "#E5E7EB",
+                "fontWeight": "bold",
+                "margin": "4px"
+              }
+            },
+            "propConfig": {
+              "props.visible": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "isGood({view.custom.run}) && {view.custom.run}"
+                  }
+                }
+              }
+            },
+            "events": {
+              "component": {
+                "onActionPerformed": {
+                  "type": "script",
+                  "scope": "G",
+                  "config": {
+                    "script": "\t# Operators and engineers only (HIS Ignition conventions: role check on every write)\n\tpath = self.view.params.tagPath\n\tif not path:\n\t\tsystem.perspective.print('STOP refused: no tagPath')\n\t\treturn\n\troles = self.session.props.auth.user.roles\n\tif 'Operator' not in roles and 'Engineer' not in roles:\n\t\tsystem.perspective.print('STOP refused: Operator or Engineer role required')\n\t\treturn\n\tquality = system.tag.writeBlocking([path + '/Run'], [False])[0]\n\tif not quality.isGood():\n\t\tsystem.perspective.print('STOP write failed: %s' % quality)"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "ia.display.label",
+            "version": 0,
+            "meta": {
+              "name": "BadQuality"
+            },
+            "props": {
+              "style": {
+                "color": "#FACC15",
+                "fontWeight": "bold"
+              },
+              "text": "⚠ NO DATA: check the OpenFactory OPC connection"
+            },
+            "propConfig": {
+              "props.visible": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "!isGood({view.custom.run}) || !isGood({view.custom.running})"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "type": "ia.display.label",
+        "version": 0,
+        "meta": {
+          "name": "AlarmSummary"
+        },
+        "props": {
+          "style": {
+            "color": "#9CA3AF",
+            "fontSize": "12px",
+            "padding": "8px 16px"
+          },
+          "text": "Alarms: none configured for this equipment (ISA-18.2 rationalization pending)"
+        }
+      },
+      {
+        "type": "ia.container.flex",
+        "version": 0,
+        "meta": {
+          "name": "Footer"
+        },
+        "props": {
+          "direction": "row",
+          "style": {
+            "backgroundColor": "#0F172A",
+            "padding": "8px",
+            "borderTop": "1px solid #374151"
+          }
+        },
+        "children": [
+          {
+            "type": "ia.display.label",
+            "version": 0,
+            "meta": {
+              "name": "Breadcrumb"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "11px",
+                "marginLeft": "8px"
+              }
+            },
+            "propConfig": {
+              "props.text": {
+                "binding": {
+                  "type": "expr",
+                  "config": {
+                    "expression": "{view.params.tagPath}"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
