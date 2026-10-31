@@ -13,6 +13,7 @@ Geometry: the origin is the center of the removal volume.
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from typing import Any
 
@@ -27,13 +28,25 @@ class PartRemover(Component):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.removed: Counter[str] = Counter()
+        hx, hy, hz = (s / 2 + _EPS for s in self.config.size)
+        #: A part whose center is farther than this from the origin along world x or z cannot be
+        #: inside the turned box (PLAN 2.9): a cheap test before the exact one, same result.
+        self._reach = math.hypot(hx, hz) + 1e-6
 
     def contains(self, point: tuple[float, float, float]) -> bool:
         local = to_local(self.config.position, self.config.rotation_deg, point)
         return all(abs(local[i]) <= self.config.size[i] / 2 + _EPS for i in range(3))
 
     def step(self, dt: float) -> None:
-        inside = [p.id for p in self.world.parts.values() if self.contains(p.position)]
+        ox, _, oz = self.config.position
+        reach = self._reach
+        inside = [
+            p.id
+            for p in self.world.parts.values()
+            if abs(p.position[0] - ox) <= reach
+            and abs(p.position[2] - oz) <= reach
+            and self.contains(p.position)
+        ]
         for part_id in inside:
             self.removed[self.world.remove(part_id, by=self.id).name] += 1
 

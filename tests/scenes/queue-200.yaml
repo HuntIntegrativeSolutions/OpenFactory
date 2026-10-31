@@ -1,0 +1,59 @@
+# PLAN 2.9 load fixture, the queueing worst case (tests and tools only, not a shipped scene): two
+# 36 m lanes, each fed a box every 0.5 s against a raised stopper near its end, so about 100 boxes
+# queue nose to tail on each belt: the part-to-part check is quadratic in the parts on one belt
+# (PLAN 2.0, 2.9). Run with every belt, emitter and stopper forced on. Training and demo use only.
+# Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: queue-200
+  description: Two 36 m lanes queueing about 100 boxes each against raised stoppers.
+  seed: 1
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Queue Lane 01 Belt Conveyor
+    position: [-18.0, 0, -1.0]
+    length: 36.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_01_RUN_DO
+  - id: EMT_01
+    type: box_emitter
+    description: Queue Lane 01 Box Source
+    position: [-17.8, 0.2, -1.0]
+    interval_s: 0.5
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: STP_01
+    type: stopper
+    description: Queue Lane 01 End Stopper
+    position: [17.5, 0, -1.0]
+    io:
+      raise: STP_01_RAISE_DO
+  - id: CONV_02
+    type: belt_conveyor
+    description: Queue Lane 02 Belt Conveyor
+    position: [-18.0, 0, 1.0]
+    length: 36.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_02_RUN_DO
+  - id: EMT_02
+    type: box_emitter
+    description: Queue Lane 02 Box Source
+    position: [-17.8, 0.2, 1.0]
+    interval_s: 0.5
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_02_EN_DO
+  - id: STP_02
+    type: stopper
+    description: Queue Lane 02 End Stopper
+    position: [17.5, 0, 1.0]
+    io:
+      raise: STP_02_RAISE_DO

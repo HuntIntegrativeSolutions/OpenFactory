@@ -90,6 +90,7 @@ extended plate passes through it.
 from __future__ import annotations
 
 import math
+from bisect import bisect_left, insort
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
@@ -112,6 +113,9 @@ ARM_CONTACT_M = 1e-4
 FALL_LIMIT_M = 2.0
 DEFAULT_FRICTION = 0.8
 _EPS = 1e-9
+#: Slack on the queueing search's stopping test, far above float rounding and far below any
+#: real gap, so stopping early never skips a box a full scan would have found nearer.
+_PRUNE_MARGIN = 1e-6
 
 
 class KinematicModel:
@@ -146,6 +150,11 @@ class KinematicModel:
         self._heading_seen: dict[str, float] = {c.id: c.heading for c in self.turntables}  # type: ignore[attr-defined]
         self._refresh()
         self._boxes: dict[str, dict[str, tuple[float, float, float, float, float, float]]] = {}
+        #: Per belt, ``(x, part id)`` of every box in ``_boxes``, sorted by x (PLAN 2.9): the
+        #: queueing check walks forward from a part and stops once nothing further can be nearer.
+        self._order: dict[str, list[tuple[float, str]]] = {}
+        #: Per belt, an upper bound on any box's half length along the flow this tick.
+        self._max_half: dict[str, float] = {}
         tops = [self._top(c) for c in self.carriers.values()]
         self.lost_below = (min(tops) if tops else 0.0) - FALL_LIMIT_M
         self.pushers: list[Component] = [c for c in components if c.type == "pusher"]
@@ -267,6 +276,8 @@ class KinematicModel:
         # Each carried part's belt-local box, computed once per tick and updated as it moves, so
         # the queueing check (_room_ahead) is plain arithmetic: belt -> part id -> box.
         self._boxes = {c: {} for c in self.carriers}
+        self._order = {c: [] for c in self.carriers}
+        self._max_half = dict.fromkeys(self.carriers, 0.0)
         for part in parts:
             if part.carrier is not None:
                 self._record(part)
@@ -279,7 +290,7 @@ class KinematicModel:
         for part in carried:
             before = part.carrier
             self._convey(part, dt)
-            self._boxes[before].pop(part.id, None)  # type: ignore[index]
+            self._forget(before, part.id)  # type: ignore[arg-type]
             if part.carrier is not None:
                 self._record(part)  # its new box, on whichever belt now carries it
         self.guided = set()
@@ -374,6 +385,16 @@ class KinematicModel:
         x, _, z = self._local(carrier, part.position)
         half_x, half_z = self._extent(part, carrier)
         self._boxes[carrier.id][part.id] = (x, z, half_x, half_z, part.position[1], part.size[1])
+        insort(self._order[carrier.id], (x, part.id))
+        if half_x > self._max_half[carrier.id]:
+            self._max_half[carrier.id] = half_x
+
+    def _forget(self, belt_id: str, part_id: str) -> None:
+        """Drop a part's box from its belt (it is about to move, or has left the belt)."""
+        box = self._boxes[belt_id].pop(part_id, None)
+        if box is not None:
+            order = self._order[belt_id]
+            del order[bisect_left(order, (box[0], part_id))]
 
     def _room_ahead(self, part: Part, carrier: Component, x: float, z: float) -> float:
         """Largest local x the part's center may reach this step without overlapping a carried
@@ -387,7 +408,15 @@ class KinematicModel:
         elif carrier.id in self.links:  # connected, but no connection lines up: wait at the end
             room = min(room, carrier.config.length - half_x)
         for belt_id, offset in frames:
-            for pid, (ox, oz, o_half_x, o_half_z, oy, oh) in self._boxes[belt_id].items():
+            boxes, order = self._boxes[belt_id], self._order[belt_id]
+            reach = self._max_half[belt_id] + half_x  # no box ahead can be nearer than ox - reach
+            # Walk forward from the part (order is sorted by x): the same candidates, tests and
+            # min as a scan of every box, stopping once no box further along could lower room.
+            for i in range(bisect_left(order, (x - offset,)), len(order)):
+                ox, pid = order[i]
+                if ox + offset - reach >= room + _PRUNE_MARGIN:
+                    break
+                _, oz, o_half_x, o_half_z, oy, oh = boxes[pid]
                 if pid == part.id or abs(oy - y) >= (oh + height) / 2:
                     continue  # itself, or above or below: no contact
                 ox += offset

@@ -988,6 +988,19 @@ runs the sorting program against it; a box visibly gets pushed.
       cache (56.4 ms before it), and it is still quadratic in the parts on a belt. Target under
       4 ms per tick at 200 parts (a spatial index per belt along the flow axis, or sorting once per
       tick and checking only the neighbour ahead).
+      *Done (2026-10-31, ruled the next 2.9 item):* each belt keeps its parts' boxes sorted by
+      flow position (`_order`), and the room-ahead search walks forward from the part and
+      stops once no box further along could be nearer (an upper bound on box half-lengths,
+      with a 1e-6 m margin over float rounding): the same candidates, tests and minimum as the
+      full scan. The part remover also tests a bounding circle before its exact box test (same
+      result; it was a third of the step at 200 parts, every remover testing every part).
+      Same session, alternating, three rounds each, `LoadedScene.step` at a steady 200 parts:
+      `tests/scenes/load-200.yaml` (ten lanes, 20 parts a belt) 4.61-6.71 ms mean before,
+      2.20-3.34 ms after; `tests/scenes/queue-200.yaml` (two lanes, about 100 queued nose to
+      tail on each belt, the quadratic worst case) 7.31-9.35 ms before, 2.03-2.75 ms after (p99
+      3.0-4.6 ms). Byte-identical: a 90 s load-200 recording and a 120 s queue-200 recording
+      equal their baseline recordings byte for byte; every parity trace (`parity_trace.py
+      --check`) and every kit's 60 s recording (`build_kit.py --check`, all six scenes) unchanged.
       **Measure against a same-session baseline (added 2026-10-27):** absolute tick times on the
       development machine vary about 30 % from day to day (11.65 ms on 2026-10-26 for the same
       code that measured 15.4 ms and 15.8 ms on a slower day). Every before/after claim runs the
