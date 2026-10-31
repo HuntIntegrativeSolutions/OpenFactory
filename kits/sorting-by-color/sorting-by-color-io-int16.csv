@@ -1,0 +1,13 @@
+tag,io_type,dtype,description,component,address,modbus_address,modbus_encoding,units,range_min,range_max,transform
+CONV_01_RUN_DI,DI,bool,Sorting Line Belt Conveyor — Running feedback,CONV_01,,DI:0,bit,,,,
+CONV_RED_RUN_DI,DI,bool,Red Box Lane Belt Conveyor — Running feedback,CONV_RED,,DI:1,bit,,,,
+CS_01_PART_DI,DI,bool,Sorting Line Red Box Color Sensor — Part in range,CS_01,,DI:2,bit,,,,
+CS_01_RED_DI,DI,bool,Sorting Line Red Box Color Sensor — Taught color seen,CS_01,,DI:3,bit,,,,
+DIV_01_EXT_DI,DI,bool,Red Box Divert Arm — Extended limit switch,DIV_01,,DI:4,bit,,,,
+DIV_01_RET_DI,DI,bool,Red Box Divert Arm — Retracted limit switch,DIV_01,,DI:5,bit,,,,
+PE_RED_DI,DI,bool,Red Box Lane Arrival Photo Eye — Part detected,PE_RED,,DI:6,bit,,,,
+SIM_HEARTBEAT_DI,DI,bool,"OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",,,DI:7,bit,,,,
+CONV_01_RUN_DO,DO,bool,Sorting Line Belt Conveyor — Run command,CONV_01,,CO:0,bit,,,,
+CONV_RED_RUN_DO,DO,bool,Red Box Lane Belt Conveyor — Run command,CONV_RED,,CO:1,bit,,,,
+DIV_01_EXT_DO,DO,bool,Red Box Divert Arm — Extend command,DIV_01,,CO:2,bit,,,,
+EMT_01_EN_DO,DO,bool,Sorting Line Box Source — Emitter enable,EMT_01,,CO:3,bit,,,,

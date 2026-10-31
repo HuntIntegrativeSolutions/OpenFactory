@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<!-- generated, pending PE review. Made with /grafcet-chart-creator from the OpenPLC program; HIS Controls PE
+     review required before any client use. OpenFactory is a training and demo tool, not a
+     safety-rated simulation. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Color_Sorter — Divert red boxes to the side lane GRAFCET</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 16px; background: #ffffff; color: #1a2a4a; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { font-size: 12px; color: #5a6478; margin-bottom: 6px; }
+  .review { font-size: 12px; color: #7f1010; background: #fff0f0; border: 1px solid #c0392b;
+            padding: 4px 8px; display: inline-block; margin-bottom: 8px; }
+  .legend { font-size: 11px; display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 18px; height: 12px; border: 2px solid #1d6fb8; border-radius: 3px; }
+  .zoom-bar { font-size: 12px; margin: 6px 0; }
+  .zoom-bar button { font-size: 12px; padding: 1px 8px; }
+  .svg-wrap { overflow: auto; border: 1px solid #c5cae9; }
+  .print-note { font-size: 10px; color: #5a6478; margin-top: 6px; }
+  @media print { .zoom-bar, .print-note { display: none; } }
+</style>
+</head>
+<body>
+<h1>Color_Sorter — Divert red boxes to the side lane GRAFCET</h1>
+<div class="subtitle">OpenFactory demo scene `sorting-by-color` · IEC 60848 GRAFCET Notation · Source: examples/openplc/sorting-by-color.st</div>
+<div class="review">generated, pending PE review: a generated engineering reference, not a PLC program. Not safety-rated.</div>
+<div class="legend">
+  <span><span class="sw" style="background:#dbeafe;border-width:4px;border-style:double"></span>Initial step</span>
+  <span><span class="sw" style="background:#fdfefe"></span>Normal step</span>
+  <span><span class="sw" style="background:#ecf7ee;border-color:#2e7d32"></span>Running / production</span>
+  <span><span class="sw" style="background:#fff8e1;border-color:#e07b00"></span>Transient / caution</span>
+  <span><svg width="28" height="10"><line x1="2" y1="5" x2="26" y2="5" stroke="#2d3748" stroke-width="6"/></svg>Transition</span>
+  <span><span class="sw" style="background:#f8f9fa;border:1px solid #c5cae9;border-radius:0"></span>Action block</span>
+  <span><svg width="28" height="10"><line x1="2" y1="5" x2="26" y2="5" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4"/></svg>Clean return</span>
+</div>
+<div class="zoom-bar">Zoom <button onclick="zoomBy(-10)">−</button> <span id="zoom-pct">100%</span>
+  <button onclick="zoomBy(10)">+</button> <button onclick="setZoom(100)">Reset</button></div>
+<div class="svg-wrap">
+<svg id="grafcet" xmlns="http://www.w3.org/2000/svg" width="900" height="2104" viewBox="0 0 900 2104"
+     font-family="Arial, sans-serif">
+<defs>
+  <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#2d3748"/></marker>
+  <marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#2e7d32"/></marker>
+</defs>
+<rect x="0" y="0" width="900" height="2104" fill="white"/>
+<rect x="0" y="0" width="900" height="40" fill="#f0f4fb"/>
+<text x="450" y="26" font-size="14" font-weight="600" fill="#1a2a4a" text-anchor="middle">Main sequence (partial GRAFCETs run concurrently; every initial step is active at start)</text>
+<text x="20" y="88" font-size="13" font-weight="700" fill="#1a2a4a">G1 — Belts and box feed (feed only on proven belt running feedback)</text>
+<line x1="20" y1="96" x2="880" y2="96" stroke="#c5cae9" stroke-width="0.8"/>
+<rect x="88" y="120" width="280" height="180" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
+<rect x="96" y="128" width="264" height="164" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
+<circle cx="102" cy="140" r="14" fill="#1d6fb8"/>
+<text x="102" y="144" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">0</text>
+<text x="228" y="215" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Belts starting</text>
+<text x="228" y="286" font-size="10" fill="#5a6478" text-anchor="middle">Step S0</text>
+<line x1="368" y1="146" x2="380" y2="146" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="120" width="430" height="180" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="142" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="160" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_01_RUN_DO := TRUE</text>
+<text x="392" y="178" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_RED_RUN_DO := TRUE</text>
+<text x="392" y="196" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">BELTS_OK_TMR: TON, PT 1 s</text>
+<text x="392" y="214" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">    IN = CONV_01_RUN_DI AND CONV_RED_RUN_DI</text>
+<text x="392" y="232" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_01_EN_DO := FALSE</text>
+<text x="392" y="250" font-size="10" fill="#5a6478" font-style="italic">ST section 1</text>
+<line x1="228" y1="300" x2="228" y2="349" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="352" x2="368" y2="352" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="356" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T1</text>
+<text x="380" y="335" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">BELTS_OK_TMR.Q</text>
+<text x="380" y="322" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">every belt&#x27;s running feedback held 1 s (BELTS_OK_DELAY)</text>
+<line x1="228" y1="355" x2="228" y2="382" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="382" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="402" r="14" fill="#2e7d32"/>
+<text x="102" y="406" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">10</text>
+<text x="228" y="472" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Feeding boxes</text>
+<text x="228" y="538" font-size="10" fill="#5a6478" text-anchor="middle">Step S10</text>
+<line x1="368" y1="408" x2="380" y2="408" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="382" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="404" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="422" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_01_RUN_DO := TRUE</text>
+<text x="392" y="440" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_RED_RUN_DO := TRUE</text>
+<text x="392" y="458" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_01_EN_DO := TRUE</text>
+<text x="392" y="476" font-size="10" fill="#5a6478" font-style="italic">The feed stops the scan a belt stops reporting running</text>
+<line x1="228" y1="552" x2="228" y2="601" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="604" x2="368" y2="604" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="608" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T2</text>
+<text x="380" y="587" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">NOT (CONV_01_RUN_DI AND CONV_RED_RUN_DI)</text>
+<text x="380" y="574" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">BELTS_OK_TMR resets</text>
+<path d="M228 607 L228 626 L38 626" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<text x="20" y="712" font-size="13" font-weight="700" fill="#1a2a4a">G2 — Red box tracking (sensor to arm)</text>
+<line x1="20" y1="720" x2="880" y2="720" stroke="#c5cae9" stroke-width="0.8"/>
+<rect x="88" y="744" width="280" height="180" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
+<rect x="96" y="752" width="264" height="164" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
+<circle cx="102" cy="764" r="14" fill="#1d6fb8"/>
+<text x="102" y="768" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">20</text>
+<text x="228" y="839" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Waiting for a red box</text>
+<text x="228" y="910" font-size="10" fill="#5a6478" text-anchor="middle">Step S20</text>
+<line x1="368" y1="770" x2="380" y2="770" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="744" width="430" height="180" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="766" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="784" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">RED_RISE: R_TRIG, CLK = CS_01_RED_DI</text>
+<text x="392" y="802" font-size="10" fill="#5a6478" font-style="italic">ST section 2</text>
+<line x1="228" y1="924" x2="228" y2="973" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="976" x2="368" y2="976" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="980" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T3</text>
+<text x="380" y="959" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">RED_RISE.Q</text>
+<text x="380" y="946" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">a red box under the color sensor</text>
+<line x1="228" y1="979" x2="228" y2="1006" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1006" width="280" height="170" rx="8" fill="#fdfefe" stroke="#1d6fb8" stroke-width="2"/>
+<circle cx="102" cy="1026" r="14" fill="#1d6fb8"/>
+<text x="102" y="1030" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">21</text>
+<text x="228" y="1096" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Red box travelling</text>
+<text x="228" y="1162" font-size="10" fill="#5a6478" text-anchor="middle">Step S21</text>
+<line x1="368" y1="1032" x2="380" y2="1032" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1006" width="430" height="170" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="1028" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1046" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PENDING := TRUE</text>
+<text x="392" y="1064" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EXTEND_TMR: TON, PT 1.5 s, IN = PENDING</text>
+<text x="392" y="1082" font-size="10" fill="#5a6478" font-style="italic">A second red box within 1.5 s rides on this timer</text>
+<text x="392" y="1100" font-size="10" fill="#5a6478" font-style="italic">ST section 2</text>
+<line x1="228" y1="1176" x2="228" y2="1225" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1228" x2="368" y2="1228" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1232" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T4</text>
+<text x="380" y="1211" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">EXTEND_TMR.Q</text>
+<text x="380" y="1198" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">0.75 m past the sensor: PENDING := FALSE, RED_OUT := RED_OUT + 1</text>
+<path d="M228 1231 L228 1250 L38 1250" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<text x="20" y="1336" font-size="13" font-weight="700" fill="#1a2a4a">G3 — Diverter arm</text>
+<line x1="20" y1="1344" x2="880" y2="1344" stroke="#c5cae9" stroke-width="0.8"/>
+<rect x="88" y="1368" width="280" height="180" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
+<rect x="96" y="1376" width="264" height="164" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
+<circle cx="102" cy="1388" r="14" fill="#1d6fb8"/>
+<text x="102" y="1392" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">30</text>
+<text x="228" y="1463" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Arm retracted</text>
+<text x="228" y="1534" font-size="10" fill="#5a6478" text-anchor="middle">Step S30</text>
+<line x1="368" y1="1394" x2="380" y2="1394" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1368" width="430" height="180" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="1390" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1408" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">DIV_01_EXT_DO := FALSE   (RED_OUT = 0)</text>
+<text x="392" y="1426" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">LANE_RISE: R_TRIG, CLK = PE_RED_DI</text>
+<text x="392" y="1444" font-size="10" fill="#5a6478" font-style="italic">ST section 3</text>
+<line x1="228" y1="1548" x2="228" y2="1597" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1600" x2="368" y2="1600" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1604" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T5</text>
+<text x="380" y="1583" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">RED_OUT &gt; 0</text>
+<text x="380" y="1570" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">a red box is between the extend point and the lane</text>
+<line x1="228" y1="1603" x2="228" y2="1630" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1630" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="1650" r="14" fill="#2e7d32"/>
+<text x="102" y="1654" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">31</text>
+<text x="228" y="1720" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Arm extended</text>
+<text x="228" y="1786" font-size="10" fill="#5a6478" text-anchor="middle">Step S31</text>
+<line x1="368" y1="1656" x2="380" y2="1656" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1630" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="1652" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1670" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">DIV_01_EXT_DO := TRUE   (RED_OUT &gt; 0)</text>
+<text x="392" y="1688" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">On LANE_RISE.Q: RED_OUT := RED_OUT - 1</text>
+<text x="392" y="1706" font-size="10" fill="#5a6478" font-style="italic">ST section 3</text>
+<line x1="228" y1="1800" x2="228" y2="1849" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1852" x2="368" y2="1852" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1856" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T6</text>
+<text x="380" y="1835" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">RED_OUT = 0</text>
+<text x="380" y="1822" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">the last red box reached PE_RED</text>
+<path d="M228 1855 L228 1874 L38 1874" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<path d="M38 626 L38 210.0 L86 210.0" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arg)"/>
+<text x="26" y="418" font-size="10" fill="#2e7d32" text-anchor="middle" transform="rotate(-90 26 418)">→ S0 (clean return)</text>
+<path d="M38 1250 L38 834.0 L86 834.0" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arg)"/>
+<text x="26" y="1042" font-size="10" fill="#2e7d32" text-anchor="middle" transform="rotate(-90 26 1042)">→ S20 (clean return)</text>
+<path d="M38 1874 L38 1458.0 L86 1458.0" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arg)"/>
+<text x="26" y="1666" font-size="10" fill="#2e7d32" text-anchor="middle" transform="rotate(-90 26 1666)">→ S30 (clean return)</text>
+<line x1="20" y1="1962" x2="880" y2="1962" stroke="#c5cae9" stroke-width="0.8"/>
+<text x="20" y="1980" font-size="10" fill="#5a6478">Source: examples/openplc/sorting-by-color.st (program color_sort)</text>
+<text x="20" y="1994" font-size="10" fill="#5a6478">color_sort · lines 1-88 · task0, cyclic 20 ms</text>
+<text x="20" y="2008" font-size="10" fill="#5a6478">Rev: 2026-10-30 HIS · generated, pending PE review</text>
+<text x="20" y="2022" font-size="10" fill="#5a6478" font-weight="700">HUNT INTEGRATIVE SOLUTIONS LLC</text>
+<text x="20" y="2036" font-size="10" fill="#5a6478">Timothy.hunt.his@outlook.com</text>
+<text x="20" y="2050" font-size="10" fill="#5a6478">Philippians 4:13</text>
+</svg>
+</div>
+<div class="print-note">Print on A3 portrait at 100 % zoom.</div>
+<script>
+  let zoom = 100;
+  const svg = document.getElementById("grafcet");
+  const baseW = 900, baseH = 2104;
+  function setZoom(pct) {
+    zoom = Math.max(50, Math.min(200, pct));
+    svg.setAttribute("width", baseW * zoom / 100);
+    svg.setAttribute("height", baseH * zoom / 100);
+    document.getElementById("zoom-pct").textContent = zoom + "%";
+  }
+  function zoomBy(d) { setZoom(zoom + d); }
+</script>
+</body>
+</html>

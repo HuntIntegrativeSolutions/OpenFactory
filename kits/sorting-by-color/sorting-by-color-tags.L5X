@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="OpenFactory" TargetType="Controller" ContainsContext="true" Owner="OpenFactory">
+<Controller Use="Context" Name="OpenFactory">
+<Tags>
+<Tag Name="CONV_01_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Sorting Line Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="CONV_RED_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Red Box Lane Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="CS_01_PART_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Sorting Line Red Box Color Sensor — Part in range]]></Description>
+</Tag>
+<Tag Name="CS_01_RED_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Sorting Line Red Box Color Sensor — Taught color seen]]></Description>
+</Tag>
+<Tag Name="DIV_01_EXT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Red Box Divert Arm — Extended limit switch]]></Description>
+</Tag>
+<Tag Name="DIV_01_RET_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Red Box Divert Arm — Retracted limit switch]]></Description>
+</Tag>
+<Tag Name="PE_RED_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Red Box Lane Arrival Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="SIM_HEARTBEAT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops]]></Description>
+</Tag>
+<Tag Name="CONV_01_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Sorting Line Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="CONV_RED_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Red Box Lane Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="DIV_01_EXT_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Red Box Divert Arm — Extend command]]></Description>
+</Tag>
+<Tag Name="EMT_01_EN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Sorting Line Box Source — Emitter enable]]></Description>
+</Tag>
+</Tags>
+</Controller>
+</RSLogix5000Content>
