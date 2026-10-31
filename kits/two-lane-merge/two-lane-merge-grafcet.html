@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<!-- generated, pending PE review. Made with /grafcet-chart-creator from the OpenPLC program; HIS Controls PE
+     review required before any client use. OpenFactory is a training and demo tool, not a
+     safety-rated simulation. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merge — Merge two lanes through a turntable GRAFCET</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 16px; background: #ffffff; color: #1a2a4a; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { font-size: 12px; color: #5a6478; margin-bottom: 6px; }
+  .review { font-size: 12px; color: #7f1010; background: #fff0f0; border: 1px solid #c0392b;
+            padding: 4px 8px; display: inline-block; margin-bottom: 8px; }
+  .legend { font-size: 11px; display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 18px; height: 12px; border: 2px solid #1d6fb8; border-radius: 3px; }
+  .zoom-bar { font-size: 12px; margin: 6px 0; }
+  .zoom-bar button { font-size: 12px; padding: 1px 8px; }
+  .svg-wrap { overflow: auto; border: 1px solid #c5cae9; }
+  .print-note { font-size: 10px; color: #5a6478; margin-top: 6px; }
+  @media print { .zoom-bar, .print-note { display: none; } }
+</style>
+</head>
+<body>
+<h1>Merge — Merge two lanes through a turntable GRAFCET</h1>
+<div class="subtitle">OpenFactory demo scene `two-lane-merge` · IEC 60848 GRAFCET Notation · Source: examples/openplc/two-lane-merge.st</div>
+<div class="review">generated, pending PE review: a generated engineering reference, not a PLC program. Not safety-rated.</div>
+<div class="legend">
+  <span><span class="sw" style="background:#dbeafe;border-width:4px;border-style:double"></span>Initial step</span>
+  <span><span class="sw" style="background:#fdfefe"></span>Normal step</span>
+  <span><span class="sw" style="background:#ecf7ee;border-color:#2e7d32"></span>Running / production</span>
+  <span><span class="sw" style="background:#fff8e1;border-color:#e07b00"></span>Transient / caution</span>
+  <span><svg width="28" height="10"><line x1="2" y1="5" x2="26" y2="5" stroke="#2d3748" stroke-width="6"/></svg>Transition</span>
+  <span><span class="sw" style="background:#f8f9fa;border:1px solid #c5cae9;border-radius:0"></span>Action block</span>
+  <span><svg width="28" height="10"><line x1="2" y1="5" x2="26" y2="5" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4"/></svg>Clean return</span>
+</div>
+<div class="zoom-bar">Zoom <button onclick="zoomBy(-10)">−</button> <span id="zoom-pct">100%</span>
+  <button onclick="zoomBy(10)">+</button> <button onclick="setZoom(100)">Reset</button></div>
+<div class="svg-wrap">
+<svg id="grafcet" xmlns="http://www.w3.org/2000/svg" width="900" height="2680" viewBox="0 0 900 2680"
+     font-family="Arial, sans-serif">
+<defs>
+  <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#2d3748"/></marker>
+  <marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#2e7d32"/></marker>
+</defs>
+<rect x="0" y="0" width="900" height="2680" fill="white"/>
+<rect x="0" y="0" width="900" height="40" fill="#f0f4fb"/>
+<text x="450" y="26" font-size="14" font-weight="600" fill="#1a2a4a" text-anchor="middle">Main sequence (partial GRAFCETs run concurrently; every initial step is active at start)</text>
+<text x="20" y="88" font-size="13" font-weight="700" fill="#1a2a4a">G1 — Belts and box feed (feed only on proven belt running feedback)</text>
+<line x1="20" y1="96" x2="880" y2="96" stroke="#c5cae9" stroke-width="0.8"/>
+<rect x="88" y="120" width="280" height="225" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
+<rect x="96" y="128" width="264" height="209" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
+<circle cx="102" cy="140" r="14" fill="#1d6fb8"/>
+<text x="102" y="144" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">100</text>
+<text x="228" y="238" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Belts starting</text>
+<text x="228" y="331" font-size="10" fill="#5a6478" text-anchor="middle">Step S100</text>
+<line x1="368" y1="146" x2="380" y2="146" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="120" width="430" height="225" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="142" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="160" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_A_RUN_DO := TRUE</text>
+<text x="392" y="178" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_B_RUN_DO := TRUE</text>
+<text x="392" y="196" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_OUT_RUN_DO := TRUE</text>
+<text x="392" y="214" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">BELTS_OK_TMR: TON, PT 1 s</text>
+<text x="392" y="232" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">    IN = CONV_A_RUN_DI AND CONV_B_RUN_DI</text>
+<text x="392" y="250" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">         AND CONV_OUT_RUN_DI</text>
+<text x="392" y="268" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_A_EN_DO := FALSE</text>
+<text x="392" y="286" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_B_EN_DO := FALSE</text>
+<text x="392" y="304" font-size="10" fill="#5a6478" font-style="italic">ST section 1</text>
+<line x1="228" y1="345" x2="228" y2="394" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="397" x2="368" y2="397" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="401" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T1</text>
+<text x="380" y="380" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">BELTS_OK_TMR.Q</text>
+<text x="380" y="367" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">every belt&#x27;s running feedback held 1 s (BELTS_OK_DELAY)</text>
+<line x1="228" y1="400" x2="228" y2="427" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="427" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="447" r="14" fill="#2e7d32"/>
+<text x="102" y="451" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">110</text>
+<text x="228" y="517" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Feeding boxes</text>
+<text x="228" y="583" font-size="10" fill="#5a6478" text-anchor="middle">Step S110</text>
+<line x1="368" y1="453" x2="380" y2="453" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="427" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="449" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="467" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_A_RUN_DO := TRUE</text>
+<text x="392" y="485" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_B_RUN_DO := TRUE</text>
+<text x="392" y="503" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_OUT_RUN_DO := TRUE</text>
+<text x="392" y="521" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_A_EN_DO := TRUE</text>
+<text x="392" y="539" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_B_EN_DO := TRUE</text>
+<text x="392" y="557" font-size="10" fill="#5a6478" font-style="italic">The feed stops the scan a belt stops reporting running</text>
+<line x1="228" y1="597" x2="228" y2="659" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="662" x2="368" y2="662" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="666" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T2</text>
+<text x="380" y="645" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">AND CONV_OUT_RUN_DI)</text>
+<text x="380" y="632" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">NOT (CONV_A_RUN_DI AND CONV_B_RUN_DI</text>
+<text x="380" y="619" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">BELTS_OK_TMR resets</text>
+<path d="M228 665 L228 684 L38 684" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<text x="20" y="770" font-size="13" font-weight="700" fill="#1a2a4a">G2 — Merge sequence (step numbers are the program&#x27;s STATE values)</text>
+<line x1="20" y1="778" x2="880" y2="778" stroke="#c5cae9" stroke-width="0.8"/>
+<rect x="88" y="802" width="280" height="180" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
+<rect x="96" y="810" width="264" height="164" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
+<circle cx="102" cy="822" r="14" fill="#1d6fb8"/>
+<text x="102" y="826" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">0</text>
+<text x="228" y="897" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Idle at 0°</text>
+<text x="228" y="968" font-size="10" fill="#5a6478" text-anchor="middle">Step S0</text>
+<line x1="368" y1="828" x2="380" y2="828" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="802" width="430" height="180" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="824" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="842" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">STP_A_REL_DO := REL_A   (pulse 0.5 s)</text>
+<text x="392" y="860" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">STP_B_REL_DO := REL_B   (pulse 0.5 s)</text>
+<text x="392" y="878" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_TURN_DO := FALSE</text>
+<text x="392" y="896" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_RUN_DO := FALSE</text>
+<text x="392" y="914" font-size="10" fill="#5a6478" font-style="italic">ST section 2</text>
+<line x1="228" y1="982" x2="228" y2="1044" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1047" x2="368" y2="1047" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1051" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T3</text>
+<text x="380" y="1030" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">AND (NOT PE_B_DI OR LAST_B)</text>
+<text x="380" y="1017" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">TT_01_AT0_DI AND PE_A_DI</text>
+<text x="380" y="1004" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">lane A waits; alternate when both wait</text>
+<line x1="228" y1="1050" x2="228" y2="1077" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1077" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="1097" r="14" fill="#2e7d32"/>
+<text x="102" y="1101" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">10</text>
+<text x="228" y="1167" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Lane A passes straight</text>
+<text x="228" y="1233" font-size="10" fill="#5a6478" text-anchor="middle">Step S10</text>
+<line x1="368" y1="1103" x2="380" y2="1103" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1077" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="1099" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1117" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">REL_A := TRUE (on entry): STP_A_REL_DO 0.5 s</text>
+<text x="392" y="1135" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">SEEN := FALSE; LAST_B := FALSE (on entry)</text>
+<text x="392" y="1153" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_RUN_DO := TRUE</text>
+<text x="392" y="1171" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">If PE_TTA_DI: SEEN := TRUE</text>
+<text x="392" y="1189" font-size="10" fill="#5a6478" font-style="italic">ST sections 2-3</text>
+<line x1="228" y1="1247" x2="228" y2="1296" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1299" x2="368" y2="1299" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1303" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T4</text>
+<text x="380" y="1282" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">SEEN AND NOT PE_TTA_DI</text>
+<text x="380" y="1269" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">the box came and went</text>
+<path d="M228 1302 L228 1321 L38 1321" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<text x="236" y="1371" font-size="10" font-style="italic" fill="#2d3748">from S0 (alternative branch)</text>
+<path d="M228 1359 L228 1441" stroke="#2d3748" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+<line x1="88" y1="1444" x2="368" y2="1444" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1448" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T5</text>
+<text x="380" y="1427" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">AND (NOT PE_A_DI OR NOT LAST_B)</text>
+<text x="380" y="1414" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">TT_01_AT0_DI AND PE_B_DI</text>
+<text x="380" y="1401" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">lane B served (T3 not true)</text>
+<line x1="228" y1="1447" x2="228" y2="1474" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1474" width="280" height="170" rx="8" fill="#fff8e1" stroke="#e07b00" stroke-width="2"/>
+<circle cx="102" cy="1494" r="14" fill="#e07b00"/>
+<text x="102" y="1498" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">20</text>
+<text x="228" y="1564" font-size="15" font-weight="700" fill="#5a3500" text-anchor="middle">Turn out to lane B</text>
+<text x="228" y="1630" font-size="10" fill="#5a6478" text-anchor="middle">Step S20</text>
+<line x1="368" y1="1500" x2="380" y2="1500" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1474" width="430" height="170" fill="#fffbf0" stroke="#ffe082" stroke-width="1"/>
+<text x="392" y="1496" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1514" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">LAST_B := TRUE (on entry)</text>
+<text x="392" y="1532" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_TURN_DO := TRUE</text>
+<text x="392" y="1550" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_RUN_DO := FALSE</text>
+<text x="392" y="1568" font-size="10" fill="#5a6478" font-style="italic">ST sections 2, 4</text>
+<line x1="228" y1="1644" x2="228" y2="1681" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1684" x2="368" y2="1684" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1688" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T6</text>
+<text x="380" y="1667" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">TT_01_AT90_DI</text>
+<line x1="228" y1="1687" x2="228" y2="1714" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1714" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="1734" r="14" fill="#2e7d32"/>
+<text x="102" y="1738" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">21</text>
+<text x="228" y="1804" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Load from lane B</text>
+<text x="228" y="1870" font-size="10" fill="#5a6478" text-anchor="middle">Step S21</text>
+<line x1="368" y1="1740" x2="380" y2="1740" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1714" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="1736" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1754" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">REL_B := TRUE (on entry): STP_B_REL_DO 0.5 s</text>
+<text x="392" y="1772" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_TURN_DO := TRUE</text>
+<text x="392" y="1790" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_RUN_DO := TRUE</text>
+<text x="392" y="1808" font-size="10" fill="#5a6478" font-style="italic">ST section 4</text>
+<line x1="228" y1="1884" x2="228" y2="1933" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1936" x2="368" y2="1936" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1940" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T7</text>
+<text x="380" y="1919" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">PE_TTB_DI</text>
+<text x="380" y="1906" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">the box is centred on the deck</text>
+<line x1="228" y1="1939" x2="228" y2="1966" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1966" width="280" height="170" rx="8" fill="#fff8e1" stroke="#e07b00" stroke-width="2"/>
+<circle cx="102" cy="1986" r="14" fill="#e07b00"/>
+<text x="102" y="1990" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">22</text>
+<text x="228" y="2056" font-size="15" font-weight="700" fill="#5a3500" text-anchor="middle">Turn back to 0°</text>
+<text x="228" y="2122" font-size="10" fill="#5a6478" text-anchor="middle">Step S22</text>
+<line x1="368" y1="1992" x2="380" y2="1992" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1966" width="430" height="170" fill="#fffbf0" stroke="#ffe082" stroke-width="1"/>
+<text x="392" y="1988" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="2006" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_TURN_DO := FALSE</text>
+<text x="392" y="2024" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_RUN_DO := FALSE</text>
+<text x="392" y="2042" font-size="10" fill="#5a6478" font-style="italic">ST section 4</text>
+<line x1="228" y1="2136" x2="228" y2="2173" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="2176" x2="368" y2="2176" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="2180" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T8</text>
+<text x="380" y="2159" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">TT_01_AT0_DI</text>
+<line x1="228" y1="2179" x2="228" y2="2206" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="2206" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="2226" r="14" fill="#2e7d32"/>
+<text x="102" y="2230" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">23</text>
+<text x="228" y="2296" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Lane B box passes</text>
+<text x="228" y="2362" font-size="10" fill="#5a6478" text-anchor="middle">Step S23</text>
+<line x1="368" y1="2232" x2="380" y2="2232" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="2206" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="2228" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="2246" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">SEEN := FALSE (on entry)</text>
+<text x="392" y="2264" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">TT_01_RUN_DO := TRUE</text>
+<text x="392" y="2282" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">If PE_TTA_DI: SEEN := TRUE</text>
+<text x="392" y="2300" font-size="10" fill="#5a6478" font-style="italic">ST section 4</text>
+<line x1="228" y1="2376" x2="228" y2="2425" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="2428" x2="368" y2="2428" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="2432" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T9</text>
+<text x="380" y="2411" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">SEEN AND NOT PE_TTA_DI</text>
+<text x="380" y="2398" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">the box came and went</text>
+<path d="M228 2431 L228 2450 L38 2450" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<path d="M38 2450 L38 892.0 L86 892.0" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arg)"/>
+<text x="26" y="1671" font-size="10" fill="#2e7d32" text-anchor="middle" transform="rotate(-90 26 1671)">→ S0 (clean return)</text>
+<path d="M38 684 L38 232.5 L86 232.5" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arg)"/>
+<text x="26" y="458" font-size="10" fill="#2e7d32" text-anchor="middle" transform="rotate(-90 26 458)">→ S100 (clean return)</text>
+<line x1="20" y1="2538" x2="880" y2="2538" stroke="#c5cae9" stroke-width="0.8"/>
+<text x="20" y="2556" font-size="10" fill="#5a6478">Source: examples/openplc/two-lane-merge.st (program merge)</text>
+<text x="20" y="2570" font-size="10" fill="#5a6478">merge · lines 1-143 · task0, cyclic 20 ms</text>
+<text x="20" y="2584" font-size="10" fill="#5a6478">Rev: 2026-10-30 HIS · generated, pending PE review</text>
+<text x="20" y="2598" font-size="10" fill="#5a6478" font-weight="700">HUNT INTEGRATIVE SOLUTIONS LLC</text>
+<text x="20" y="2612" font-size="10" fill="#5a6478">Timothy.hunt.his@outlook.com</text>
+<text x="20" y="2626" font-size="10" fill="#5a6478">Philippians 4:13</text>
+</svg>
+</div>
+<div class="print-note">Print on A3 portrait at 100 % zoom.</div>
+<script>
+  let zoom = 100;
+  const svg = document.getElementById("grafcet");
+  const baseW = 900, baseH = 2680;
+  function setZoom(pct) {
+    zoom = Math.max(50, Math.min(200, pct));
+    svg.setAttribute("width", baseW * zoom / 100);
+    svg.setAttribute("height", baseH * zoom / 100);
+    document.getElementById("zoom-pct").textContent = zoom + "%";
+  }
+  function zoomBy(d) { setZoom(zoom + d); }
+</script>
+</body>
+</html>

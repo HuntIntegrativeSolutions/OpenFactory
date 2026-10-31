@@ -1,0 +1,20 @@
+tag,io_type,dtype,description,component,address,modbus_address,modbus_encoding,units,range_min,range_max,transform
+CONV_A_RUN_DI,DI,bool,Lane A Infeed Belt Conveyor — Running feedback,CONV_A,,DI:0,bit,,,,
+CONV_B_RUN_DI,DI,bool,Lane B Infeed Belt Conveyor — Running feedback,CONV_B,,DI:1,bit,,,,
+CONV_OUT_RUN_DI,DI,bool,Merged Outfeed Belt Conveyor — Running feedback,CONV_OUT,,DI:2,bit,,,,
+PE_A_DI,DI,bool,Lane A Box Waiting Photo Eye — Part detected,PE_A,,DI:3,bit,,,,
+PE_B_DI,DI,bool,Lane B Box Waiting Photo Eye — Part detected,PE_B,,DI:4,bit,,,,
+PE_TTA_DI,DI,bool,Turntable Straight-Through Photo Eye — Part detected,PE_TTA,,DI:5,bit,,,,
+PE_TTB_DI,DI,bool,Turntable Side Load Centred Photo Eye — Part detected,PE_TTB,,DI:6,bit,,,,
+TT_01_AT0_DI,DI,bool,Lane Merge Turntable — At 0 degrees,TT_01,,DI:7,bit,,,,
+TT_01_AT90_DI,DI,bool,Lane Merge Turntable — At turn_deg (90 degrees),TT_01,,DI:8,bit,,,,
+SIM_HEARTBEAT_DI,DI,bool,"OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",,,DI:9,bit,,,,
+CONV_A_RUN_DO,DO,bool,Lane A Infeed Belt Conveyor — Run command,CONV_A,,CO:0,bit,,,,
+CONV_B_RUN_DO,DO,bool,Lane B Infeed Belt Conveyor — Run command,CONV_B,,CO:1,bit,,,,
+CONV_OUT_RUN_DO,DO,bool,Merged Outfeed Belt Conveyor — Run command,CONV_OUT,,CO:2,bit,,,,
+EMT_A_EN_DO,DO,bool,Lane A Box Source — Emitter enable,EMT_A,,CO:3,bit,,,,
+EMT_B_EN_DO,DO,bool,Lane B Box Source — Emitter enable,EMT_B,,CO:4,bit,,,,
+STP_A_REL_DO,DO,bool,Lane A Release Stopper — Raise command,STP_A,,CO:5,bit,,,,NC (inverted)
+STP_B_REL_DO,DO,bool,Lane B Release Stopper — Raise command,STP_B,,CO:6,bit,,,,NC (inverted)
+TT_01_RUN_DO,DO,bool,Lane Merge Turntable — Deck conveyor run command,TT_01,,CO:7,bit,,,,
+TT_01_TURN_DO,DO,bool,Lane Merge Turntable — Turn command (held: to turn_deg; released: back to 0),TT_01,,CO:8,bit,,,,

@@ -1,0 +1,137 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 2.7: two infeed lanes merge onto one outfeed through a turntable. Lane A feeds the deck
+# straight on; lane B arrives from the side, so the deck turns 90 degrees to take each lane-B box
+# and turns back to discharge it. Spring-raised stoppers hold each lane's next box clear of the
+# deck while it is turned (the viewer's physics has no wall at a lane's end). Guide:
+# docs/guides/two-lane-merge.md. PLC programs: examples/openplc/two-lane-merge.st (OpenPLC) and
+# examples/pyplc/two-lane-merge.py (stand-in script).
+openfactory: "0.1"
+scene:
+  name: two-lane-merge
+  description: Two infeed lanes merged onto one outfeed by a turntable, alternating lanes.
+  author: HIS Controls
+  seed: 23
+  units: meters
+plc:
+  protocol: modbus_tcp
+checks:                            # PLAN 2.11: `openfactory test` grades a program against these
+  duration_s: 60
+  parts_reached: {REM_OUT: [a, b]}
+  none_lost: true
+  max_cycle_s: 22                  # measured 17.4 s under the stand-in script
+components:
+  - id: CONV_A
+    type: belt_conveyor
+    description: Lane A Infeed Belt Conveyor
+    position: [0, 0, 0]
+    length: 4.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_A_RUN_DO
+      running: CONV_A_RUN_DI
+  - id: STP_A
+    type: stopper
+    description: Lane A Release Stopper
+    position: [3.85, 0, 0]           # 0.15 m before the lane end; a held box's centre is at 3.70
+    io:
+      raise: {tag: STP_A_REL_DO, invert: true}  # spring-raised: energize to lower and release
+  - id: PE_A
+    type: photo_eye
+    description: Lane A Box Waiting Photo Eye
+    position: [3.75, 0.1, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_A_DI
+  - id: CONV_B
+    type: belt_conveyor
+    description: Lane B Infeed Belt Conveyor
+    position: [4.4, 0, 3.4]          # flows toward -z and ends at z 0.4, the deck's turned infeed
+    rotation_deg: 90
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_B_RUN_DO
+      running: CONV_B_RUN_DI
+  - id: STP_B
+    type: stopper
+    description: Lane B Release Stopper
+    position: [4.4, 0, 0.55]         # 0.15 m before the lane end; a held box's centre is at z 0.70
+    rotation_deg: 90
+    io:
+      raise: {tag: STP_B_REL_DO, invert: true}
+  - id: PE_B
+    type: photo_eye
+    description: Lane B Box Waiting Photo Eye
+    position: [4.4, 0.1, 0.65]
+    rotation_deg: 90                 # beam along x, across lane B
+    beam_length: 0.6
+    io:
+      detect: PE_B_DI
+  - id: TT_01
+    type: turntable
+    description: Lane Merge Turntable
+    position: [4.4, 0, 0]            # deck centre; at 0 degrees the deck spans x 4.0 to 4.8
+    length: 0.8
+    width: 0.5
+    speed_mps: 0.5
+    turn_deg: 90                     # counter-clockwise: at 90 the deck flows toward -z
+    turn_time_s: 1.0
+    io:
+      run: TT_01_RUN_DO
+      turn: TT_01_TURN_DO
+      at_0: TT_01_AT0_DI
+      at_90: TT_01_AT90_DI
+  - id: PE_TTA
+    type: photo_eye
+    description: Turntable Straight-Through Photo Eye
+    position: [4.56, 0.1, 0]         # beam along z just past the deck centre; clear of a box
+    beam_length: 0.4                 # centred on the deck at 90 degrees (x 4.25 to 4.55)
+    io:
+      detect: PE_TTA_DI
+  - id: PE_TTB
+    type: photo_eye
+    description: Turntable Side Load Centred Photo Eye
+    position: [4.4, 0.1, -0.16]      # a lane-B box is centred when its front reaches z -0.16
+    rotation_deg: 90                 # beam along x; clear of a box centred at 0 degrees
+    beam_length: 0.4
+    io:
+      detect: PE_TTB_DI
+  - id: CONV_OUT
+    type: belt_conveyor
+    description: Merged Outfeed Belt Conveyor
+    position: [4.8, 0, 0]
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_OUT_RUN_DO
+      running: CONV_OUT_RUN_DI
+  - id: EMT_A
+    type: box_emitter
+    description: Lane A Box Source
+    position: [0.3, 0.105, 0]
+    interval_s: 8.0
+    parts:
+      - {name: a, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_A_EN_DO
+  - id: EMT_B
+    type: box_emitter
+    description: Lane B Box Source
+    position: [4.4, 0.105, 3.1]
+    interval_s: 8.0
+    parts:
+      - {name: b, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_B_EN_DO
+  - id: REM_OUT
+    type: part_remover
+    description: Merged Outfeed Discharge Part Remover
+    position: [7.95, 0, 0]
+    size: [0.3, 1.0, 1.0]
+connections:
+  - {from: CONV_A, to: TT_01}
+  - {from: CONV_B, to: TT_01}
+  - {from: TT_01, to: CONV_OUT}

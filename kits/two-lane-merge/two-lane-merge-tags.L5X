@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="OpenFactory" TargetType="Controller" ContainsContext="true" Owner="OpenFactory">
+<Controller Use="Context" Name="OpenFactory">
+<Tags>
+<Tag Name="CONV_A_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane A Infeed Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="CONV_B_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane B Infeed Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="CONV_OUT_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Merged Outfeed Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="PE_A_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane A Box Waiting Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="PE_B_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane B Box Waiting Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="PE_TTA_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Turntable Straight-Through Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="PE_TTB_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Turntable Side Load Centred Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="TT_01_AT0_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane Merge Turntable — At 0 degrees]]></Description>
+</Tag>
+<Tag Name="TT_01_AT90_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane Merge Turntable — At turn_deg (90 degrees)]]></Description>
+</Tag>
+<Tag Name="SIM_HEARTBEAT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops]]></Description>
+</Tag>
+<Tag Name="CONV_A_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane A Infeed Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="CONV_B_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane B Infeed Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="CONV_OUT_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Merged Outfeed Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="EMT_A_EN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane A Box Source — Emitter enable]]></Description>
+</Tag>
+<Tag Name="EMT_B_EN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane B Box Source — Emitter enable]]></Description>
+</Tag>
+<Tag Name="STP_A_REL_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane A Release Stopper — Raise command]]></Description>
+</Tag>
+<Tag Name="STP_B_REL_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane B Release Stopper — Raise command]]></Description>
+</Tag>
+<Tag Name="TT_01_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane Merge Turntable — Deck conveyor run command]]></Description>
+</Tag>
+<Tag Name="TT_01_TURN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Lane Merge Turntable — Turn command (held: to turn_deg; released: back to 0)]]></Description>
+</Tag>
+</Tags>
+</Controller>
+</RSLogix5000Content>
