@@ -1,0 +1,9 @@
+tag,io_type,dtype,description,component,address,modbus_address,modbus_encoding,units,range_min,range_max,transform
+CONV_01_RUN_DI,DI,bool,Transfer Belt Conveyor — Running feedback,CONV_01,,DI:0,bit,,,,
+PB_STOP_DI,DI,bool,Transfer Conveyor Stop Pushbutton — Pushbutton pressed,PB_STOP,,DI:1,bit,,,,NC (inverted)
+SS_01_OFF_DI,DI,bool,Transfer Conveyor Off/Run Selector Switch — Selector in position A,SS_01,,DI:2,bit,,,,
+SS_01_RUN_DI,DI,bool,Transfer Conveyor Off/Run Selector Switch — Selector in position B,SS_01,,DI:3,bit,,,,
+SIM_HEARTBEAT_DI,DI,bool,"OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",,,DI:4,bit,,,,
+CONV_01_RUN_DO,DO,bool,Transfer Belt Conveyor — Run command,CONV_01,,CO:0,bit,,,,
+EMT_01_EN_DO,DO,bool,Transfer Belt Box Source — Emitter enable,EMT_01,,CO:1,bit,,,,
+PL_RUN_DO,DO,bool,Transfer Conveyor Running Pilot Light — Light on command,PL_RUN,,CO:2,bit,,,,

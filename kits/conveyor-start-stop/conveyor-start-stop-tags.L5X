@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="OpenFactory" TargetType="Controller" ContainsContext="true" Owner="OpenFactory">
+<Controller Use="Context" Name="OpenFactory">
+<Tags>
+<Tag Name="CONV_01_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Transfer Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="PB_STOP_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Transfer Conveyor Stop Pushbutton — Pushbutton pressed]]></Description>
+</Tag>
+<Tag Name="SS_01_OFF_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Transfer Conveyor Off/Run Selector Switch — Selector in position A]]></Description>
+</Tag>
+<Tag Name="SS_01_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Transfer Conveyor Off/Run Selector Switch — Selector in position B]]></Description>
+</Tag>
+<Tag Name="SIM_HEARTBEAT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops]]></Description>
+</Tag>
+<Tag Name="CONV_01_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Transfer Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="EMT_01_EN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Transfer Belt Box Source — Emitter enable]]></Description>
+</Tag>
+<Tag Name="PL_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Transfer Conveyor Running Pilot Light — Light on command]]></Description>
+</Tag>
+</Tags>
+</Controller>
+</RSLogix5000Content>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<!-- generated, pending PE review. Made with /grafcet-chart-creator from the OpenPLC program; HIS Controls PE
+     review required before any client use. OpenFactory is a training and demo tool, not a
+     safety-rated simulation. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start_Stop — Conveyor start/stop with seal-in GRAFCET</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 16px; background: #ffffff; color: #1a2a4a; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { font-size: 12px; color: #5a6478; margin-bottom: 6px; }
+  .review { font-size: 12px; color: #7f1010; background: #fff0f0; border: 1px solid #c0392b;
+            padding: 4px 8px; display: inline-block; margin-bottom: 8px; }
+  .legend { font-size: 11px; display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 18px; height: 12px; border: 2px solid #1d6fb8; border-radius: 3px; }
+  .zoom-bar { font-size: 12px; margin: 6px 0; }
+  .zoom-bar button { font-size: 12px; padding: 1px 8px; }
+  .svg-wrap { overflow: auto; border: 1px solid #c5cae9; }
+  .print-note { font-size: 10px; color: #5a6478; margin-top: 6px; }
+  @media print { .zoom-bar, .print-note { display: none; } }
+</style>
+</head>
+<body>
+<h1>Start_Stop — Conveyor start/stop with seal-in GRAFCET</h1>
+<div class="subtitle">OpenFactory demo scene `conveyor-start-stop` · IEC 60848 GRAFCET Notation · Source: examples/openplc/conveyor-start-stop.st</div>
+<div class="review">generated, pending PE review: a generated engineering reference, not a PLC program. Not safety-rated.</div>
+<div class="legend">
+  <span><span class="sw" style="background:#dbeafe;border-width:4px;border-style:double"></span>Initial step</span>
+  <span><span class="sw" style="background:#fdfefe"></span>Normal step</span>
+  <span><span class="sw" style="background:#ecf7ee;border-color:#2e7d32"></span>Running / production</span>
+  <span><span class="sw" style="background:#fff8e1;border-color:#e07b00"></span>Transient / caution</span>
+  <span><svg width="28" height="10"><line x1="2" y1="5" x2="26" y2="5" stroke="#2d3748" stroke-width="6"/></svg>Transition</span>
+  <span><span class="sw" style="background:#f8f9fa;border:1px solid #c5cae9;border-radius:0"></span>Action block</span>
+  <span><svg width="28" height="10"><line x1="2" y1="5" x2="26" y2="5" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4"/></svg>Clean return</span>
+</div>
+<div class="zoom-bar">Zoom <button onclick="zoomBy(-10)">−</button> <span id="zoom-pct">100%</span>
+  <button onclick="zoomBy(10)">+</button> <button onclick="setZoom(100)">Reset</button></div>
+<div class="svg-wrap">
+<svg id="grafcet" xmlns="http://www.w3.org/2000/svg" width="900" height="1240" viewBox="0 0 900 1240"
+     font-family="Arial, sans-serif">
+<defs>
+  <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#2d3748"/></marker>
+  <marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#2e7d32"/></marker>
+</defs>
+<rect x="0" y="0" width="900" height="1240" fill="white"/>
+<rect x="0" y="0" width="900" height="40" fill="#f0f4fb"/>
+<text x="450" y="26" font-size="14" font-weight="600" fill="#1a2a4a" text-anchor="middle">Main sequence (partial GRAFCETs run concurrently; every initial step is active at start)</text>
+<text x="20" y="88" font-size="13" font-weight="700" fill="#1a2a4a">G1 — Line start/stop (RUN_LATCH seal-in)</text>
+<line x1="20" y1="96" x2="880" y2="96" stroke="#c5cae9" stroke-width="0.8"/>
+<rect x="88" y="120" width="280" height="180" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
+<rect x="96" y="128" width="264" height="164" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
+<circle cx="102" cy="140" r="14" fill="#1d6fb8"/>
+<text x="102" y="144" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">0</text>
+<text x="228" y="215" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Stopped</text>
+<text x="228" y="286" font-size="10" fill="#5a6478" text-anchor="middle">Step S0</text>
+<line x1="368" y1="146" x2="380" y2="146" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="120" width="430" height="180" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="142" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="160" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_01_RUN_DO := FALSE</text>
+<text x="392" y="178" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_01_EN_DO := FALSE</text>
+<text x="392" y="196" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PL_RUN_DO := CONV_01_RUN_DI</text>
+<text x="392" y="214" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">RUN_OK := SS_01_RUN_DI AND NOT SS_01_OFF_DI</text>
+<text x="392" y="232" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">          AND PB_STOP_DI   (PB_STOP is NC)</text>
+<text x="392" y="250" font-size="10" fill="#5a6478" font-style="italic">ST sections 1-3, 5</text>
+<line x1="228" y1="300" x2="228" y2="349" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="352" x2="368" y2="352" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="356" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T1</text>
+<text x="380" y="335" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">R_TRIG(SS_01_RUN_DI) AND RUN_OK</text>
+<text x="380" y="322" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">a turn to RUN (also RUN at first scan); stop released</text>
+<line x1="228" y1="355" x2="228" y2="382" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="382" width="280" height="170" rx="8" fill="#fdfefe" stroke="#1d6fb8" stroke-width="2"/>
+<circle cx="102" cy="402" r="14" fill="#1d6fb8"/>
+<text x="102" y="406" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">10</text>
+<text x="228" y="472" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Belt starting</text>
+<text x="228" y="538" font-size="10" fill="#5a6478" text-anchor="middle">Step S10</text>
+<line x1="368" y1="408" x2="380" y2="408" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="382" width="430" height="170" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="404" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="422" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_01_RUN_DO := TRUE   (RUN_LATCH)</text>
+<text x="392" y="440" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">BELT_OK_TMR: TON, PT 1 s, IN = CONV_01_RUN_DI</text>
+<text x="392" y="458" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_01_EN_DO := FALSE</text>
+<text x="392" y="476" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PL_RUN_DO := CONV_01_RUN_DI</text>
+<text x="392" y="494" font-size="10" fill="#5a6478" font-style="italic">ST sections 3-5</text>
+<line x1="228" y1="552" x2="228" y2="601" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="604" x2="368" y2="604" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="608" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T2</text>
+<text x="380" y="587" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">BELT_OK_TMR.Q</text>
+<text x="380" y="574" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">running feedback held 1 s (BELT_OK_DELAY)</text>
+<line x1="228" y1="607" x2="228" y2="634" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="634" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="654" r="14" fill="#2e7d32"/>
+<text x="102" y="658" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">20</text>
+<text x="228" y="724" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Running, feeding boxes</text>
+<text x="228" y="790" font-size="10" fill="#5a6478" text-anchor="middle">Step S20</text>
+<line x1="368" y1="660" x2="380" y2="660" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="634" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="656" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="674" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_01_RUN_DO := TRUE   (RUN_LATCH)</text>
+<text x="392" y="692" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_01_EN_DO := TRUE</text>
+<text x="392" y="710" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PL_RUN_DO := CONV_01_RUN_DI</text>
+<text x="392" y="728" font-size="10" fill="#5a6478" font-style="italic">ST sections 3-5</text>
+<line x1="228" y1="804" x2="228" y2="853" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="856" x2="368" y2="856" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="860" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T3</text>
+<text x="380" y="839" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">NOT RUN_OK</text>
+<text x="380" y="826" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">stop pressed, selector OFF, or both selector contacts</text>
+<path d="M228 859 L228 878 L38 878" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<text x="236" y="928" font-size="10" font-style="italic" fill="#2d3748">from S10 (alternative branch)</text>
+<path d="M228 916 L228 985" stroke="#2d3748" stroke-width="1.5" fill="none" marker-end="url(#ar)"/>
+<line x1="88" y1="988" x2="368" y2="988" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="992" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T4</text>
+<text x="380" y="971" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">NOT RUN_OK</text>
+<text x="380" y="958" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">stop during the start</text>
+<path d="M228 991 L228 1010 L38 1010" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<path d="M38 1010 L38 210.0 L86 210.0" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arg)"/>
+<text x="26" y="610" font-size="10" fill="#2e7d32" text-anchor="middle" transform="rotate(-90 26 610)">→ S0 (clean return)</text>
+<line x1="20" y1="1098" x2="880" y2="1098" stroke="#c5cae9" stroke-width="0.8"/>
+<text x="20" y="1116" font-size="10" fill="#5a6478">Source: examples/openplc/conveyor-start-stop.st (program start_stop)</text>
+<text x="20" y="1130" font-size="10" fill="#5a6478">start_stop · lines 1-74 · task0, cyclic 20 ms</text>
+<text x="20" y="1144" font-size="10" fill="#5a6478">Rev: 2026-10-30 HIS · generated, pending PE review</text>
+<text x="20" y="1158" font-size="10" fill="#5a6478" font-weight="700">HUNT INTEGRATIVE SOLUTIONS LLC</text>
+<text x="20" y="1172" font-size="10" fill="#5a6478">Timothy.hunt.his@outlook.com</text>
+<text x="20" y="1186" font-size="10" fill="#5a6478">Philippians 4:13</text>
+</svg>
+</div>
+<div class="print-note">Print on A3 portrait at 100 % zoom.</div>
+<script>
+  let zoom = 100;
+  const svg = document.getElementById("grafcet");
+  const baseW = 900, baseH = 1240;
+  function setZoom(pct) {
+    zoom = Math.max(50, Math.min(200, pct));
+    svg.setAttribute("width", baseW * zoom / 100);
+    svg.setAttribute("height", baseH * zoom / 100);
+    document.getElementById("zoom-pct").textContent = zoom + "%";
+  }
+  function zoomBy(d) { setZoom(zoom + d); }
+</script>
+</body>
+</html>

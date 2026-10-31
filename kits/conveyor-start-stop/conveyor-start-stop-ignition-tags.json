@@ -1,0 +1,289 @@
+{
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "OF_BeltConveyor",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Run command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Run",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Run}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Running feedback",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Running",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Running}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_BoxEmitter",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Enable": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Emitter enable",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Enable",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Enable}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_PilotLight",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_On": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Light on command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "On",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_On}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_Pushbutton",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Pressed": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Pushbutton pressed",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Pressed",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Pressed}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_SelectorSwitch",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_PosA": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_PosB": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Selector in position A",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "PosA",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_PosA}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Selector in position B",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "PosB",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_PosB}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CONVEYOR_START_STOP",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "Transfer Belt Conveyor",
+          "name": "CONV_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "CONV_01"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "CONV_01_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "CONV_01_RUN_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_BeltConveyor"
+        },
+        {
+          "documentation": "Transfer Belt Box Source",
+          "name": "EMT_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "EMT_01"
+            },
+            "Tag_Enable": {
+              "dataType": "String",
+              "value": "EMT_01_EN_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_BoxEmitter"
+        },
+        {
+          "documentation": "Transfer Conveyor Off/Run Selector Switch",
+          "name": "SS_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "SS_01"
+            },
+            "Tag_PosA": {
+              "dataType": "String",
+              "value": "SS_01_OFF_DI"
+            },
+            "Tag_PosB": {
+              "dataType": "String",
+              "value": "SS_01_RUN_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_SelectorSwitch"
+        },
+        {
+          "documentation": "Transfer Conveyor Stop Pushbutton",
+          "name": "PB_STOP",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "PB_STOP"
+            },
+            "Tag_Pressed": {
+              "dataType": "String",
+              "value": "PB_STOP_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Pushbutton"
+        },
+        {
+          "documentation": "Transfer Conveyor Running Pilot Light",
+          "name": "PL_RUN",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "PL_RUN"
+            },
+            "Tag_On": {
+              "dataType": "String",
+              "value": "PL_RUN_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_PilotLight"
+        },
+        {
+          "accessRights": "Read_Only",
+          "dataType": "Boolean",
+          "documentation": "OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",
+          "enabled": true,
+          "historyEnabled": false,
+          "name": "SIM_HEARTBEAT",
+          "opcItemPath": "nsu=urn:openfactory:sim;s=SIM_HEARTBEAT_DI",
+          "opcServer": "OpenFactory",
+          "tagType": "AtomicTag",
+          "valueSource": "opc"
+        }
+      ]
+    }
+  ],
+  "version": "8.3.0"
+}

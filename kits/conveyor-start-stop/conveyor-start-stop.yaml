@@ -1,0 +1,66 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 2.7, the hello-world scene: one belt conveyor started and stopped from an operator station.
+# Guide: docs/guides/conveyor-start-stop.md. PLC programs: examples/openplc/conveyor-start-stop.st
+# (OpenPLC) and examples/pyplc/conveyor-start-stop.py (stand-in script).
+openfactory: "0.1"
+scene:
+  name: conveyor-start-stop
+  description: One belt conveyor started and stopped from an operator station, boxes carried end to end.
+  author: HIS Controls
+  seed: 7
+  units: meters
+plc:
+  protocol: modbus_tcp
+checks:                            # PLAN 2.11: `openfactory test` grades a program against these
+  duration_s: 60
+  parts_reached: {REM_01: box}
+  none_lost: true
+  max_cycle_s: 12                  # measured 9.5 s under the stand-in script
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Transfer Belt Conveyor
+    position: [0, 0, 0]
+    length: 5.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_01_RUN_DO
+      running: CONV_01_RUN_DI
+  - id: EMT_01
+    type: box_emitter
+    description: Transfer Belt Box Source
+    position: [0.3, 0.155, 0]       # a 0.3 m box, 5 mm above the belt
+    interval_s: 3.0
+    parts:
+      - {name: box, size: [0.3, 0.3, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_01
+    type: part_remover
+    description: Transfer Belt Discharge Part Remover
+    position: [5.15, 0, 0]
+    size: [0.3, 1.0, 1.0]
+  - id: SS_01
+    type: selector_switch
+    description: Transfer Conveyor Off/Run Selector Switch
+    position: [1.0, 1.0, 0.8]        # operator station beside the infeed
+    positions: 2                     # a = OFF, b = RUN
+    initial: b                       # the scene starts in RUN, so a headless run moves boxes
+    io:
+      pos_a: SS_01_OFF_DI
+      pos_b: SS_01_RUN_DI
+  - id: PB_STOP
+    type: pushbutton
+    description: Transfer Conveyor Stop Pushbutton
+    position: [1.4, 1.0, 0.8]
+    color: red
+    io:
+      pressed: {tag: PB_STOP_DI, invert: true}  # NC contact: TRUE while not pressed
+  - id: PL_RUN
+    type: pilot_light
+    description: Transfer Conveyor Running Pilot Light
+    position: [1.8, 1.0, 0.8]
+    color: green
+    io:
+      on: PL_RUN_DO
