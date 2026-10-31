@@ -16,16 +16,9 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `sorting-by-color-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `sorting-by-color-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |
 | `sorting-by-color-ignition-tags.json` | Ignition 8.3 tags, a UDT instance per component (PLAN 2.4) |
+| `sorting-by-color-grafcet.html` | GRAFCET of the OpenPLC program, pending PE review (PLAN 2.8) |
 | `sorting-by-color.ofrec` | a 60 s recording under the stand-in script (PLAN 2.12) |
 | `README.md` | this index |
-
-## Skill-made files (committed by hand, each pending PE review)
-
-| File | Made by | Status |
-|------|---------|--------|
-| `sorting-by-color-full.L5X` | `/io-to-l5x` on the I/O CSV (PlantPAx AOI instances) | missing |
-| `sorting-by-color-perspective.json` | `/perspective-view` (Ignition Perspective demo screen) | missing |
-| `sorting-by-color-grafcet.html` | `/grafcet-chart-creator` on the OpenPLC program (PLAN 2.8) | present, pending PE review |
 
 ## Use it
 

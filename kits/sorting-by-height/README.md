@@ -16,16 +16,23 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `sorting-by-height-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `sorting-by-height-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |
 | `sorting-by-height-ignition-tags.json` | Ignition 8.3 tags, a UDT instance per component (PLAN 2.4) |
+| `sorting-by-height-grafcet.html` | GRAFCET of the OpenPLC program, pending PE review (PLAN 2.8) |
 | `sorting-by-height.ofrec` | a 60 s recording under the stand-in script (PLAN 2.12) |
 | `README.md` | this index |
 
-## Skill-made files (committed by hand, each pending PE review)
+## Made outside this tool (committed by hand, pending PE review)
 
 | File | Made by | Status |
 |------|---------|--------|
-| `sorting-by-height-full.L5X` | `/io-to-l5x` on the I/O CSV (PlantPAx AOI instances) | missing |
-| `sorting-by-height-perspective.json` | `/perspective-view` (Ignition Perspective demo screen) | present, pending PE review |
-| `sorting-by-height-grafcet.html` | `/grafcet-chart-creator` on the OpenPLC program (PLAN 2.8) | present, pending PE review |
+| `sorting-by-height-perspective.json` | the `/perspective-view` method, by hand (Perspective faceplate) | present, pending PE review |
+
+### Needs Designer load before client use
+
+- Load the view in an Ignition Designer: every binding resolves, no red or orange indicators.
+- Component-level role gating on START/STOP (today a role check inside the scripts).
+- Confirm the gateway role names (Operator, Engineer) and set write permissions on the tags.
+- Callers pass `tagPath` and `equipmentName`; the defaults point at the demo's CONV_01.
+- HIS Controls PE review (the view is marked generated, pending PE review).
 
 ## Use it
 

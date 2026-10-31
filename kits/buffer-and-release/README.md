@@ -16,16 +16,9 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `buffer-and-release-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `buffer-and-release-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |
 | `buffer-and-release-ignition-tags.json` | Ignition 8.3 tags, a UDT instance per component (PLAN 2.4) |
+| `buffer-and-release-grafcet.html` | GRAFCET of the OpenPLC program, pending PE review (PLAN 2.8) |
 | `buffer-and-release.ofrec` | a 60 s recording under the stand-in script (PLAN 2.12) |
 | `README.md` | this index |
-
-## Skill-made files (committed by hand, each pending PE review)
-
-| File | Made by | Status |
-|------|---------|--------|
-| `buffer-and-release-full.L5X` | `/io-to-l5x` on the I/O CSV (PlantPAx AOI instances) | missing |
-| `buffer-and-release-perspective.json` | `/perspective-view` (Ignition Perspective demo screen) | missing |
-| `buffer-and-release-grafcet.html` | `/grafcet-chart-creator` on the OpenPLC program (PLAN 2.8) | present, pending PE review |
 
 ## Use it
 

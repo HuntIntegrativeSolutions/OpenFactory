@@ -15,17 +15,20 @@ part code can produce (ruled 2026-10-30):
 - the I/O list CSV for each analog encoding that has a lockfile (``export``);
 - the Studio 5000 controller tag stubs (``export --format l5x``, PLAN 2.3);
 - the Ignition 8.3 tag JSON (``export --format ignition``, PLAN 2.4);
+- the GRAFCET chart of the OpenPLC program (``tools/grafcet_from_st.py``, PLAN 2.8), for the
+  scenes that tool knows; charts are generated, never hand-edited (ruled 2026-10-31);
 - a 60 s recording under the stand-in script (``test --script --record``, PLAN 2.12; the
   build fails if the scene's checks do), replayable with no scene file and identical on every
   build (``--check`` compares it decompressed);
 - ``README.md``, the kit's index, listing every file and the commands to use it.
 
-Files only the HIS Controls skills can make (the full L5X from ``/io-to-l5x``, the Perspective
-view from ``/perspective-view``, the GRAFCET chart from ``/grafcet-chart-creator``) are not
-generated here. They are committed into the kit by hand, each starting with the line
-``generated, pending PE review`` (inside the file format's comment syntax where it has one; a
-JSON file has none, so there the text goes in a field near the top), and the README lists them
-as present or missing. The tool never deletes or rewrites them.
+A kit's L5X is the tag stub file; full controller programs are the user's own work, outside
+this repository (ruled 2026-10-31). The one file made outside this tool is a Perspective view
+(``<scene>-perspective.json``, following the ``/perspective-view`` skill's method), committed by
+hand with the text ``generated, pending PE review`` in its first 300 characters (JSON has no
+comment syntax, so a field near the top carries it). The README lists it when it is present,
+with what it needs before client use, and never lists anything as missing. The tool never
+deletes or rewrites it.
 
 ``--check`` builds into a temporary folder and compares it byte for byte with ``kits/``; CI runs
 it, so a change to a scene, a program, or an exporter that is not rebuilt into its kit fails.
@@ -44,14 +47,23 @@ import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "tools"))
+import grafcet_from_st as grafcet  # noqa: E402 - a sibling tool, not a package
+
 KITS = REPO / "kits"
 PE_HEADER = "generated, pending PE review"
-#: Skill-made files a kit may hold: file name pattern -> what makes it.
+#: Files made outside this tool that a kit may hold: file name pattern -> what makes it.
 SKILL_FILES = {
-    "{scene}-full.L5X": "`/io-to-l5x` on the I/O CSV (PlantPAx AOI instances)",
-    "{scene}-perspective.json": "`/perspective-view` (Ignition Perspective demo screen)",
-    "{scene}-grafcet.html": "`/grafcet-chart-creator` on the OpenPLC program (PLAN 2.8)",
+    "{scene}-perspective.json": "the `/perspective-view` method, by hand (Perspective faceplate)",
 }
+#: What a Perspective view still needs before client use (PLAN 2.14 ruling, 2026-10-31).
+PERSPECTIVE_OPEN = [
+    "Load the view in an Ignition Designer: every binding resolves, no red or orange indicators.",
+    "Component-level role gating on START/STOP (today a role check inside the scripts).",
+    "Confirm the gateway role names (Operator, Engineer) and set write permissions on the tags.",
+    "Callers pass `tagPath` and `equipmentName`; the defaults point at the demo's CONV_01.",
+    "HIS Controls PE review (the view is marked generated, pending PE review).",
+]
 ENCODING_SUFFIX = {"float32": "", "int16_scaled": "-int16"}
 RECORD_SECONDS = 60
 
@@ -71,7 +83,9 @@ def generated(scene: str) -> list[str]:
     names += [f"{scene}.{e}.modbus.yaml" for e in encodings]
     names += [f"{scene}.st", f"{scene}.py"]
     names += [f"{scene}-io{ENCODING_SUFFIX[e]}.csv" for e in encodings]
-    names += [f"{scene}-tags.L5X", f"{scene}-ignition-tags.json", f"{scene}.ofrec", "README.md"]
+    names += [f"{scene}-tags.L5X", f"{scene}-ignition-tags.json"]
+    names += [f"{scene}-grafcet.html"] if scene in grafcet.SCENES else []
+    names += [f"{scene}.ofrec", "README.md"]
     return names
 
 
@@ -101,6 +115,8 @@ def build(scene: str, out: Path) -> None:
     openfactory(
         "export", str(src), "--format", "ignition", "-o", str(out / f"{scene}-ignition-tags.json")
     )
+    if scene in grafcet.SCENES:
+        grafcet.write(scene, out / f"{scene}-grafcet.html")
     # The recording runs a copy of the scene in a scratch folder, so `run` cannot touch scenes/.
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp) / src.name
@@ -117,13 +133,14 @@ def build(scene: str, out: Path) -> None:
 
 
 def skill_status(scene: str, folder: Path) -> list[tuple[str, str, str]]:
+    """The made-outside files present in ``folder``; one that is absent is not listed."""
     rows = []
     for pattern, maker in SKILL_FILES.items():
         name = pattern.format(scene=scene)
         path = folder / name
         if not path.is_file():
-            rows.append((name, maker, "missing"))
-        elif PE_HEADER in path.read_text(encoding="utf-8", errors="replace")[:300]:
+            continue
+        if PE_HEADER in path.read_text(encoding="utf-8", errors="replace")[:300]:
             rows.append((name, maker, "present, pending PE review"))
         else:
             rows.append((name, maker, f"present, **no `{PE_HEADER}` header line**"))
@@ -142,6 +159,7 @@ def readme(scene: str, folder: Path) -> str:
         f"{scene}-io-int16.csv": "I/O list, int16_scaled Modbus addresses (OpenPLC)",
         f"{scene}-tags.L5X": "Studio 5000 controller tag stubs (PLAN 2.3)",
         f"{scene}-ignition-tags.json": "Ignition 8.3 tags, a UDT instance per component (PLAN 2.4)",
+        f"{scene}-grafcet.html": "GRAFCET of the OpenPLC program, pending PE review (PLAN 2.8)",
         f"{scene}.ofrec": f"a {RECORD_SECONDS} s recording under the stand-in script (PLAN 2.12)",
         "README.md": "this index",
     }
@@ -157,14 +175,19 @@ def readme(scene: str, folder: Path) -> str:
         "|------|------------|",
     ]
     lines += [f"| `{name}` | {files[name]} |" for name in generated(scene)]
-    lines += [
-        "",
-        "## Skill-made files (committed by hand, each pending PE review)",
-        "",
-        "| File | Made by | Status |",
-        "|------|---------|--------|",
-    ]
-    lines += [f"| `{n}` | {m} | {s} |" for n, m, s in skill_status(scene, folder)]
+    made = skill_status(scene, folder)
+    if made:
+        lines += [
+            "",
+            "## Made outside this tool (committed by hand, pending PE review)",
+            "",
+            "| File | Made by | Status |",
+            "|------|---------|--------|",
+        ]
+        lines += [f"| `{n}` | {m} | {s} |" for n, m, s in made]
+    if any(n.endswith("-perspective.json") for n, _, _ in made):
+        lines += ["", "### Needs Designer load before client use", ""]
+        lines += [f"- {item}" for item in PERSPECTIVE_OPEN]
     lines += [
         "",
         "## Use it",

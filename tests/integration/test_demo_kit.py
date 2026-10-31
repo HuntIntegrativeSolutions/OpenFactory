@@ -43,4 +43,5 @@ def test_the_kit_files_agree():
     assert rec.header["scene_yaml"] == (KIT / "sorting-by-height.yaml").read_text("utf-8")
     assert (KIT / "sorting-by-height.ofrec").stat().st_size < 1_000_000  # the repo's binary rule
     readme = (KIT / "README.md").read_text("utf-8")
-    assert "pending PE review" in readme and "| missing |" in readme
+    assert "pending PE review" in readme and "missing" not in readme  # ruled 2026-10-31
+    assert "### Needs Designer load before client use" in readme

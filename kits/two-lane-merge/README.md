@@ -16,16 +16,9 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `two-lane-merge-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `two-lane-merge-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |
 | `two-lane-merge-ignition-tags.json` | Ignition 8.3 tags, a UDT instance per component (PLAN 2.4) |
+| `two-lane-merge-grafcet.html` | GRAFCET of the OpenPLC program, pending PE review (PLAN 2.8) |
 | `two-lane-merge.ofrec` | a 60 s recording under the stand-in script (PLAN 2.12) |
 | `README.md` | this index |
-
-## Skill-made files (committed by hand, each pending PE review)
-
-| File | Made by | Status |
-|------|---------|--------|
-| `two-lane-merge-full.L5X` | `/io-to-l5x` on the I/O CSV (PlantPAx AOI instances) | missing |
-| `two-lane-merge-perspective.json` | `/perspective-view` (Ignition Perspective demo screen) | missing |
-| `two-lane-merge-grafcet.html` | `/grafcet-chart-creator` on the OpenPLC program (PLAN 2.8) | present, pending PE review |
 
 ## Use it
 
