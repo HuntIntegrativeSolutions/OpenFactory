@@ -731,6 +731,11 @@ runs the sorting program against it; a box visibly gets pushed.
       for training and demos and need PE review before any client use. (The 2.14 ruling of the
       same day puts one generated L5X per kit under `kits/`, which supersedes "never here" for
       kits only.)
+      *Prefix (ruled 2026-10-30):* scene names without a prefix stay the default;
+      `--prefix AREA1` prepends `AREA1_` to every tag name and `AREA1 — ` to every description
+      and changes nothing else. Done when: the sorter with `--prefix SIM` exports `SIM_PE_01_DI`
+      and the file is otherwise unchanged (`test_prefix_changes_names_and_descriptions_and_
+      nothing_else`: stripping the prefix gives the unprefixed file byte for byte).
 - [x] 2.4 `protocols/opcua.py` with asyncua; `export/ignition_tags.py` producing 8.3 tag JSON
       *Done when (first written):* Ignition 8.3 gateway shows Good quality on all tags; a
       Perspective view from `/perspective-view` starts the conveyor.

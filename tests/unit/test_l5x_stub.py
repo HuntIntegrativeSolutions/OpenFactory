@@ -79,3 +79,23 @@ def test_cli_writes_the_l5x_where_told_and_rejects_a_bad_controller(tmp_path):
         app, ["export", str(SORTER), "--format", "l5x", "--controller", "1bad name"]
     )
     assert bad.exit_code == 1 and "not a valid Logix name" in bad.output
+
+
+def test_prefix_changes_names_and_descriptions_and_nothing_else():
+    scene = load_scene(SORTER)
+    plain = l5x_stub(scene, scene_path=SORTER, write_lock=False)
+    prefixed = l5x_stub(scene, scene_path=SORTER, write_lock=False, prefix="SIM")
+    names = [t.get("Name") for t in tags_of(prefixed)]
+    assert "SIM_PE_01_DI" in names and all(n.startswith("SIM_") for n in names)
+    assert tags_of(prefixed)[0].findtext("Description").startswith("SIM — ")
+    undone = prefixed.replace('Name="SIM_', 'Name="').replace("<![CDATA[SIM — ", "<![CDATA[")
+    assert undone == plain  # otherwise unchanged
+    assert l5x_stub(scene, scene_path=SORTER, write_lock=False, prefix="SIM_") == prefixed
+    for bad in ("sim", "1A", "A-B"):
+        with pytest.raises(ValueError, match="use capitals and digits"):
+            l5x_stub(scene, scene_path=SORTER, write_lock=False, prefix=bad)
+    long = "A" * 30  # 30 + "_" + "CONV_01_RUN_DI" > 40 characters
+    with pytest.raises(ValueError, match="not a valid Logix tag name"):
+        l5x_stub(scene, scene_path=SORTER, write_lock=False, prefix=long)
+    out = CliRunner().invoke(app, ["export", str(SORTER), "--format", "l5x", "--prefix", "SIM"])
+    assert out.exit_code == 0 and 'Name="SIM_PE_01_DI"' in out.output

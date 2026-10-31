@@ -796,6 +796,13 @@ def export(
     controller: Annotated[
         str, typer.Option(help="l5x: the controller name in TargetName and the Controller element.")
     ] = "OpenFactory",
+    prefix: Annotated[
+        str | None,
+        typer.Option(
+            help="l5x: an area prefix, e.g. AREA1, prepended to every tag name (AREA1_PE_01_DI) "
+            "and description.",
+        ),
+    ] = None,
     area: Annotated[
         str | None,
         typer.Option(help="ignition: the area folder (default: the scene name in capitals)."),
@@ -825,7 +832,9 @@ def export(
     try:
         parsed, _ = _load(scene)
         if format_ == "l5x":
-            text = l5x_stub(parsed, encoding, scene_path=scene, controller=controller)
+            text = l5x_stub(
+                parsed, encoding, scene_path=scene, controller=controller, prefix=prefix
+            )
         elif format_ == "ignition":
             scene_register_map(parsed, encoding, scene_path=scene)  # lockfile, as for csv
             text = ignition_tags_json(parsed, area=area, opc_server=opc_server, device=device)

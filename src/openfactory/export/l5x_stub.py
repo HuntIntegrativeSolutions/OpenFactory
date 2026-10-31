@@ -7,8 +7,10 @@ base tag per row of the I/O list CSV (:func:`~openfactory.export.io_list_csv.io_
 the same order, so the two always name the same tags, ``SIM_HEARTBEAT_DI`` included (PLAN §6.1).
 A ``bool`` tag becomes ``BOOL`` (radix Decimal) and a ``float32`` tag ``REAL`` (radix Float): the
 PLC holds engineering values whatever the Modbus analog encoding. Tag names are the scene's own,
-which is what the Logix path (PLAN §6.2) and the PLC programs use; each is checked against the
-Logix name rule ``^[A-Z][A-Z0-9_]{0,39}$`` and for duplicates. Each tag carries the CSV
+which is what the Logix path (PLAN §6.2) and the PLC programs use; ``prefix="AREA1"``
+(``--prefix AREA1``) prepends ``AREA1_`` to every name and ``AREA1 — `` to every description
+and changes nothing else. Each name is checked against the Logix name rule
+``^[A-Z][A-Z0-9_]{0,39}$`` and for duplicates. Each tag carries the CSV
 description, plus ``[lo to hi units]`` for an analog tag, and ``ExternalAccess="Read/Write"``
 because the simulator (or Modbus mapping logic) writes the inputs and reads the outputs.
 
@@ -40,6 +42,8 @@ SOFTWARE_REVISION = "35.00"
 DEFAULT_CONTROLLER = "OpenFactory"
 #: Logix tag and controller names (Studio 5000: 40 characters, letter first).
 LOGIX_NAME = re.compile(r"^[A-Z][A-Z0-9_]{0,39}$")
+#: ``--prefix``: an area prefix, ``AREA1`` (PLAN 2.3 ruling, 2026-10-30).
+AREA_PREFIX = re.compile(r"^[A-Z][A-Z0-9]*$")
 CONTROLLER_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,39}$")
 DATA_TYPE = {"bool": ("BOOL", "Decimal"), "float32": ("REAL", "Float")}
 
@@ -63,10 +67,14 @@ def l5x_stub(
     scene_path: str | Path | None = None,
     write_lock: bool = True,
     controller: str = DEFAULT_CONTROLLER,
+    prefix: str | None = None,
     software_revision: str = SOFTWARE_REVISION,
 ) -> str:
     """The L5X text (UTF-8, ``\\n`` line endings). ``scene_path`` and ``write_lock`` are as for
     the I/O list, whose rows these tags are."""
+    area = (prefix or "").rstrip("_")
+    if prefix is not None and not AREA_PREFIX.match(area):
+        raise ValueError(f"prefix {prefix!r}: use capitals and digits, letter first (e.g. AREA1)")
     if not CONTROLLER_NAME.match(controller):
         raise ValueError(f"controller name {controller!r} is not a valid Logix name")
     rows = io_list_rows(scene, encoding, scene_path=scene_path, write_lock=write_lock)
@@ -80,17 +88,18 @@ def l5x_stub(
         "<Tags>",
     ]
     for row in rows:
-        name = row["tag"]
+        name = f"{area}_{row['tag']}" if area else row["tag"]
         if not LOGIX_NAME.match(name):
             raise ValueError(f"{name}: not a valid Logix tag name (^[A-Z][A-Z0-9_]{{0,39}}$)")
         if name in seen:
             raise ValueError(f"{name}: duplicate tag")
         seen.add(name)
         data_type, radix = DATA_TYPE[row["dtype"]]
+        description = f"{area} — {_description(row)}" if area else _description(row)
         lines += [
             f'<Tag Name="{name}" TagType="Base" DataType="{data_type}" Radix="{radix}"'
             ' Constant="false" ExternalAccess="Read/Write">',
-            f"<Description>{_cdata(_description(row))}</Description>",
+            f"<Description>{_cdata(description)}</Description>",
             "</Tag>",
         ]
     lines += ["</Tags>", "</Controller>", "</RSLogix5000Content>", ""]
