@@ -919,8 +919,19 @@ runs the sorting program against it; a box visibly gets pushed.
       emitter now runs every 6 s: longest dwell 27.4 s at 60, 300 and 600 s, 48 boxes out in
       300 s. Its 60 s count is unchanged (8) under the script; the OpenPLC re-run at 6 s waits
       for Docker (not available in this WSL session on 2026-10-28).
-- [ ] 2.8 Scene → GRAFCET: feed the example PLC sequence to `/grafcet-chart-creator` for each scene and
+- [x] 2.8 Scene → GRAFCET: feed the example PLC sequence to `/grafcet-chart-creator` for each scene and
       ship the HTML in `docs/sequences/`
+      *Ruled 2026-10-30:* the HTML goes in each scene's kit folder, `kits/<scene>/<scene>-grafcet.html`
+      (not `docs/sequences/`), with the "generated, pending PE review" marker, one commit per scene.
+      *Done (2026-10-30):* six charts, one per shipped scene, from each scene's OpenPLC program
+      read directly (the skill's document mode; no MCP in this repo), laid out per the HIS
+      GRAFCET standards in a 1-column layout (none of the programs has fault codes or an
+      emergency override), concurrent logic as partial GRAFCETs with their own initial steps,
+      the merge's and palletizer's step numbers equal to the programs' STATE and PICK_STEP
+      values. Each passed the skill's Playwright review at 150 % (no page errors, no text
+      outside its block); the review fixes were made directly instead of through the skill's
+      Codex loop. Each scene's kit is built with its chart (`build_kit.py --check`: all six
+      current). *Not done:* PE review of the charts.
 - [ ] 2.9 Performance: 200 parts at 60 fps in the viewer on integrated graphics; profile and fix.
       **First, before any other 2.9 work (ruled 2026-10-30): the real-time tick loop falls
       seconds behind when a viewer is connected.** Seen during 2.11 with a software-rendered

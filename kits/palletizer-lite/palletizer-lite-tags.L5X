@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="OpenFactory" TargetType="Controller" ContainsContext="true" Owner="OpenFactory">
+<Controller Use="Context" Name="OpenFactory">
+<Tags>
+<Tag Name="CONV_IN_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Infeed Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="CONV_LYR_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Layer Forming Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="PE_PICK_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Infeed Box At Pick Position Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="PE_ROW_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Layer Row Complete Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="PP_01_AT_PICK_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Transfer Gantry — At the pick side]]></Description>
+</Tag>
+<Tag Name="PP_01_AT_PLACE_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Transfer Gantry — At the place side]]></Description>
+</Tag>
+<Tag Name="PP_01_DOWN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Transfer Gantry — Lowered limit switch]]></Description>
+</Tag>
+<Tag Name="PP_01_HOLD_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Transfer Gantry — Holding a part]]></Description>
+</Tag>
+<Tag Name="SIM_HEARTBEAT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops]]></Description>
+</Tag>
+<Tag Name="CONV_IN_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Infeed Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="CONV_LYR_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Layer Forming Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="EMT_01_EN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Infeed Box Source — Emitter enable]]></Description>
+</Tag>
+<Tag Name="PP_01_GRIP_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Transfer Gantry — Grip command]]></Description>
+</Tag>
+<Tag Name="PP_01_LOWER_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Transfer Gantry — Lower command]]></Description>
+</Tag>
+<Tag Name="PP_01_TRAV_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Palletizer Transfer Gantry — Traverse command (held: to the place side; released: back to pick)]]></Description>
+</Tag>
+<Tag Name="STP_IN_RAISE_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Infeed Pick Position Stopper — Raise command]]></Description>
+</Tag>
+<Tag Name="STP_LYR_RAISE_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Layer Forming Stopper — Raise command]]></Description>
+</Tag>
+</Tags>
+</Controller>
+</RSLogix5000Content>

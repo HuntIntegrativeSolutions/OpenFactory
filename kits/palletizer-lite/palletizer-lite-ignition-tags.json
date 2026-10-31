@@ -1,0 +1,441 @@
+{
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "OF_BeltConveyor",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Run command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Run",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Run}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Running feedback",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Running",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Running}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_BoxEmitter",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Enable": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Emitter enable",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Enable",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Enable}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_PhotoEye",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Detect": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Part detected",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Detect",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Detect}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_PickAndPlace",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_AtPick": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_AtPlace": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Grip": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Holding": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Lower": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Lowered": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Traverse": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Traverse command (held: to the place side; released: back to pick)",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Traverse",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Traverse}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Lower command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Lower",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Lower}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Grip command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Grip",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Grip}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "At the pick side",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "AtPick",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_AtPick}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "At the place side",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "AtPlace",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_AtPlace}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Lowered limit switch",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Lowered",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Lowered}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Holding a part",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Holding",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Holding}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_Stopper",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Raise": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Raise command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Raise",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Raise}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PALLETIZER_LITE",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "Palletizer Infeed Belt Conveyor",
+          "name": "CONV_IN",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "CONV_IN"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "CONV_IN_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "CONV_IN_RUN_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_BeltConveyor"
+        },
+        {
+          "documentation": "Infeed Pick Position Stopper",
+          "name": "STP_IN",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "STP_IN"
+            },
+            "Tag_Raise": {
+              "dataType": "String",
+              "value": "STP_IN_RAISE_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Stopper"
+        },
+        {
+          "documentation": "Infeed Box At Pick Position Photo Eye",
+          "name": "PE_PICK",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "PE_PICK"
+            },
+            "Tag_Detect": {
+              "dataType": "String",
+              "value": "PE_PICK_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_PhotoEye"
+        },
+        {
+          "documentation": "Palletizer Transfer Gantry",
+          "name": "PP_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "PP_01"
+            },
+            "Tag_AtPick": {
+              "dataType": "String",
+              "value": "PP_01_AT_PICK_DI"
+            },
+            "Tag_AtPlace": {
+              "dataType": "String",
+              "value": "PP_01_AT_PLACE_DI"
+            },
+            "Tag_Grip": {
+              "dataType": "String",
+              "value": "PP_01_GRIP_DO"
+            },
+            "Tag_Holding": {
+              "dataType": "String",
+              "value": "PP_01_HOLD_DI"
+            },
+            "Tag_Lower": {
+              "dataType": "String",
+              "value": "PP_01_LOWER_DO"
+            },
+            "Tag_Lowered": {
+              "dataType": "String",
+              "value": "PP_01_DOWN_DI"
+            },
+            "Tag_Traverse": {
+              "dataType": "String",
+              "value": "PP_01_TRAV_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_PickAndPlace"
+        },
+        {
+          "documentation": "Layer Forming Belt Conveyor",
+          "name": "CONV_LYR",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "CONV_LYR"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "CONV_LYR_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "CONV_LYR_RUN_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_BeltConveyor"
+        },
+        {
+          "documentation": "Layer Forming Stopper",
+          "name": "STP_LYR",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "STP_LYR"
+            },
+            "Tag_Raise": {
+              "dataType": "String",
+              "value": "STP_LYR_RAISE_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Stopper"
+        },
+        {
+          "documentation": "Layer Row Complete Photo Eye",
+          "name": "PE_ROW",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "PE_ROW"
+            },
+            "Tag_Detect": {
+              "dataType": "String",
+              "value": "PE_ROW_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_PhotoEye"
+        },
+        {
+          "documentation": "Palletizer Infeed Box Source",
+          "name": "EMT_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "EMT_01"
+            },
+            "Tag_Enable": {
+              "dataType": "String",
+              "value": "EMT_01_EN_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_BoxEmitter"
+        },
+        {
+          "accessRights": "Read_Only",
+          "dataType": "Boolean",
+          "documentation": "OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",
+          "enabled": true,
+          "historyEnabled": false,
+          "name": "SIM_HEARTBEAT",
+          "opcItemPath": "nsu=urn:openfactory:sim;s=SIM_HEARTBEAT_DI",
+          "opcServer": "OpenFactory",
+          "tagType": "AtomicTag",
+          "valueSource": "opc"
+        }
+      ]
+    }
+  ],
+  "version": "8.3.0"
+}

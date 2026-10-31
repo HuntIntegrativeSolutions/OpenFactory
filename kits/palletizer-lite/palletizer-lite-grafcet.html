@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<!-- generated, pending PE review. Made with /grafcet-chart-creator from the OpenPLC program; HIS Controls PE
+     review required before any client use. OpenFactory is a training and demo tool, not a
+     safety-rated simulation. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palletizer — Pick and place boxes into layers of four GRAFCET</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 16px; background: #ffffff; color: #1a2a4a; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { font-size: 12px; color: #5a6478; margin-bottom: 6px; }
+  .review { font-size: 12px; color: #7f1010; background: #fff0f0; border: 1px solid #c0392b;
+            padding: 4px 8px; display: inline-block; margin-bottom: 8px; }
+  .legend { font-size: 11px; display: flex; flex-wrap: wrap; gap: 14px; margin: 6px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 18px; height: 12px; border: 2px solid #1d6fb8; border-radius: 3px; }
+  .zoom-bar { font-size: 12px; margin: 6px 0; }
+  .zoom-bar button { font-size: 12px; padding: 1px 8px; }
+  .svg-wrap { overflow: auto; border: 1px solid #c5cae9; }
+  .print-note { font-size: 10px; color: #5a6478; margin-top: 6px; }
+  @media print { .zoom-bar, .print-note { display: none; } }
+</style>
+</head>
+<body>
+<h1>Palletizer — Pick and place boxes into layers of four GRAFCET</h1>
+<div class="subtitle">OpenFactory demo scene `palletizer-lite` · IEC 60848 GRAFCET Notation · Source: examples/openplc/palletizer-lite.st</div>
+<div class="review">generated, pending PE review: a generated engineering reference, not a PLC program. Not safety-rated.</div>
+<div class="legend">
+  <span><span class="sw" style="background:#dbeafe;border-width:4px;border-style:double"></span>Initial step</span>
+  <span><span class="sw" style="background:#fdfefe"></span>Normal step</span>
+  <span><span class="sw" style="background:#ecf7ee;border-color:#2e7d32"></span>Running / production</span>
+  <span><span class="sw" style="background:#fff8e1;border-color:#e07b00"></span>Transient / caution</span>
+  <span><svg width="28" height="10"><line x1="2" y1="5" x2="26" y2="5" stroke="#2d3748" stroke-width="6"/></svg>Transition</span>
+  <span><span class="sw" style="background:#f8f9fa;border:1px solid #c5cae9;border-radius:0"></span>Action block</span>
+  <span><svg width="28" height="10"><line x1="2" y1="5" x2="26" y2="5" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4"/></svg>Clean return</span>
+</div>
+<div class="zoom-bar">Zoom <button onclick="zoomBy(-10)">−</button> <span id="zoom-pct">100%</span>
+  <button onclick="zoomBy(10)">+</button> <button onclick="setZoom(100)">Reset</button></div>
+<div class="svg-wrap">
+<svg id="grafcet" xmlns="http://www.w3.org/2000/svg" width="900" height="3824" viewBox="0 0 900 3824"
+     font-family="Arial, sans-serif">
+<defs>
+  <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#2d3748"/></marker>
+  <marker id="arg" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <path d="M0 0 L8 4 L0 8 z" fill="#2e7d32"/></marker>
+</defs>
+<rect x="0" y="0" width="900" height="3824" fill="white"/>
+<rect x="0" y="0" width="900" height="40" fill="#f0f4fb"/>
+<text x="450" y="26" font-size="14" font-weight="600" fill="#1a2a4a" text-anchor="middle">Main sequence (partial GRAFCETs run concurrently; every initial step is active at start)</text>
+<text x="20" y="88" font-size="13" font-weight="700" fill="#1a2a4a">G1 — Belts and box feed (feed only on proven belt running feedback)</text>
+<line x1="20" y1="96" x2="880" y2="96" stroke="#c5cae9" stroke-width="0.8"/>
+<rect x="88" y="120" width="280" height="195" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
+<rect x="96" y="128" width="264" height="179" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
+<circle cx="102" cy="140" r="14" fill="#1d6fb8"/>
+<text x="102" y="144" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">100</text>
+<text x="228" y="222" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Belts starting</text>
+<text x="228" y="301" font-size="10" fill="#5a6478" text-anchor="middle">Step S100</text>
+<line x1="368" y1="146" x2="380" y2="146" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="120" width="430" height="195" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="142" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="160" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_IN_RUN_DO := TRUE</text>
+<text x="392" y="178" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_LYR_RUN_DO := TRUE</text>
+<text x="392" y="196" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">STP_IN_RAISE_DO := TRUE</text>
+<text x="392" y="214" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">BELTS_OK_TMR: TON, PT 1 s</text>
+<text x="392" y="232" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">    IN = CONV_IN_RUN_DI AND CONV_LYR_RUN_DI</text>
+<text x="392" y="250" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_01_EN_DO := FALSE</text>
+<text x="392" y="268" font-size="10" fill="#5a6478" font-style="italic">ST section 1</text>
+<line x1="228" y1="315" x2="228" y2="364" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="367" x2="368" y2="367" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="371" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T1</text>
+<text x="380" y="350" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">BELTS_OK_TMR.Q</text>
+<text x="380" y="337" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">every belt&#x27;s running feedback held 1 s (BELTS_OK_DELAY)</text>
+<line x1="228" y1="370" x2="228" y2="397" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="397" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="417" r="14" fill="#2e7d32"/>
+<text x="102" y="421" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">110</text>
+<text x="228" y="487" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Feeding boxes</text>
+<text x="228" y="553" font-size="10" fill="#5a6478" text-anchor="middle">Step S110</text>
+<line x1="368" y1="423" x2="380" y2="423" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="397" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="419" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="437" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_IN_RUN_DO := TRUE</text>
+<text x="392" y="455" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">CONV_LYR_RUN_DO := TRUE</text>
+<text x="392" y="473" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">STP_IN_RAISE_DO := TRUE</text>
+<text x="392" y="491" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">EMT_01_EN_DO := TRUE</text>
+<text x="392" y="509" font-size="10" fill="#5a6478" font-style="italic">The feed stops the scan a belt stops reporting running</text>
+<line x1="228" y1="567" x2="228" y2="616" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="619" x2="368" y2="619" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="623" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T2</text>
+<text x="380" y="602" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">NOT (CONV_IN_RUN_DI AND CONV_LYR_RUN_DI)</text>
+<text x="380" y="589" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">BELTS_OK_TMR resets</text>
+<path d="M228 622 L228 641 L38 641" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<text x="20" y="727" font-size="13" font-weight="700" fill="#1a2a4a">G2 — Pick and place (step numbers are the program&#x27;s PICK_STEP values)</text>
+<line x1="20" y1="735" x2="880" y2="735" stroke="#c5cae9" stroke-width="0.8"/>
+<rect x="88" y="759" width="280" height="180" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
+<rect x="96" y="767" width="264" height="164" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
+<circle cx="102" cy="779" r="14" fill="#1d6fb8"/>
+<text x="102" y="783" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">0</text>
+<text x="228" y="854" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Waiting at the pick side</text>
+<text x="228" y="925" font-size="10" fill="#5a6478" text-anchor="middle">Step S0</text>
+<line x1="368" y1="785" x2="380" y2="785" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="759" width="430" height="180" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="781" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="799" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_LOWER_DO, PP_01_GRIP_DO := FALSE</text>
+<text x="392" y="817" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_TRAV_DO := FALSE</text>
+<text x="392" y="835" font-size="10" fill="#5a6478" font-style="italic">ST section 2</text>
+<line x1="228" y1="939" x2="228" y2="1001" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1004" x2="368" y2="1004" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1008" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T3</text>
+<text x="380" y="987" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">AND PLACED &lt; 4 AND NOT X210</text>
+<text x="380" y="974" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">PE_PICK_DI AND PP_01_AT_PICK_DI</text>
+<text x="380" y="961" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">X210: G3 step 210 (layer leaving) is active</text>
+<line x1="228" y1="1007" x2="228" y2="1034" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1034" width="280" height="170" rx="8" fill="#fdfefe" stroke="#1d6fb8" stroke-width="2"/>
+<circle cx="102" cy="1054" r="14" fill="#1d6fb8"/>
+<text x="102" y="1058" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+<text x="228" y="1124" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Lower to the box</text>
+<text x="228" y="1190" font-size="10" fill="#5a6478" text-anchor="middle">Step S1</text>
+<line x1="368" y1="1060" x2="380" y2="1060" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1034" width="430" height="170" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="1056" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1074" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_LOWER_DO := TRUE</text>
+<text x="392" y="1092" font-size="10" fill="#5a6478" font-style="italic">ST section 2 (CASE PICK_STEP)</text>
+<line x1="228" y1="1204" x2="228" y2="1241" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1244" x2="368" y2="1244" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1248" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T4</text>
+<text x="380" y="1227" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">PP_01_DOWN_DI</text>
+<line x1="228" y1="1247" x2="228" y2="1274" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1274" width="280" height="170" rx="8" fill="#fdfefe" stroke="#1d6fb8" stroke-width="2"/>
+<circle cx="102" cy="1294" r="14" fill="#1d6fb8"/>
+<text x="102" y="1298" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+<text x="228" y="1364" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Grip</text>
+<text x="228" y="1430" font-size="10" fill="#5a6478" text-anchor="middle">Step S2</text>
+<line x1="368" y1="1300" x2="380" y2="1300" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1274" width="430" height="170" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="1296" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1314" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_LOWER_DO := TRUE</text>
+<text x="392" y="1332" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_GRIP_DO := TRUE</text>
+<text x="392" y="1350" font-size="10" fill="#5a6478" font-style="italic">ST section 2 (CASE PICK_STEP)</text>
+<line x1="228" y1="1444" x2="228" y2="1481" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1484" x2="368" y2="1484" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1488" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T5</text>
+<text x="380" y="1467" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">PP_01_HOLD_DI</text>
+<line x1="228" y1="1487" x2="228" y2="1514" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1514" width="280" height="170" rx="8" fill="#fdfefe" stroke="#1d6fb8" stroke-width="2"/>
+<circle cx="102" cy="1534" r="14" fill="#1d6fb8"/>
+<text x="102" y="1538" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+<text x="228" y="1604" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Rise with the box</text>
+<text x="228" y="1670" font-size="10" fill="#5a6478" text-anchor="middle">Step S3</text>
+<line x1="368" y1="1540" x2="380" y2="1540" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1514" width="430" height="170" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="1536" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1554" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_GRIP_DO := TRUE</text>
+<text x="392" y="1572" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">RISE_TMR: TON, PT 0.4 s</text>
+<text x="392" y="1590" font-size="10" fill="#5a6478" font-style="italic">ST section 2 (CASE PICK_STEP)</text>
+<line x1="228" y1="1684" x2="228" y2="1733" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1736" x2="368" y2="1736" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1740" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T6</text>
+<text x="380" y="1719" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">RISE_TMR.Q</text>
+<text x="380" y="1706" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">pad up (lower_time_s 0.3 + margin)</text>
+<line x1="228" y1="1739" x2="228" y2="1766" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="1766" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="1786" r="14" fill="#2e7d32"/>
+<text x="102" y="1790" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+<text x="228" y="1856" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Travel to the place side</text>
+<text x="228" y="1922" font-size="10" fill="#5a6478" text-anchor="middle">Step S4</text>
+<line x1="368" y1="1792" x2="380" y2="1792" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="1766" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="1788" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="1806" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_GRIP_DO := TRUE</text>
+<text x="392" y="1824" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_TRAV_DO := TRUE</text>
+<text x="392" y="1842" font-size="10" fill="#5a6478" font-style="italic">ST section 2 (CASE PICK_STEP)</text>
+<line x1="228" y1="1936" x2="228" y2="1973" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="1976" x2="368" y2="1976" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="1980" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T7</text>
+<text x="380" y="1959" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">PP_01_AT_PLACE_DI</text>
+<line x1="228" y1="1979" x2="228" y2="2006" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="2006" width="280" height="170" rx="8" fill="#fdfefe" stroke="#1d6fb8" stroke-width="2"/>
+<circle cx="102" cy="2026" r="14" fill="#1d6fb8"/>
+<text x="102" y="2030" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+<text x="228" y="2087" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Lower onto the layer</text>
+<text x="228" y="2105" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">belt</text>
+<text x="228" y="2162" font-size="10" fill="#5a6478" text-anchor="middle">Step S5</text>
+<line x1="368" y1="2032" x2="380" y2="2032" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="2006" width="430" height="170" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="2028" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="2046" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_LOWER_DO := TRUE</text>
+<text x="392" y="2064" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_GRIP_DO := TRUE</text>
+<text x="392" y="2082" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_TRAV_DO := TRUE</text>
+<text x="392" y="2100" font-size="10" fill="#5a6478" font-style="italic">ST section 2 (CASE PICK_STEP)</text>
+<line x1="228" y1="2176" x2="228" y2="2213" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="2216" x2="368" y2="2216" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="2220" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T8</text>
+<text x="380" y="2199" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">PP_01_DOWN_DI</text>
+<line x1="228" y1="2219" x2="228" y2="2246" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="2246" width="280" height="170" rx="8" fill="#fdfefe" stroke="#1d6fb8" stroke-width="2"/>
+<circle cx="102" cy="2266" r="14" fill="#1d6fb8"/>
+<text x="102" y="2270" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+<text x="228" y="2336" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Release</text>
+<text x="228" y="2402" font-size="10" fill="#5a6478" text-anchor="middle">Step S6</text>
+<line x1="368" y1="2272" x2="380" y2="2272" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="2246" width="430" height="170" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="2268" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="2286" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_LOWER_DO := TRUE</text>
+<text x="392" y="2304" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_TRAV_DO := TRUE</text>
+<text x="392" y="2322" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">SETTLE_TMR: TON, PT 0.2 s, IN = NOT PP_01_HOLD_DI</text>
+<text x="392" y="2340" font-size="10" fill="#5a6478" font-style="italic">ST section 2 (CASE PICK_STEP)</text>
+<line x1="228" y1="2416" x2="228" y2="2465" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="2468" x2="368" y2="2468" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="2472" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T9</text>
+<text x="380" y="2451" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">SETTLE_TMR.Q</text>
+<text x="380" y="2438" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">the box has settled: PLACED := PLACED + 1</text>
+<line x1="228" y1="2471" x2="228" y2="2498" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="2498" width="280" height="170" rx="8" fill="#fdfefe" stroke="#1d6fb8" stroke-width="2"/>
+<circle cx="102" cy="2518" r="14" fill="#1d6fb8"/>
+<text x="102" y="2522" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">7</text>
+<text x="228" y="2588" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Rise empty</text>
+<text x="228" y="2654" font-size="10" fill="#5a6478" text-anchor="middle">Step S7</text>
+<line x1="368" y1="2524" x2="380" y2="2524" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="2498" width="430" height="170" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="2520" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="2538" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_TRAV_DO := TRUE</text>
+<text x="392" y="2556" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">RISE_TMR: TON, PT 0.4 s</text>
+<text x="392" y="2574" font-size="10" fill="#5a6478" font-style="italic">ST section 2 (CASE PICK_STEP)</text>
+<line x1="228" y1="2668" x2="228" y2="2705" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="2708" x2="368" y2="2708" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="2712" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T10</text>
+<text x="380" y="2691" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">RISE_TMR.Q</text>
+<line x1="228" y1="2711" x2="228" y2="2738" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="2738" width="280" height="170" rx="8" fill="#fdfefe" stroke="#1d6fb8" stroke-width="2"/>
+<circle cx="102" cy="2758" r="14" fill="#1d6fb8"/>
+<text x="102" y="2762" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">8</text>
+<text x="228" y="2828" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Return to the pick side</text>
+<text x="228" y="2894" font-size="10" fill="#5a6478" text-anchor="middle">Step S8</text>
+<line x1="368" y1="2764" x2="380" y2="2764" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="2738" width="430" height="170" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="2760" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="2778" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_LOWER_DO, PP_01_GRIP_DO := FALSE</text>
+<text x="392" y="2796" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">PP_01_TRAV_DO := FALSE</text>
+<text x="392" y="2814" font-size="10" fill="#5a6478" font-style="italic">ST section 2 (CASE PICK_STEP)</text>
+<line x1="228" y1="2908" x2="228" y2="2945" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="2948" x2="368" y2="2948" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="2952" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T11</text>
+<text x="380" y="2931" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">PP_01_AT_PICK_DI</text>
+<path d="M228 2951 L228 2970 L38 2970" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<text x="20" y="3056" font-size="13" font-weight="700" fill="#1a2a4a">G3 — Layer out</text>
+<line x1="20" y1="3064" x2="880" y2="3064" stroke="#c5cae9" stroke-width="0.8"/>
+<rect x="88" y="3088" width="280" height="180" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
+<rect x="96" y="3096" width="264" height="164" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
+<circle cx="102" cy="3108" r="14" fill="#1d6fb8"/>
+<text x="102" y="3112" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">200</text>
+<text x="228" y="3183" font-size="15" font-weight="700" fill="#1a2a4a" text-anchor="middle">Forming a layer</text>
+<text x="228" y="3254" font-size="10" fill="#5a6478" text-anchor="middle">Step S200</text>
+<line x1="368" y1="3114" x2="380" y2="3114" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="3088" width="430" height="180" fill="#f8f9fa" stroke="#c5cae9" stroke-width="1"/>
+<text x="392" y="3110" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="3128" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">STP_LYR_RAISE_DO := TRUE   (blade up)</text>
+<text x="392" y="3146" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">ROW_TMR: TON, PT 1 s, IN = PE_ROW_DI</text>
+<text x="392" y="3164" font-size="10" fill="#5a6478" font-style="italic">ST section 3</text>
+<line x1="228" y1="3268" x2="228" y2="3317" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="3320" x2="368" y2="3320" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="3324" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T12</text>
+<text x="380" y="3303" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">ROW_TMR.Q AND PLACED &gt;= 4</text>
+<text x="380" y="3290" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">a standing row of four</text>
+<line x1="228" y1="3323" x2="228" y2="3350" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="88" y="3350" width="280" height="170" rx="8" fill="#ecf7ee" stroke="#2e7d32" stroke-width="2.5"/>
+<circle cx="102" cy="3370" r="14" fill="#2e7d32"/>
+<text x="102" y="3374" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">210</text>
+<text x="228" y="3440" font-size="15" font-weight="700" fill="#1a4a1a" text-anchor="middle">Layer leaving</text>
+<text x="228" y="3506" font-size="10" fill="#5a6478" text-anchor="middle">Step S210</text>
+<line x1="368" y1="3376" x2="380" y2="3376" stroke="#2d3748" stroke-width="1.5"/>
+<rect x="380" y="3350" width="430" height="170" fill="#f0f8f2" stroke="#a5d6a7" stroke-width="1"/>
+<text x="392" y="3372" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
+<text x="392" y="3390" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">LAYER_OUT_ON := TRUE</text>
+<text x="392" y="3408" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">STP_LYR_RAISE_DO := FALSE   (blade down)</text>
+<text x="392" y="3426" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">LAYER_TMR: TON, PT 3 s</text>
+<text x="392" y="3444" font-size="10" fill="#5a6478" font-style="italic">ST section 3</text>
+<line x1="228" y1="3520" x2="228" y2="3569" stroke="#2d3748" stroke-width="1.5"/>
+<line x1="88" y1="3572" x2="368" y2="3572" stroke="#2d3748" stroke-width="6"/>
+<text x="80" y="3576" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T13</text>
+<text x="380" y="3555" font-size="11" fill="#1a2a4a" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">LAYER_TMR.Q</text>
+<text x="380" y="3542" font-size="9" fill="#5a6478" text-anchor="end" paint-order="stroke" stroke="#ffffff" stroke-width="4" stroke-linejoin="round">1.2 m cleared at 0.5 m/s: PLACED := 0</text>
+<path d="M228 3575 L228 3594 L38 3594" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+<path d="M38 2970 L38 849.0 L86 849.0" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arg)"/>
+<text x="26" y="1910" font-size="10" fill="#2e7d32" text-anchor="middle" transform="rotate(-90 26 1910)">→ S0 (clean return)</text>
+<path d="M38 641 L38 217.5 L86 217.5" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arg)"/>
+<text x="26" y="429" font-size="10" fill="#2e7d32" text-anchor="middle" transform="rotate(-90 26 429)">→ S100 (clean return)</text>
+<path d="M38 3594 L38 3178.0 L86 3178.0" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#arg)"/>
+<text x="26" y="3386" font-size="10" fill="#2e7d32" text-anchor="middle" transform="rotate(-90 26 3386)">→ S200 (clean return)</text>
+<line x1="20" y1="3682" x2="880" y2="3682" stroke="#c5cae9" stroke-width="0.8"/>
+<text x="20" y="3700" font-size="10" fill="#5a6478">Source: examples/openplc/palletizer-lite.st (program palletizer)</text>
+<text x="20" y="3714" font-size="10" fill="#5a6478">palletizer · lines 1-117 · task0, cyclic 20 ms</text>
+<text x="20" y="3728" font-size="10" fill="#5a6478">Rev: 2026-10-30 HIS · generated, pending PE review</text>
+<text x="20" y="3742" font-size="10" fill="#5a6478" font-weight="700">HUNT INTEGRATIVE SOLUTIONS LLC</text>
+<text x="20" y="3756" font-size="10" fill="#5a6478">Timothy.hunt.his@outlook.com</text>
+<text x="20" y="3770" font-size="10" fill="#5a6478">Philippians 4:13</text>
+</svg>
+</div>
+<div class="print-note">Print on A3 portrait at 100 % zoom.</div>
+<script>
+  let zoom = 100;
+  const svg = document.getElementById("grafcet");
+  const baseW = 900, baseH = 3824;
+  function setZoom(pct) {
+    zoom = Math.max(50, Math.min(200, pct));
+    svg.setAttribute("width", baseW * zoom / 100);
+    svg.setAttribute("height", baseH * zoom / 100);
+    document.getElementById("zoom-pct").textContent = zoom + "%";
+  }
+  function zoomBy(d) { setZoom(zoom + d); }
+</script>
+</body>
+</html>
