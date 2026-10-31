@@ -1,0 +1,366 @@
+"""Composite components (PLAN 2.16): new equipment declared in a scene from existing parts.
+
+Behavior spec
+-------------
+A scene's ``composites:`` block defines types; a component whose ``type`` names one is an
+instance. :func:`expand` (called first by the scene validator) replaces every instance with its
+parts, as ordinary components, so the loader, protocols, exporters, viewer and parity code see
+only built-in types.
+
+A definition has ``type`` (lowercase, not a built-in name), ``params`` (name -> default number),
+``parts`` (components without ``io``), and ``io`` (the instance's ports):
+
+- ``name: {to: part.port}``: a command (DO/AO) the instance passes to that part's port. With
+  ``invert: true`` (DO only) the part acts on the opposite of the tag.
+- ``name: {from: part.port}``: a DI or AI the instance passes through from that part's port.
+- ``name: {from: "<expression>"}``: a DI computed from parts' DI/AI ports with the safe grammar of
+  :mod:`openfactory.core.expr`, after the components each tick, like a 2.17 binding transform;
+  the instance's binding may add ``invert`` and delays.
+
+Expansion of an instance ``ID``:
+
+- each part becomes ``ID_<PART>`` (part id upper-cased), at the instance's position plus the
+  part's ``position`` turned by the instance's ``rotation_deg``, turned by both rotations, with the
+  description ``"<instance description> <part description>"``;
+- numeric part fields may be expressions over the parameters, ``"{length} - 0.2"``; the
+  instance sets a parameter by giving it as a field (``length: 3.0``);
+- the instance's ``io`` bindings move to the parts' ports, so tag names are the instance's own.
+
+Load errors, each naming what is wrong: an unknown or duplicate type, a type that shadows a
+built-in, a recursive definition (the cycle is named, ``a -> b -> a``), nesting more than one
+level, a part ``io``, an ``io`` entry naming an unknown part or port or a port of the wrong
+kind, two ``io`` entries driving one port, a part's required port not exposed in ``io``
+(``unexposed``), an instance leaving a required ``io`` unbound, an unknown parameter, and any
+expression error. A composite may be a part of another composite one level deep.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+from pydantic import TypeAdapter, ValidationError
+
+from openfactory.core.expr import ExprError, number, parse
+from openfactory.core.geometry import to_world
+
+if TYPE_CHECKING:
+    from openfactory.core.schema import CompositeDef, Scene
+
+#: ``part.port`` with nothing else: a pass-through, not an expression.
+SINGLE_REF = re.compile(r"^\s*([a-z][a-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*$")
+_REF_IN_TEXT = re.compile(r"(?<![\w.])([a-z][a-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)")
+_PLACEMENT = ("id", "type", "description", "position", "rotation_deg")
+
+
+@dataclass
+class Expansion:
+    """What :func:`expand` adds to a scene besides its flat component list."""
+
+    #: Expanded component id -> the top-level instance it came from.
+    composite_of: dict[str, str] = field(default_factory=dict)
+    #: Top-level instance id -> its composite type.
+    instance_type: dict[str, str] = field(default_factory=dict)
+    #: Computed DIs (expression ``from:``): (after component id, io name, binding, expanded
+    #: expression, the expression as the composite wrote it).
+    computed: list[tuple[str, str, Any, str, str]] = field(default_factory=list)
+
+
+def ports_of(type_name: str, defs: dict[str, CompositeDef]) -> dict[str, str]:
+    """Port name -> kind for a built-in type or a composite (its io: to -> command kind)."""
+    from openfactory.core.schema import COMPONENT_MODELS, port_specs
+
+    if type_name in COMPONENT_MODELS:
+        model = COMPONENT_MODELS[type_name]
+        return {n: p.kind for n, p in port_specs(model.model_fields["io"].annotation).items()}
+    d = defs[type_name]
+    kinds = {}
+    for name, spec in d.io.items():
+        part, _, port = (spec.to or spec.from_ or "").partition(".")
+        inner = next((p for p in d.parts if p["id"] == part), None)
+        sub = ports_of(inner["type"], defs).get(port) if inner and SINGLE_REF.match(
+            spec.to or spec.from_ or ""
+        ) else None  # fmt: skip
+        kinds[name] = sub or "DI"  # an expression is a DI
+    return kinds
+
+
+def required_ports(type_name: str, defs: dict[str, CompositeDef]) -> set[str]:
+    """Ports an instance or a parent composite must bind for ``type_name``."""
+    from openfactory.core.schema import COMPONENT_MODELS, port_specs
+
+    if type_name in COMPONENT_MODELS:
+        model = COMPONENT_MODELS[type_name]
+        return {n for n, p in port_specs(model.model_fields["io"].annotation).items() if p.required}
+    d = defs[type_name]
+    out = set()
+    for name, spec in d.io.items():
+        single = SINGLE_REF.match(spec.to or spec.from_ or "")
+        if single:
+            part, port = single.groups()
+            inner = next(p for p in d.parts if p["id"] == part)
+            if port in required_ports(inner["type"], defs):
+                out.add(name)
+    return out
+
+
+def check_definitions(defs_list: list[CompositeDef]) -> dict[str, CompositeDef]:
+    """Validate the ``composites:`` block as a whole; return type -> definition."""
+    from openfactory.core.schema import COMPONENT_MODELS
+
+    defs: dict[str, CompositeDef] = {}
+    for d in defs_list:
+        if d.type in COMPONENT_MODELS:
+            raise ValueError(f"composite type {d.type!r} has a built-in component's name")
+        if d.type in defs:
+            raise ValueError(f"composite type {d.type!r} is defined twice")
+        defs[d.type] = d
+    known = set(COMPONENT_MODELS) | set(defs)
+    for d in defs.values():
+        for part in d.parts:
+            if part["type"] not in known:
+                raise ValueError(
+                    f"composite {d.type}: part {part['id']} has unknown type {part['type']!r}"
+                )
+    _check_cycles(defs)
+    for d in defs.values():
+        _check_io(d, defs)
+    return defs
+
+
+def _check_cycles(defs: dict[str, CompositeDef]) -> None:
+    def walk(type_name: str, path: list[str]) -> None:
+        for part in defs[type_name].parts:
+            sub = part["type"]
+            if sub not in defs:
+                continue
+            if sub in path:
+                cycle = " -> ".join([*path[path.index(sub) :], sub])
+                raise ValueError(f"recursive composite: {cycle}")
+            if len(path) >= 2:
+                raise ValueError(
+                    f"composite nesting deeper than one level: {' -> '.join([*path, sub])}"
+                )
+            walk(sub, [*path, sub])
+
+    for type_name in defs:
+        walk(type_name, [type_name])
+
+
+def _check_io(d: CompositeDef, defs: dict[str, CompositeDef]) -> None:
+    parts = {p["id"]: p for p in d.parts}
+    driven: dict[str, str] = {}
+    for name, spec in d.io.items():
+        where = f"composite {d.type}: io.{name}"
+        text = spec.to or spec.from_ or ""
+        single = SINGLE_REF.match(text)
+        if spec.to and not single:
+            raise ValueError(f"{where}: `to` must name one part port, like belt.run")
+        refs = [single.groups()] if single else []
+        expr = None
+        if spec.from_ and not single:
+            try:
+                expr = parse(text, refs=True)
+            except ExprError as exc:
+                raise ValueError(f"{where}: {exc}") from None
+            if expr.names:
+                raise ValueError(f"{where}: {expr.names[0]!r} is not a part.port reference")
+            refs = [r.split(".") for r in expr.refs]
+        for part_id, port in refs:
+            if part_id not in parts:
+                raise ValueError(f"{where}: no part {part_id!r} (parts: {', '.join(parts)})")
+            kinds = ports_of(parts[part_id]["type"], defs)
+            if port not in kinds:
+                raise ValueError(
+                    f"{where}: {parts[part_id]['type']} part {part_id} has no port {port!r} "
+                    f"(ports: {', '.join(kinds)})"
+                )
+            want = ("DO", "AO") if spec.to else ("DI", "AI")
+            if kinds[port] not in want:
+                raise ValueError(
+                    f"{where}: {part_id}.{port} is a {kinds[port]} port; "
+                    f"`{'to' if spec.to else 'from'}` takes {' or '.join(want)} ports"
+                )
+            if spec.from_ and not single and parts[part_id]["type"] in defs:
+                raise ValueError(f"{where}: an expression reads built-in parts' ports only")
+        if expr is not None:
+            kinds = {f"{p}.{port}": ports_of(parts[p]["type"], defs)[port] for p, port in refs}
+            _probe(expr, kinds, where)
+        if spec.invert and (
+            not spec.to or ports_of(parts[refs[0][0]]["type"], defs)[refs[0][1]] != "DO"
+        ):
+            raise ValueError(f"{where}: `invert` is for a `to` on a DO port")
+        if single:  # binds the part's port to the instance's tag
+            target = f"{single[1]}.{single[2]}"
+            if target in driven:
+                raise ValueError(f"{where}: {target} is already bound by io.{driven[target]}")
+            driven[target] = name
+    for part_id, part in parts.items():
+        kinds = ports_of(part["type"], defs)
+        for port in sorted(required_ports(part["type"], defs)):
+            if f"{part_id}.{port}" not in driven:
+                way = "to" if kinds[port] in ("DO", "AO") else "from"
+                raise ValueError(
+                    f"composite {d.type}: part {part_id}'s required port {port!r} is unexposed; "
+                    f"add it to io, for example `{part_id}_{port}: {{{way}: {part_id}.{port}}}`"
+                )
+
+
+#: AI readings to evaluate a computed DI with at load; two, so a denominator that is zero for one
+#: reading does not reject a sound expression.
+_PROBES = (0.5371, 1.9213)
+
+
+def _probe(expr: Any, kinds: dict[str, str], where: str) -> None:
+    """Evaluate a computed DI once with typed readings (DI true, AI a number): a type error or a
+    result that is not true/false is a load error, not a DI that silently reads false."""
+    for reading in _PROBES:
+        env = {ref: (True if kind == "DI" else reading) for ref, kind in kinds.items()}
+        try:
+            value = expr.evaluate(env)
+        except ExprError as exc:
+            if "division by zero" in str(exc):
+                continue
+            raise ValueError(f"{where}: {exc}") from None
+        if not isinstance(value, bool):
+            raise ValueError(
+                f"{where}: {expr.text!r} gives a number; a DI needs true/false "
+                "(compare it, e.g. `dist.distance < 0.3`)"
+            )
+        return
+    raise ValueError(f"{where}: {expr.text!r} divides by zero for every reading")
+
+
+def _resolve(value: Any, params: dict[str, float], where: str) -> Any:
+    if isinstance(value, str) and "{" in value:
+        try:
+            return number(value, params)
+        except ExprError as exc:
+            raise ValueError(f"{where}: {exc}") from None
+    if isinstance(value, list):
+        return [_resolve(v, params, where) for v in value]
+    return value
+
+
+def _invert(binding: Any) -> Any:
+    from openfactory.core.schema import DoTagSpec
+
+    if isinstance(binding, DoTagSpec):
+        return binding.model_copy(update={"invert": not binding.invert})
+    if isinstance(binding, dict):  # the instance's own mapping, {tag, initial, invert, ...}
+        return {**binding, "invert": not binding.get("invert", False)}
+    return {"tag": binding, "invert": True}
+
+
+def expand(scene: Scene) -> Expansion:
+    """Replace every composite instance in ``scene.components`` by its parts (in place)."""
+    from openfactory.core.schema import CompositeInstance
+
+    out = Expansion()
+    if not scene.composites and not any(isinstance(c, CompositeInstance) for c in scene.components):
+        return out
+    defs = check_definitions(scene.composites)
+    flat: list[Any] = []
+    for comp in scene.components:
+        if not isinstance(comp, CompositeInstance):
+            flat.append(comp)
+            continue
+        if comp.type not in defs:
+            from openfactory.core.schema import COMPONENT_MODELS
+
+            raise ValueError(
+                f"{comp.id}: unknown component type {comp.type!r} (built-in: "
+                f"{', '.join(sorted(COMPONENT_MODELS))}; composites in this scene: "
+                f"{', '.join(sorted(defs)) or 'none'})"
+            )
+        parts = _instance(comp.id, comp.type, comp.description, comp.position, comp.rotation_deg,
+                          comp.params(), dict(comp.io), defs, out)  # fmt: skip
+        for part in parts:
+            out.composite_of[part.id] = comp.id
+        out.instance_type[comp.id] = comp.type
+        flat.extend(parts)
+    scene.components = flat
+    return out
+
+
+def _instance(
+    inst_id: str,
+    type_name: str,
+    description: str,
+    position: tuple[float, float, float],
+    rotation_deg: float,
+    given: dict[str, Any],
+    io: dict[str, Any],
+    defs: dict[str, CompositeDef],
+    out: Expansion,
+) -> list[Any]:
+    from openfactory.core.schema import Component, DiTag
+
+    d = defs[type_name]
+    where = f"{inst_id} ({type_name})"
+    unknown = sorted(set(given) - set(d.params))
+    if unknown:
+        known = ", ".join(sorted(d.params)) or "none"
+        raise ValueError(f"{where}: unknown parameter {unknown[0]!r} (parameters: {known})")
+    for name, value in given.items():
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            raise ValueError(f"{where}: parameter {name} must be a number, not {value!r}")
+    params = {**d.params, **{k: float(v) for k, v in given.items()}}
+    unknown_io = sorted(set(io) - set(d.io))
+    if unknown_io:
+        raise ValueError(f"{where}: io.{unknown_io[0]} is not a port of {type_name} "
+                         f"(ports: {', '.join(d.io)})")  # fmt: skip
+    for name in sorted(required_ports(type_name, defs)):
+        if io.get(name) is None:
+            target = d.io[name].to or d.io[name].from_
+            raise ValueError(f"{where}: io.{name} is required (it binds {target}, a required port)")
+    to_part: dict[str, dict[str, Any]] = {}
+    for name, spec in d.io.items():
+        binding = io.get(name)
+        single = SINGLE_REF.match(spec.to or spec.from_ or "")
+        if binding is None or not single:
+            continue
+        part_id, port = single.groups()
+        to_part.setdefault(part_id, {})[port] = _invert(binding) if spec.invert else binding
+    built: list[Any] = []
+    adapter = TypeAdapter(Component)
+    for part in d.parts:
+        pid = f"{inst_id}_{part['id'].upper()}"
+        pwhere = f"{where}, part {part['id']}"
+        rel = _resolve(part.get("position", [0.0, 0.0, 0.0]), params, pwhere)
+        turn = _resolve(part.get("rotation_deg", 0.0), params, pwhere)
+        fields = {
+            k: _resolve(v, params, f"{pwhere}.{k}") for k, v in part.items() if k not in _PLACEMENT
+        }
+        try:
+            world = to_world(position, rotation_deg, tuple(rel))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            raise ValueError(f"{pwhere}: position must be [x, y, z]") from None
+        placed = {
+            "id": pid,
+            "description": f"{description} {part.get('description', part['id'])}",
+            "position": list(world),
+            "rotation_deg": rotation_deg + float(turn),
+        }
+        if part["type"] in defs:
+            built += _instance(pid, part["type"], placed["description"], tuple(placed["position"]),
+                               placed["rotation_deg"], fields, to_part.get(part["id"], {}), defs,
+                               out)  # fmt: skip
+            continue
+        data = {**placed, "type": part["type"], **fields, "io": to_part.get(part["id"], {})}
+        try:
+            built.append(adapter.validate_python(data))
+        except ValidationError as exc:
+            raise ValueError(f"{pwhere}: {exc}") from None
+    for name, spec in d.io.items():
+        binding = io.get(name)
+        if binding is None or not spec.from_ or SINGLE_REF.match(spec.from_):
+            continue
+        try:
+            binding = TypeAdapter(DiTag).validate_python(binding)
+        except ValidationError as exc:
+            raise ValueError(f"{where}: io.{name} is a computed DI: {exc}") from None
+        text = _REF_IN_TEXT.sub(lambda m: f"{inst_id}_{m[1].upper()}.{m[2]}", spec.from_)
+        out.computed.append((built[-1].id, name, binding, text, spec.from_))
+    return built

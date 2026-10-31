@@ -14,6 +14,10 @@ A DI binding may condition the component's raw output before the PLC sees it:
   shorter than the delay never reaches the PLC.
 - on an AI port, ``window: [lo, hi]`` binds a ``_DI`` tag that is true while the value is inside
   the window (a distance sensor's switching window).
+- a composite's computed DI (PLAN 2.16, ``from: "<expression>"``): the tag follows the boolean
+  expression over the listed parts' raw DI/AI values (:mod:`openfactory.core.expr`); an AI not yet
+  written reads 0.0. Type errors are caught at load (``composite._probe``); a reading the
+  expression cannot use that tick (a division by a zero reading) makes it false.
 
 Order: combine or window, then invert, then delays.
 
@@ -31,11 +35,12 @@ first tick.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from openfactory.core.expr import Expr, ExprError, parse
 from openfactory.core.iotable import IOTable, Writer
-from openfactory.core.schema import Transform
+from openfactory.core.schema import Transform, instance_ports
 
 if TYPE_CHECKING:
     from openfactory.core.component import Component
@@ -50,11 +55,19 @@ class _Signal:
     sources: list[tuple[Component, str]]
     state: bool = False
     pending_s: float | None = None  # how long the input has differed from `state`
+    expr: Expr | None = None  # a composite's computed DI (PLAN 2.16)
+    unset: dict[str, float] = field(default_factory=dict)  # AI ports read 0.0 before a write
 
     def conditioned(self) -> bool:
-        raws = [comp.raw.get(port, False) for comp, port in self.sources]
+        raws = [comp.raw.get(port, self.unset.get(port, False)) for comp, port in self.sources]
         t = self.transform
-        if t.window is not None:
+        if self.expr is not None:
+            env = {ref: raw for ref, raw in zip(t.sources, raws, strict=True)}
+            try:
+                on = bool(self.expr.evaluate(env))
+            except ExprError:
+                on = False  # e.g. a division by a zero reading: the DI reads off that tick
+        elif t.window is not None:
             value = float(raws[0])
             on = t.window[0] - _EPS <= value <= t.window[1] + _EPS
         elif t.combine == "and":
@@ -92,7 +105,13 @@ class TransformStage:
                 continue
             refs = t.sources or (f"{b.component_id}.{b.port.name}",)
             sources = [(by_id[ref.split(".")[0]], ref.split(".")[1]) for ref in refs]
-            signals.append(_Signal(b.name, t, sources))
+            expr = parse(t.expr, refs=True) if t.expr else None
+            unset = {
+                port: 0.0
+                for comp, port in sources
+                if instance_ports(comp.config)[port].kind == "AI"
+            }
+            signals.append(_Signal(b.name, t, sources, expr=expr, unset=unset))
         return cls(io, signals)
 
     def prime(self) -> None:

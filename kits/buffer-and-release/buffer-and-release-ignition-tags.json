@@ -172,11 +172,11 @@
       "tags": [
         {
           "documentation": "Buffer Belt Conveyor",
-          "name": "CONV_BUF",
+          "name": "BUF_BELT",
           "parameters": {
             "InstanceName": {
               "dataType": "String",
-              "value": "CONV_BUF"
+              "value": "BUF_BELT"
             },
             "Tag_Run": {
               "dataType": "String",
@@ -192,11 +192,11 @@
         },
         {
           "documentation": "Buffer Release Stopper",
-          "name": "STP_01",
+          "name": "BUF_GATE",
           "parameters": {
             "InstanceName": {
               "dataType": "String",
-              "value": "STP_01"
+              "value": "BUF_GATE"
             },
             "Tag_Lowered": {
               "dataType": "String",
@@ -216,11 +216,11 @@
         },
         {
           "documentation": "Buffer Batch Ready Photo Eye",
-          "name": "PE_FULL",
+          "name": "BUF_FULL",
           "parameters": {
             "InstanceName": {
               "dataType": "String",
-              "value": "PE_FULL"
+              "value": "BUF_FULL"
             },
             "Tag_Detect": {
               "dataType": "String",

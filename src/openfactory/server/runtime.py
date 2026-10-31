@@ -220,6 +220,8 @@ class Runtime:
         A component whose custom mesh resolved (PLAN 2.15) gets a ``mesh`` entry with the URL the
         app serves it at, ``/models/<id>.glb``; no other component has the key, so scenes without
         meshes keep their exact document. ``meshes=False`` leaves every ``mesh`` out (recordings).
+        A component expanded from a composite (PLAN 2.16) carries ``composite: {id, type}``, its
+        instance; no other component has the key.
         """
         scene = self.loaded.scene
         descriptions = {c.id: c.description for c in scene.components}
@@ -238,13 +240,17 @@ class Runtime:
                 }
             }
 
+        def composite(comp_id: str) -> dict[str, Any]:
+            inst = scene.composite_of(comp_id)
+            return {"composite": {"id": inst, "type": scene.instance_type(inst)}} if inst else {}
+
         return {
             "openfactory": scene.openfactory,
             "scene": scene.scene.model_dump(),
             "plc": {"protocol": scene.plc.protocol, "role": scene.plc.role},
             "dt": self.scheduler.dt,
             "components": [
-                {**c.geometry(), "description": descriptions[c.id], **mesh(c.id)}
+                {**c.geometry(), "description": descriptions[c.id], **mesh(c.id), **composite(c.id)}
                 for c in self.loaded.components
             ],
             "connections": [{"from": c.from_, "to": c.to} for c in scene.connections],

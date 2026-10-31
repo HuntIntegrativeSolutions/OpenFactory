@@ -35,12 +35,16 @@ import yaml
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Discriminator,
     Field,
+    PrivateAttr,
     StringConstraints,
+    Tag,
     field_validator,
     model_validator,
 )
 
+from openfactory.core.expr import parse
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 
 SCHEMA_VERSION = "0.1"
@@ -193,8 +197,10 @@ class Transform:
     on_delay_s: float = 0.0
     off_delay_s: float = 0.0
     combine: str | None = None
-    sources: tuple[str, ...] = ()  # COMPONENT.port, for combine
+    sources: tuple[str, ...] = ()  # COMPONENT.port, for combine (and the refs of `expr`)
     window: tuple[float, float] | None = None
+    #: A composite's computed DI (PLAN 2.16): a boolean expression over ``sources``.
+    expr: str | None = None
 
     def __bool__(self) -> bool:
         return self != Transform()
@@ -203,6 +209,8 @@ class Transform:
         """Human-readable form for the I/O list CSV, e.g. ``or(PE_01.detect, PE_02.detect); NC``
         or ``window 0.25 to 0.35 m`` (``units``: the bound port's)."""
         parts = []
+        if self.expr:
+            parts.append(f"expr({self.expr})")
         if self.combine:
             parts.append(f"{self.combine}({', '.join(self.sources)})")
         if self.window is not None:
@@ -787,6 +795,123 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
 }
 
 
+# --- Composite components (PLAN 2.16) ---------------------------------------------------------
+
+
+class CompositeIo(StrictModel):
+    """One port of a composite type: a command passed `to` a part, or a DI/AI read `from` one."""
+
+    to: str | None = Field(None, description="part.port: the DO/AO this port drives.")
+    from_: str | None = Field(
+        None,
+        alias="from",
+        description="part.port (a DI/AI passed through), or a boolean expression over parts' "
+        'DI/AI ports, e.g. "gate.raised and not belt.running" (a computed DI).',
+    )
+    invert: bool = Field(False, description="With `to` on a DO: the part acts on the opposite.")
+
+    @model_validator(mode="after")
+    def _one_direction(self) -> CompositeIo:
+        if (self.to is None) == (self.from_ is None):
+            raise ValueError("a composite io entry has exactly one of `to` or `from`")
+        return self
+
+
+class CompositeDef(StrictModel):
+    """A component type declared in the scene from built-in parts (PLAN 2.16)."""
+
+    type: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=64)]
+    description: str | None = None
+    params: dict[Annotated[str, StringConstraints(pattern=r"^[a-z_][a-z0-9_]*$")], float] = Field(
+        default_factory=dict, description="Parameter -> default value (numbers only)."
+    )
+    parts: list[dict[str, Any]] = Field(
+        min_length=1,
+        description="Components without io. Ids are lowercase and local; numeric fields may be "
+        'expressions such as "{length} - 0.2". Positions are relative to the instance.',
+        json_schema_extra={
+            "items": {
+                "type": "object",
+                "required": ["id", "type"],
+                "properties": {
+                    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+                    "type": {"type": "string"},
+                    "description": {"type": "string"},
+                },
+            }
+        },
+    )
+    io: dict[Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")], CompositeIo] = Field(
+        default_factory=dict, description="The instance's ports."
+    )
+
+    @field_validator("parts")
+    @classmethod
+    def _parts_have_ids(cls, parts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        seen: set[str] = set()
+        for part in parts:
+            pid, ptype = part.get("id"), part.get("type")
+            if not isinstance(pid, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", pid):
+                raise ValueError(f"part id {pid!r}: lowercase letters, digits and _ (e.g. belt)")
+            if not isinstance(ptype, str):
+                raise ValueError(f"part {pid}: `type` is required")
+            if pid in seen:
+                raise ValueError(f"part id {pid!r} is used twice")
+            if "io" in part:
+                raise ValueError(
+                    f"part {pid}: a part has no io of its own; the composite's io block wires it"
+                )
+            seen.add(pid)
+        return parts
+
+
+class CompositeInstance(StrictModel):
+    """A component whose type is a scene composite; parameters are given as extra fields."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: ComponentId
+    type: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")] = Field(
+        description="A type from the scene's composites: block.",
+        # without this a built-in component would match two oneOf branches in the JSON Schema
+        json_schema_extra={"not": {"enum": sorted(COMPONENT_MODELS)}},
+    )
+    description: Annotated[str, StringConstraints(min_length=1)]
+    position: Vec3
+    rotation_deg: float = 0.0
+    io: dict[str, Any] = Field(default_factory=dict, description="Composite io name -> tag.")
+
+    def params(self) -> dict[str, Any]:
+        return dict(self.model_extra or {})
+
+
+def _component_kind(value: Any) -> str:
+    kind = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    return kind if kind in COMPONENT_MODELS else "composite"
+
+
+#: A scene component: a built-in type, or an instance of one of the scene's composites.
+SceneComponent = Annotated[
+    Annotated[BeltConveyor, Tag("belt_conveyor")]
+    | Annotated[RollerConveyor, Tag("roller_conveyor")]
+    | Annotated[Stopper, Tag("stopper")]
+    | Annotated[Turntable, Tag("turntable")]
+    | Annotated[DiverterArm, Tag("diverter_arm")]
+    | Annotated[PickAndPlace, Tag("pick_and_place")]
+    | Annotated[DistanceSensor, Tag("distance_sensor")]
+    | Annotated[ColorSensor, Tag("color_sensor")]
+    | Annotated[PhotoEye, Tag("photo_eye")]
+    | Annotated[Pusher, Tag("pusher")]
+    | Annotated[BoxEmitter, Tag("box_emitter")]
+    | Annotated[PartRemover, Tag("part_remover")]
+    | Annotated[Pushbutton, Tag("pushbutton")]
+    | Annotated[PilotLight, Tag("pilot_light")]
+    | Annotated[SelectorSwitch, Tag("selector_switch")]
+    | Annotated[CompositeInstance, Tag("composite")],
+    Discriminator(_component_kind),
+]
+
+
 #: Component types that carry parts on their top surface (PLAN §5). Connections join these.
 CARRIER_TYPES = frozenset({"belt_conveyor", "roller_conveyor", "turntable"})
 #: Conveyors that may feed, and be fed by, several others: the active connection is the aligned one.
@@ -857,7 +982,12 @@ class Scene(StrictModel):
     openfactory: Literal["0.1"]
     scene: SceneMeta
     plc: PlcConfig = PlcConfig()
-    components: list[Component] = Field(min_length=1)
+    composites: list[CompositeDef] = Field(
+        default_factory=list,
+        description="Component types declared from built-in parts (PLAN 2.16); a component whose "
+        "type names one is expanded into its parts at load.",
+    )
+    components: list[SceneComponent] = Field(min_length=1)
     connections: list[Connection] = Field(
         default_factory=list,
         description="Which conveyor feeds which. Loops (recirculation) are allowed; "
@@ -865,6 +995,38 @@ class Scene(StrictModel):
         "feed several and hands parts across only while its deck is aligned with one.",
     )
     checks: Checks | None = Field(None, description="Exercise checks for `openfactory test`.")
+
+    #: Expanded component id -> composite instance id; instance id -> its type (PLAN 2.16).
+    _composite_of: dict[str, str] = PrivateAttr(default_factory=dict)
+    _instance_type: dict[str, str] = PrivateAttr(default_factory=dict)
+    #: Computed DIs of composite instances, after which component each one is listed.
+    _computed: dict[str, list[TagBinding]] = PrivateAttr(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _expand_composites(self) -> Scene:
+        """Runs first: every later check sees only built-in components (PLAN 2.16)."""
+        from openfactory.core.composite import expand
+
+        expansion = expand(self)
+        self._composite_of = expansion.composite_of
+        self._instance_type = expansion.instance_type
+        for after, name, binding, text, local in expansion.computed:
+            t = binding_transform(binding)
+            refs = parse(text, refs=True).refs
+            spec = PortSpec(name, "DI", f"{name}: {local}", False, None, None)
+            computed = TagBinding(binding_tag(binding), "DI", refs[0].split(".")[0], spec,
+                                  binding_address(binding), None,
+                                  replace(t, sources=refs, expr=text),
+                                  getattr(binding, "exam", None) == "switch")  # fmt: skip
+            self._computed.setdefault(after, []).append(computed)
+        return self
+
+    def composite_of(self, component_id: str) -> str | None:
+        """The composite instance an expanded component came from, or None (PLAN 2.16)."""
+        return self._composite_of.get(component_id)
+
+    def instance_type(self, instance_id: str) -> str | None:
+        return self._instance_type.get(instance_id)
 
     @model_validator(mode="after")
     def _unique_ids_and_tags(self) -> Scene:
@@ -909,7 +1071,7 @@ class Scene(StrictModel):
                 )
             owners[binding.name] = where
             sources = binding.transform.sources
-            if sources:
+            if sources and not binding.transform.expr:
                 host = f"{binding.component_id}.{binding.port.name}"
                 if host not in sources:
                     raise ValueError(
@@ -960,6 +1122,7 @@ class Scene(StrictModel):
                             getattr(value, "exam", None) == "switch",
                         )
                     )
+            out += self._computed.get(comp.id, [])  # a composite's computed DIs (PLAN 2.16)
         return out
 
     @model_validator(mode="after")

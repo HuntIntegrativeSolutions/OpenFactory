@@ -579,6 +579,199 @@
       "title": "ColorSensorIO",
       "type": "object"
     },
+    "CompositeDef": {
+      "additionalProperties": false,
+      "description": "A component type declared in the scene from built-in parts (PLAN 2.16).",
+      "properties": {
+        "type": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Type",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "params": {
+          "description": "Parameter -> default value (numbers only).",
+          "patternProperties": {
+            "^[a-z_][a-z0-9_]*$": {
+              "type": "number"
+            }
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "parts": {
+          "description": "Components without io. Ids are lowercase and local; numeric fields may be expressions such as \"{length} - 0.2\". Positions are relative to the instance.",
+          "items": {
+            "properties": {
+              "id": {
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "title": "Parts",
+          "type": "array"
+        },
+        "io": {
+          "description": "The instance's ports.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "$ref": "#/$defs/CompositeIo"
+            }
+          },
+          "title": "Io",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type",
+        "parts"
+      ],
+      "title": "CompositeDef",
+      "type": "object"
+    },
+    "CompositeInstance": {
+      "additionalProperties": true,
+      "description": "A component whose type is a scene composite; parameters are given as extra fields.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "description": "A type from the scene's composites: block.",
+          "not": {
+            "enum": [
+              "belt_conveyor",
+              "box_emitter",
+              "color_sensor",
+              "distance_sensor",
+              "diverter_arm",
+              "part_remover",
+              "photo_eye",
+              "pick_and_place",
+              "pilot_light",
+              "pushbutton",
+              "pusher",
+              "roller_conveyor",
+              "selector_switch",
+              "stopper",
+              "turntable"
+            ]
+          },
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Type",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "io": {
+          "additionalProperties": true,
+          "description": "Composite io name -> tag.",
+          "title": "Io",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "description",
+        "position"
+      ],
+      "title": "CompositeInstance",
+      "type": "object"
+    },
+    "CompositeIo": {
+      "additionalProperties": false,
+      "description": "One port of a composite type: a command passed `to` a part, or a DI/AI read `from` one.",
+      "properties": {
+        "to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "part.port: the DO/AO this port drives.",
+          "title": "To"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "part.port (a DI/AI passed through), or a boolean expression over parts' DI/AI ports, e.g. \"gate.raised and not belt.running\" (a computed DI).",
+          "title": "From"
+        },
+        "invert": {
+          "default": false,
+          "description": "With `to` on a DO: the part acts on the opposite.",
+          "title": "Invert",
+          "type": "boolean"
+        }
+      },
+      "title": "CompositeIo",
+      "type": "object"
+    },
     "Connection": {
       "additionalProperties": false,
       "description": "One conveyor feeding another: parts leaving ``from``'s discharge end land on ``to``'s infeed.\n\nThe handoff bridges any gap, height step, or turn between the two, like a transfer plate.",
@@ -2817,28 +3010,16 @@
         "connection": null
       }
     },
+    "composites": {
+      "description": "Component types declared from built-in parts (PLAN 2.16); a component whose type names one is expanded into its parts at load.",
+      "items": {
+        "$ref": "#/$defs/CompositeDef"
+      },
+      "title": "Composites",
+      "type": "array"
+    },
     "components": {
       "items": {
-        "discriminator": {
-          "mapping": {
-            "belt_conveyor": "#/$defs/BeltConveyor",
-            "box_emitter": "#/$defs/BoxEmitter",
-            "color_sensor": "#/$defs/ColorSensor",
-            "distance_sensor": "#/$defs/DistanceSensor",
-            "diverter_arm": "#/$defs/DiverterArm",
-            "part_remover": "#/$defs/PartRemover",
-            "photo_eye": "#/$defs/PhotoEye",
-            "pick_and_place": "#/$defs/PickAndPlace",
-            "pilot_light": "#/$defs/PilotLight",
-            "pushbutton": "#/$defs/Pushbutton",
-            "pusher": "#/$defs/Pusher",
-            "roller_conveyor": "#/$defs/RollerConveyor",
-            "selector_switch": "#/$defs/SelectorSwitch",
-            "stopper": "#/$defs/Stopper",
-            "turntable": "#/$defs/Turntable"
-          },
-          "propertyName": "type"
-        },
         "oneOf": [
           {
             "$ref": "#/$defs/BeltConveyor"
@@ -2884,6 +3065,9 @@
           },
           {
             "$ref": "#/$defs/SelectorSwitch"
+          },
+          {
+            "$ref": "#/$defs/CompositeInstance"
           }
         ]
       },

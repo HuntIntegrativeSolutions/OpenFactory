@@ -12,11 +12,17 @@ program.
 
 ## The plant
 
+The buffer is one component, `BUF`, of the scene's own composite type `gated_buffer` (PLAN 2.16):
+a belt, a release stopper at its discharge, and a batch-ready eye, declared in the scene's
+`composites:` block with `length`, `speed_mps`, `gate_setback` and `full_at` parameters. At load it
+expands into the three parts below; its tags are the ones the separate components had, so the
+lockfiles and both programs are unchanged.
+
 | Component | Type | What it does |
 |---|---|---|
-| `CONV_BUF` | belt conveyor | Buffer belt, 4 m at 0.3 m/s |
-| `STP_01` | stopper | Blade at x 3.95 m, 5 cm before the transfer; holds the queue while raised |
-| `PE_FULL` | photo eye | Under the third queued box (x 3.2 m): blocked for good means a batch is ready |
+| `BUF_BELT` | belt conveyor (part of `BUF`) | Buffer belt, 4 m at 0.3 m/s |
+| `BUF_GATE` | stopper (part of `BUF`) | Blade at x 3.95 m, 5 cm before the transfer; holds the queue while raised |
+| `BUF_FULL` | photo eye (part of `BUF`) | Under the third queued box (x 3.2 m): blocked for good means a batch is ready |
 | `CONV_OUT` | belt conveyor | Outfeed, 3 m at 0.9 m/s, three times the buffer speed |
 | `PE_REL` | photo eye | On the outfeed at x 4.16 m; counts released boxes |
 | `EMT_01` | box emitter | A 0.3 m × 0.2 m box every 2 s |
@@ -44,8 +50,8 @@ No analog tags, so the `float32` and `int16_scaled` lockfiles give the same addr
 
 1. Run both belts and hold the stopper raised. Boxes ride into the blade and queue nose to tail.
 2. Feed boxes once both belts have reported running for 1 s.
-3. A batch is ready when `PE_FULL` has been blocked for 1.5 s and the blade has been back up for
-   2 s. A moving box blocks `PE_FULL` for only 1 s (0.3 m at 0.3 m/s), so only a standing third
+3. A batch is ready when `PE_FULL_DI` has been on for 1.5 s and the blade has been back up for
+   2 s. A moving box blocks the eye for only 1 s (0.3 m at 0.3 m/s), so only a standing third
    box satisfies the timer.
 4. Lower the blade and count `PE_REL` rising edges. At the third, raise the blade. The fourth box
    is still behind the blade line, so it stops there and starts the next queue; a box already
@@ -79,9 +85,9 @@ reads `spawned 30, removed {'box': 21}, lost {}; by remover {'REM_01': {'box': 2
 
 ## Try this
 
-- Change `BATCH` to 2 or 4. With 4, `PE_FULL` must move to the fourth queued box (x 2.9 m), or the
-  release starts with too few boxes queued.
-- Inject `jammed` on `STP_01` while a batch is going out: the program counts three and commands
+- Change `BATCH` to 2 or 4. With 4, the batch-ready eye must move to the fourth queued box (x 2.9 m,
+  `full_at: 1.1` on `BUF`), or the release starts with too few boxes queued.
+- Inject `jammed` on `BUF_GATE` while a batch is going out: the program counts three and commands
   the blade up, but it stays down, the raised limit never makes, and boxes stream through. Add a
   check that `STP_01_UP_DI` makes within 0.5 s of the raise command, and stop the buffer belt if
   it does not.

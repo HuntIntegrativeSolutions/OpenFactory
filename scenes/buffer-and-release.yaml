@@ -3,7 +3,9 @@
 # batches of three onto a faster outfeed belt, which opens a gap behind each box so a photo eye can
 # count them. Guide: docs/guides/buffer-and-release.md. PLC programs:
 # examples/openplc/buffer-and-release.st (OpenPLC) and examples/pyplc/buffer-and-release.py.
-# PLAN 2.16 rebuilds this scene on a composite (gated conveyor) once composites exist.
+# PLAN 2.16: the buffer is a composite, `gated_buffer` (belt, release stopper, batch-ready eye),
+# declared below and placed once as BUF. It expands at load into BUF_BELT, BUF_GATE and BUF_FULL
+# at the positions the three separate components had, with the same tags.
 openfactory: "0.1"
 scene:
   name: buffer-and-release
@@ -18,32 +20,52 @@ checks:                            # PLAN 2.11: `openfactory test` grades a prog
   parts_reached: {REM_01: box}
   none_lost: true
   max_cycle_s: 25                  # measured 19.3 s under the stand-in script
+composites:
+  - type: gated_buffer
+    description: Accumulating belt with a release stopper at its discharge and a batch-ready eye
+    params:
+      length: 4.0                    # belt length, m
+      speed_mps: 0.3
+      gate_setback: 0.05             # blade line this far before the discharge end
+      full_at: 0.8                   # batch-ready eye this far before the discharge end
+    parts:
+      - id: belt
+        type: belt_conveyor
+        description: Belt Conveyor
+        position: [0, 0, 0]
+        length: "{length}"
+        width: 0.5
+        speed_mps: "{speed_mps}"
+      - id: gate
+        type: stopper
+        description: Release Stopper
+        position: ["{length} - {gate_setback}", 0, 0]
+      - id: full
+        type: photo_eye
+        description: Batch Ready Photo Eye
+        position: ["{length} - {full_at}", 0.1, 0]   # under the third queued box
+        beam_length: 0.6
+    io:
+      run: {to: belt.run}
+      running: {from: belt.running}
+      raise: {to: gate.raise}
+      raised: {from: gate.raised}
+      lowered: {from: gate.lowered}
+      full: {from: full.detect}
 components:
-  - id: CONV_BUF
-    type: belt_conveyor
-    description: Buffer Belt Conveyor
+  - id: BUF
+    type: gated_buffer
+    description: Buffer
     position: [0, 0, 0]
     length: 4.0
-    width: 0.5
     speed_mps: 0.3
     io:
       run: CONV_BUF_RUN_DO
       running: CONV_BUF_RUN_DI
-  - id: STP_01
-    type: stopper
-    description: Buffer Release Stopper
-    position: [3.95, 0, 0]          # blade line 5 cm before the transfer to CONV_OUT
-    io:
       raise: STP_01_RAISE_DO
       raised: STP_01_UP_DI
       lowered: STP_01_DN_DI
-  - id: PE_FULL
-    type: photo_eye
-    description: Buffer Batch Ready Photo Eye
-    position: [3.2, 0.1, 0]          # under the third queued box (x 3.05 to 3.35)
-    beam_length: 0.6
-    io:
-      detect: PE_FULL_DI
+      full: PE_FULL_DI
   - id: CONV_OUT
     type: belt_conveyor
     description: Outfeed Belt Conveyor
@@ -76,4 +98,4 @@ components:
     position: [7.15, 0, 0]
     size: [0.3, 1.0, 1.0]
 connections:
-  - {from: CONV_BUF, to: CONV_OUT}
+  - {from: BUF_BELT, to: CONV_OUT}

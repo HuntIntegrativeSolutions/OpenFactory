@@ -922,7 +922,7 @@ runs the sorting program against it; a box visibly gets pushed.
       queue has no gaps; palletizer-lite is one layer of one row (no stacking in the headless
       model) and counts placements, since watching the row eye alone let a fifth box ride out
       with the layer. OpenPLC rejects `STEP` as a variable name (IEC 61131-3 reserved word).
-      `buffer-and-release` is still to be rebuilt on a composite with 2.16.
+      `buffer-and-release` was rebuilt on a composite with 2.16 (2026-10-31).
       *Palletizer rate (ruled 2026-10-28):* at a box every 4 s the line was over capacity (about
       4.8 s a box), so `max_cycle_s` 35 passed at 60 s and failed from 120 s (47 s at 300 s). The
       emitter now runs every 6 s: longest dwell 27.4 s at 60, 300 and 600 s, 48 boxes out in
@@ -1240,7 +1240,7 @@ runs the sorting program against it; a box visibly gets pushed.
       unchanged); `run` with the file absent: exactly one warning line (tested); `validate` of
       `../pusher-housing.glb` and `https://example.com/x.glb`: exit 1, "mesh.file ... leaves the
       scene's folder ('..')" / "is a URL" (tested); parity traces and all six kits unchanged.
-- [ ] 2.16 Composite components, declared in scenes without Python: a `composites:` block defines a
+- [x] 2.16 Composite components, declared in scenes without Python: a `composites:` block defines a
       new type from existing components, primitive shapes, and simple expressions:
       ```yaml
       composites:
@@ -1271,6 +1271,46 @@ runs the sorting program against it; a box visibly gets pushed.
       validates composite definitions, and a recursive composite is rejected at load with a clear
       message. Ship it in a scene (`buffer-and-release` from 2.7 should be rebuilt on it).
       `openfactory lint` warns on a composite that exposes no I/O.
+      *Ruled 2026-10-31:* schema as proposed (params with defaults, numbers only; `{param}`
+      expressions in part fields; `to:` / `from:` io, a `from:` expression a computed DI;
+      expansion at load into `<INSTANCE>_<PART>` components; nesting one level). An unexposed
+      required port is a load error naming the port. *Done when:* buffer-and-release rebuilt as a
+      composite instance with its lockfiles byte-identical, the recursive-definition and
+      unexposed-port errors covered by tests, the expression grammar fuzzed with at least a
+      hundred generated expressions that must either evaluate or raise cleanly, W208 shown, and
+      the composites overlap lint in place.
+      *Done 2026-10-31:* `core/expr.py` (an `ast` whitelist, `ExprError` for every failure),
+      `core/composite.py` (definition checks, expansion), schema `CompositeDef`, `CompositeIo`,
+      `CompositeInstance` (a callable discriminator sends any non-built-in `type` to it; the
+      expansion validator runs first, so every later check sees built-ins only), a computed DI as
+      a 2.17 transform with `expr` (`TransformStage`), the scene document's `composite: {id,
+      type}`. `scenes/buffer-and-release.yaml` is one `gated_buffer` instance `BUF` (belt,
+      release stopper at `{length} - {gate_setback}`, batch-ready eye at `{length} - {full_at}`)
+      expanding to BUF_BELT, BUF_GATE, BUF_FULL with the old positions, descriptions and tags.
+      Evidence: both lockfiles byte-identical after `test` and `export` (cmp, and a test that
+      rewrites them); its 60 s recording equals the pre-composite kit recording frame for frame
+      once the three ids are renamed (705 of 705 frames), and a test steps the composite scene
+      beside the old flat one (`tests/scenes/buffer-and-release-flat.yaml`) under the same script
+      for 60 s with every state, tag and part equal; checks PASS 3 of 3, longest dwell 19.32 s as
+      before. Errors tested: "recursive composite: loop_a -> loop_b -> loop_a" (and `itself ->
+      itself`), "composite nesting deeper than one level: triple -> gated_pair ->
+      gated_conveyor", "composite gated_conveyor: part belt's required port 'run' is unexposed",
+      and 14 more (unknown parameter, wrong port kind, duplicate binding, part io, built-in name,
+      unknown type, ...); a computed DI is evaluated once at load with typed readings, so
+      `"eye.detect + 1"` or a numeric result (`"dist.distance * 2"`) is a load error, not a DI
+      that reads false. Fuzz: boolean io 1227 distinct generated expressions (163 evaluate, 1064
+      raise `ExprError`), numeric part fields through `number()` 1250 (89 evaluate, 1161 raise),
+      nothing else escapes. W208: "composite drop_chute exposes no I/O". JSON Schema: a
+      composite instance's `type` excludes the built-in names, so each component matches one
+      `oneOf` branch; checked with `jsonschema` (not a project dependency): all 20 scenes in
+      `scenes/` and `tests/scenes/` valid, a composite without `parts` rejected.
+      *Overlap lint (open):* no "composites overlap lint" is written down; the 2.16 amendment of
+      2026-10-26 is the no-I/O check (W208). Read here as W205 running on expanded conveyors
+      and naming the instance, "conveyors GC_01_BELT (part of GC_01, a gated_conveyor) and
+      GC_02_BELT (part of GC_02, a gated_conveyor) overlap by 1 m x 0.5 m at the same height";
+      to be confirmed. `tests/scenes/gated-conveyor.yaml` is the plan's example (two
+      instances, a computed `waiting` DI, an inverted `open`), exported with
+      `expr(GC_01_GATE.raised and GC_01_EYE.detect)` in the transform column.
 - [x] 2.17 Binding-level signal transforms. A binding may be `{tag: X, invert: true}` (NO/NC),
       `{tag: X, on_delay_s: 0.2, off_delay_s: 0}`, `{tag: X, combine: or, from: [PE_01.detect,
       PE_02.detect]}` for a DI fed by several outputs, and for distance sensors `{tag: X, window:
@@ -1313,8 +1353,8 @@ runs the sorting program against it; a box visibly gets pushed.
       lockfile and written by no script, W202 a DI/AI in no lockfile and read by no script,
       W203 conveyors touching end to end without a connection, W204 outside the viewer's
       40 m × 40 m floor, W205 conveyor footprints overlapping at the same height (connected
-      pairs exempt). Scripts are scanned as text, never run. The composites check waits for
-      2.16. `tools/ci_local.sh` step 3 runs `openfactory lint scenes`; the shipped sorter has
+      pairs exempt). Scripts are scanned as text, never run. The composites check arrived with
+      2.16 as W208. `tools/ci_local.sh` step 3 runs `openfactory lint scenes`; the shipped sorter has
       0 errors and 0 warnings.
       *Pusher checks (2026-10-26):* W206 a plate top below the centre of mass of any emitted part
       on the belt the plate sweeps (it tips the part), W207 a stroke shorter than the retracted

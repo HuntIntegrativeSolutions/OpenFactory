@@ -130,3 +130,60 @@ Any component may draw its own model in the viewer in place of its fixed housing
   `openfactory lint` warns (W209) on a scene mesh with neither a sidecar nor a `THIRD_PARTY.md`
   entry naming it, in the mesh's folder or any folder above.
 - OBJ or `.gltf` with separate buffers is not read; convert to `.glb` in a 3D tool first.
+
+## `composites:`: new equipment from existing parts (PLAN 2.16)
+
+A scene can declare its own component types from the built-in ones, with no Python:
+
+```yaml
+composites:
+  - type: gated_conveyor
+    description: Belt conveyor with a gate stopper near its discharge and a waiting-box eye
+    params: {length: 2.0, gate_setback: 0.2}      # name: default (numbers only)
+    parts:                                          # components without io; ids lowercase
+      - {id: belt, type: belt_conveyor, description: Belt Conveyor, position: [0, 0, 0],
+         length: "{length}", width: 0.5, speed_mps: 0.4}
+      - {id: gate, type: stopper, description: Gate Stopper,
+         position: ["{length} - {gate_setback}", 0, 0]}
+      - {id: eye, type: photo_eye, description: Waiting Box Photo Eye,
+         position: ["{length} - {gate_setback} - 0.2", 0.1, 0], beam_length: 0.6}
+    io:
+      run: {to: belt.run}                           # a command passed to a part
+      open: {to: gate.raise, invert: true}          # ... inverted (DO only)
+      eye: {from: eye.detect}                       # a DI or AI passed through
+      waiting: {from: "gate.raised and eye.detect"} # a DI computed from parts' ports
+components:
+  - id: GC_01
+    type: gated_conveyor
+    description: Infeed Gated
+    position: [0, 0, 0]
+    length: 3.0                                     # a parameter
+    io: {run: GC_01_RUN_DO, open: GC_01_OPEN_DO, eye: GC_01_EYE_DI, waiting: GC_01_WAIT_DI}
+```
+
+- **Expansion.** At load an instance becomes its parts, ordinary components named
+  `<instance id>_<PART>` (`GC_01_BELT`, `GC_01_GATE`, `GC_01_EYE`), placed at the instance's
+  position plus the part's `position` turned by the instance's `rotation_deg`, with the
+  description `"<instance description> <part description>"`. Everything after loading (Modbus,
+  the viewer, exports, faults, lint) sees those parts; `connections` and `checks` name them
+  (`{from: GC_01_BELT, to: GC_02_BELT}`). The scene document marks each one with its instance,
+  `composite: {id, type}`.
+- **Tags** are the instance's own: its `io` bindings move to the parts' ports, so the I/O list
+  and lockfiles show the tags you bound, with the part's id in the component column. A binding
+  may be a mapping (`{tag, initial, invert, address, ...}`) as for any port.
+- **Expressions** (`openfactory.core.expr`, never `eval`): numbers, parameters in braces in a
+  part's fields (`"{length} - 0.2"`), `+ - * /`, parentheses, comparisons, and `and`/`or`/`not`;
+  in an `io` `from`, `part.port` names a DI or AI port of a built-in part. No function calls.
+  A computed DI is evaluated after the components each tick, like a binding transform
+  (PLAN 2.17); the instance's binding may add `invert` and delays. The CSV transform column shows
+  it, `expr(GC_01_GATE.raised and GC_01_EYE.detect)`.
+- **Nesting.** A composite may be a part of another composite one level deep; deeper nesting and
+  recursive definitions (`a -> b -> a`) are load errors naming the chain.
+- **Required ports.** Every required port of every part must be exposed in `io` (a `to` for a
+  command, a `from` for a DI/AI), or loading fails naming the part and port; an instance must
+  bind every `io` entry that reaches a required port. Other `io` entries are optional.
+- **Lint.** W208 warns on a composite whose `io:` is empty (no PLC can command or read it); W205
+  checks the expanded conveyors for overlapping footprints like any others and names their
+  instance.
+- Example: `scenes/buffer-and-release.yaml` (one `gated_buffer` instance, `BUF`) and
+  `tests/scenes/gated-conveyor.yaml` (two `gated_conveyor` instances with a computed DI).

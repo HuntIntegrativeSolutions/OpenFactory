@@ -49,7 +49,7 @@ def test_a_stopper_cycle_is_a_release_and_its_first_rise_is_not_counted():
     assert report["cycles"]["TT_01"]["count"] == 7  # one turn out and back per lane-B box
     assert 0 < report["utilization_pct"]["TT_01"] < 100
     buffer = scripted("buffer-and-release").report()  # starts lowered: the first rise is free
-    assert buffer["cycles"]["STP_01"]["count"] == 7  # seven batches completed in 60 s
+    assert buffer["cycles"]["BUF_GATE"]["count"] == 7  # seven batches completed in 60 s
 
 
 def test_an_idle_run_reports_zeros_and_api_stats_serves_the_report():

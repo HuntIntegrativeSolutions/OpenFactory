@@ -19,7 +19,9 @@ Warnings (exit 0 unless there are errors):
 - ``W204`` a component outside the floor, the viewer's 40 m × 40 m plane centred on the origin
   (``|x|`` or ``|z|`` over 20 m).
 - ``W205`` two conveyors whose footprints overlap at the same belt height (within 5 cm). Conveyors
-  joined end to end by a connection are allowed to touch.
+  joined end to end by a connection are allowed to touch. A conveyor expanded from a composite
+  (PLAN 2.16) is checked like any other and named with its instance and type, so two instances
+  placed over each other, or a composite whose own parts overlap, are caught.
 - ``W206`` a pusher plate whose top is below the centre of mass of a part the scene emits, resting
   on the belt the plate sweeps: the plate hits the part low and tips it. The same check covers a
   ``stopper``'s raised blade top and a ``diverter_arm``'s arm top (their ``height``, above the belt
@@ -35,7 +37,8 @@ centre line, and the plate height after the loader's default.
   any folder above it that names the mesh's path relative to that file. A mesh in a scene is a
   third-party asset until someone says whose it is and under what terms.
 
-Composite components (PLAN 2.16) do not exist yet; their "exposes no I/O" check arrives with them.
+- ``W208`` a composite type (PLAN 2.16) that exposes no I/O: its ``io:`` block is empty, so no
+  PLC can command or read any instance of it.
 
 Scripts are scanned as text, not run: ``io["TAG"] = ...`` counts as a write and any other
 ``io["TAG"]`` as a read (the ``openfactory.pyplc`` convention).
@@ -151,6 +154,11 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                 Finding("warning", "W204", f"{comp.id} at x {x:g}, z {z:g} is outside the "
                         f"{2 * FLOOR_HALF_M:g} m x {2 * FLOOR_HALF_M:g} m floor")
             )  # fmt: skip
+
+    def named(cid: str) -> str:
+        inst = scene.composite_of(cid)
+        return f"{cid} (part of {inst}, a {scene.instance_type(inst)})" if inst else cid
+
     carriers = [c for c in loaded.components if c.type in CARRIER_TYPES]
     joined = {frozenset((c.from_, c.to)) for c in scene.connections}
     for i, a in enumerate(carriers):
@@ -163,8 +171,8 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
             overlap_z = min(az1, bz1) - max(az0, bz0)
             if overlap_x > 1e-6 and overlap_z > 1e-6 and frozenset((a.id, b.id)) not in joined:
                 findings.append(
-                    Finding("warning", "W205", f"conveyors {a.id} and {b.id} overlap by "
-                            f"{overlap_x:.3g} m x {overlap_z:.3g} m at the same height")
+                    Finding("warning", "W205", f"conveyors {named(a.id)} and {named(b.id)} "
+                            f"overlap by {overlap_x:.3g} m x {overlap_z:.3g} m at the same height")
                 )  # fmt: skip
     parts = emitted_parts(scene)
     for pusher in (c for c in loaded.components if c.type == "pusher"):
@@ -203,6 +211,13 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                             "part low and can tip it. Raise height, or leave it unset to size it "
                             "from the parts")
                 )  # fmt: skip
+    for d in scene.composites:
+        if not d.io:
+            findings.append(
+                Finding("warning", "W208", f"composite {d.type} exposes no I/O (its io: block is "
+                        "empty): no PLC can command or read an instance of it; add io entries "
+                        "such as `run: {to: belt.run}`")
+            )  # fmt: skip
     for comp in (c for c in scene.components if c.mesh is not None):
         mesh = scene_dir / comp.mesh.file
         if not has_license_record(mesh):

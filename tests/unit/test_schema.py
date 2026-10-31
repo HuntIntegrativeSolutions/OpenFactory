@@ -100,7 +100,7 @@ def test_rejects_unknown_key(example_data, mutate):
 
 def test_rejects_unknown_component_type(example_data):
     _component(example_data, "PE_01")["type"] = "laser_scanner"
-    with pytest.raises(ValidationError, match="does not match any of the expected tags"):
+    with pytest.raises(ValidationError, match="PE_01: unknown component type 'laser_scanner'"):
         Scene.model_validate(example_data)
 
 
