@@ -719,10 +719,11 @@ runs the sorting program against it; a box visibly gets pushed.
       descriptions end with the range, `[0 to 100 %]`. Tag names are the scene's own (the Logix
       path and the example programs use them), checked against `^[A-Z][A-Z0-9_]{0,39}$` and for
       duplicates; scene tags follow the project's `EQUIP_NN_SUFFIX` form and carry no area
-      prefix. The L5X format reference is Rockwell publication 1756-RM084 (Logix 5000
-      Controllers Import/Export Reference Manual). No `ExportDate` and no `<Data>`, so the file
-      is byte-identical per scene for 2.14 and the tags take Studio 5000's defaults; whether an
-      import accepts both omissions is part of the Studio 5000 import test below. The text is parsed back before it
+      prefix. The L5X format reference is Rockwell publication 1756-RM014 (Logix 5000
+      Controllers Import/Export Reference Manual, March 2022; its predecessor was 1756-RM084).
+      No `ExportDate` and no `<Data>`, so the file is byte-identical per scene for 2.14 and the
+      tags take Studio 5000's defaults; whether an import accepts both omissions is part of the
+      Studio 5000 import test below. The text is parsed back before it
       is returned. `tests/unit/test_l5x_stub.py`: "sorter: 11 bound tags + SIM_HEARTBEAT_DI = 12
       I/O list rows; L5X tags 12", names equal to the CSV's in order, root attributes, types,
       radixes and descriptions checked, every shipped scene exports unique valid names twice
@@ -946,6 +947,11 @@ runs the sorting program against it; a box visibly gets pushed.
       sorter's byte for byte and checks every tag a chart names is declared in its program. The
       deliverable footer (company, email, scripture) is replaced by one line, "HIS Controls,
       OpenFactory, CC-BY-4.0", in code.
+      *Ruled 2026-10-31 (second):* a stale chart fails CI, not drift silently. Each scene's
+      sequence data stores `st_sha256`, the SHA-256 of the ST program it was read from (LF line
+      endings); `build_kit.py --check` fails when the program's hash differs, naming the scene
+      and the command that prints the new hash (`grafcet_from_st.py --hash SCENE`) to store after
+      the sequence is re-read. Tested both ways in `test_grafcet_from_st.py`.
 - [ ] 2.9 Performance: 200 parts at 60 fps in the viewer on integrated graphics; profile and fix.
       **First, before any other 2.9 work (ruled 2026-10-30): the real-time tick loop falls
       seconds behind when a viewer is connected.** Seen during 2.11 with a software-rendered
@@ -1295,7 +1301,10 @@ runs the sorting program against it; a box visibly gets pushed.
       `vfd_motor`
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
 - [ ] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
-      `/plantpax-*` skills, parameters from `ai-memory-vendor-docs`) + Perspective faceplates
+      `/plantpax-*` skills) + Perspective faceplates. AOI parameter names in this repository come
+      only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002
+      (Library of Process Objects, 4.x objects) and PROCES-RM200 (5.x), cited by publication
+      number and revision.
 - [ ] 3.5 MQTT Sparkplug B publisher (`protocols/sparkplug.py`) tested against Ignition 8.3 MQTT Engine
 - [ ] 3.6 Trend endpoint `/api/history?tag=` ring buffer so the viewer can show a 10-minute trend
 - [ ] 3.7 Per-tag `range` and `units` override in the binding form (closes the §8 analog-range risk)

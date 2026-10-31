@@ -298,8 +298,8 @@ and is not made here.
 - IEC 61131-3 (PLC languages) for the example programs.
 - ISA-5.1 for tag naming; ISA-101 for viewer colors; ISA-18.2 for any alarm demos.
 - Modbus Application Protocol V1.1b3 (public, modbus.org) for register semantics.
-- ODVA EtherNet/IP and CIP specifications are not public; rely on pycomm3/libplctag and vendor manuals
-  via `ai-memory-vendor-docs`.
+- ODVA EtherNet/IP and CIP specifications are not public; rely on the pycomm3/libplctag source and
+  Rockwell's public manuals (for L5X, publication 1756-RM014, successor of 1756-RM084).
 - Eclipse Sparkplug B 3.0 specification (public).
 
 ## Open questions carried into Milestone 1/2

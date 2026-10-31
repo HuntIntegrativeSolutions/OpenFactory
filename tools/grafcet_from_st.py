@@ -13,6 +13,10 @@ Charts are generated, never hand-edited. Two parts:
   This is the reading of the program; it is not parsed from the ST automatically, so a change to
   a program needs a matching change here (``tests/unit/test_grafcet_from_st.py`` checks that
   every tag a chart names is declared in its program, and that each kit's chart is current).
+  Each scene's data stores ``st_sha256``, the hash of the program it was read from; when the
+  program changes, ``stale()`` reports it and ``tools/build_kit.py --check`` fails, so a chart
+  cannot drift from its program silently. After re-reading the program and updating the
+  sequence, print the new hash with ``grafcet_from_st.py --hash SCENE`` and store it.
 - **Layout** (``render``): the HIS Controls GRAFCET standards (``grafcet-standards.md``, the
   /grafcet-chart-creator skill's rules), 1-column (none of these programs has fault codes or an
   emergency override): numbered steps, the initial step double-bordered (IEC 60848 §4.2.2),
@@ -28,6 +32,7 @@ programs; OpenFactory is not a safety-rated simulation.
 
 from __future__ import annotations
 
+import hashlib
 import html
 import math
 from dataclasses import dataclass, field
@@ -409,6 +414,7 @@ SCENES = {}
 
 SCENES["conveyor-start-stop"] = dict(
     program="start_stop",
+    st_sha256="3fb21c1f707b316e5202cb85a3a297144ee85de891a27d21e4f58015a4aa3a81",  # the program this sequence was read from
     seq="Start_Stop",
     process="Conveyor start/stop with seal-in",
     graphs=[
@@ -470,6 +476,7 @@ SCENES["conveyor-start-stop"] = dict(
 
 SCENES["sorting-by-height"] = dict(
     program="sorter",
+    st_sha256="e3456414100f05ddb93afe974a75c6f8a3984de6546c817d1a503c5d933e4290",  # the program this sequence was read from
     seq="Sorter",
     process="Sort tall boxes by height",
     graphs=[
@@ -550,6 +557,7 @@ SCENES["sorting-by-height"] = dict(
 
 SCENES["sorting-by-color"] = dict(
     program="color_sort",
+    st_sha256="0b8ebac3f50abb5f9a673ba3d15f8c7d870a64622d6a9283022a2bf9be774d9c",  # the program this sequence was read from
     seq="Color_Sorter",
     process="Divert red boxes to the side lane",
     graphs=[
@@ -621,6 +629,7 @@ SCENES["sorting-by-color"] = dict(
 
 SCENES["buffer-and-release"] = dict(
     program="buffer_release",
+    st_sha256="4cc3405b809fbb02f50b396c2401549c14970db027178a3236dbd3a44a9a103a",  # the program this sequence was read from
     seq="Buffer",
     process="Accumulate and release batches of three",
     graphs=[
@@ -671,6 +680,7 @@ SCENES["buffer-and-release"] = dict(
 
 SCENES["two-lane-merge"] = dict(
     program="merge",
+    st_sha256="fde2fda138c180c334036dcd3ee9c9ce275858dd1df539b5ad4ff33092fe4a57",  # the program this sequence was read from
     seq="Merge",
     process="Merge two lanes through a turntable",
     graphs=[
@@ -775,6 +785,7 @@ SCENES["two-lane-merge"] = dict(
 
 SCENES["palletizer-lite"] = dict(
     program="palletizer",
+    st_sha256="00d129999a8330618a7145f45af5e2834c27c79f98eb1b0c2c1e39de371e76af",  # the program this sequence was read from
     seq="Palletizer",
     process="Pick and place boxes into layers of four",
     graphs=[
@@ -920,6 +931,23 @@ SCENES["palletizer-lite"] = dict(
 )
 
 
+def st_hash(scene: str) -> str:
+    """SHA-256 of ``examples/openplc/<scene>.st``, line endings normalized to LF."""
+    st = REPO / "examples" / "openplc" / f"{scene}.st"
+    return hashlib.sha256(st.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def stale(scene: str) -> str | None:
+    """Why ``scene``'s sequence data no longer matches its program, or None when it does."""
+    if st_hash(scene) == SCENES[scene]["st_sha256"]:
+        return None
+    return (
+        f"examples/openplc/{scene}.st changed since its GRAFCET sequence was last edited; "
+        f"re-read it, update SCENES['{scene}'] in tools/grafcet_from_st.py, then store "
+        f"st_sha256 from: grafcet_from_st.py --hash {scene}"
+    )
+
+
 def chart(scene: str) -> str:
     """The HTML for ``scene``."""
     spec = SCENES[scene]
@@ -945,7 +973,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("scene", nargs="?", help=f"one of: {', '.join(SCENES)}")
     parser.add_argument("out", nargs="?", type=Path, help="output .html")
     parser.add_argument("--all", type=Path, metavar="KITS", help="write every scene's chart")
+    parser.add_argument("--hash", action="store_true", help="print the scene's program hash")
     args = parser.parse_args(argv)
+    if args.hash:
+        if args.scene not in SCENES:
+            parser.error("give a known scene")
+        print(st_hash(args.scene))
+        return 0
     if args.all:
         for scene in SCENES:
             write(scene, args.all / scene / f"{scene}-grafcet.html")

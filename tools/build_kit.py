@@ -32,6 +32,9 @@ deletes or rewrites it.
 
 ``--check`` builds into a temporary folder and compares it byte for byte with ``kits/``; CI runs
 it, so a change to a scene, a program, or an exporter that is not rebuilt into its kit fails.
+It also fails when a scene's OpenPLC program changed since its GRAFCET sequence data was last
+edited (the program hash stored beside the sequence, ``grafcet_from_st.stale``): rebuilding
+alone cannot fix a chart whose sequence was read from an older program.
 The tool reads only this repository and writes only under ``kits/``.
 """
 
@@ -233,6 +236,8 @@ def check(scene: str) -> list[str]:
         skill = {pattern.format(scene=scene) for pattern in SKILL_FILES}
         extra = sorted(p.name for p in kit.iterdir() if p.name not in set(generated(scene)) | skill)
         problems += [f"{scene}: {name} is not a kit file" for name in extra]
+        if scene in grafcet.SCENES and (why := grafcet.stale(scene)):
+            problems.append(f"{scene}: {scene}-grafcet.html is stale: {why}")
         problems += [
             f"{scene}: {n} has no '{PE_HEADER}' header line"
             for n, _, s in skill_status(scene, kit)
@@ -254,8 +259,9 @@ def main(argv: list[str] | None = None) -> int:
         problems = [p for scene in scenes for p in check(scene)]
         for p in problems:
             print(p, file=sys.stderr)
-        if problems:
+        if any("GRAFCET sequence" not in p for p in problems):
             print("rebuild with: uv run python tools/build_kit.py", file=sys.stderr)
+        if problems:
             return 1
         print(f"kits current: {', '.join(scenes)}")
         return 0
