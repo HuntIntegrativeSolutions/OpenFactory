@@ -1,0 +1,301 @@
+{
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "OF_BeltConveyor",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Run command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Run",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Run}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Running feedback",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Running",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Running}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_BoxEmitter",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Enable": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Emitter enable",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Enable",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Enable}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_PhotoEye",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Detect": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Part detected",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Detect",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Detect}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_Stopper",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Lowered": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Raise": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Raised": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Raise command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Raise",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Raise}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Raised limit switch",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Raised",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Raised}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Lowered limit switch",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Lowered",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Lowered}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BUFFER_AND_RELEASE",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "Buffer Belt Conveyor",
+          "name": "CONV_BUF",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "CONV_BUF"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "CONV_BUF_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "CONV_BUF_RUN_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_BeltConveyor"
+        },
+        {
+          "documentation": "Buffer Release Stopper",
+          "name": "STP_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "STP_01"
+            },
+            "Tag_Lowered": {
+              "dataType": "String",
+              "value": "STP_01_DN_DI"
+            },
+            "Tag_Raise": {
+              "dataType": "String",
+              "value": "STP_01_RAISE_DO"
+            },
+            "Tag_Raised": {
+              "dataType": "String",
+              "value": "STP_01_UP_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Stopper"
+        },
+        {
+          "documentation": "Buffer Batch Ready Photo Eye",
+          "name": "PE_FULL",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "PE_FULL"
+            },
+            "Tag_Detect": {
+              "dataType": "String",
+              "value": "PE_FULL_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_PhotoEye"
+        },
+        {
+          "documentation": "Outfeed Belt Conveyor",
+          "name": "CONV_OUT",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "CONV_OUT"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "CONV_OUT_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "CONV_OUT_RUN_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_BeltConveyor"
+        },
+        {
+          "documentation": "Outfeed Release Count Photo Eye",
+          "name": "PE_REL",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "PE_REL"
+            },
+            "Tag_Detect": {
+              "dataType": "String",
+              "value": "PE_REL_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_PhotoEye"
+        },
+        {
+          "documentation": "Buffer Belt Box Source",
+          "name": "EMT_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "EMT_01"
+            },
+            "Tag_Enable": {
+              "dataType": "String",
+              "value": "EMT_01_EN_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_BoxEmitter"
+        },
+        {
+          "accessRights": "Read_Only",
+          "dataType": "Boolean",
+          "documentation": "OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",
+          "enabled": true,
+          "historyEnabled": false,
+          "name": "SIM_HEARTBEAT",
+          "opcItemPath": "nsu=urn:openfactory:sim;s=SIM_HEARTBEAT_DI",
+          "opcServer": "OpenFactory",
+          "tagType": "AtomicTag",
+          "valueSource": "opc"
+        }
+      ]
+    }
+  ],
+  "version": "8.3.0"
+}

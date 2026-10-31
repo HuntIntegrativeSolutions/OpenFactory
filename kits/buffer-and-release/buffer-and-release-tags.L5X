@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="OpenFactory" TargetType="Controller" ContainsContext="true" Owner="OpenFactory">
+<Controller Use="Context" Name="OpenFactory">
+<Tags>
+<Tag Name="CONV_BUF_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Buffer Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="CONV_OUT_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Outfeed Belt Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="PE_FULL_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Buffer Batch Ready Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="PE_REL_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Outfeed Release Count Photo Eye — Part detected]]></Description>
+</Tag>
+<Tag Name="STP_01_DN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Buffer Release Stopper — Lowered limit switch]]></Description>
+</Tag>
+<Tag Name="STP_01_UP_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Buffer Release Stopper — Raised limit switch]]></Description>
+</Tag>
+<Tag Name="SIM_HEARTBEAT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops]]></Description>
+</Tag>
+<Tag Name="CONV_BUF_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Buffer Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="CONV_OUT_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Outfeed Belt Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="EMT_01_EN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Buffer Belt Box Source — Emitter enable]]></Description>
+</Tag>
+<Tag Name="STP_01_RAISE_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Buffer Release Stopper — Raise command]]></Description>
+</Tag>
+</Tags>
+</Controller>
+</RSLogix5000Content>

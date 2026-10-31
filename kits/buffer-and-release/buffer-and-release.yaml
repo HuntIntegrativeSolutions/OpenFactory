@@ -1,0 +1,79 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 2.7: boxes accumulate against a stopper at the end of a slow buffer belt and are released in
+# batches of three onto a faster outfeed belt, which opens a gap behind each box so a photo eye can
+# count them. Guide: docs/guides/buffer-and-release.md. PLC programs:
+# examples/openplc/buffer-and-release.st (OpenPLC) and examples/pyplc/buffer-and-release.py.
+# PLAN 2.16 rebuilds this scene on a composite (gated conveyor) once composites exist.
+openfactory: "0.1"
+scene:
+  name: buffer-and-release
+  description: Boxes accumulate against a stopper and are released in counted batches of three.
+  author: HIS Controls
+  seed: 11
+  units: meters
+plc:
+  protocol: modbus_tcp
+checks:                            # PLAN 2.11: `openfactory test` grades a program against these
+  duration_s: 60
+  parts_reached: {REM_01: box}
+  none_lost: true
+  max_cycle_s: 25                  # measured 19.3 s under the stand-in script
+components:
+  - id: CONV_BUF
+    type: belt_conveyor
+    description: Buffer Belt Conveyor
+    position: [0, 0, 0]
+    length: 4.0
+    width: 0.5
+    speed_mps: 0.3
+    io:
+      run: CONV_BUF_RUN_DO
+      running: CONV_BUF_RUN_DI
+  - id: STP_01
+    type: stopper
+    description: Buffer Release Stopper
+    position: [3.95, 0, 0]          # blade line 5 cm before the transfer to CONV_OUT
+    io:
+      raise: STP_01_RAISE_DO
+      raised: STP_01_UP_DI
+      lowered: STP_01_DN_DI
+  - id: PE_FULL
+    type: photo_eye
+    description: Buffer Batch Ready Photo Eye
+    position: [3.2, 0.1, 0]          # under the third queued box (x 3.05 to 3.35)
+    beam_length: 0.6
+    io:
+      detect: PE_FULL_DI
+  - id: CONV_OUT
+    type: belt_conveyor
+    description: Outfeed Belt Conveyor
+    position: [4.0, 0, 0]
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.9                   # three times the buffer: each released box pulls a gap
+    io:
+      run: CONV_OUT_RUN_DO
+      running: CONV_OUT_RUN_DI
+  - id: PE_REL
+    type: photo_eye
+    description: Outfeed Release Count Photo Eye
+    position: [4.16, 0.1, 0]         # a box reaches it while the next is still behind the blade
+    beam_length: 0.6
+    io:
+      detect: PE_REL_DI
+  - id: EMT_01
+    type: box_emitter
+    description: Buffer Belt Box Source
+    position: [0.3, 0.105, 0]
+    interval_s: 2.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_01
+    type: part_remover
+    description: Outfeed Discharge Part Remover
+    position: [7.15, 0, 0]
+    size: [0.3, 1.0, 1.0]
+connections:
+  - {from: CONV_BUF, to: CONV_OUT}

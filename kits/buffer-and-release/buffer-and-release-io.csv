@@ -1,0 +1,12 @@
+tag,io_type,dtype,description,component,address,modbus_address,modbus_encoding,units,range_min,range_max,transform
+CONV_BUF_RUN_DI,DI,bool,Buffer Belt Conveyor — Running feedback,CONV_BUF,,DI:0,bit,,,,
+CONV_OUT_RUN_DI,DI,bool,Outfeed Belt Conveyor — Running feedback,CONV_OUT,,DI:1,bit,,,,
+PE_FULL_DI,DI,bool,Buffer Batch Ready Photo Eye — Part detected,PE_FULL,,DI:2,bit,,,,
+PE_REL_DI,DI,bool,Outfeed Release Count Photo Eye — Part detected,PE_REL,,DI:3,bit,,,,
+STP_01_DN_DI,DI,bool,Buffer Release Stopper — Lowered limit switch,STP_01,,DI:4,bit,,,,
+STP_01_UP_DI,DI,bool,Buffer Release Stopper — Raised limit switch,STP_01,,DI:5,bit,,,,
+SIM_HEARTBEAT_DI,DI,bool,"OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",,,DI:6,bit,,,,
+CONV_BUF_RUN_DO,DO,bool,Buffer Belt Conveyor — Run command,CONV_BUF,,CO:0,bit,,,,
+CONV_OUT_RUN_DO,DO,bool,Outfeed Belt Conveyor — Run command,CONV_OUT,,CO:1,bit,,,,
+EMT_01_EN_DO,DO,bool,Buffer Belt Box Source — Emitter enable,EMT_01,,CO:2,bit,,,,
+STP_01_RAISE_DO,DO,bool,Buffer Release Stopper — Raise command,STP_01,,CO:3,bit,,,,
