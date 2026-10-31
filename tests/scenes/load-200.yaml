@@ -1,0 +1,240 @@
+# PLAN 2.9 load fixture (tests and tools/tick_drift.py only, not a shipped scene): ten parallel
+# 30 m lanes, each fed a box every second, so the scene reaches the 200-part cap (core/world.py)
+# about 20 s in and stays there with every part moving. Run it with every belt and emitter forced
+# on (tools/tick_drift.py --force ...). Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: load-200
+  description: Ten 30 m lanes, a box a second each, to load the tick loop at the 200-part cap.
+  seed: 1
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Load Lane 01 Belt Conveyor
+    position: [-15.0, 0, -9.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_01_RUN_DO
+  - id: EMT_01
+    type: box_emitter
+    description: Load Lane 01 Box Source
+    position: [-14.8, 0.2, -9.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_01
+    type: part_remover
+    description: Load Lane 01 Discharge Part Remover
+    position: [15.1, 0, -9.0]
+    size: [0.3, 1.0, 0.5]
+  - id: CONV_02
+    type: belt_conveyor
+    description: Load Lane 02 Belt Conveyor
+    position: [-15.0, 0, -7.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_02_RUN_DO
+  - id: EMT_02
+    type: box_emitter
+    description: Load Lane 02 Box Source
+    position: [-14.8, 0.2, -7.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_02_EN_DO
+  - id: REM_02
+    type: part_remover
+    description: Load Lane 02 Discharge Part Remover
+    position: [15.1, 0, -7.0]
+    size: [0.3, 1.0, 0.5]
+  - id: CONV_03
+    type: belt_conveyor
+    description: Load Lane 03 Belt Conveyor
+    position: [-15.0, 0, -5.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_03_RUN_DO
+  - id: EMT_03
+    type: box_emitter
+    description: Load Lane 03 Box Source
+    position: [-14.8, 0.2, -5.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_03_EN_DO
+  - id: REM_03
+    type: part_remover
+    description: Load Lane 03 Discharge Part Remover
+    position: [15.1, 0, -5.0]
+    size: [0.3, 1.0, 0.5]
+  - id: CONV_04
+    type: belt_conveyor
+    description: Load Lane 04 Belt Conveyor
+    position: [-15.0, 0, -3.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_04_RUN_DO
+  - id: EMT_04
+    type: box_emitter
+    description: Load Lane 04 Box Source
+    position: [-14.8, 0.2, -3.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_04_EN_DO
+  - id: REM_04
+    type: part_remover
+    description: Load Lane 04 Discharge Part Remover
+    position: [15.1, 0, -3.0]
+    size: [0.3, 1.0, 0.5]
+  - id: CONV_05
+    type: belt_conveyor
+    description: Load Lane 05 Belt Conveyor
+    position: [-15.0, 0, -1.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_05_RUN_DO
+  - id: EMT_05
+    type: box_emitter
+    description: Load Lane 05 Box Source
+    position: [-14.8, 0.2, -1.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_05_EN_DO
+  - id: REM_05
+    type: part_remover
+    description: Load Lane 05 Discharge Part Remover
+    position: [15.1, 0, -1.0]
+    size: [0.3, 1.0, 0.5]
+  - id: CONV_06
+    type: belt_conveyor
+    description: Load Lane 06 Belt Conveyor
+    position: [-15.0, 0, 1.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_06_RUN_DO
+  - id: EMT_06
+    type: box_emitter
+    description: Load Lane 06 Box Source
+    position: [-14.8, 0.2, 1.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_06_EN_DO
+  - id: REM_06
+    type: part_remover
+    description: Load Lane 06 Discharge Part Remover
+    position: [15.1, 0, 1.0]
+    size: [0.3, 1.0, 0.5]
+  - id: CONV_07
+    type: belt_conveyor
+    description: Load Lane 07 Belt Conveyor
+    position: [-15.0, 0, 3.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_07_RUN_DO
+  - id: EMT_07
+    type: box_emitter
+    description: Load Lane 07 Box Source
+    position: [-14.8, 0.2, 3.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_07_EN_DO
+  - id: REM_07
+    type: part_remover
+    description: Load Lane 07 Discharge Part Remover
+    position: [15.1, 0, 3.0]
+    size: [0.3, 1.0, 0.5]
+  - id: CONV_08
+    type: belt_conveyor
+    description: Load Lane 08 Belt Conveyor
+    position: [-15.0, 0, 5.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_08_RUN_DO
+  - id: EMT_08
+    type: box_emitter
+    description: Load Lane 08 Box Source
+    position: [-14.8, 0.2, 5.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_08_EN_DO
+  - id: REM_08
+    type: part_remover
+    description: Load Lane 08 Discharge Part Remover
+    position: [15.1, 0, 5.0]
+    size: [0.3, 1.0, 0.5]
+  - id: CONV_09
+    type: belt_conveyor
+    description: Load Lane 09 Belt Conveyor
+    position: [-15.0, 0, 7.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_09_RUN_DO
+  - id: EMT_09
+    type: box_emitter
+    description: Load Lane 09 Box Source
+    position: [-14.8, 0.2, 7.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_09_EN_DO
+  - id: REM_09
+    type: part_remover
+    description: Load Lane 09 Discharge Part Remover
+    position: [15.1, 0, 7.0]
+    size: [0.3, 1.0, 0.5]
+  - id: CONV_10
+    type: belt_conveyor
+    description: Load Lane 10 Belt Conveyor
+    position: [-15.0, 0, 9.0]
+    length: 30.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_10_RUN_DO
+  - id: EMT_10
+    type: box_emitter
+    description: Load Lane 10 Box Source
+    position: [-14.8, 0.2, 9.0]
+    interval_s: 1.0
+    parts:
+      - {name: box, size: [0.3, 0.2, 0.3], weight: 1.0}
+    io:
+      enable: EMT_10_EN_DO
+  - id: REM_10
+    type: part_remover
+    description: Load Lane 10 Discharge Part Remover
+    position: [15.1, 0, 9.0]
+    size: [0.3, 1.0, 0.5]

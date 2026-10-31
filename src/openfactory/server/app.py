@@ -32,7 +32,8 @@ Behavior spec
   sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
 - ``WS /ws/state``: sends the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines,
   so slow sends do not lower the rate. The simulation runs at its own 50 Hz; a frame is whatever
-  snapshot is current when it is sent, so the viewer interpolates.
+  snapshot is current when it is sent, so the viewer interpolates. A snapshot is serialized once
+  and the same text goes to every connected viewer (PLAN 2.9).
 - ``WS /ws/events``: receives viewer events as JSON objects (see
   :meth:`Runtime.apply_event`). An invalid event is answered with ``{"error": "..."}`` and the
   socket stays open.
@@ -226,6 +227,17 @@ def create_app(
     def parity() -> dict[str, Any]:
         return runtime.parity()
 
+    frame_cache: dict[str, Any] = {"snapshot": None, "text": ""}
+
+    def frame_text() -> str:
+        """The current snapshot as JSON, serialized once for every viewer. All WebSocket
+        handlers run on this event loop's thread, so the cache needs no lock."""
+        snap = runtime.snapshot
+        if frame_cache["snapshot"] is not snap:  # identity: a snapshot is never mutated
+            frame_cache["text"] = json.dumps(snap, separators=(",", ":"))
+            frame_cache["snapshot"] = snap
+        return frame_cache["text"]
+
     @app.websocket("/ws/state")
     async def ws_state(ws: WebSocket) -> None:
         await ws.accept()
@@ -234,7 +246,7 @@ def create_app(
         deadline = loop.time()
         try:
             while True:
-                await ws.send_text(json.dumps(runtime.snapshot, separators=(",", ":")))
+                await ws.send_text(frame_text())
                 deadline += period
                 delay = deadline - loop.time()
                 if delay < -period:  # fell behind (slow client): restart the schedule

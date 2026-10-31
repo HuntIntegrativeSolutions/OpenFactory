@@ -4,8 +4,8 @@ Behavior spec
 -------------
 A :class:`Runtime` owns one :class:`~openfactory.core.loader.LoadedScene` and steps it with the
 fixed-step :class:`~openfactory.core.scheduler.Scheduler` on a background thread (realtime by
-default, or as fast as possible). After every tick, still holding the step lock, it publishes a new
-:class:`dict` snapshot (:attr:`Runtime.snapshot`) of everything the viewer needs:
+default, or as fast as possible). :attr:`Runtime.snapshot` is a :class:`dict` of everything the
+viewer needs, as of the last completed tick:
 
 ``{"t", "tick", "components": {id: state()}, "parts": [{id, name, size, position, velocity,
 carrier, spawn_tick, spawn_position, follow, color}], "io": {tag: value}}``. A part's ``velocity``
@@ -17,9 +17,14 @@ uses them to add a new part before the step for ``spawn_tick + 1``, the tick the
 it in, instead of at the frame's tick. ``follow`` is true while the core, not the viewer's physics,
 places the part (held by a gripper, against a diverter arm, or on a turning deck; PLAN §3.3).
 
-The snapshot is built fresh each tick and never mutated afterwards, so the web server can serialize
-the latest one from its own thread at any rate (20 Hz for ``/ws/state``) without locking or racing
-the simulation.
+The snapshot is built on demand, not on the tick path (PLAN 2.9, ruled 2026-10-30): the first
+read after a tick builds it under the step lock and caches it, so a 50 Hz simulation with one
+20 Hz viewer builds 20 a second instead of 50, and with no reader builds none. A built snapshot
+is never mutated afterwards, so the web server serializes it from its own thread without locking
+(once per snapshot for every viewer, :mod:`openfactory.server.app`). While a run is recorded
+(``--record``) the snapshot is still built every tick on the tick path, because the recorder
+logs every tick; so a recording is byte for byte what it was. An exam switch rebuilds it at
+once, since it changes what the PLC sees between ticks.
 
 Viewer events (PLAN §3.3, ``/ws/events``) go through :meth:`Runtime.apply_event`:
 
@@ -94,7 +99,8 @@ class Runtime:
         self.controller = controller
         #: Traceback of a controller exception; the run stops when one is set.
         self.fault: str | None = None
-        self.lock = threading.Lock()
+        # reentrant: the snapshot property may be read by a thread that already holds the lock
+        self.lock = threading.RLock()
         #: Faults to inject at a simulated time, ``(t, id, kind, params)`` (``--fault``).
         self.scheduled_faults: list[tuple[float, str, str, dict[str, Any]]] = []
         #: A run being recorded (PLAN 2.12, ``--record``), fed each tick's snapshot and each event.
@@ -102,7 +108,7 @@ class Runtime:
         #: The protocol server's comms fault (PLAN 2.13), or None with no protocol server.
         self.comms: Any = None
         self.scheduler = Scheduler(self._step, rate_hz, realtime=realtime)
-        self.snapshot: dict[str, Any] = self._take_snapshot()
+        self._snapshot: dict[str, Any] | None = None  # built on demand; None = stale
         self.events: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
         self.event_counts: Counter[str] = Counter()
         self.stats: RunStats | None = None
@@ -140,9 +146,22 @@ class Runtime:
                     self.sensor_edges.append(
                         {"id": eye.id, "blocked": blocked, "tick": self.loaded.tick}
                     )
-            self.snapshot = self._take_snapshot()
-            if self.recorder is not None:
-                self.recorder.tick(self.snapshot)
+            if self.recorder is not None:  # the recorder logs every tick: build it here
+                self._snapshot = self._take_snapshot()
+                self.recorder.tick(self._snapshot)
+            else:
+                self._snapshot = None  # the next reader builds it (PLAN 2.9)
+
+    @property
+    def snapshot(self) -> dict[str, Any]:
+        """The state as of the last completed tick, built on first read and then cached."""
+        snap = self._snapshot
+        if snap is None:
+            with self.lock:
+                snap = self._snapshot
+                if snap is None:
+                    snap = self._snapshot = self._take_snapshot()
+        return snap
 
     def _event(self, entry: dict[str, Any]) -> None:
         self.events.append(entry)
@@ -357,7 +376,7 @@ class Runtime:
                  "core_tick": self.loaded.tick}
             )  # fmt: skip
             self.event_counts[f"exam:{tag}"] += 1
-            self.snapshot = self._take_snapshot()
+            self._snapshot = self._take_snapshot()
             return {"tag": tag, "on": bool(on)}
 
     def statistics(self) -> dict[str, Any]:
