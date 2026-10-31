@@ -5,6 +5,7 @@
 encoding: int16_scaled
 discrete_inputs:
   DS_01_TALL_DI: 0
+  SIM_HEARTBEAT_DI: 1
 coils:
   CONV_01_RUN_DO: 0
   EMT_01_EN_DO: 1

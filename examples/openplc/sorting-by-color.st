@@ -28,7 +28,7 @@
 *)
 PROGRAM color_sort
   VAR
-    (* Discrete inputs from the simulator (Modbus DI:0..6) *)
+    (* Discrete inputs from the simulator (Modbus DI:0..7) *)
     CONV_01_RUN_DI AT %IX100.0 : BOOL;  (* DI:0 Sorting Line Belt Conveyor - running *)
     CONV_RED_RUN_DI AT %IX100.1 : BOOL; (* DI:1 Red Box Lane Belt Conveyor - running *)
     CS_01_PART_DI AT %IX100.2 : BOOL;   (* DI:2 Red Box Color Sensor - part in range *)
@@ -36,6 +36,7 @@ PROGRAM color_sort
     DIV_01_EXT_DI AT %IX100.4 : BOOL;   (* DI:4 Red Box Divert Arm - extended limit *)
     DIV_01_RET_DI AT %IX100.5 : BOOL;   (* DI:5 Red Box Divert Arm - retracted limit *)
     PE_RED_DI AT %IX100.6 : BOOL;       (* DI:6 Red Box Lane Arrival Photo Eye *)
+    SIM_HEARTBEAT_DI AT %IX100.7 : BOOL; (* DI:7 OpenFactory simulator heartbeat, 1 Hz; not used here, watch it for a sim-down watchdog *)
     (* Coils to the simulator (Modbus CO:0..3) *)
     CONV_01_RUN_DO AT %QX100.0 : BOOL;  (* CO:0 Sorting Line Belt Conveyor - run *)
     CONV_RED_RUN_DO AT %QX100.1 : BOOL; (* CO:1 Red Box Lane Belt Conveyor - run *)

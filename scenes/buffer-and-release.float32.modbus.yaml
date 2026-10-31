@@ -10,6 +10,7 @@ discrete_inputs:
   PE_REL_DI: 3
   STP_01_DN_DI: 4
   STP_01_UP_DI: 5
+  SIM_HEARTBEAT_DI: 6
 coils:
   CONV_BUF_RUN_DO: 0
   CONV_OUT_RUN_DO: 1

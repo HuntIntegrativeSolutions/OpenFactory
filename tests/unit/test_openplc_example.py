@@ -59,7 +59,7 @@ def test_slave_device_ranges_from_the_exported_csv(tmp_path):
         encoding="utf-8",
     )
     assert openplc_configure.table_ranges(csv_path) == {
-        "DI": (0, 5),
+        "DI": (0, 6),  # DI:5 is SIM_HEARTBEAT_DI
         "CO": (0, 4),
         "IR": (0, 0),
         "HR": (0, 2),

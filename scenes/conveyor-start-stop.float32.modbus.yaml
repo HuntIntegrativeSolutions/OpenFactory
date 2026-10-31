@@ -8,6 +8,7 @@ discrete_inputs:
   PB_STOP_DI: 1
   SS_01_OFF_DI: 2
   SS_01_RUN_DI: 3
+  SIM_HEARTBEAT_DI: 4
 coils:
   CONV_01_RUN_DO: 0
   EMT_01_EN_DO: 1

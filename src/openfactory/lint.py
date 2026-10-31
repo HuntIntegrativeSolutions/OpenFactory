@@ -47,6 +47,7 @@ from typing import get_args
 from pydantic import ValidationError
 
 from openfactory.components.pusher import push_path
+from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.loader import build
 from openfactory.core.loader import lint as loader_lint
 from openfactory.core.schema import CARRIER_TYPES, PLC_WRITES, load_scene
@@ -131,7 +132,7 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                 Finding("warning", "W201", f"{where}: no PLC side writes it (in no lockfile, "
                         "written by no --script); the component only ever sees its initial value")
             )  # fmt: skip
-        if tag.kind not in PLC_WRITES and tag.name not in locked | read:
+        if tag.kind not in PLC_WRITES and tag.name not in locked | read | {HEARTBEAT_TAG}:
             findings.append(
                 Finding("warning", "W202", f"{where}: nothing reads it (in no lockfile, read by "
                         "no --script)")

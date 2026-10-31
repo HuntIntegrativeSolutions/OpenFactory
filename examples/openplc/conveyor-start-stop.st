@@ -32,11 +32,12 @@
 *)
 PROGRAM start_stop
   VAR
-    (* Discrete inputs from the simulator (Modbus DI:0..3) *)
+    (* Discrete inputs from the simulator (Modbus DI:0..4) *)
     CONV_01_RUN_DI AT %IX100.0 : BOOL;  (* DI:0 Transfer Belt Conveyor - running feedback *)
     PB_STOP_DI AT %IX100.1 : BOOL;      (* DI:1 Transfer Conveyor Stop Pushbutton - NC, TRUE = released *)
     SS_01_OFF_DI AT %IX100.2 : BOOL;    (* DI:2 Off/Run Selector Switch - in OFF *)
     SS_01_RUN_DI AT %IX100.3 : BOOL;    (* DI:3 Off/Run Selector Switch - in RUN *)
+    SIM_HEARTBEAT_DI AT %IX100.4 : BOOL; (* DI:4 OpenFactory simulator heartbeat, 1 Hz; not used here, watch it for a sim-down watchdog *)
     (* Coils to the simulator (Modbus CO:0..2) *)
     CONV_01_RUN_DO AT %QX100.0 : BOOL;  (* CO:0 Transfer Belt Conveyor - run command *)
     EMT_01_EN_DO AT %QX100.1 : BOOL;    (* CO:1 Transfer Belt Box Source - enable *)

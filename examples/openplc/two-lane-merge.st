@@ -32,7 +32,7 @@
 *)
 PROGRAM merge
   VAR
-    (* Discrete inputs from the simulator (Modbus DI:0..10) *)
+    (* Discrete inputs from the simulator (Modbus DI:0..9) *)
     CONV_A_RUN_DI AT %IX100.0 : BOOL;   (* DI:0 Lane A Infeed Belt Conveyor - running *)
     CONV_B_RUN_DI AT %IX100.1 : BOOL;   (* DI:1 Lane B Infeed Belt Conveyor - running *)
     CONV_OUT_RUN_DI AT %IX100.2 : BOOL; (* DI:2 Merged Outfeed Belt Conveyor - running *)
@@ -42,6 +42,7 @@ PROGRAM merge
     PE_TTB_DI AT %IX100.6 : BOOL;       (* DI:6 Turntable Side Load Centred Photo Eye *)
     TT_01_AT0_DI AT %IX100.7 : BOOL;    (* DI:7 Lane Merge Turntable - at 0 degrees *)
     TT_01_AT90_DI AT %IX101.0 : BOOL;   (* DI:8 Lane Merge Turntable - at 90 degrees *)
+    SIM_HEARTBEAT_DI AT %IX101.1 : BOOL; (* DI:9 OpenFactory simulator heartbeat, 1 Hz; not used here, watch it for a sim-down watchdog *)
     (* Coils to the simulator (Modbus CO:0..8) *)
     CONV_A_RUN_DO AT %QX100.0 : BOOL;   (* CO:0 Lane A Infeed Belt Conveyor - run *)
     CONV_B_RUN_DO AT %QX100.1 : BOOL;   (* CO:1 Lane B Infeed Belt Conveyor - run *)

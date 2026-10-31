@@ -51,7 +51,7 @@ def test_validate_ok_and_bad_scene_exit_codes(tmp_path, strip_ansi):
     assert ok.exit_code == 0, strip_ansi(ok.output)
     assert "OK   " in strip_ansi(
         ok.output
-    ) and "7 components, 11 tags, Modbus float32" in strip_ansi(ok.output)
+    ) and "7 components, 12 tags, Modbus float32" in strip_ansi(ok.output)
     bad = tmp_path / "bad.yaml"
     bad.write_text(EXAMPLE.read_text(encoding="utf-8").replace("length: 4.0", "lenght: 4.0"))
     result = runner.invoke(app, ["validate", str(EXAMPLE), str(bad)])

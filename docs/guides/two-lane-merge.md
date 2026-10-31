@@ -47,6 +47,7 @@ nine coils, so the ninth of each lands on the next OpenPLC byte: Modbus address 
 | `PE_TTB_DI` | DI:6 | `%IX100.6` | Lane-B box centred on the deck |
 | `TT_01_AT0_DI` | DI:7 | `%IX100.7` | Turntable at 0 degrees |
 | `TT_01_AT90_DI` | DI:8 | `%IX101.0` | Turntable at 90 degrees |
+| `SIM_HEARTBEAT_DI` | DI:9 | `%IX101.1` | Simulator heartbeat, 1 Hz (every scene has it; PLAN §6.1) |
 | `CONV_A_RUN_DO` | CO:0 | `%QX100.0` | Lane A run |
 | `CONV_B_RUN_DO` | CO:1 | `%QX100.1` | Lane B run |
 | `CONV_OUT_RUN_DO` | CO:2 | `%QX100.2` | Outfeed run |
@@ -87,7 +88,7 @@ uv run openfactory run scenes/two-lane-merge.yaml --script examples/pyplc/two-la
 With OpenPLC, follow [the quickstart](openplc-quickstart.md) for the container, then export,
 configure with `examples/openplc/two-lane-merge.st`, and run with
 `--bind 0.0.0.0 --analog-encoding int16_scaled` (commands in the [guides index](README.md)). Slave
-Devices then shows `%IX100.0 to %IX101.0` and `%QX100.0 to %QX101.0`.
+Devices then shows `%IX100.0 to %IX101.1` and `%QX100.0 to %QX101.0`.
 
 ## Expected result
 

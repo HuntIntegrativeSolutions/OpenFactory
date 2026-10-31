@@ -31,6 +31,7 @@ The same addresses in both lockfiles: the scene has no analog tags, so `float32`
 | `PB_STOP_DI` | DI:1 | `%IX100.1` | Stop pushbutton, NC: TRUE while released |
 | `SS_01_OFF_DI` | DI:2 | `%IX100.2` | Selector in OFF |
 | `SS_01_RUN_DI` | DI:3 | `%IX100.3` | Selector in RUN |
+| `SIM_HEARTBEAT_DI` | DI:4 | `%IX100.4` | Simulator heartbeat, 1 Hz (every scene has it; PLAN §6.1) |
 | `CONV_01_RUN_DO` | CO:0 | `%QX100.0` | Belt run command |
 | `EMT_01_EN_DO` | CO:1 | `%QX100.1` | Box source enable |
 | `PL_RUN_DO` | CO:2 | `%QX100.2` | Running light |
@@ -78,7 +79,7 @@ uv run python tools/openplc_configure.py --program examples/openplc/conveyor-sta
 uv run openfactory run scenes/conveyor-start-stop.yaml --bind 0.0.0.0 --analog-encoding int16_scaled
 ```
 
-OpenPLC's Slave Devices page then shows `%IX100.0 to %IX100.3` and `%QX100.0 to %QX100.2`.
+OpenPLC's Slave Devices page then shows `%IX100.0 to %IX100.4` and `%QX100.0 to %QX100.2`.
 
 ## Expected result
 

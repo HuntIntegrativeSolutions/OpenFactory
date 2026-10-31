@@ -3,8 +3,9 @@
 Behavior spec
 -------------
 :func:`io_list_csv` turns a scene into the HIS Controls I/O list format consumed by
-``/io-validate``, ``/io-to-l5x``, and ``/io-to-ignition-tags``. One row per bound tag, in Modbus
-register-map order (kind, then address), with these columns:
+``/io-validate``, ``/io-to-l5x``, and ``/io-to-ignition-tags``. One row per bound tag, plus the
+simulator's ``SIM_HEARTBEAT_DI`` (blank ``component``; PLAN §6.1), in Modbus register-map order
+(kind, then address), with these columns:
 
 - ``tag``: tag name (``AREA_EQUIP_NNN_SUFFIX``).
 - ``io_type``: DI, DO, AI, or AO.

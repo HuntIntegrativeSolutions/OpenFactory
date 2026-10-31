@@ -9,6 +9,7 @@ discrete_inputs:
   CYL_01_RET_DI: 2
   PE_01_DI: 3
   CONV_02_RUN_DI: 4
+  SIM_HEARTBEAT_DI: 5
 coils:
   CONV_01_RUN_DO: 0
   CYL_01_EXT_DO: 1

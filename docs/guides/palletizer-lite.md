@@ -41,6 +41,7 @@ Eight discrete inputs and eight coils, no analog tags; both lockfiles give the s
 | `PP_01_AT_PLACE_DI` | DI:5 | `%IX100.5` | Gantry at the place side |
 | `PP_01_DOWN_DI` | DI:6 | `%IX100.6` | Pad lowered |
 | `PP_01_HOLD_DI` | DI:7 | `%IX100.7` | Gripper holding a box |
+| `SIM_HEARTBEAT_DI` | DI:8 | `%IX100.8` | Simulator heartbeat, 1 Hz (every scene has it; PLAN §6.1) |
 | `CONV_IN_RUN_DO` | CO:0 | `%QX100.0` | Infeed run |
 | `CONV_LYR_RUN_DO` | CO:1 | `%QX100.1` | Layer belt run |
 | `EMT_01_EN_DO` | CO:2 | `%QX100.2` | Box source enable |
@@ -81,7 +82,7 @@ uv run openfactory run scenes/palletizer-lite.yaml --script examples/pyplc/palle
 With OpenPLC, follow [the quickstart](openplc-quickstart.md) for the container, then export,
 configure with `examples/openplc/palletizer-lite.st`, and run with
 `--bind 0.0.0.0 --analog-encoding int16_scaled` (commands in the [guides index](README.md)). Slave
-Devices then shows `%IX100.0 to %IX100.7` and `%QX100.0 to %QX100.7`.
+Devices then shows `%IX100.0 to %IX100.8` and `%QX100.0 to %QX100.7`.
 
 ## Expected result
 

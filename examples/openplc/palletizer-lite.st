@@ -28,7 +28,7 @@
 *)
 PROGRAM palletizer
   VAR
-    (* Discrete inputs from the simulator (Modbus DI:0..7) *)
+    (* Discrete inputs from the simulator (Modbus DI:0..8) *)
     CONV_IN_RUN_DI AT %IX100.0 : BOOL;  (* DI:0 Palletizer Infeed Belt Conveyor - running *)
     CONV_LYR_RUN_DI AT %IX100.1 : BOOL; (* DI:1 Layer Forming Belt Conveyor - running *)
     PE_PICK_DI AT %IX100.2 : BOOL;      (* DI:2 Infeed Box At Pick Position Photo Eye *)
@@ -37,6 +37,7 @@ PROGRAM palletizer
     PP_01_AT_PLACE_DI AT %IX100.5 : BOOL; (* DI:5 Transfer Gantry - at place side *)
     PP_01_DOWN_DI AT %IX100.6 : BOOL;   (* DI:6 Transfer Gantry - pad lowered *)
     PP_01_HOLD_DI AT %IX100.7 : BOOL;   (* DI:7 Transfer Gantry - holding a part *)
+    SIM_HEARTBEAT_DI AT %IX100.8 : BOOL; (* DI:8 OpenFactory simulator heartbeat, 1 Hz; not used here, watch it for a sim-down watchdog *)
     (* Coils to the simulator (Modbus CO:0..7) *)
     CONV_IN_RUN_DO AT %QX100.0 : BOOL;  (* CO:0 Palletizer Infeed Belt Conveyor - run *)
     CONV_LYR_RUN_DO AT %QX100.1 : BOOL; (* CO:1 Layer Forming Belt Conveyor - run *)

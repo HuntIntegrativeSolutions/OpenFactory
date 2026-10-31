@@ -40,7 +40,10 @@ def scene():
 def test_header_and_row_count(scene):
     header, rows = parse(io_list_csv(scene))
     assert tuple(header) == COLUMNS
-    assert len(rows) == len(scene.tag_bindings()) == 11
+    assert len(scene.tag_bindings()) == 11
+    assert len(rows) == 11 + 1  # every bound tag, plus the simulator's SIM_HEARTBEAT_DI
+    [beat] = [r for r in rows if r["tag"] == "SIM_HEARTBEAT_DI"]
+    assert (beat["io_type"], beat["modbus_address"], beat["component"]) == ("DI", "DI:5", "")
 
 
 def test_passes_io_validate_checks(scene):

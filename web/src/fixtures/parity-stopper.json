@@ -267,6 +267,13 @@
     "dtype": "bool",
     "owner": "PE_B",
     "description": "Metering Belt Gap Photo Eye — Part detected"
+   },
+   {
+    "name": "SIM_HEARTBEAT_DI",
+    "kind": "DI",
+    "dtype": "bool",
+    "owner": "",
+    "description": "OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops"
    }
   ],
   "warnings": []

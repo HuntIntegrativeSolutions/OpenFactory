@@ -9,6 +9,7 @@ discrete_inputs:
   PP_01_AT_PLACE_DI: 2
   PP_01_DOWN_DI: 3
   PP_01_HOLD_DI: 4
+  SIM_HEARTBEAT_DI: 5
 coils:
   CONV_A_RUN_DO: 0
   CONV_B_RUN_DO: 1

@@ -7,7 +7,8 @@ Behavior spec
 1. creates one :class:`~openfactory.core.iotable.Tag` per bound port, in scene order, with the kind
    from the tag suffix, the analog range and units from the port declaration, the owning component
    id, a description of the form ``"<component description> — <port description>"``, and the
-   binding's ``initial`` value when it has one (DO/AO only; the PLC's first write replaces it);
+   binding's ``initial`` value when it has one (DO/AO only; the PLC's first write replaces it),
+   then the simulator's own ``SIM_HEARTBEAT_DI`` (:mod:`openfactory.core.heartbeat`);
 2. creates the :class:`~openfactory.core.world.World` with the scene seed;
 3. resolves each component's ``type`` string through the registry and instantiates it.
 
@@ -20,7 +21,7 @@ parts across touching belts on its own (PLAN §4), so such a scene usually forgo
 The connection is never inferred: the scene author decides.
 :meth:`LoadedScene.step` is one simulation tick: the kinematic model moves parts first, then each
 component steps in scene order, then binding transforms (PLAN 2.17) write their conditioned DI tags
-from the components' raw values.
+from the components' raw values, then exam switches (PLAN 2.11), then the heartbeat.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ from pathlib import Path
 import openfactory.components  # noqa: F401 - registers the built-in types and their defaults
 from openfactory.core.component import REGISTRY, Component, ComponentRegistry
 from openfactory.core.geometry import to_world
+from openfactory.core.heartbeat import HEARTBEAT_TAG, heartbeat_tag, heartbeat_value
 from openfactory.core.iotable import IOTable, Tag, Writer
 from openfactory.core.kinematics import KinematicModel
 from openfactory.core.schema import CARRIER_TYPES, TURNING_TYPES, Scene, load_scene
@@ -95,6 +97,7 @@ class LoadedScene:
         self._write_exam()  # the switch, not the sensor, is what the PLC sees
         self.tick += 1
         self.time += dt
+        self.io.set(HEARTBEAT_TAG, heartbeat_value(self.tick, dt), Writer.SIM)
 
     def component(self, component_id: str) -> Component:
         for comp in self.components:
@@ -104,7 +107,7 @@ class LoadedScene:
 
 
 def build_iotable(scene: Scene) -> IOTable:
-    """One tag per bound port, in scene order."""
+    """One tag per bound port, in scene order, then ``SIM_HEARTBEAT_DI``."""
     descriptions = {c.id: c.description for c in scene.components}
     table = IOTable()
     for binding in scene.tag_bindings():
@@ -119,6 +122,7 @@ def build_iotable(scene: Scene) -> IOTable:
                 value=binding.initial if binding.initial is not None else 0,
             )
         )
+    table.add(heartbeat_tag())
     return table
 
 

@@ -155,8 +155,9 @@ def test_adding_a_tag_does_not_renumber_existing_ones(tmp_path):
 
     after = labels(scene_register_map(load_scene(path), scene_path=path))
     assert {tag: after[tag] for tag in before} == before  # nothing renumbered
-    assert after["PE_00_DI"] == "DI:4"  # appended after the highest used address
-    assert "  PE_00_DI: 4\n" in lockfile_path(path, "float32").read_text(encoding="utf-8")
+    # appended after the highest used address (DI:4 is SIM_HEARTBEAT_DI, after the scene's DIs)
+    assert after["PE_00_DI"] == "DI:5" and after["SIM_HEARTBEAT_DI"] == "DI:4"
+    assert "  PE_00_DI: 5\n" in lockfile_path(path, "float32").read_text(encoding="utf-8")
     print(f"before {before}\nafter  {after}")
 
 
@@ -198,7 +199,7 @@ def test_removed_tag_keeps_its_address_reserved_and_gets_it_back(tmp_path):
 
     path = scene_copy(tmp_path, [PE_00], edit=drop_pe)
     m = scene_register_map(load_scene(path), scene_path=path)
-    assert labels(m)["PE_00_DI"] == "DI:4"  # DI:3 stays reserved for the removed PE_01_DI
+    assert labels(m)["PE_00_DI"] == "DI:5"  # DI:3 stays reserved for the removed PE_01_DI
     assert m.retired == {"PE_01_DI": 3}
     assert "  PE_01_DI: 3  # not in scene\n" in lockfile_path(path, "float32").read_text(
         encoding="utf-8"
@@ -282,7 +283,7 @@ def test_float32_and_int16_scaled_lockfiles_coexist(tmp_path):
     assert i16_lock.read_text(encoding="utf-8") == i16_text  # float32 run left it alone
     i16_after = labels(scene_register_map(load_scene(path), "int16_scaled", scene_path=path))
     assert {t: f32_after[t] for t in f32} == f32 and {t: i16_after[t] for t in i16} == i16
-    assert f32_after["PE_00_DI"] == i16_after["PE_00_DI"] == "DI:4"
+    assert f32_after["PE_00_DI"] == i16_after["PE_00_DI"] == "DI:5"  # DI:4 is the heartbeat
     print(f"float32      {f32_after}\nint16_scaled {i16_after}")
 
 
@@ -335,9 +336,9 @@ def test_new_encoding_lockfile_copies_digital_tables_from_the_other(tmp_path):
 
     path = scene_copy(tmp_path, [PE_00], edit=drop_cyl_ret)
     f32 = labels(scene_register_map(load_scene(path), "float32", scene_path=path))
-    assert f32["PE_01_DI"] == "DI:3" and f32["PE_00_DI"] == "DI:4"  # appended, not sorted
+    assert f32["PE_01_DI"] == "DI:3" and f32["PE_00_DI"] == "DI:5"  # appended, not sorted
     fresh = labels(allocate(build_iotable(load_scene(path)).tags(), "int16_scaled"))
-    assert fresh["PE_00_DI"] != "DI:4"  # without the copy the maps would differ
+    assert fresh["PE_00_DI"] != "DI:5"  # without the copy the maps would differ
 
     i16 = labels(scene_register_map(load_scene(path), "int16_scaled", scene_path=path))
     digital = {t: a for t, a in f32.items() if t.endswith(("_DI", "_DO"))}

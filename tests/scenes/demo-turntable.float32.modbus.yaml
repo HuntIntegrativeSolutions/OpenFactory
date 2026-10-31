@@ -8,6 +8,7 @@ discrete_inputs:
   TT_01_AT0_DI: 1
   TT_01_AT90_DI: 2
   TT_01_RUN_DI: 3
+  SIM_HEARTBEAT_DI: 4
 coils:
   CONV_IN_RUN_DO: 0
   CONV_OUT_RUN_DO: 1

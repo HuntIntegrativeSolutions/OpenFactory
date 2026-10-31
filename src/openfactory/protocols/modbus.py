@@ -97,6 +97,7 @@ from pymodbus.simulator import DataType, SimData, SimDevice
 from pymodbus.simulator.simutils import SimUtils
 
 from openfactory.core.config import Endpoint
+from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.iotable import IOTable, Tag, Writer
 from openfactory.core.netinfo import describe_reachable
 
@@ -246,7 +247,9 @@ def allocate(
     """Assign every tag an address: pinned, then locked, then appended (ADR-0004).
 
     Without ``pins`` or ``lock`` this is sorted by kind (DI, DO, AI, AO), then tag name, packed from
-    0 in each table. Locked entries for tags not in ``tags`` keep their addresses reserved.
+    0 in each table, except that ``SIM_HEARTBEAT_DI`` comes after every other DI (and so, in an
+    existing lockfile, takes the next free discrete input). Locked entries for tags not in ``tags``
+    keep their addresses reserved.
     """
     pins = dict(pins or {})
     if lock is not None and lock.encoding != encoding:
@@ -256,7 +259,10 @@ def allocate(
             "probably renamed by hand. Rename it back to match its 'encoding' line"
         )
     locked = dict(lock.addresses) if lock else {}
-    ordered = sorted(tags, key=lambda t: (KIND_ORDER.index(t.kind), t.name))
+    # the heartbeat after every scene DI (ADR-0004 decision 10)
+    ordered = sorted(
+        tags, key=lambda t: (KIND_ORDER.index(t.kind), t.name == HEARTBEAT_TAG, t.name)
+    )
     present = {t.name for t in ordered}
     unknown = sorted(set(pins) - present)
     if unknown:

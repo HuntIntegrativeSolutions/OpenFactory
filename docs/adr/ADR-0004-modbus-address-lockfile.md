@@ -83,6 +83,16 @@ so there was also nowhere to pin an address.
    a PLC program converts raw counts with the range it was written for, so a changed
    `beam_length` would otherwise rescale silently and the PLC would read wrong distances with
    nothing failing (ruling on PLAN 2.5, 2026-10-26).
+10. **Every map has `SIM_HEARTBEAT_DI` after the scene's discrete inputs (amendment, ruled
+   2026-10-30).** The simulator adds one DI no scene declares, a 1 Hz square wave in simulated
+   time (`core/heartbeat.py`, PLAN §6.1). In a fresh allocation it sorts after every DI the scene
+   binds, whatever its name. In a lockfile written before it existed it is appended like any new
+   tag, at the next free discrete input (after the highest address in use, retired lines
+   included), so no existing tag is renumbered. Both encodings' lockfiles share digital tables
+   (decision 8), so it lands at the same address in each. The name is reserved: a scene that
+   binds `SIM_HEARTBEAT_DI` fails to load. Why: a PLC needs a way to tell the simulator is down,
+   and the address must be as stable as every other tag's. Regenerating the shipped and test
+   lockfiles added exactly one line to each of the 19 files and changed nothing else.
 
 ## Consequences
 
@@ -107,3 +117,5 @@ so there was also nowhere to pin an address.
   `openfactory lint scenes` (E101) until someone deletes the `ranges:` line, so the PLC scaling
   change shows up in the same pull request as the scene change.
 - **Other protocols are unaffected.** Logix and OPC UA address by tag name.
+- **OpenPLC Slave Device ranges grow by one DI (amended 2026-10-30)** to cover the heartbeat;
+  `tools/openplc_configure.py` reads the ranges from the CSV, so it follows on its own.

@@ -11,6 +11,7 @@ discrete_inputs:
   DIV_01_EXT_DI: 4
   DIV_01_RET_DI: 5
   PE_RED_DI: 6
+  SIM_HEARTBEAT_DI: 7
 coils:
   CONV_01_RUN_DO: 0
   CONV_RED_RUN_DO: 1

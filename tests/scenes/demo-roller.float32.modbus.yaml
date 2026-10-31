@@ -6,6 +6,7 @@ encoding: float32
 discrete_inputs:
   CONV_01_RUN_DI: 0
   RC_01_RUN_DI: 1
+  SIM_HEARTBEAT_DI: 2
 coils:
   CONV_01_RUN_DO: 0
   EMT_01_EN_DO: 1

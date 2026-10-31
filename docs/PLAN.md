@@ -424,6 +424,14 @@ composite can produce the behavior.
   pin an address, `run: {tag: CONV_01_RUN_DO, address: 12}`, which overrides the lockfile and
   allocation. The server, the startup printout, and the CSV export share one resolver
   (`scene_register_map`).
+- **SIM_HEARTBEAT_DI (ruled 2026-10-30).** Every scene has one more DI than it declares: the
+  simulator's heartbeat, a 1 Hz square wave in simulated time (false for 0.5 s, true for 0.5 s,
+  so it changes every 25 ticks at 50 Hz), written at the end of every tick from the tick count
+  (`core/heartbeat.py`). It is allocated after the scene's own DIs, so in an existing lockfile it
+  takes the next free discrete input and never renumbers a tag (ADR-0004 decision 10). It is a
+  row in the I/O CSV (blank `component`) and is served by every protocol. A PLC that sees it stop
+  changing knows the simulation is down, stalled, or no longer answering; a watchdog of a few
+  seconds on its edges is enough. The name is reserved.
 
 ### 6.2 Logix (pycomm3) mapping
 - Scene `plc.protocol: logix`, `plc.role: client`, and `plc.connection: bench_l33er`. The name is
@@ -442,7 +450,8 @@ composite can produce the behavior.
 - Tag name in the PLC equals the OpenFactory tag name by default. Optional `plc_tag:` per binding for
   mapping into a UDT (`Sim.CONV_01.RUN`).
 - Poll DO/AO with one `read()` of all tags every 50 ms; write DI/AI with one batched `write()` on change.
-- Add a `SIM_HEARTBEAT_AI` tag the PLC can watch to detect simulator loss.
+- The PLC watches `SIM_HEARTBEAT_DI` (§6.1) to detect simulator loss; on this path it is written
+  to the PLC like any other DI.
 
 ### 6.3 OPC UA server (asyncua)
 - Namespace `urn:openfactory:sim`. Folder per component, variable per tag, writable for DO/AO.

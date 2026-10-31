@@ -28,13 +28,14 @@
 *)
 PROGRAM buffer_release
   VAR
-    (* Discrete inputs from the simulator (Modbus DI:0..5) *)
+    (* Discrete inputs from the simulator (Modbus DI:0..6) *)
     CONV_BUF_RUN_DI AT %IX100.0 : BOOL; (* DI:0 Buffer Belt Conveyor - running feedback *)
     CONV_OUT_RUN_DI AT %IX100.1 : BOOL; (* DI:1 Outfeed Belt Conveyor - running feedback *)
     PE_FULL_DI AT %IX100.2 : BOOL;      (* DI:2 Buffer Batch Ready Photo Eye - beam blocked *)
     PE_REL_DI AT %IX100.3 : BOOL;       (* DI:3 Outfeed Release Count Photo Eye - beam blocked *)
     STP_01_DN_DI AT %IX100.4 : BOOL;    (* DI:4 Buffer Release Stopper - lowered limit *)
     STP_01_UP_DI AT %IX100.5 : BOOL;    (* DI:5 Buffer Release Stopper - raised limit *)
+    SIM_HEARTBEAT_DI AT %IX100.6 : BOOL; (* DI:6 OpenFactory simulator heartbeat, 1 Hz; not used here, watch it for a sim-down watchdog *)
     (* Coils to the simulator (Modbus CO:0..3) *)
     CONV_BUF_RUN_DO AT %QX100.0 : BOOL; (* CO:0 Buffer Belt Conveyor - run command *)
     CONV_OUT_RUN_DO AT %QX100.1 : BOOL; (* CO:1 Outfeed Belt Conveyor - run command *)

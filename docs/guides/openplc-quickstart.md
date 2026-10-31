@@ -83,6 +83,7 @@ The run command prints the register map. It must match this table:
 | `CYL_01_RET_DI` | DI:2 | `%IX100.2` | Pusher retracted limit |
 | `PE_01_DI` | DI:3 | `%IX100.3` | Tall-box photo eye, beam blocked |
 | `CONV_02_RUN_DI` | DI:4 | `%IX100.4` | Divert lane belt running feedback |
+| `SIM_HEARTBEAT_DI` | DI:5 | `%IX100.5` | Simulator heartbeat, 1 Hz (every scene has it; PLAN §6.1) |
 | `CONV_01_RUN_DO` | CO:0 | `%QX100.0` | Infeed belt run command |
 | `CYL_01_EXT_DO` | CO:1 | `%QX100.1` | Pusher extend solenoid |
 | `EMT_01_EN_DO` | CO:2 | `%QX100.2` | Box source enable |
@@ -168,7 +169,7 @@ reboot, run `hostname -I` again and update the Slave Device.
    | Slave ID | `1` (the simulator answers any ID) |
    | IP Address | the address that worked in step 5, for example `172.18.206.163` |
    | IP Port | `5020` |
-   | Discrete Inputs (%IX100.0): Start / Size | `0` / `5` |
+   | Discrete Inputs (%IX100.0): Start / Size | `0` / `6` |
    | Coils (%QX100.0): Start / Size | `0` / `4` |
    | Input Registers (%IW100): Start / Size | `0` / `0` |
    | Holding Registers - Read (%IW100): Start / Size | `0` / `0` |
@@ -177,7 +178,7 @@ reboot, run `hostname -I` again and update the Slave Device.
    Each start is the lowest address in that table's `modbus_address` column of
    `sorting-by-height-int16.csv`. Each size runs from there to the highest address. Then click
    **Save device**. The Slave Devices list should show
-   `OpenFactory | TCP | %IX100.0 to %IX100.4 | %QX100.0 to %QX100.3 | - | %QW100 to %QW101`.
+   `OpenFactory | TCP | %IX100.0 to %IX100.5 | %QX100.0 to %QX100.3 | - | %QW100 to %QW101`.
 3. Click **Start PLC** in the left panel. The dashboard shows "Status: Running".
 
 Settings keeps the default slave polling period of 100 ms and timeout of 1000 ms. The program is
@@ -197,11 +198,11 @@ uv run python tools/openplc_configure.py --program examples/openplc/sorting-by-h
 Expected output:
 
 ```
-Slave Device ranges from the CSV: DI start 0 size 5, CO start 0 size 4, IR start 0 size 0, HR start 0 size 2
+Slave Device ranges from the CSV: DI start 0 size 6, CO start 0 size 4, IR start 0 size 0, HR start 0 size 2
 uploaded sorting-by-height.st: Compilation finished successfully!
 Slave Devices as OpenPLC shows them:
 Device Name | Device Type | DI | DO | AI | AO
-OpenFactory | TCP | %IX100.0 to %IX100.4 | %QX100.0 to %QX100.3 | - | %QW100 to %QW101
+OpenFactory | TCP | %IX100.0 to %IX100.5 | %QX100.0 to %QX100.3 | - | %QW100 to %QW101
 PLC: Running
 ```
 

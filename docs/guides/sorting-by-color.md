@@ -34,6 +34,7 @@ No analog tags, so both lockfiles give the same addresses.
 | `DIV_01_EXT_DI` | DI:4 | `%IX100.4` | Arm extended |
 | `DIV_01_RET_DI` | DI:5 | `%IX100.5` | Arm retracted |
 | `PE_RED_DI` | DI:6 | `%IX100.6` | A red box arrived on the side lane |
+| `SIM_HEARTBEAT_DI` | DI:7 | `%IX100.7` | Simulator heartbeat, 1 Hz (every scene has it; PLAN §6.1) |
 | `CONV_01_RUN_DO` | CO:0 | `%QX100.0` | Main belt run |
 | `CONV_RED_RUN_DO` | CO:1 | `%QX100.1` | Side lane run |
 | `DIV_01_EXT_DO` | CO:2 | `%QX100.2` | Arm extend solenoid |
@@ -66,7 +67,7 @@ uv run openfactory run scenes/sorting-by-color.yaml --script examples/pyplc/sort
 With OpenPLC, follow [the quickstart](openplc-quickstart.md) for the container, then export,
 configure with `examples/openplc/sorting-by-color.st`, and run with
 `--bind 0.0.0.0 --analog-encoding int16_scaled` (commands in the [guides index](README.md)). Slave
-Devices then shows `%IX100.0 to %IX100.6` and `%QX100.0 to %QX100.3`.
+Devices then shows `%IX100.0 to %IX100.7` and `%QX100.0 to %QX100.3`.
 
 ## Expected result
 

@@ -34,6 +34,7 @@ No analog tags, so the `float32` and `int16_scaled` lockfiles give the same addr
 | `PE_REL_DI` | DI:3 | `%IX100.3` | Release count eye blocked |
 | `STP_01_DN_DI` | DI:4 | `%IX100.4` | Stopper lowered limit |
 | `STP_01_UP_DI` | DI:5 | `%IX100.5` | Stopper raised limit |
+| `SIM_HEARTBEAT_DI` | DI:6 | `%IX100.6` | Simulator heartbeat, 1 Hz (every scene has it; PLAN §6.1) |
 | `CONV_BUF_RUN_DO` | CO:0 | `%QX100.0` | Buffer belt run |
 | `CONV_OUT_RUN_DO` | CO:1 | `%QX100.1` | Outfeed belt run |
 | `EMT_01_EN_DO` | CO:2 | `%QX100.2` | Box source enable |
@@ -66,7 +67,7 @@ uv run openfactory run scenes/buffer-and-release.yaml --script examples/pyplc/bu
 With OpenPLC, follow [the quickstart](openplc-quickstart.md) for the container, then export
 `scenes/buffer-and-release.yaml`, configure with `examples/openplc/buffer-and-release.st`, and run
 with `--bind 0.0.0.0 --analog-encoding int16_scaled` (the commands are in the
-[guides index](README.md)). Slave Devices then shows `%IX100.0 to %IX100.5` and
+[guides index](README.md)). Slave Devices then shows `%IX100.0 to %IX100.6` and
 `%QX100.0 to %QX100.3`.
 
 ## Expected result

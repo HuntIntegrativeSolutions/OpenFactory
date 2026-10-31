@@ -41,6 +41,8 @@ from pydantic import (
     model_validator,
 )
 
+from openfactory.core.heartbeat import HEARTBEAT_TAG
+
 SCHEMA_VERSION = "0.1"
 TAG_MAX_LEN = 40
 IO_KINDS = ("DI", "DO", "AI", "AO")
@@ -844,6 +846,11 @@ class Scene(StrictModel):
         owners: dict[str, str] = {}
         for binding in self.tag_bindings():
             where = f"{binding.component_id}.io.{binding.port.name}"
+            if binding.name == HEARTBEAT_TAG:
+                raise ValueError(
+                    f"{where}: {HEARTBEAT_TAG} is reserved for the simulator's own heartbeat "
+                    "(every scene has it); use another tag name"
+                )
             if binding.name in owners:
                 raise ValueError(
                     f"tag {binding.name!r} bound twice ({owners[binding.name]} and {where}); "
