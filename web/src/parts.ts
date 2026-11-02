@@ -21,6 +21,8 @@ export const PART_COLORS: Record<string, number> = {
 /** A pose this far from the mesh is a jump (respawn, reset): snap instead of easing. */
 const SNAP_M = 0.5;
 
+const UP = new THREE.Vector3(0, 1, 0);
+
 export class PartMeshes {
   readonly group = new THREE.Group();
   private meshes = new Map<
@@ -46,7 +48,7 @@ export class PartMeshes {
   }
 
   /** Sync with a frame's part list. */
-  update(parts: PartState[]): void {
+  update(parts: PartState[], yawOf: (p: PartState) => number = () => 0): void {
     const seen = new Set<string>();
     for (const p of parts) {
       seen.add(p.id);
@@ -64,7 +66,11 @@ export class PartMeshes {
         this.meshes.set(p.id, entry);
         this.group.add(mesh);
       }
-      if (!entry.physics) entry.target.set(...p.position);
+      if (!entry.physics) {
+        entry.target.set(...p.position);
+        // without physics (replay), the core's yaw (PLAN 2.5b) turns the mesh
+        entry.turn.setFromAxisAngle(UP, THREE.MathUtils.degToRad(yawOf(p)));
+      }
     }
     for (const [id, entry] of this.meshes) {
       if (!seen.has(id)) {
@@ -95,9 +101,9 @@ export class PartMeshes {
 
   /** Call once per rendered frame. */
   animate(): void {
-    for (const { mesh, target, turn, physics } of this.meshes.values()) {
+    for (const { mesh, target, turn } of this.meshes.values()) {
       mesh.position.lerp(target, EASE);
-      if (physics) mesh.quaternion.slerp(turn, EASE);
+      mesh.quaternion.slerp(turn, EASE);
     }
   }
 

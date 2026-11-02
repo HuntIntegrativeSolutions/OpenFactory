@@ -49,9 +49,11 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   parts behind queue on it. A part already over or past the line when the blade rises passes.
 - **Turntables (PLAN 2.5):** a ``turntable`` deck is a conveyor whose frame turns with it
   (:meth:`Turntable.frame`). Each step, before anything moves, every part the deck carries is
-  turned about the deck centre by the angle the deck turned since the last step (its box keeps its
-  world-axis orientation). Connections from or to a deck are *active* only while the two
-  conveyors' headings agree within ``ALIGN_DEG``; other connections are always active. A part
+  turned about the deck centre by the angle the deck turned since the last step, and its yaw by
+  the same angle (PLAN 2.5b); collision and sensing use its box rounded to the nearest 90
+  degrees (``Part.footprint``), which is exact once the deck stops. Connections from or to a
+  deck are *active* only while the two conveyors' headings agree within ``ALIGN_DEG``; other
+  connections are always active. A part
   reaching the discharge end of a conveyor that has connections but no active one waits there
   (its front face stops at the end), as a box held against a turned deck's side would.
 - **Lifts (PLAN 2.5b):** a ``lift`` deck is a conveyor whose frame moves up and down with it
@@ -101,7 +103,8 @@ in Rapier), part-to-part contact only along the flow axis (no stacking, no sidew
 pressure: a queue on a running belt never pushes the part it waits behind, and a part reaching a
 stopped downstream belt crosses until its center is on it, whereas in Rapier the queue's pressure
 can shove the leader and the stopped belt's friction brakes a part as soon as its nose overhangs;
-PLAN 2.0 note), part boxes keep their world-axis orientation through turns, falling parts drop
+PLAN 2.0 note), part boxes are square to the world axes in quarter turns (a turned long part's
+box swaps length and width once its yaw passes 45 degrees), falling parts drop
 straight down, and a pusher only pushes along its own axis: a part conveyed sideways into an
 extended plate passes through it.
 """
@@ -424,7 +427,7 @@ class KinematicModel:
     def _extent(self, part: Part, carrier: Component) -> tuple[float, float]:
         """Half-extents of a part's world-axis box along a carrier's flow (x) and across it (z)."""
         c, s = self._axes[carrier.id]
-        sx, _, sz = part.size
+        sx, _, sz = part.footprint
         return (c * sx + s * sz) / 2, (s * sx + c * sz) / 2
 
     def _record(self, part: Part) -> None:
@@ -544,7 +547,7 @@ class KinematicModel:
             if belt is None or abs(self._top(belt) - level) > ON_BELT_M:
                 continue  # the arm reaches parts on its belt and on belts level with it
             x, y, z = part.position
-            hx, hy, hz = (s / 2 for s in part.size)
+            hx, hy, hz = (s / 2 for s in part.footprint)
             if y - hy >= top or y + hy <= bottom:
                 continue  # above or below the arm
             # separating axes for a box against the arm's segment: world x and z, then the arm's
@@ -586,6 +589,7 @@ class KinematicModel:
                 x, y, z = part.position
                 dx, _, dz = rotate_y((x - cx, 0.0, z - cz), delta)
                 part.position = (cx + dx, y, cz + dz)
+                part.yaw += delta  # it turns with the deck, not only around it (PLAN 2.5b)
 
     def _lift(self, deck: Component) -> None:
         """Move the parts on a lift deck up or down by the height it moved since the last step."""
@@ -598,6 +602,12 @@ class KinematicModel:
             if part.carrier == deck.id:
                 x, y, z = part.position
                 part.position = (x, y + delta, z)
+
+    def deck_turn(self, deck_id: str) -> float:
+        """How far a turntable deck had turned (degrees from 0) when its parts were last turned
+        with it: the deck angle a carried part's yaw is measured against (PLAN 2.5b)."""
+        deck = self.carriers[deck_id]
+        return self._heading_seen[deck_id] - deck.config.rotation_deg
 
     def follows_core(self, part: Part) -> bool:
         """True while the viewer should place this part at the core's position instead of
@@ -631,7 +641,8 @@ class KinematicModel:
         axes = [rotate_y(axis, rot) for axis in ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))]
         for part in self.world.parts.values():
             lx, ly, lz = to_local(cfg.position, rot, part.position)
-            hx, hy, hz = (sum(abs(a[i]) * part.size[i] / 2 for i in range(3)) for a in axes)
+            size = part.footprint
+            hx, hy, hz = (sum(abs(a[i]) * size[i] / 2 for i in range(3)) for a in axes)
             if abs(lx) >= cfg.plate_width / 2 + hx or abs(ly) >= cfg.plate_height / 2 + hy:
                 continue  # beside, above, or below the plate
             back, front = lz - hz, lz + hz

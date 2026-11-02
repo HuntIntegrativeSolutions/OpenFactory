@@ -161,7 +161,9 @@ origin is not the infeed end.
 
 - `turn` held true drives the deck to `turn_deg`; `turn` released returns it to 0. This is the
   same convention as the pusher's `extend`. `at_0` and `at_90` are both false while moving.
-- Parts on the deck turn with it about the centre; the deck belt carries them along its current
+- Parts on the deck turn with it about the centre, in orientation as well as position (PLAN
+  2.5b): a long box leaves a turned deck turned. Collision and sensing use its box rounded to the
+  nearest 90 degrees, exact once the deck stops. The deck belt carries parts along its current
   heading.
 - A turntable may appear in several `connections`, feeding (or fed by) different conveyors. A
   connection to or from the deck hands parts across only while the two conveyors' headings agree

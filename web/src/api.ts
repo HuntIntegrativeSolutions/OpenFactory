@@ -54,6 +54,11 @@ export interface PartState {
   follow?: boolean;
   /** Part color from the emitter's part spec (PLAN 2.7); null or absent: plain cardboard. */
   color?: string | null;
+  /**
+   * Turn about +y in degrees (PLAN 2.5b), relative to the turntable deck carrying the part (add
+   * the deck's angle_deg) or to the world; folded by the box's symmetry; absent when 0.
+   */
+  yaw_deg?: number;
 }
 
 export interface StateFrame {

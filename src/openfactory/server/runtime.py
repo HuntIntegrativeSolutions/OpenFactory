@@ -8,7 +8,10 @@ default, or as fast as possible). :attr:`Runtime.snapshot` is a :class:`dict` of
 viewer needs, as of the last completed tick:
 
 ``{"t", "tick", "components": {id: state()}, "parts": [{id, name, size, position, velocity,
-carrier, spawn_tick, spawn_position, follow, color}], "io": {tag: value}}``. A part's ``velocity``
+carrier, spawn_tick, spawn_position, follow, color[, yaw_deg]}], "io": {tag: value}}``. ``yaw_deg``
+(PLAN 2.5b) is the part's turn about +y relative to the turntable deck carrying it (the viewer
+adds the deck's ``angle_deg``) or to the world, folded by the box's symmetry, present only when
+non-zero, so a square box never has one. A part's ``velocity``
 (m/s, world frame) is its belt-direction speed while carried or its fall speed while falling, so the
 viewer can start a newly seen part's physics body moving as the core's part already is (PLAN 2.0a).
 ``spawn_tick`` is the tick that spawned the part and ``spawn_position`` where it was at the end of
@@ -67,6 +70,7 @@ from pydantic import BaseModel, ConfigDict
 from openfactory.core.loader import LoadedScene
 from openfactory.core.scheduler import DEFAULT_RATE_HZ, RunStats, Scheduler
 from openfactory.core.stats import SceneStats
+from openfactory.core.world import reduced_yaw
 from openfactory.pyplc import ScriptPlc
 
 log = logging.getLogger(__name__)
@@ -174,23 +178,38 @@ class Runtime:
             "t": round(loaded.time, 6),
             "tick": loaded.tick,
             "components": {c.id: self._component_state(c) for c in loaded.components},
-            "parts": [
-                {
-                    "id": p.id,
-                    "name": p.name,
-                    "size": list(p.size),
-                    "position": list(p.position),
-                    "velocity": list(loaded.kinematics.velocity(p)),
-                    "carrier": p.carrier,
-                    "spawn_tick": p.spawn_tick,
-                    "spawn_position": list(p.spawn_position),
-                    "follow": loaded.kinematics.follows_core(p),
-                    "color": p.color,
-                }
-                for p in loaded.world.parts.values()
-            ],
+            "parts": [self._part_state(p) for p in loaded.world.parts.values()],
             "io": loaded.io.values(),
         }
+
+    def _part_state(self, p: Any) -> dict[str, Any]:
+        loaded = self.loaded
+        state = {
+            "id": p.id,
+            "name": p.name,
+            "size": list(p.size),
+            "position": list(p.position),
+            "velocity": list(loaded.kinematics.velocity(p)),
+            "carrier": p.carrier,
+            "spawn_tick": p.spawn_tick,
+            "spawn_position": list(p.spawn_position),
+            "follow": loaded.kinematics.follows_core(p),
+            "color": p.color,
+        }
+        # PLAN 2.5b: yaw relative to the turntable deck carrying it (the viewer adds the deck's
+        # angle), folded by the box's symmetry, and written only when non-zero: a square box
+        # that boards a deck square to it never writes one, so frames and recordings without a
+        # turned long part are unchanged.
+        deck = loaded.kinematics.carriers.get(p.carrier) if p.carrier else None
+        on_deck = (
+            loaded.kinematics.deck_turn(deck.id)
+            if deck is not None and deck.type == "turntable"
+            else 0.0
+        )
+        yaw = reduced_yaw(p.yaw - on_deck, p.size)
+        if yaw:
+            state["yaw_deg"] = yaw
+        return state
 
     def start(self, duration_s: float | None = None) -> None:
         """Run the scheduler on a daemon thread until :meth:`stop` (or ``duration_s``)."""

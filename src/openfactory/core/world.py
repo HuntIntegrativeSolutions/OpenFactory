@@ -19,6 +19,7 @@ order components draw numbers.
 
 from __future__ import annotations
 
+import math
 import random
 from collections import Counter
 from dataclasses import dataclass, field
@@ -53,6 +54,9 @@ class Part:
     held_by: str | None = None
     #: Color from the emitter's part spec (seen by a ``color_sensor``), or None: plain cardboard.
     color: str | None = None
+    #: Turn about +y in degrees, gained on a turning deck (PLAN 2.5b); 0 for a part that never
+    #: rode one. Collision and sensing use :attr:`footprint`, this rounded to 90 degrees.
+    yaw: float = 0.0
 
     def __post_init__(self) -> None:
         if self.spawn_position is None:
@@ -62,12 +66,33 @@ class Part:
     def bottom(self) -> float:
         return self.position[1] - self.size[1] / 2
 
+    @property
+    def footprint(self) -> Vec3:
+        """The box's world-axis size: ``size`` with x and z swapped when the part's yaw, rounded
+        to the nearest 90 degrees, is an odd number of quarter turns (PLAN 2.5b). Exact once a
+        deck has stopped turning; while it turns, the nearer quarter."""
+        sx, sy, sz = self.size
+        return (sz, sy, sx) if round(self.yaw / 90.0) % 2 else (sx, sy, sz)
+
     def aabb(self) -> tuple[Vec3, Vec3]:
-        """Axis-aligned bounds (min corner, max corner)."""
-        half = tuple(s / 2 for s in self.size)
+        """Axis-aligned bounds (min corner, max corner), of :attr:`footprint`."""
+        half = tuple(s / 2 for s in self.footprint)
         lo = (self.position[0] - half[0], self.position[1] - half[1], self.position[2] - half[2])
         hi = (self.position[0] + half[0], self.position[1] + half[1], self.position[2] + half[2])
         return lo, hi
+
+
+def reduced_yaw(yaw: float, size: Vec3) -> float:
+    """``yaw`` folded by the box's own symmetry, in (-period / 2, period / 2]: a box looks the
+    same turned 180 degrees, and a square-footprint box turned 90. Rounded to 1e-9 degrees, so
+    a whole number of periods is exactly 0."""
+    period = 90.0 if abs(size[0] - size[2]) <= 1e-12 else 180.0
+    r = round(math.fmod(yaw, period), 9)
+    if r > period / 2:
+        r -= period
+    elif r <= -period / 2:
+        r += period
+    return 0.0 if abs(r) < 1e-9 else r
 
 
 @dataclass(frozen=True)

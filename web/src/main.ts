@@ -202,6 +202,15 @@ let events: EventLink | null = null;
 let lastTick: number | null = null; // core tick the physics world has reached
 const strokes = new Map<string, number>(); // pusher stroke, stopper raise, deck angle at lastTick
 const corePositions = new Map<string, Vec3>(); // each part's core position in the last frame
+const coreYaws = new Map<string, number>(); // each part's drawn yaw in the last frame (PLAN 2.5b)
+
+/** A part's yaw to draw, degrees (PLAN 2.5b): its own, plus the deck's angle while a turntable
+ * carries it (the core sends it relative to the deck). */
+function drawnYaw(p: PartState, frame: StateFrame): number {
+  const own = typeof p.yaw_deg === "number" ? p.yaw_deg : 0;
+  const deck = p.carrier ? views.find((v) => v.id === p.carrier) : undefined;
+  return deck?.type === "turntable" ? own + Number(frame.components[deck.id]?.angle_deg ?? 0) : own;
+}
 
 /**
  * Advance the physics world to the frame's core tick (PLAN 2.0a): exactly (tick - lastTick) steps,
@@ -240,7 +249,7 @@ function stepToFrame(frame: StateFrame): void {
   }
   const status = window.__openfactory;
   for (let i = 1; i <= plan.steps; i++) {
-    for (const p of joining.get(i) ?? []) physics.addPart(p.id, p.size, p.spawn_position ?? p.position);
+    for (const p of joining.get(i) ?? []) physics.addPart(p.id, p.size, p.spawn_position ?? p.position, [0, 0, 0], drawnYaw(p, frame));
     for (const [id, to] of target) physics.setPusher(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
     for (const [id, to] of raise) physics.setStopper(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
     for (const [id, to] of turn) physics.setTurntable(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
@@ -248,7 +257,12 @@ function stepToFrame(frame: StateFrame): void {
     for (const [id, to] of rise) physics.setLift(id, strokeAt(strokes.get(id) ?? to, to, i, plan.steps));
     for (const p of following) {
       const from = corePositions.get(p.id) ?? p.position;
-      physics.follow(p.id, [0, 1, 2].map((a) => strokeAt(from[a], p.position[a], i, plan.steps)) as Vec3);
+      const yaw = drawnYaw(p, frame);
+      physics.follow(
+        p.id,
+        [0, 1, 2].map((a) => strokeAt(from[a], p.position[a], i, plan.steps)) as Vec3,
+        strokeAt(coreYaws.get(p.id) ?? yaw, yaw, i, plan.steps),
+      );
     }
     const tick = plan.firstTick + i - 1;
     for (const edge of physics.step()) {
@@ -286,13 +300,15 @@ function stepToFrame(frame: StateFrame): void {
     if (plan.steps === 0) physics.setLift(id, to);
   }
   for (const p of frame.parts) {
-    if (p.follow && plan.steps === 0) physics.follow(p.id, p.position);
+    if (p.follow && plan.steps === 0) physics.follow(p.id, p.position, drawnYaw(p, frame));
     corePositions.set(p.id, p.position);
+    coreYaws.set(p.id, drawnYaw(p, frame));
   }
   for (const id of corePositions.keys()) if (!frame.parts.some((p) => p.id === id)) corePositions.delete(id);
+  for (const id of coreYaws.keys()) if (!frame.parts.some((p) => p.id === id)) coreYaws.delete(id);
   const alive = new Set(frame.parts.map((p) => p.id));
   for (const id of physics.partIds()) if (!alive.has(id)) physics.removePart(id);
-  for (const p of frame.parts) physics.addPart(p.id, p.size, p.position, p.velocity);
+  for (const p of frame.parts) physics.addPart(p.id, p.size, p.position, p.velocity, drawnYaw(p, frame));
   for (const id of physics.partIds()) {
     const pose = physics.part(id);
     if (pose) parts.setPose(id, pose.position, pose.rotation);
@@ -307,7 +323,7 @@ function onFrame(frame: StateFrame): void {
     view.update(state);
     markFault(view.id, typeof state.fault === "string" ? state.fault : null);
   }
-  parts.update(frame.parts);
+  parts.update(frame.parts, (p) => drawnYaw(p, frame));
   stepToFrame(frame);
   const status = window.__openfactory;
   status.frames += 1;

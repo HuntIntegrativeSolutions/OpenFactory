@@ -237,12 +237,12 @@ export class PlantPhysics {
   }
 
   /** Drive a part to the core's position for the next step (PLAN §3.3); it stops being simulated. */
-  follow(id: string, position: Vec3): void {
+  follow(id: string, position: Vec3, yawDeg = 0): void {
     const body = this.parts.get(id);
     if (!body) return;
     if (!body.isKinematic()) body.setBodyType(this.R.RigidBodyType.KinematicPositionBased, true);
     body.setNextKinematicTranslation(vec(position));
-    body.setNextKinematicRotation({ x: 0, y: 0, z: 0, w: 1 }); // the core keeps parts square to the world axes
+    body.setNextKinematicRotation(quatY(yawDeg)); // the core's yaw (PLAN 2.5b): turning with a deck
   }
 
   /** Hand a followed part back to the simulation, moving at `velocity` (m/s). */
@@ -375,11 +375,11 @@ export class PlantPhysics {
   }
 
   /** Add a dynamic box; `velocity` (m/s) starts it moving as the core's part already is. */
-  addPart(id: string, size: Vec3, position: Vec3, velocity: Vec3 = [0, 0, 0]): void {
+  addPart(id: string, size: Vec3, position: Vec3, velocity: Vec3 = [0, 0, 0], yawDeg = 0): void {
     if (this.parts.has(id)) return;
     const { R } = this;
     const body = this.world.createRigidBody(
-      R.RigidBodyDesc.dynamic().setTranslation(...position).setLinvel(...velocity),
+      R.RigidBodyDesc.dynamic().setTranslation(...position).setLinvel(...velocity).setRotation(quatY(yawDeg)),
     );
     const collider = this.world.createCollider(
       R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setFriction(this.friction).setRestitution(0),

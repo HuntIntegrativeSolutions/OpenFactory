@@ -922,6 +922,17 @@ runs the sorting program against it; a box visibly gets pushed.
       not balanced on the seam (ruled "plus" deliberately). Message: "CYL_01: stroke 0.6 m
       leaves the part straddling the seam; 0.9 m puts it fully on CONV_02". Touching belts keep
       the far-edge rule; the shipped scenes still lint clean; 2.20's known-gap note is replaced.
+      *6. Part yaw on turntables, done (2026-11-01):* `Part.yaw` turns with the deck in
+      `_turn`; `Part.footprint` (size with x/z swapped past 45 degrees) is what collision,
+      sensing and `aabb()` use. The state frame writes `yaw_deg` only when non-zero, measured
+      against the deck carrying the part (the viewer adds the deck's `angle_deg`) and folded by
+      the box's symmetry (90 degrees for a square footprint, else 180); so square boxes, the
+      only ones any existing scene emits, never write it, and every parity trace, kit and
+      recording is byte-identical (37 boxes ride the two-lane-merge deck while it turns).
+      Parity traces carry no yaw. Viewer: followed and newly added parts take the drawn yaw;
+      replayed meshes turn too. `tests/scenes/turntable-long.yaml` (0.5 x 0.25 m boxes under
+      the demo-turntable script): turned boxes leave on CONV_SIDE at yaw 90 with their long
+      side along that belt, 5 straight and 5 to the side, none lost; screenshot checked.
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late
