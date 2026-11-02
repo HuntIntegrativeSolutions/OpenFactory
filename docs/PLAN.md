@@ -329,22 +329,22 @@ CC-BY GLTF models replace primitives where it helps readability.
 
 | Type | Inputs (DO/AO from PLC) | Outputs (DI/AI to PLC) | Behavior spec | MS |
 |------|------------------------|-----------------------|---------------|----|
-| `belt_conveyor` | run, speed (opt) | running | Moves parts on its top surface at `speed_mps × speed%` when run. Ramp 0.3 s. | 1 |
-| `photo_eye` | — | detect | True while any part intersects the beam segment. 20 ms debounce. | 1 |
+| `belt_conveyor` | run, speed (opt), reverse (with `bidirectional`, 2.5b) | running | Moves parts on its top surface at `speed_mps × speed%` when run, toward the infeed with reverse. Ramp 0.3 s. | 1 |
+| `photo_eye` | — | detect | True while any part intersects the beam segment. `debounce_ms` debounce (default 20, 2.5b). | 1 |
 | `pusher` | extend | extended, retracted | Linear actuator; moves parts it contacts. Both limits false mid-stroke. | 1 |
 | `box_emitter` | enable | — | Spawns a part every `interval_s ± jitter` while enabled, once its spawn volume is clear. Max parts in scene = 200. | 1 |
 | `part_remover` | — | — | Deletes parts entering its volume. Counts by part name for scene stats. | 1 |
 | `pushbutton` | — | pressed | Viewer click sets true for 300 ms (momentary) or toggles (maintained). | 1 |
 | `pilot_light` | on | — | Viewer visual only. | 1 |
 | `selector_switch` | — | pos_a, pos_b | Two or three position. | 1 |
-| `roller_conveyor` | run, speed (opt) | running | Same as belt, drawn as rollers; its own `friction` (default the scene's). | 2 |
+| `roller_conveyor` | run, speed (opt), reverse (with `bidirectional`, 2.5b) | running | Same as belt, drawn as rollers; its own `friction` (default the scene's). | 2 |
 | `stopper` | raise | raised, lowered | Blade that rises out of the belt and holds the queue; a part already over it passes. | 2 |
 | `turntable` | run, turn | running, at_0, at_90 | Turns its deck conveyor ±90°; `turn` held drives to `turn_deg`, released returns to 0. | 2 |
 | `lift` | run, raise | running, at_top, at_bottom | Raises its deck conveyor `lift_height`; `raise` held drives to the top, released returns to the bottom; hands parts across only while level. | 2 (2.5b) |
 | `diverter_arm` | extend | extended, retracted | Paddle swinging across a belt; parts slide along it onto a side conveyor. | 2 |
-| `pick_and_place` | traverse, lower, grip | at_pick, at_place, lowered, holding | Two-axis gantry with a gripper pad. | 2 |
+| `pick_and_place` | traverse, lower, grip | at_pick, at_place, lowered, holding, contact (2.5b) | Two-axis gantry with a gripper pad; the pad stops on a part's top (2.5b). | 2 |
 | `distance_sensor` | — | distance (AI), switching (AI) | Range to the nearest part or belt along its beam, metres 0 to `beam_length`. | 2 |
-| `color_sensor` | — | match, detect | Diffuse sensor taught one part `color`; `match` while the nearest part in range has it. | 2 (2.7) |
+| `color_sensor` | — | match, detect | Diffuse sensor taught one part `color`; `match` while the nearest part in range has it; `debounce_ms` (default 0, 2.5b). | 2 (2.7) |
 | `counter_display` | value (AO) | — | Seven-segment readout on a panel, `digits` 1-6 (default 4), `decimals`; dashes when the value does not fit. | 2 (2.5b) |
 | `tank` | — | level (AI), hi_sw, lo_sw | Mass balance: Σ inflows − Σ outflows. Height from volume and footprint. | 3 |
 | `valve_onoff` | open | opened, closed | Travel time; flow coefficient Cv passes to connected pipe. | 3 |
