@@ -29,7 +29,9 @@ into a temporary folder that lives until the command ends (the viewer serves mes
 bundle is untrusted input, since it arrives by email, so before anything is written every member
 must be listed in the manifest with a matching size and SHA-256, have a plain relative path (no
 absolute path, ``..``, backslash, drive letter or empty part), not be a link, and fit the member
-count and size limits. A run that updates a lockfile updates the unpacked copy; the ``.ofz`` is
+count and size limits, and every library composite the scene names must be in it (so the
+loader never looks above the temporary folder). A run that updates a lockfile updates the
+unpacked copy; the ``.ofz`` is
 never rewritten. The bundled script is Python and runs only when asked for with
 ``--bundled-script``; opening a bundle never executes it.
 """
@@ -336,7 +338,30 @@ def read_bundle(path: str | Path) -> tuple[dict, dict[str, bytes]]:
         raise BundleError(f"{path}: the scene {meta['scene']!r} is not a top-level file in it")
     if meta.get("script") is not None and meta["script"] not in files:
         raise BundleError(f"{path}: the script {meta['script']!r} is not in the bundle")
+    _check_libraries(path, meta["scene"], files)
     return meta, files
+
+
+def _check_libraries(path: Path, scene_name: str, files: dict[str, bytes]) -> None:
+    """Every library composite the scene names is in the bundle (PLAN 2.5b). Without this, the
+    loader's upward search from the temporary folder could pick up a ``_library/`` outside the
+    bundle, and the bundle would not be self-contained."""
+    import yaml
+
+    from openfactory.core.schema import _SceneYamlLoader
+
+    try:
+        data = yaml.load(files[scene_name].decode("utf-8"), Loader=_SceneYamlLoader)  # noqa: S506
+    except (UnicodeDecodeError, yaml.YAMLError):
+        return  # not a scene the loader can read; it reports that itself
+    composites = data.get("composites") if isinstance(data, dict) else None
+    for entry in composites if isinstance(composites, list) else []:
+        name = entry.get("library") if isinstance(entry, dict) else None
+        if isinstance(name, str) and f"_library/{name}.yaml" not in files:
+            raise BundleError(
+                f"{path}: the scene uses library composite {name!r} but the bundle has no "
+                f"_library/{name}.yaml; a bundle must carry every library it uses"
+            )
 
 
 def _check_manifest(path: Path, meta: object) -> None:

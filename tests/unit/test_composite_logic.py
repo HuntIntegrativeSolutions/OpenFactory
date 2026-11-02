@@ -231,3 +231,36 @@ def test_library_errors(tmp_path):
                    encoding="utf-8")  # fmt: skip
     with pytest.raises(ValidationError, match="holds `openfactory` and `composite` only"):
         parse_scene(USES, tmp_path)
+
+
+def test_a_bundle_missing_its_library_is_refused_not_resolved_outside(tmp_path, monkeypatch):
+    """A bundle names a library it does not carry; a decoy _library/ sits above where it would
+    be unpacked. Opening it must fail, not load the decoy (PLAN 2.18 and 2.5b)."""
+    import hashlib
+    import json
+    import zipfile
+
+    from openfactory import bundle as bundle_mod
+    from openfactory.bundle import BundleError, open_bundle
+
+    decoy = tmp_path / "_library"
+    decoy.mkdir()
+    shutil.copy(LIBRARY, decoy)
+    unpack = tmp_path / "unpack"
+    unpack.mkdir()
+    monkeypatch.setattr(bundle_mod.tempfile, "mkdtemp", lambda **kw: str(unpack))
+    scene = USES.encode("utf-8")
+    meta = {"format": "openfactory-scene-bundle", "bundle_version": 1, "openfactory": "0.1",
+            "scene": "s.yaml", "script": None,
+            "files": [{"path": "s.yaml", "role": "scene", "bytes": len(scene),
+                       "sha256": hashlib.sha256(scene).hexdigest()}]}  # fmt: skip
+    target = tmp_path / "x.ofz"
+    with zipfile.ZipFile(target, "w") as zf:
+        zf.writestr("manifest.json", json.dumps(meta))
+        zf.writestr("s.yaml", scene)
+    with (
+        pytest.raises(BundleError, match="has no _library/accumulation_conveyor.yaml"),
+        open_bundle(target),
+    ):
+        pass
+    assert not any(unpack.iterdir())  # refused before anything was written
