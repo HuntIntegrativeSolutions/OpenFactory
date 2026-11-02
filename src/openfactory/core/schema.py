@@ -457,9 +457,30 @@ class BeltConveyorIO(IOModel):
     run: DoTag = port("DO", "Run command", required=True)
     speed: AoTag | None = port("AO", "Speed command", range=(0.0, 100.0), units="%")
     running: DiTag | None = port("DI", "Running feedback")
+    reverse: DoTag | None = port("DO", "Reverse command (with run: flow toward the infeed end)")
 
 
-class BeltConveyor(ComponentBase):
+class _Reversible(ComponentBase):
+    """A conveyor that may run backward (PLAN 2.5b): ``bidirectional: true`` with a ``reverse``
+    DO bound, and neither without the other."""
+
+    bidirectional: bool = Field(
+        False,
+        description="Runs both ways: needs io.reverse; with run and reverse on, parts move toward "
+        "the infeed end and hand back to the conveyor feeding it.",
+    )
+
+    @model_validator(mode="after")
+    def _reverse_needs_bidirectional(self) -> _Reversible:
+        bound = self.io.reverse is not None  # type: ignore[attr-defined]
+        if self.bidirectional and not bound:
+            raise ValueError("bidirectional: true needs io.reverse (the reverse command DO)")
+        if bound and not self.bidirectional:
+            raise ValueError("io.reverse needs bidirectional: true")
+        return self
+
+
+class BeltConveyor(_Reversible):
     """Origin: center of the infeed end, at belt top-surface height. Flow is local +x."""
 
     type: Literal["belt_conveyor"]
@@ -469,7 +490,7 @@ class BeltConveyor(ComponentBase):
     io: BeltConveyorIO
 
 
-class RollerConveyor(ComponentBase):
+class RollerConveyor(_Reversible):
     """Origin: center of the infeed end, at roller-top height. Flow is local +x (as belt_conveyor).
 
     Driven rollers: the same run, speed, and running ports and the same speed ramp as a belt. Parts

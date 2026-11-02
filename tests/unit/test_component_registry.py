@@ -144,7 +144,7 @@ def test_read_write_direction_is_enforced(stub_registry):
     with pytest.raises(ValueError, match="cannot read DI"):
         conv.read("running", default=False)
     with pytest.raises(KeyError, match="no port"):
-        conv.read("reverse", default=False)
+        conv.read("jog", default=False)
 
 
 def test_plc_side_still_cannot_write_outputs(stub_registry):

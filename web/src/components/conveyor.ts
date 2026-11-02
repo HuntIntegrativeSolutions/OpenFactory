@@ -32,6 +32,9 @@ export const beltConveyor: Builder = (g, ctx) => {
     group.add(slat);
   }
 
+  const arrow = directionArrow(g, length, width);
+  if (arrow) group.add(arrow.mesh);
+
   return {
     id: g.id,
     type: g.type,
@@ -40,6 +43,7 @@ export const beltConveyor: Builder = (g, ctx) => {
     pickable: [],
     housing: frame,
     update(state) {
+      arrow?.update(state);
       setColor(belt, state.running ? ISA101.running : ISA101.stopped);
       const travel = typeof state.travel_m === "number" ? state.travel_m : 0;
       const phase = ((travel % SLAT_PITCH) + SLAT_PITCH) % SLAT_PITCH;
@@ -51,6 +55,35 @@ export const beltConveyor: Builder = (g, ctx) => {
 };
 
 const ROLLER_R = 0.025;
+
+/**
+ * Direction arrow of a bidirectional conveyor (PLAN 2.5b): a flat arrowhead above the near side
+ * rail at mid-length, pointing along the flow (+x) or, while the core reports `reverse`, back
+ * toward the infeed end; green while running, grey when stopped. Null for a one-way conveyor.
+ */
+function directionArrow(g: ComponentGeometry, length: number, width: number) {
+  if (g.bidirectional !== true) return null;
+  const shape = new THREE.Shape();
+  shape.moveTo(0.12, 0);
+  shape.lineTo(-0.08, 0.07);
+  shape.lineTo(-0.04, 0);
+  shape.lineTo(-0.08, -0.07);
+  shape.closePath();
+  const arrow = new THREE.Mesh(
+    new THREE.ShapeGeometry(shape),
+    new THREE.MeshStandardMaterial({ color: ISA101.stopped, side: THREE.DoubleSide }),
+  );
+  arrow.name = "direction";
+  arrow.rotation.x = -Math.PI / 2; // lie flat, the shape's +y toward -z
+  arrow.position.set(length / 2, 0.03, width / 2 + 0.015);
+  return {
+    mesh: arrow,
+    update(state: Record<string, unknown>) {
+      arrow.rotation.z = state.reverse ? Math.PI : 0;
+      setColor(arrow, state.running ? ISA101.running : ISA101.stopped);
+    },
+  };
+}
 
 /** Side rails and floor legs of a straight conveyor: its fixed frame (PLAN 2.15 housing). */
 function railsAndLegs(g: ComponentGeometry, ctx: BuildContext, length: number, width: number): THREE.Mesh[] {
@@ -91,6 +124,8 @@ export const rollerConveyor: Builder = (g, ctx) => {
     rollers.push(roller);
     group.add(roller);
   }
+  const arrow = directionArrow(g, length, width);
+  if (arrow) group.add(arrow.mesh);
   return {
     id: g.id,
     type: g.type,
@@ -99,6 +134,7 @@ export const rollerConveyor: Builder = (g, ctx) => {
     pickable: [],
     housing: frame,
     update(state) {
+      arrow?.update(state);
       const color = state.running ? ISA101.running : ISA101.stopped;
       const travel = typeof state.travel_m === "number" ? state.travel_m : 0;
       for (const roller of rollers) {

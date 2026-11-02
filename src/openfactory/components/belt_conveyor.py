@@ -10,6 +10,11 @@ for a full-scale (0 → ``speed_mps``) change, in both directions, so a stopped 
 contact; it does not wait for the ramp. The belt does not move parts itself: the kinematic model
 (PLAN 1.5) and the viewer physics read :attr:`BeltConveyor.surface_speed`.
 
+Reversing (PLAN 2.5b): a conveyor with ``bidirectional: true`` has a ``reverse`` (DO). With
+``run`` and ``reverse`` on, the target speed is the same magnitude toward the infeed end
+(negative along local +x); ``reverse`` alone does nothing. A change of direction ramps through
+zero at the same rate, so a full reversal takes 0.6 s. ``running`` mirrors ``run`` either way.
+
 Geometry: the origin is the center of the infeed end at belt top-surface height; flow is local +x.
 """
 
@@ -36,7 +41,13 @@ class BeltConveyor(Component):
             return 0.0
         lo, hi = self.ports["speed"].range or (0.0, 100.0)
         pct = min(max(float(self.read("speed", default=hi)), lo), hi)
-        return self.config.speed_mps * pct / 100.0
+        forward = self.config.speed_mps * pct / 100.0
+        return -forward if self.reversing else forward
+
+    @property
+    def reversing(self) -> bool:
+        """True while the reverse command is on (a bidirectional conveyor only)."""
+        return bool(self.config.bidirectional and self.read("reverse", default=False))
 
     def step(self, dt: float) -> None:
         target = self.target_speed() * self.speed_factor  # jammed: 0; slow: a fraction
@@ -53,11 +64,17 @@ class BeltConveyor(Component):
         self.write("running", bool(self.read("run", default=False)))
 
     def state(self) -> dict[str, Any]:
-        return {
+        state = {
             "running": bool(self.read("run", default=False)),
             "speed_mps": self.surface_speed,
             "travel_m": self.travel,
         }
+        if self.config.bidirectional:
+            state["reverse"] = self.reversing
+        return state
 
     def geometry(self) -> dict[str, Any]:
-        return {**super().geometry(), "length": self.config.length, "width": self.config.width}
+        out = {**super().geometry(), "length": self.config.length, "width": self.config.width}
+        if self.config.bidirectional:
+            out["bidirectional"] = True
+        return out

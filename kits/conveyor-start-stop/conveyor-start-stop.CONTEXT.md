@@ -60,13 +60,14 @@ unless `openfactory.toml` or `--bind`, `--port` and `--web-port` say otherwise.
 
 Transfer Belt Conveyor. Position [0.0, 0.0, 0.0].
 
-Parameters: `rotation_deg` 0.0, `length` 5.0, `width` 0.5, `speed_mps` 0.5
+Parameters: `rotation_deg` 0.0, `bidirectional` false, `length` 5.0, `width` 0.5, `speed_mps` 0.5
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
 | run | DO | `CONV_01_RUN_DO` | Run command |
 | speed | AO | unbound | Speed command |
 | running | DI | `CONV_01_RUN_DI` | Running feedback |
+| reverse | DO | unbound | Reverse command (with run: flow toward the infeed end) |
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 

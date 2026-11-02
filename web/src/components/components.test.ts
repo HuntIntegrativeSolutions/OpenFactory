@@ -88,4 +88,15 @@ describe("component mesh builders", () => {
     view.update({ text: "    " });
     expect(lit("digit3.a")).toBe(false);
   });
+
+  it("points a bidirectional belt's arrow along the flow, and back toward the infeed in reverse", () => {
+    const view = buildComponent(geom("belt_conveyor", { length: 4, width: 0.5, bidirectional: true }), ctx);
+    const arrow = view.object.getObjectByName("direction")!;
+    view.update({ running: true, reverse: false });
+    expect(arrow.rotation.z).toBe(0);
+    expect(color(arrow)).toBe(ISA101.running);
+    view.update({ running: true, reverse: true });
+    expect(arrow.rotation.z).toBeCloseTo(Math.PI);
+    expect(buildComponent(geom("belt_conveyor", { length: 4, width: 0.5 }), ctx).object.getObjectByName("direction")).toBeUndefined();
+  });
 });

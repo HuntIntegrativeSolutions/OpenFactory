@@ -891,6 +891,18 @@ runs the sorting program against it; a box visibly gets pushed.
       viewer, whose deck body rises with the core's `height_m`. `tests/scenes/demo-lift.yaml`
       (infeed at 0, outfeed at 0.6 m) under `demo-lift.py`: PASS 3 of 3, 6 boxes at 60 s, 36 at
       300 s, longest dwell 16.58 s both; every existing parity trace and kit unchanged.
+      *3. Reversible belts, done (2026-11-01):* belt and roller conveyors take
+      `bidirectional: true` with a `reverse` DO (each needs the other). With `run` and `reverse`
+      the surface speed is negative, ramping through zero. Kinematics: parts move toward the
+      infeed end, queue in reverse (`_room_behind`), stop on a raised blade from its far side,
+      and hand back through an active connection to the feeder whose discharge end is nearest;
+      no feeder: they fall off; feeders out of line or level: they wait at the infeed end.
+      Reversing belts move their parts after forward ones, upstream first. The `reverse` state
+      and `bidirectional` geometry keys appear only on bidirectional conveyors, so every
+      existing trace, recording and kit stays byte-identical (CONTEXT.md files list the new
+      `bidirectional` parameter). Viewer: a direction arrow on the near rail; Rapier carries
+      parts back at the negative belt speed. `tests/scenes/demo-reversing.yaml`: 3 boxes on to
+      REM_FWD and 2 back across the seam to REM_BACK in 60 s, none lost.
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late

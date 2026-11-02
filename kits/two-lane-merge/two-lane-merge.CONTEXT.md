@@ -71,13 +71,14 @@ unless `openfactory.toml` or `--bind`, `--port` and `--web-port` say otherwise.
 
 Lane A Infeed Belt Conveyor. Position [0.0, 0.0, 0.0].
 
-Parameters: `rotation_deg` 0.0, `length` 4.0, `width` 0.5, `speed_mps` 0.5
+Parameters: `rotation_deg` 0.0, `bidirectional` false, `length` 4.0, `width` 0.5, `speed_mps` 0.5
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
 | run | DO | `CONV_A_RUN_DO` | Run command |
 | speed | AO | unbound | Speed command |
 | running | DI | `CONV_A_RUN_DI` | Running feedback |
+| reverse | DO | unbound | Reverse command (with run: flow toward the infeed end) |
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
@@ -111,13 +112,14 @@ Faults: `stuck_on`, `stuck_off`, `misaligned`, `noisy`
 
 Lane B Infeed Belt Conveyor. Position [4.4, 0.0, 3.4].
 
-Parameters: `rotation_deg` 90.0, `length` 3.0, `width` 0.5, `speed_mps` 0.5
+Parameters: `rotation_deg` 90.0, `bidirectional` false, `length` 3.0, `width` 0.5, `speed_mps` 0.5
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
 | run | DO | `CONV_B_RUN_DO` | Run command |
 | speed | AO | unbound | Speed command |
 | running | DI | `CONV_B_RUN_DI` | Running feedback |
+| reverse | DO | unbound | Reverse command (with run: flow toward the infeed end) |
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
@@ -191,13 +193,14 @@ Faults: `stuck_on`, `stuck_off`, `misaligned`, `noisy`
 
 Merged Outfeed Belt Conveyor. Position [4.8, 0.0, 0.0].
 
-Parameters: `rotation_deg` 0.0, `length` 3.0, `width` 0.5, `speed_mps` 0.5
+Parameters: `rotation_deg` 0.0, `bidirectional` false, `length` 3.0, `width` 0.5, `speed_mps` 0.5
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
 | run | DO | `CONV_OUT_RUN_DO` | Run command |
 | speed | AO | unbound | Speed command |
 | running | DI | `CONV_OUT_RUN_DI` | Running feedback |
+| reverse | DO | unbound | Reverse command (with run: flow toward the infeed end) |
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 

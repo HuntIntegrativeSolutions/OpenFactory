@@ -150,6 +150,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "bidirectional": {
+          "default": false,
+          "description": "Runs both ways: needs io.reverse; with run and reverse on, parts move toward the infeed end and hand back to the conveyor feeding it.",
+          "title": "Bidirectional",
+          "type": "boolean"
+        },
         "type": {
           "const": "belt_conveyor",
           "title": "Type",
@@ -248,6 +254,25 @@
           "description": "Running feedback",
           "title": "Running",
           "x-io-kind": "DI"
+        },
+        "reverse": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reverse command (with run: flow toward the infeed end)",
+          "title": "Reverse",
+          "x-io-kind": "DO"
         }
       },
       "required": [
@@ -2727,6 +2752,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "bidirectional": {
+          "default": false,
+          "description": "Runs both ways: needs io.reverse; with run and reverse on, parts move toward the infeed end and hand back to the conveyor feeding it.",
+          "title": "Bidirectional",
+          "type": "boolean"
         },
         "type": {
           "const": "roller_conveyor",

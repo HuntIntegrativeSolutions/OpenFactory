@@ -1,0 +1,66 @@
+# PLAN 2.5b test scene (tests only, not shipped): two bidirectional belts in a line. The stand-in
+# script beside it (demo-reversing.py) sends odd boxes on to the far end and runs both belts in
+# reverse for even ones, which travel back across the seam and off the infeed end.
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: demo-reversing
+  description: Two reversible belts; alternate boxes go forward or back to the infeed end.
+  author: HIS Controls
+  seed: 11
+plc:
+  protocol: modbus_tcp
+checks:
+  duration_s: 60
+  none_lost: true                  # both removers' counts: tests/unit/test_reversing.py
+components:
+  - id: CONV_A
+    type: belt_conveyor
+    description: Reversing Infeed Belt Conveyor
+    position: [0, 0, 0]
+    length: 2.0
+    width: 0.5
+    speed_mps: 0.5
+    bidirectional: true
+    io:
+      run: CONV_A_RUN_DO
+      reverse: CONV_A_REV_DO
+  - id: CONV_B
+    type: belt_conveyor
+    description: Reversing Outfeed Belt Conveyor
+    position: [2.0, 0, 0]
+    length: 2.0
+    width: 0.5
+    speed_mps: 0.5
+    bidirectional: true
+    io:
+      run: CONV_B_RUN_DO
+      reverse: CONV_B_REV_DO
+  - id: EMT_01
+    type: box_emitter
+    description: Reversing Line Box Source
+    position: [0.6, 0.155, 0]
+    interval_s: 8.0
+    parts:
+      - {name: box, size: [0.3, 0.3, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: PE_B
+    type: photo_eye
+    description: Outfeed Decision Photo Eye
+    position: [3.2, 0.15, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_B_DI
+  - id: REM_FWD
+    type: part_remover
+    description: Outfeed Discharge Part Remover
+    position: [4.15, 0, 0]
+    size: [0.3, 1.0, 1.0]
+  - id: REM_BACK
+    type: part_remover
+    description: Infeed Return Part Remover
+    position: [-0.15, 0, 0]
+    size: [0.3, 1.0, 1.0]
+connections:
+  - {from: CONV_A, to: CONV_B}

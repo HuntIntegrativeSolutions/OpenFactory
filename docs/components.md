@@ -88,15 +88,26 @@ A powered belt. Origin: centre of the infeed end at belt-top height; flow is loc
 | `length` | required | Belt length along local x, meters |
 | `width` | required | Belt width, meters |
 | `speed_mps` | required | Surface speed at 100 % speed command |
+| `bidirectional` | false | Runs both ways; needs `reverse` bound (PLAN 2.5b) |
 
 | Port | Kind | Required | Meaning |
 |---|---|---|---|
 | `run` | DO | yes | Run command |
 | `speed` | AO, 0 to 100 % | no | Speed command; unbound means 100 % |
 | `running` | DI | no | Running feedback; follows `run` in the same tick |
+| `reverse` | DO | with `bidirectional` | Reverse command: with `run`, flow toward the infeed end |
 
 The surface speed follows the target (`speed_mps` × speed % while `run`, else 0) with a linear ramp
 of 0.3 s for a full-scale change. Parts accelerate at the scene friction μ × 9.81 m/s².
+
+**Reversing (PLAN 2.5b).** With `bidirectional: true` and `reverse` on, `run` drives the belt toward
+the infeed end at the same speed; `reverse` alone does nothing, and a change of direction ramps
+through zero (0.6 s for a full reversal). Parts queue nose to tail in reverse as forward, a raised
+stopper blade stops a part coming from its far side, and a part passing the infeed end hands back
+to the conveyor feeding this one through an active connection (at a merge, the feeder whose
+discharge end is nearest), else it falls off the end; fed only by an out-of-line or out-of-level
+deck, it waits at the infeed end. The viewer draws an arrow on the near rail, pointing the way the
+belt runs. Example: `tests/scenes/demo-reversing.yaml`.
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the belt at once and `running` still
 follows `run`; stuck faults act on `running`).
@@ -112,12 +123,14 @@ Driven rollers. Same origin, ports, and speed behavior as `belt_conveyor`.
 | `speed_mps` | required | Roller surface speed at 100 % speed command |
 | `roller_pitch` | 0.1 | Roller spacing, meters (viewer only) |
 | `friction` | scene friction | Roller-to-part μ; lower values make parts take longer to reach speed |
+| `bidirectional` | false | Runs both ways, as `belt_conveyor`; needs `reverse` bound |
 
 | Port | Kind | Required | Meaning |
 |---|---|---|---|
 | `run` | DO | yes | Run command |
 | `speed` | AO, 0 to 100 % | no | Speed command |
 | `running` | DI | no | Running feedback |
+| `reverse` | DO | with `bidirectional` | Reverse command, as `belt_conveyor` |
 
 Parts on it accelerate at its own `friction` × 9.81 m/s² (9 ticks to 0.5 m/s at μ 0.3, against 4
 at μ 0.8), in the headless model and in the viewer alike.

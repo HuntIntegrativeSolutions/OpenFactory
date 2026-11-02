@@ -31,6 +31,18 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   discharge end, on the belt it feeds. A blocked part's speed becomes the advance it actually
   made, so it re-accelerates from there when the way clears. Parts therefore accumulate nose to
   tail behind a stopped belt and release in order; side-by-side parts do not block each other.
+- **Reversed (PLAN 2.5b):** a ``bidirectional`` belt or roller conveyor running in reverse has
+  a negative surface speed, and its parts move toward the infeed end under the same friction
+  ramp. The queueing check runs backward: a part stops with its back face on the front face of
+  the nearest part behind it (on its own belt or, before its infeed end, on the conveyor feeding
+  it), and a raised stopper blade stops a part wholly past the blade line with its back face on
+  the line. A part whose centre passes the infeed end hands back to the conveyor that feeds this
+  one through an active connection, landing that far before the feeder's discharge end (the
+  feeder whose discharge end is nearest, at a merge); with no feeder it leaves the belt and
+  falls; with feeders but none active (a turned or out-of-level deck) it waits at the infeed
+  end. Each step, belts running forward move their parts first (downstream belts first, the
+  part furthest along first), then reversing belts (upstream belts first, the part nearest the
+  infeed end first).
 - **Stopped (PLAN 2.5):** a ``stopper`` blade on a belt (its origin on that belt's surface) is a
   hard stop in the same check while it is above fully lowered: a part whose front face has not
   passed the blade line stops with its front face on the blade (lateral overlap required), and the
@@ -299,12 +311,18 @@ class KinematicModel:
         for part in parts:
             if part.carrier is not None:
                 self._record(part)
+
         # Leaders move before the parts behind them (PLAN 2.0): downstream belts first, then
         # the part furthest along each belt, so a follower is limited by where its leader is now.
-        carried = sorted(
-            (p for p in parts if p.carrier is not None),
-            key=lambda p: (self._rank[p.carrier], -self._boxes[p.carrier][p.id][0]),  # type: ignore[index]
-        )
+        # Reversing belts (PLAN 2.5b) lead from the other end: upstream belts first, then the
+        # part nearest the infeed end. On scenes with no reversing belt the order is unchanged.
+        def order(p: Part) -> tuple[int, int, float]:
+            x = self._boxes[p.carrier][p.id][0]  # type: ignore[index]
+            if self.carriers[p.carrier].surface_speed < 0:  # type: ignore[index,attr-defined]
+                return (1, -self._rank[p.carrier], x)  # type: ignore[index]
+            return (0, self._rank[p.carrier], -x)  # type: ignore[index]
+
+        carried = sorted((p for p in parts if p.carrier is not None), key=order)
         for part in carried:
             before = part.carrier
             self._convey(part, dt)
@@ -327,6 +345,10 @@ class KinematicModel:
             if x + part.v_flow * dt > room:  # queued: stop at the back face of the part ahead
                 advance = max(0.0, room - x)
                 part.v_flow = advance / dt
+        elif part.v_flow < 0:  # reversing (PLAN 2.5b)
+            floor = self._room_behind(part, carrier, x, z)
+            if x + part.v_flow * dt < floor:  # stop at the front face of the part behind
+                part.v_flow = min(0.0, floor - x) / dt
         x += part.v_flow * dt
         rest_y = part.size[1] / 2  # part center height above the belt top
         if x > cfg.length + _EPS and carrier.id in self.downstream:
@@ -336,6 +358,14 @@ class KinematicModel:
             part.position = self._world(nxt, (x - cfg.length, rest_y, lateral))
             part.carrier = nxt.id
             return
+        if x < -_EPS and part.v_flow < 0:
+            feeder = self._feeder_for(carrier, self._world(carrier, (x, rest_y, z)))
+            if feeder is not None:  # hands back to the conveyor feeding this one
+                half_w = feeder.config.width / 2
+                lateral = min(max(z, -half_w), half_w)
+                part.position = self._world(feeder, (feeder.config.length + x, rest_y, lateral))
+                part.carrier = feeder.id
+                return
         part.position = self._world(carrier, (x, rest_y, z))
         if not self._holds(carrier, part.position):
             part.carrier = None  # off the end or the side: falls from here
@@ -449,6 +479,54 @@ class KinematicModel:
                     continue  # already over or past the blade line: it passes
                 room = min(room, sx - half_x)
         return room
+
+    def _feeders(self, carrier_id: str) -> list[str]:
+        """Conveyors whose active connection feeds ``carrier_id`` (in scene order)."""
+        return [up for up, down in self.downstream.items() if down == carrier_id]
+
+    def _feeder_for(
+        self, carrier: Component, point: tuple[float, float, float]
+    ) -> Component | None:
+        """The active feeder whose discharge end is nearest ``point`` (a part leaving
+        ``carrier``'s infeed end in reverse), or None."""
+        best, best_d = None, math.inf
+        for up_id in self._feeders(carrier.id):
+            up = self.carriers[up_id]
+            ex, _, ez = self._world(up, (up.config.length, 0.0, 0.0))
+            d = math.hypot(point[0] - ex, point[2] - ez)
+            if d < best_d:
+                best, best_d = up, d
+        return best
+
+    def _room_behind(self, part: Part, carrier: Component, x: float, z: float) -> float:
+        """Smallest local x the part's center may reach this step moving in reverse without
+        overlapping a carried part behind it, on its own belt or on a conveyor feeding it
+        (mapped before this belt's infeed end). The mirror of :meth:`_room_ahead`."""
+        half_x, half_z = self._extent(part, carrier)
+        y, height = part.position[1], part.size[1]
+        floor = -math.inf
+        frames = [(carrier.id, 0.0)]
+        feeders = self._feeders(carrier.id)
+        frames += [(up, -self.carriers[up].config.length) for up in feeders]
+        if not feeders and any(carrier.id in tos for tos in self.links.values()):
+            floor = half_x  # fed only through connections out of line: wait at the infeed end
+        for belt_id, offset in frames:
+            boxes = self._boxes[belt_id]
+            for pid, (ox, oz, o_half_x, o_half_z, oy, oh) in boxes.items():
+                if pid == part.id or abs(oy - y) >= (oh + height) / 2:
+                    continue
+                ox += offset
+                if ox >= x or abs(oz - z) >= half_z + o_half_z - _EPS:
+                    continue  # ahead, or beside
+                floor = max(floor, ox + o_half_x + half_x)
+            for stopper, sx, sz, half_w in self._stops.get(belt_id, ()):
+                sx += offset
+                if not stopper.blocking or abs(sz - z) >= half_w + half_z - _EPS:  # type: ignore[attr-defined]
+                    continue
+                if x - half_x < sx - _EPS:
+                    continue  # over or before the blade line: it passes
+                floor = max(floor, sx + half_x)
+        return floor
 
     def _fence(self, arm: Component, belt_id: str) -> None:
         """Move parts on the arm's belt that poke through the arm back out along its normal."""

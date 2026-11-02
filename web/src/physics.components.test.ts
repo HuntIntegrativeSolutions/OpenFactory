@@ -84,3 +84,20 @@ describe("lift deck (PLAN 2.5b)", () => {
     expect(physics.part("P2")!.position[1]).toBeCloseTo(0.15, 2);
   });
 });
+
+describe("reversible belt (PLAN 2.5b)", () => {
+  it("carries a box toward the infeed end at the belt's negative speed", async () => {
+    const R = await loadRapier();
+    const g: ComponentGeometry = {
+      id: "CONV_A", type: "belt_conveyor", description: "", position: [0, 0, 0], rotation_deg: 0,
+      length: 3, width: 0.5, bidirectional: true,
+    };
+    const physics = new PlantPhysics(R, { components: [g], friction: 0.8, dt: DT });
+    physics.setBelt("CONV_A", -0.5);
+    physics.addPart("P1", [0.3, 0.3, 0.3], [2.0, 0.15, 0]);
+    for (let k = 0; k < 50; k++) physics.step();
+    const x = physics.part("P1")!.position[0];
+    expect(x).toBeLessThan(1.6); // about 0.5 m back in 1 s, less the ramp-up
+    expect(x).toBeGreaterThan(1.4);
+  });
+});
