@@ -659,6 +659,7 @@ class PickAndPlaceIO(IOModel):
     at_place: DiTag | None = port("DI", "At the place side")
     lowered: DiTag | None = port("DI", "Lowered limit switch")
     holding: DiTag | None = port("DI", "Holding a part")
+    contact: DiTag | None = port("DI", "Pad touching a part (resting on one, or holding one)")
 
 
 class PickAndPlace(ComponentBase):

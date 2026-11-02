@@ -2298,6 +2298,25 @@
           "description": "Holding a part",
           "title": "Holding",
           "x-io-kind": "DI"
+        },
+        "contact": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pad touching a part (resting on one, or holding one)",
+          "title": "Contact",
+          "x-io-kind": "DI"
         }
       },
       "required": [

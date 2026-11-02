@@ -326,11 +326,16 @@ pick point; the traverse runs along local +x and the pad drops along -y.
 | `at_place` | DI | no | At the place side |
 | `lowered` | DI | no | Pad fully lowered |
 | `holding` | DI | no | Holding a part |
+| `contact` | DI | no | Pad touching a part: resting on one, or holding one (PLAN 2.5b) |
 
-- `grip` on while the pad is fully lowered picks the highest part whose top is within 2 cm of the
+- `grip` on while the pad is fully lowered or in contact picks the highest part whose top is within 2 cm of the
   pad and whose footprint overlaps it. The part moves with the pad, keeping its offset. `grip` off
   drops it where it is, and it falls onto whatever is below.
-- The pad does not collide with parts; size `stroke` so the lowered pad meets the part's top.
+- A lowering pad stops on the top of the highest part under it (PLAN 2.5b): over a part taller than
+  the stroke allows, the pad rests on it with `lowered` false (`lowered` is the full-stroke limit,
+  the pad's true position) and `contact` true, and `grip` picks it there. Only the pad collides; a
+  held part does not stop on what is below it. Size `stroke` so the lowered pad meets the part's
+  top for a full-stroke pick.
 - In the viewer, held parts follow the core's position.
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes both axes; a held part stays

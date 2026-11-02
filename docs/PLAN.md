@@ -933,6 +933,15 @@ runs the sorting program against it; a box visibly gets pushed.
       replayed meshes turn too. `tests/scenes/turntable-long.yaml` (0.5 x 0.25 m boxes under
       the demo-turntable script): turned boxes leave on CONV_SIDE at yaw 90 with their long
       side along that belt, 5 straight and 5 to the side, none lost; screenshot checked.
+      *7. Pick-and-place pad collision, done (2026-11-02):* a lowering pad stops on the top of
+      the highest part under it (not held, footprint overlapping, top at or below the pad);
+      `lowered` stays the full-stroke limit, so it is false while the pad rests on a tall
+      part; the new optional `contact` DI is true while the pad rests on a part or holds one,
+      and `grip` picks when lowered or in contact. Only the pad collides. In both existing
+      gantry scenes the pad reaches each box's top exactly at full stroke (deepest
+      penetration 0.0 m, measured before the change), so parity traces and kit recordings are
+      unchanged; `contact` is not added to the component's state, and only the CONTEXT.md
+      files list the new port.
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late

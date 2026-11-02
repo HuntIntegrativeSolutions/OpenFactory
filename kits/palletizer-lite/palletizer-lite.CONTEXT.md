@@ -121,6 +121,7 @@ Parameters: `rotation_deg` -90.0, `travel` 1.0, `stroke` 0.25, `travel_time_s` 1
 | at_place | DI | `PP_01_AT_PLACE_DI` | At the place side |
 | lowered | DI | `PP_01_DOWN_DI` | Lowered limit switch |
 | holding | DI | `PP_01_HOLD_DI` | Holding a part |
+| contact | DI | unbound | Pad touching a part (resting on one, or holding one) |
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 

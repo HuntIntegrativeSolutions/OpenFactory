@@ -108,3 +108,56 @@ def test_demo_transfers_every_box_under_the_script(tmp_path, strip_ansi):
     print(summary)
     assert "spawned 10" in summary and "lost {}" in summary
     assert "by remover {'REM_B': {'box': 9}}" in summary
+
+
+# --- pad collision and contact (PLAN 2.5b) ------------------------------------------------------
+
+PPC = {**PP, "io": {**PP["io"], "contact": "PP_01_CONTACT_DI"}}
+
+
+def test_the_pad_stops_on_a_tall_part_and_reports_contact_not_lowered(rig):
+    r = rig(PPC)
+    pp = r["PP_01"]
+    tall = r.world.spawn(
+        "box", (0.3, 0.3, 0.3), (0.0, 0.15, 0.0)
+    )  # top at 0.30, stroke reaches 0.20
+    r.plc("PP_01_LOWER_DO", True)
+    r.step(20)
+    assert pp.y == pytest.approx(0.15)  # the pad bottom rests on the top at 0.30, not inside it
+    assert pp.pad[1] == pytest.approx(0.30)
+    assert r.io.get("PP_01_DOWN_DI") is False  # lowered reports the true pad position
+    assert r.io.get("PP_01_CONTACT_DI") is True
+    r.plc("PP_01_GRIP_DO", True)  # gripping works in contact, short of full stroke
+    r.step()
+    assert pp.held == tall.id and r.io.get("PP_01_HOLD_DI") is True
+    assert r.io.get("PP_01_CONTACT_DI") is True  # holding: the pad touches the part
+    r.plc("PP_01_LOWER_DO", False)
+    r.step(20)
+    assert tall.position[1] == pytest.approx(0.15 + 0.15)  # raised 0.15 m with the pad
+    r.plc("PP_01_GRIP_DO", False)
+    r.step()
+    # released; this rig has no kinematics, so the part has not fallen and still touches the pad
+    assert r.io.get("PP_01_HOLD_DI") is False and r.io.get("PP_01_CONTACT_DI") is True
+    del r.world.parts[tall.id]
+    r.step()
+    assert r.io.get("PP_01_CONTACT_DI") is False
+
+
+def test_a_short_part_lets_the_pad_reach_full_stroke(rig):
+    r = rig(PPC)
+    r.world.spawn("box", (0.3, 0.2, 0.3), (0.0, 0.1, 0.0))  # top at 0.20: exactly full stroke
+    r.plc("PP_01_LOWER_DO", True)
+    r.step(20)
+    assert r["PP_01"].y == pytest.approx(0.25)
+    assert r.io.get("PP_01_DOWN_DI") is True and r.io.get("PP_01_CONTACT_DI") is True
+    r.world.parts.clear()
+    r.step()
+    assert r.io.get("PP_01_DOWN_DI") is True and r.io.get("PP_01_CONTACT_DI") is False
+
+
+def test_the_pad_ignores_parts_beside_it_and_a_part_already_above_it(rig):
+    r = rig(PPC)
+    r.world.spawn("box", (0.3, 0.3, 0.3), (0.5, 0.15, 0.0))  # beside the pad
+    r.plc("PP_01_LOWER_DO", True)
+    r.step(20)
+    assert r["PP_01"].y == pytest.approx(0.25) and r.io.get("PP_01_CONTACT_DI") is False
