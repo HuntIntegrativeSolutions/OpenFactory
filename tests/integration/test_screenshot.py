@@ -90,3 +90,26 @@ def test_a_custom_pusher_housing_is_drawn(tmp_path, capsys):
     assert code == 0, printed
     assert "custom meshes: 1 drawn, 0 failed" in printed
     assert "OK: 1280x720" in printed
+
+
+def test_a_bundled_mesh_scene_draws_its_mesh(tmp_path, capsys):
+    """PLAN 2.18 Done-when: the mesh scene bundled, its originals deleted, run from the .ofz."""
+    from openfactory.bundle import collect, write_bundle
+
+    folder = tmp_path / "scene"
+    shutil.copytree(REPO / "tests" / "scenes" / "models", folder / "models")
+    for path in (REPO / "tests" / "scenes").glob("sorter-custom-housing.*"):
+        shutil.copy(path, folder / path.name)
+    shutil.copy(REPO / "examples" / "pyplc" / "sorting-by-height.py", folder / "plc.py")
+    contents = collect(folder / "sorter-custom-housing.yaml", script=folder / "plc.py")
+    target = write_bundle(contents, tmp_path / "sorter-custom-housing.ofz")
+    shutil.rmtree(folder)
+    out = tmp_path / "bundle.png"
+    code = screenshot.main(
+        [str(target), "--bundled-script", "--seconds", "2", "--out", str(out), "--min-meshes", "1"]
+    )
+    printed = capsys.readouterr().out
+    print(printed)
+    assert code == 0, printed
+    assert "custom meshes: 1 drawn, 0 failed" in printed
+    assert "OK: 1280x720" in printed

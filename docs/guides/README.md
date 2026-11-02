@@ -50,6 +50,20 @@ controls the plant. What each check means, and why a stopped or jammed line fail
 `tests/integration/test_shipped_scenes.py` runs every scene for 60 s under its stand-in script and
 checks the remover counts each guide states.
 
+## Send a scene as one file
+
+A scene with meshes, lockfiles and a script is several files; a bundle is one (PLAN 2.18):
+
+```bash
+uv run openfactory bundle scenes/<scene>.yaml           # writes <scene>.ofz here
+uv run openfactory validate <scene>.ofz
+uv run openfactory test <scene>.ofz --bundled-script    # grade it with the script it carries
+uv run openfactory run <scene>.ofz                      # a PLC drives it; the script stays off
+```
+
+The bundled script is Python: `--bundled-script` runs it, so give that flag only to a bundle you
+trust. `bundle --no-script` leaves the script out. Details: `docs/scene-format.md`, "Bundles".
+
 ## Record a run, replay it anywhere
 
 `--record` on `run` or `test` writes the whole run, scene included, to one file; anyone can replay

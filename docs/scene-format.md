@@ -92,6 +92,33 @@ it needs the fault token (`--fault-token` or `[server] fault_token`). Only a DI 
 A recording (`run --record FILE.ofrec`) contains the full scene file, comments included, so sharing
 a recording shares the scene.
 
+## Bundles (PLAN 2.18)
+
+`openfactory bundle scenes/<name>.yaml` writes `<name>.ofz` in the current folder (`--out` to
+choose): one zip holding the scene, every mesh it names with its `.license.txt` sidecar (a mesh
+without one is refused), both Modbus lockfiles, the stand-in PLC script, and `manifest.json`
+(format, bundle version, the scene's `openfactory:` version, and each file's role, size and
+SHA-256). Composites are declared inside the scene, so they travel with it.
+
+- **Lockfiles.** A lockfile on disk must match the scene; if a tag was added since it was
+  written, bundling stops and asks for `openfactory export` first, so the bundle carries the
+  addresses you committed. A lockfile not on disk is generated as `run` would write it, digital
+  addresses seeded from the other encoding (ADR-0004).
+- **Script.** `--script F.py`, else `<name>.py` beside the scene, else `examples/pyplc/<name>.py`
+  in the nearest folder above it; `--no-script` carries none (a trainee's copy without the
+  answer).
+- **Reproducible.** Entries are sorted with fixed timestamps and permissions, so bundling the same
+  files twice gives the same bytes.
+
+`run`, `test` and `validate` take a `.ofz` in place of a scene file. The bundle is checked first:
+every member listed in the manifest with a matching size and SHA-256, plain relative paths only
+(no `..`, absolute paths, backslashes or links), at most 1000 members and 256 MB unpacked. It is
+unpacked into a temporary folder removed when the command ends; a lockfile update during the run
+goes to that copy, and the `.ofz` is never rewritten. **The script is Python and never runs on
+its own:** `openfactory test x.ofz --bundled-script` (or `run ... --bundled-script`) runs it, and
+only a bundle you trust should get that flag. Without it, `test` needs `--script` or `--plc` as
+for a scene file.
+
 ## `mesh:`: a custom housing (PLAN 2.15)
 
 Any component may draw its own model in the viewer in place of its fixed housing:

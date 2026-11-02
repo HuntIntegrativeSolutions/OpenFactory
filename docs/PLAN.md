@@ -1347,10 +1347,39 @@ runs the sorting program against it; a box visibly gets pushed.
       Measured: on-delay 0.2 s with the eye's detect changing at tick 6 gives the tag at tick 16;
       off-delay 0.1 s, detect at 31, tag at 36. `window` is tested at the stage level only: no
       Milestone 2 component has an AI output yet (a distance sensor arrives with 2.5).
-- [ ] 2.18 Self-contained scene bundle: `openfactory bundle scene.yaml` writes `scene.ofz` (zip)
+- [x] 2.18 Self-contained scene bundle: `openfactory bundle scene.yaml` writes `scene.ofz` (zip)
       holding the scene, its composites, referenced meshes, lockfiles, PLC script, and a manifest with
       the schema version; `openfactory run scene.ofz` works directly.
       *Why:* a scene is a demo only if it survives email. Without this, meshes and lockfiles get lost.
+      *Note (2026-11-01):* `src/openfactory/bundle.py`, `openfactory bundle SCENE [--out F.ofz]
+      [--script F.py | --no-script]`, written to the current folder by default. It holds the
+      scene (composites are inside it), each mesh with its `.license.txt` sidecar (a mesh
+      without one is refused, since a `THIRD_PARTY.md` entry would not travel), both lockfiles
+      (one on disk must match the scene, else bundling asks for `export` first; a missing one is
+      generated as `run` would write it), the script (`--script`, else `<scene>.py` beside the
+      scene, else `examples/pyplc/<scene>.py` above it) under `scripts/`, and `manifest.json`
+      (format, bundle version 1, the scene's `openfactory:` version, each file's role, size and
+      SHA-256). Reproducible: sorted entries, fixed 1980 timestamps and permissions. `run`,
+      `test` and `validate` take a `.ofz`: every member must be in the manifest with a matching
+      size and SHA-256, with a plain relative path (no `..`, absolute path, backslash, drive or
+      link), within 1000 members and 256 MB; it unpacks into a temporary folder removed when the
+      command ends, and the `.ofz` is never rewritten. **The bundled script is Python, so it
+      runs only with `--bundled-script`** (on `run` and `test`); opening a bundle never executes
+      it. `tools/screenshot.py` passes `--bundled-script` through. When 2.5b brings
+      `scenes/_library/` composite files, the bundler must carry the ones a scene uses (role
+      `composite` in the manifest; no format change). For 2.19: a `.ofz` input gets no
+      CONTEXT.md (it would land in the temporary folder and be thrown away).
+      Done-when: the sorter and `tests/scenes/sorter-custom-housing.yaml` bundled from copies,
+      the copies deleted, run from the `.ofz` with the working folder outside the repository:
+      `openfactory test sorting-by-height.ofz --bundled-script` "PASS: 4 of 4 checks passed"
+      (same results as the scene file: 9 short, 9 tall, longest 7.70 s);
+      `tools/screenshot.py sorter-custom-housing.ofz --bundled-script --min-meshes 1` "custom
+      meshes: 1 drawn, 0 failed", the square housing visible in the PNG. Both are tests
+      (`tests/unit/test_bundle.py`, `tests/integration/test_screenshot.py`), with zip-slip,
+      absolute, backslash and drive paths, a link member, a size lie, a tampered and an
+      unlisted member, size and count limits, a newer bundle version, a stale lockfile, a
+      missing license, the script never running without the flag, and the temporary folder
+      removed.
 - [ ] 2.19 Generated per-scene assistant context: `openfactory run` and `export` write
       `<scene>.CONTEXT.md` next to the scene listing every tag with kind, address, description and
       transform, every component with its type and parameters, the exercise checks, and the exact

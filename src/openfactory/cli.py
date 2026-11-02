@@ -1,5 +1,5 @@
 """``openfactory`` command line (PLAN task 1.10): ``run``, ``test``, ``validate``, ``lint``,
-``export``.
+``export``, ``bundle``.
 
 Behavior spec
 -------------
@@ -51,6 +51,11 @@ Behavior spec
   (:mod:`openfactory.lint`, PLAN 2.20) and exits 1 only on errors.
 - ``openfactory export SCENE [-o OUT] [--analog-encoding ENC]`` writes the I/O list CSV (PLAN 1.8)
   to OUT or stdout, and creates or updates that encoding's lockfile like ``run``.
+- ``openfactory bundle SCENE [--out F.ofz] [--script F.py | --no-script]`` (PLAN 2.18,
+  :mod:`openfactory.bundle`) writes one ``.ofz`` with the scene, its meshes and their licenses,
+  both lockfiles and the stand-in script. ``run``, ``test`` and ``validate`` take a ``.ofz`` in
+  place of SCENE: it is checked, unpacked into a temporary folder for the command, and its script
+  runs only with ``--bundled-script``.
 
 Not a safety-rated simulation. OpenFactory is a training and demo tool.
 """
@@ -71,6 +76,7 @@ import uvicorn
 from pydantic import ValidationError
 
 from openfactory import __version__
+from openfactory.bundle import BundleError, collect, is_bundle, open_bundle, write_bundle
 from openfactory.core.config import Endpoint, load_settings, resolve_endpoint
 from openfactory.core.iotable import Writer
 from openfactory.core.loader import LoadedScene, build
@@ -138,6 +144,44 @@ def _load(path: Path) -> tuple[Scene, LoadedScene]:
         raise ValueError(f"{path} is a Modbus address lockfile, not a scene")
     scene = load_scene(path)
     return scene, build(scene, base_dir=path.parent)
+
+
+BundledScript = Annotated[
+    bool,
+    typer.Option(
+        "--bundled-script",
+        help="With a .ofz bundle: run the stand-in PLC script it carries (PLAN 2.18). It is "
+        "Python, so it never runs unless asked for.",
+    ),
+]
+
+
+def _scene_source(
+    ctx: typer.Context, scene: Path, bundled_script: bool
+) -> tuple[Path, Path | None]:
+    """The scene file to load and, with ``--bundled-script``, the bundle's script. A ``.ofz`` is
+    checked and unpacked into a temporary folder removed when the command ends (PLAN 2.18)."""
+    if not is_bundle(scene):
+        if bundled_script:
+            raise typer.BadParameter(f"{scene} is not a .ofz bundle", param_hint="--bundled-script")
+        return scene, None
+    stack = contextlib.ExitStack()
+    ctx.call_on_close(stack.close)
+    try:
+        opened = stack.enter_context(open_bundle(scene))
+    except BundleError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(1) from None
+    carried = opened.manifest.get("script")
+    log.info("bundle %s: scene %s (unpacked to %s)", scene, opened.manifest["scene"],
+             opened.scene_path.parent)  # fmt: skip
+    if bundled_script and opened.script is None:
+        typer.echo(f"error: {scene}: the bundle carries no script", err=True)
+        raise typer.Exit(1)
+    if carried and not bundled_script:
+        log.info("the bundle carries a stand-in PLC script (%s); it runs only with "
+                 "--bundled-script", carried)  # fmt: skip
+    return opened.scene_path, opened.script if bundled_script else None
 
 
 def _encoding(value: str | None) -> Encoding | None:
@@ -213,8 +257,10 @@ async def _serve(
 
 @app.command()
 def run(
+    ctx: typer.Context,
     scene: Annotated[
-        Path, typer.Argument(help="Scene file (scenes/<name>.yaml).", metavar="SCENE")
+        Path,
+        typer.Argument(help="Scene file (scenes/<name>.yaml) or .ofz bundle.", metavar="SCENE"),
     ],
     headless: Annotated[bool, typer.Option(help="No viewer or API server.")] = False,
     as_fast_as_possible: Annotated[
@@ -256,6 +302,7 @@ def run(
             help="Python file defining step(io, t): a stand-in PLC scanned every tick (PLAN 2.10)."
         ),
     ] = None,
+    bundled_script: BundledScript = False,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings only.")] = False,
     record: Annotated[
         Path | None,
@@ -295,6 +342,10 @@ def run(
     if as_fast_as_possible and duration is None:
         raise typer.BadParameter("--as-fast-as-possible needs --duration", param_hint="--duration")
     headless = headless or as_fast_as_possible
+    if bundled_script and script is not None:
+        raise typer.BadParameter("give --script or --bundled-script, not both")
+    scene, carried = _scene_source(ctx, scene, bundled_script)
+    script = carried or script
     try:
         parsed, loaded = _load(scene)
     except (OSError, ValueError, ValidationError) as exc:
@@ -334,13 +385,16 @@ def run(
 
 @app.command()
 def test(
+    ctx: typer.Context,
     scene: Annotated[
-        Path, typer.Argument(help="Scene file with a checks: block.", metavar="SCENE")
+        Path,
+        typer.Argument(help="Scene file or .ofz bundle with a checks: block.", metavar="SCENE"),
     ],
     script: Annotated[
         Path | None,
         typer.Option(help="Grade a stand-in PLC script (step(io, t)); runs as fast as possible."),
     ] = None,
+    bundled_script: BundledScript = False,
     plc: Annotated[
         bool,
         typer.Option(
@@ -379,9 +433,11 @@ def test(
     from openfactory.checks import evaluate, format_results
 
     _setup_logging(quiet)
-    if (script is None) == (not plc):
-        raise typer.BadParameter("give exactly one of --script FILE.py or --plc")
+    if (script is not None) + bundled_script + plc != 1:
+        raise typer.BadParameter("give exactly one of --script FILE.py, --bundled-script or --plc")
     encoding = _encoding(analog_encoding)
+    scene, carried = _scene_source(ctx, scene, bundled_script)
+    script = carried or script
     try:
         parsed, loaded = _load(scene)
     except (OSError, ValueError, ValidationError) as exc:
@@ -725,16 +781,22 @@ def validate(
     files = _scene_files(scenes)
     for path in files:
         try:
-            with _loader_quiet():  # its warnings are echoed under the scene below, once
-                parsed, loaded = _load(path)
-            # The scene's own encoding, plus any other encoding that has a lockfile (ADR-0004).
-            encodings = [parsed.plc.analog_encoding] + [
-                e
-                for e in ENCODINGS
-                if e != parsed.plc.analog_encoding and lockfile_path(path, e).is_file()  # type: ignore[arg-type]
-            ]
-            for enc in encodings:
-                scene_register_map(parsed, enc, scene_path=path, write=False)  # type: ignore[arg-type]
+            with contextlib.ExitStack() as stack:
+                source = path
+                if is_bundle(path):  # checked and unpacked for this scene only (PLAN 2.18)
+                    source = stack.enter_context(open_bundle(path)).scene_path
+                with _loader_quiet():  # its warnings are echoed under the scene below, once
+                    parsed, loaded = _load(source)
+                # The scene's own encoding, plus any other encoding with a lockfile (ADR-0004).
+                encodings = [parsed.plc.analog_encoding] + [
+                    e
+                    for e in ENCODINGS
+                    if e != parsed.plc.analog_encoding and lockfile_path(source, e).is_file()  # type: ignore[arg-type]
+                ]
+                for enc in encodings:
+                    scene_register_map(parsed, enc, scene_path=source, write=False)  # type: ignore[arg-type]
+                own = lockfile_path(source, parsed.plc.analog_encoding)
+                own_missing = parsed.plc.protocol == "modbus_tcp" and not own.is_file()
         except (OSError, ValueError, ValidationError) as exc:
             failed += 1
             typer.echo(f"FAIL {path}\n{_indent(str(exc))}")
@@ -745,8 +807,7 @@ def validate(
         )
         for warning in loaded.warnings:
             typer.echo(f"     warning: {warning}")
-        own = lockfile_path(path, parsed.plc.analog_encoding)
-        if parsed.plc.protocol == "modbus_tcp" and not own.is_file():
+        if own_missing:
             typer.echo(f"     note: no {own.name} yet; 'run' or 'export' writes it")
     if not files:
         typer.echo("no scenes given")
@@ -754,6 +815,45 @@ def validate(
     if failed:
         typer.echo(f"{failed} of {len(files)} scene(s) failed")
         raise typer.Exit(1)
+
+
+@app.command()
+def bundle(
+    scene: Annotated[
+        Path, typer.Argument(help="Scene file (scenes/<name>.yaml).", metavar="SCENE")
+    ],
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Bundle to write (default: <scene>.ofz in the current folder)."),
+    ] = None,
+    script: Annotated[
+        Path | None,
+        typer.Option(
+            help="Stand-in PLC script to carry (default: <scene>.py beside the scene, else "
+            "examples/pyplc/<scene>.py above it)."
+        ),
+    ] = None,
+    no_script: Annotated[
+        bool, typer.Option("--no-script", help="Carry no script, even if one is found.")
+    ] = False,
+) -> None:
+    """Write a .ofz bundle: the scene, its meshes and licenses, lockfiles, and script (2.18)."""
+    _setup_logging(quiet=True)
+    if script is not None and no_script:
+        raise typer.BadParameter("give --script or --no-script, not both")
+    target = out if out is not None else Path(f"{scene.stem}.ofz")
+    try:
+        contents = collect(scene, script=script, no_script=no_script)
+        write_bundle(contents, target)
+    except (OSError, ValueError, ValidationError) as exc:
+        typer.echo(f"error: {scene}: {exc}", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(f"wrote {target} ({target.stat().st_size} bytes):")
+    for f in sorted(contents.files, key=lambda f: f.path):
+        note = f"  ({f.note})" if f.note else ""
+        typer.echo(f"  {f.role:<8} {f.path}  {len(f.data)} bytes{note}")
+    if contents.script is None:
+        typer.echo("  no stand-in PLC script")
 
 
 @app.command()

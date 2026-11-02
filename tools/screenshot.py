@@ -3,14 +3,16 @@
 Usage::
 
     uv run python tools/screenshot.py SCENE [--seconds N] [--out PNG] [--force TAG=VALUE ...]
-                                            [--script F.py] [--size 1280x720] [--build]
+                                            [--script F.py | --bundled-script]
+                                            [--size 1280x720] [--build]
 
 What it does:
 
 1. Optionally runs ``npm run build`` in ``web/`` (``--build``); otherwise it needs ``web/dist``.
 2. Starts ``openfactory run SCENE`` on two free loopback ports (Modbus and viewer), passing any
    ``--force TAG=VALUE`` and ``--script F.py`` (a stand-in PLC, PLAN 2.10) through, so a scene can
-   be shown running without a PLC.
+   be shown running without a PLC. SCENE may be a ``.ofz`` bundle (PLAN 2.18); ``--bundled-script``
+   runs the script it carries.
 3. Opens the viewer in Playwright's headless Chromium with SwiftShader WebGL and waits until the
    viewer reports ``window.__openfactory.ready``, a simulation time of at least ``--seconds``, and
    (with ``--min-sensor-events N``) at least N photo-eye events sent from its Rapier physics to the
@@ -172,6 +174,7 @@ def running_viewer(
     forces: list[str],
     size: tuple[int, int] = (1280, 720),
     script: Path | None = None,
+    bundled_script: bool = False,
 ) -> Iterator[tuple[Any, int, list[str]]]:
     """Start ``openfactory run SCENE`` on free loopback ports and open its viewer in headless
     Chromium (SwiftShader WebGL). Yields ``(page, web_port, console)``; stops both on exit.
@@ -189,6 +192,8 @@ def running_viewer(
         cmd += ["--force", force]
     if script is not None:
         cmd += ["--script", str(script)]
+    if bundled_script:
+        cmd.append("--bundled-script")
     proc = subprocess.Popen(
         cmd, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
@@ -250,8 +255,11 @@ def screenshot(
     timeout: float = 60.0,
     script: Path | None = None,
     min_meshes: int = 0,
+    bundled_script: bool = False,
 ) -> dict[str, object]:
-    with running_viewer(scene, forces=forces, size=size, script=script) as (
+    with running_viewer(
+        scene, forces=forces, size=size, script=script, bundled_script=bundled_script
+    ) as (
         page,
         web_port,
         console,
@@ -279,6 +287,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--force", action="append", default=[], metavar="TAG=VALUE")
     parser.add_argument("--script", type=Path, default=None, help="stand-in PLC (run --script)")
+    parser.add_argument(
+        "--bundled-script", action="store_true", help="a .ofz scene's own script (PLAN 2.18)"
+    )
     parser.add_argument("--size", default="1280x720", help="viewport WIDTHxHEIGHT")
     parser.add_argument("--build", action="store_true", help="run npm run build first")
     parser.add_argument(
@@ -309,6 +320,7 @@ def main(argv: list[str] | None = None) -> int:
         min_sensor_events=args.min_sensor_events,
         min_meshes=args.min_meshes,
         script=args.script.resolve() if args.script else None,
+        bundled_script=args.bundled_script,
     )
     ok, summary = check_image(out)
     status = result["status"]
