@@ -1,0 +1,54 @@
+# PLAN 2.5b test scene (tests only, not shipped): a belt carries boxes past a photo eye, and the
+# stand-in script beside it (counter-display.py) counts them on a four-digit counter display.
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: counter-display
+  description: Boxes counted at a photo eye and shown on a four-digit counter display.
+  author: HIS Controls
+  seed: 3
+plc:
+  protocol: modbus_tcp
+checks:
+  duration_s: 30
+  parts_reached: {REM_01: box}
+  none_lost: true
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Counting Belt Conveyor
+    position: [0, 0, 0]
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_01_RUN_DO
+  - id: EMT_01
+    type: box_emitter
+    description: Counting Belt Box Source
+    position: [0.3, 0.155, 0]
+    interval_s: 2.0
+    parts:
+      - {name: box, size: [0.3, 0.3, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: PE_01
+    type: photo_eye
+    description: Counting Photo Eye
+    position: [2.0, 0.15, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_01_DI
+  - id: REM_01
+    type: part_remover
+    description: Counting Belt Discharge Part Remover
+    position: [3.15, 0, 0]
+    size: [0.3, 1.0, 1.0]
+  - id: CNT_01
+    type: counter_display
+    description: Boxes Counted Display
+    position: [2.0, 0.9, -0.6]
+    digits: 4
+    color: green
+    io:
+      value: CNT_01_VAL_AO

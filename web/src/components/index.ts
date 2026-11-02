@@ -6,6 +6,7 @@ import {
   boxEmitter,
   distanceSensor,
   colorSensor,
+  counterDisplay,
   diverterArm,
   fallback,
   partRemover,
@@ -35,6 +36,7 @@ export const BUILDERS: Record<string, Builder> = {
   pick_and_place: pickAndPlace,
   distance_sensor: distanceSensor,
   color_sensor: colorSensor,
+  counter_display: counterDisplay,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {

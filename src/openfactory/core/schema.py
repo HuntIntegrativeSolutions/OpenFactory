@@ -259,7 +259,8 @@ def port(
     """Declare an I/O port field. ``kind`` must agree with the field's tag annotation. ``alias``
     is the port's name in scene files when it is a Python keyword (``stopper.io.raise``).
     ``range_from`` names a component parameter that sets an analog port's range per instance,
-    0 to its value (a distance sensor's 0 to ``beam_length``), instead of a fixed ``range``."""
+    0 to its value (a distance sensor's 0 to ``beam_length``) or, when the parameter is a
+    ``[lo, hi]`` pair, lo to hi (a counter display's ``range``), instead of a fixed ``range``."""
     if kind not in IO_KINDS:
         raise ValueError(f"unknown I/O kind {kind!r}")
     if (range is None and range_from is None) != (kind in ("DI", "DO")):
@@ -327,7 +328,10 @@ def instance_ports(component: Any) -> dict[str, PortSpec]:
     specs = port_specs(type(component.io))
     for name, spec in specs.items():
         if spec.range_from is not None:
-            specs[name] = replace(spec, range=(0.0, float(getattr(component, spec.range_from))))
+            value = getattr(component, spec.range_from)
+            span = (float(value[0]), float(value[1])) if isinstance(value, tuple | list) else (
+                0.0, float(value))  # fmt: skip
+            specs[name] = replace(spec, range=span)
     return specs
 
 
@@ -735,6 +739,38 @@ class PilotLight(ComponentBase):
     io: PilotLightIO
 
 
+class CounterDisplayIO(IOModel):
+    value: AoTag = port("AO", "Value to display", required=True, units="count", range_from="range")
+
+
+class CounterDisplay(ComponentBase):
+    """Origin: the centre of the display face. A panel readout of ``digits`` seven-segment digits
+    (PLAN 2.5b)."""
+
+    type: Literal["counter_display"]
+    digits: Annotated[int, Field(ge=1, le=6)] = Field(4, description="Number of digits shown.")
+    decimals: Annotated[int, Field(ge=0, le=3)] = Field(
+        0, description="Digits after the decimal point (must be fewer than digits)."
+    )
+    range: tuple[float, float] | None = Field(
+        None,
+        description="The value's range [lo, hi], used to scale int16_scaled (raw 0 and 32767). "
+        "Default: 0 to the largest number the digits show (9999 for 4 digits, 0 decimals).",
+    )
+    color: Literal["red", "green", "amber"] = Field("red", description="Segment color.")
+    io: CounterDisplayIO
+
+    @model_validator(mode="after")
+    def _range_fits(self) -> CounterDisplay:
+        if self.decimals >= self.digits:
+            raise ValueError("decimals must be fewer than digits")
+        if self.range is None:
+            self.range = (0.0, (10**self.digits - 1) / 10**self.decimals)
+        elif not self.range[0] < self.range[1]:
+            raise ValueError(f"range {list(self.range)} must be [lo, hi] with lo < hi")
+        return self
+
+
 class SelectorSwitchIO(IOModel):
     pos_a: DiTag = port("DI", "Selector in position A", required=True)
     pos_b: DiTag | None = port("DI", "Selector in position B")
@@ -768,6 +804,7 @@ Component = Annotated[
     | PartRemover
     | Pushbutton
     | PilotLight
+    | CounterDisplay
     | SelectorSwitch,
     Field(discriminator="type"),
 ]
@@ -790,6 +827,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         PartRemover,
         Pushbutton,
         PilotLight,
+        CounterDisplay,
         SelectorSwitch,
     )
 }
@@ -906,6 +944,7 @@ SceneComponent = Annotated[
     | Annotated[PartRemover, Tag("part_remover")]
     | Annotated[Pushbutton, Tag("pushbutton")]
     | Annotated[PilotLight, Tag("pilot_light")]
+    | Annotated[CounterDisplay, Tag("counter_display")]
     | Annotated[SelectorSwitch, Tag("selector_switch")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),

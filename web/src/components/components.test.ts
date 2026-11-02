@@ -73,4 +73,19 @@ describe("component mesh builders", () => {
   it("puts the floor 0.75 m below the lowest conveyor", () => {
     expect(floorFor([geom("belt_conveyor"), { ...geom("belt_conveyor"), position: [0, -0.1, 0] }])).toBeCloseTo(-0.85);
   });
+
+  it("lights the counter display's segments from the core's text", () => {
+    const view = buildComponent(geom("counter_display", { digits: 4, decimals: 1, color: "green" }), ctx);
+    view.update({ text: " 42.7" });
+    const lit = (name: string) => color(view.object.getObjectByName(name)) === ISA101.running;
+    // " 42.7": blank, 4, 2 with its point, 7
+    expect(["a", "b", "c", "d", "e", "f", "g"].some((s) => lit(`digit0.${s}`))).toBe(false);
+    expect(["b", "c", "f", "g"].every((s) => lit(`digit1.${s}`))).toBe(true);
+    expect(lit("digit1.a")).toBe(false);
+    expect(lit("digit2.dp")).toBe(true);
+    expect(["a", "b", "c"].every((s) => lit(`digit3.${s}`))).toBe(true);
+    expect(lit("digit3.g")).toBe(false);
+    view.update({ text: "    " });
+    expect(lit("digit3.a")).toBe(false);
+  });
 });

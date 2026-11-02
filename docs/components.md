@@ -412,6 +412,25 @@ Origin: the lens centre. Lit while `on` is true; viewer only.
 
 Faults: `stuck_off` (a burned-out bulb: the light stays dark whatever `on` says).
 
+### `counter_display`
+
+Origin: the centre of the display face, which looks along local +z. Shows the `value` AO on
+seven-segment digits, rounded to `decimals` places and right aligned; a minus sign takes a digit.
+A value too large for the digits (or not a number) shows a dash in every digit. Viewer only.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `digits` | 4 | Digits shown, 1 to 6 |
+| `decimals` | 0 | Digits after the decimal point, fewer than `digits` |
+| `range` | 0 to the largest number shown | `[lo, hi]`: scales `value` in the int16_scaled encoding (raw 0 and 32767); the display does not clamp to it |
+| `color` | `red` | Segment color: `red`, `green` or `amber` |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `value` | AO | yes | Value to display (units `count`, range from `range`) |
+
+Faults: `stuck_off` (a dead display: blank whatever the value).
+
 ### `selector_switch`
 
 Origin: the switch face. A viewer click turns it to the next position.

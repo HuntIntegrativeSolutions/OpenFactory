@@ -161,6 +161,81 @@ export const pilotLight: Builder = (g) => {
   };
 };
 
+// Seven segments a-g of one digit (a top, b top right, c bottom right, d bottom, e bottom left,
+// f top left, g middle) and the segments each character lights.
+const SEGMENTS: Record<string, string> = {
+  "0": "abcdef", "1": "bc", "2": "abdeg", "3": "abcdg", "4": "bcfg", "5": "acdfg",
+  "6": "acdefg", "7": "abc", "8": "abcdefg", "9": "abcdfg", "-": "g", " ": "",
+};
+const DIGIT_W = 0.024;
+const DIGIT_H = 0.04;
+const SEG_T = 0.004;
+const SEGMENT_OFF = 0x2b2f36;
+
+/** Split a display text such as " 4.2" into one cell per digit: its character and its point. */
+export function displayCells(text: string, digits: number): { ch: string; dot: boolean }[] {
+  const cells: { ch: string; dot: boolean }[] = [];
+  for (const ch of text) {
+    if (ch === "." && cells.length) cells[cells.length - 1].dot = true;
+    else cells.push({ ch, dot: false });
+  }
+  while (cells.length < digits) cells.unshift({ ch: " ", dot: false });
+  return cells.slice(-digits);
+}
+
+/** Counter display: origin at the display face centre, facing local +z; seven-segment digits. */
+export const counterDisplay: Builder = (g) => {
+  const digits = Math.max(1, Math.round(num(g, "digits", 4)));
+  const on = LAMP[String(g.color ?? "red")] ?? ISA101.alarmHigh;
+  const group = placed(g);
+  const pitch = DIGIT_W + 0.012;
+  const width = digits * pitch + 0.02;
+  const plate = box([width, DIGIT_H + 0.03, 0.02], NEUTRAL.frame, [0, 0, -0.011]);
+  group.add(plate);
+  const at: Record<string, [number, number, number]> = {
+    a: [0, DIGIT_H / 2, 0], b: [DIGIT_W / 2, DIGIT_H / 4, 0], c: [DIGIT_W / 2, -DIGIT_H / 4, 0],
+    d: [0, -DIGIT_H / 2, 0], e: [-DIGIT_W / 2, -DIGIT_H / 4, 0], f: [-DIGIT_W / 2, DIGIT_H / 4, 0],
+    g: [0, 0, 0],
+  };
+  const cells: { segments: Record<string, THREE.Mesh>; dot: THREE.Mesh }[] = [];
+  for (let i = 0; i < digits; i++) {
+    const cx = (i - (digits - 1) / 2) * pitch;
+    const segments: Record<string, THREE.Mesh> = {};
+    for (const [name, [x, y]] of Object.entries(at)) {
+      const across = name === "a" || name === "d" || name === "g";
+      const size: [number, number, number] = across
+        ? [DIGIT_W, SEG_T, 0.002]
+        : [SEG_T, DIGIT_H / 2, 0.002];
+      const seg = box(size, SEGMENT_OFF, [cx + x, y, 0]);
+      seg.name = `digit${i}.${name}`;
+      segments[name] = seg;
+      group.add(seg);
+    }
+    const dot = box([SEG_T, SEG_T, 0.002], SEGMENT_OFF, [cx + DIGIT_W / 2 + 0.005, -DIGIT_H / 2, 0]);
+    dot.name = `digit${i}.dp`;
+    group.add(dot);
+    cells.push({ segments, dot });
+  }
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, DIGIT_H / 2 + 0.05, 0),
+    pickable: [],
+    housing: [plate],
+    update(state) {
+      const shown = displayCells(String(state.text ?? ""), digits);
+      shown.forEach((cell, i) => {
+        const lit = SEGMENTS[cell.ch] ?? "";
+        for (const [name, seg] of Object.entries(cells[i].segments)) {
+          setColor(seg, lit.includes(name) ? on : SEGMENT_OFF);
+        }
+        setColor(cells[i].dot, cell.dot ? on : SEGMENT_OFF);
+      });
+    },
+  };
+};
+
 const SELECTOR_ANGLE: Record<string, number> = { a: Math.PI / 4, center: 0, b: -Math.PI / 4 };
 
 /** Selector switch: origin at the switch face center; the handle turns a / center / b. */

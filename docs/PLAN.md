@@ -344,7 +344,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `pick_and_place` | traverse, lower, grip | at_pick, at_place, lowered, holding | Two-axis gantry with a gripper pad. | 2 |
 | `distance_sensor` | — | distance (AI), switching (AI) | Range to the nearest part or belt along its beam, metres 0 to `beam_length`. | 2 |
 | `color_sensor` | — | match, detect | Diffuse sensor taught one part `color`; `match` while the nearest part in range has it. | 2 (2.7) |
-| `counter_display` | value (AO) | — | 4-digit readout on a panel. | 2 (2.5b) |
+| `counter_display` | value (AO) | — | Seven-segment readout on a panel, `digits` 1-6 (default 4), `decimals`; dashes when the value does not fit. | 2 (2.5b) |
 | `tank` | — | level (AI), hi_sw, lo_sw | Mass balance: Σ inflows − Σ outflows. Height from volume and footprint. | 3 |
 | `valve_onoff` | open | opened, closed | Travel time; flow coefficient Cv passes to connected pipe. | 3 |
 | `valve_control` | position (AO) | position_fb (AI) | First-order lag, stroke time. | 3 |
@@ -866,6 +866,21 @@ runs the sorting program against it; a box visibly gets pushed.
         reports the true pad position) instead of passing into it.
       - `color_sensor.debounce_ms` (ruled 2026-10-28): an on/off debounce on `match` and
         `detect`, like the photo eye's 20 ms, default 0 so existing scenes keep their timing.
+      *Rulings (2026-11-01):* one commit per item, in this order, the box ticked with the last:
+      counter_display; lift (`raise` command, `at_top`/`at_bottom`); reversible belts; the
+      composite `logic:` block, library composites by name and the 4-zone accumulation
+      conveyor; W207 to the near edge of the belt beyond plus half the part depth; turntable
+      part yaw (written only when non-zero, footprint rounded to 90 degrees, every existing
+      trace and recording byte-identical); pick-and-place pad collision with a `contact` DI;
+      `color_sensor.debounce_ms` and `photo_eye.debounce_ms` (default 20).
+      *1. counter_display, done (2026-11-01):* `src/openfactory/components/counter_display.py`.
+      `value` (AO) on `digits` (1-6, default 4) seven-segment digits with `decimals`, right
+      aligned, a minus sign taking a digit, dashes when it does not fit; `range` (default 0 to
+      the largest number shown) scales int16_scaled only (every count 0-9999 round-trips and
+      shows as itself); `color` red/green/amber; fault `stuck_off` blanks it. A port's
+      `range_from` may now name a `[lo, hi]` parameter. Viewer: real segment meshes, lit in the
+      segment color (screenshot of `tests/scenes/counter-display.yaml` under its counting
+      script reads "12" at t 24 s).
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late
