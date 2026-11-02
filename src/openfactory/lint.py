@@ -26,8 +26,11 @@ Warnings (exit 0 unless there are errors):
   on the belt the plate sweeps: the plate hits the part low and tips it. The same check covers a
   ``stopper``'s raised blade top and a ``diverter_arm``'s arm top (their ``height``, above the belt
   they stand on).
-- ``W207`` a pusher stroke shorter than the distance from the plate's retracted face to the far edge
-  of the belt it sweeps: a pushed part is left straddling that edge (the seam to the next belt).
+- ``W207`` a pusher stroke that leaves a pushed part straddling a seam. With no belt beyond, or one
+  that starts right at the swept belt's far edge, the stroke must reach that far edge. When a gap
+  separates the swept belt from the belt beyond (PLAN 2.5b), it must reach the beyond belt's near
+  edge plus half the deepest emitted part's depth along the stroke: the stroke that puts the
+  whole part on the belt beyond, not balanced on the seam.
 
 W206 and W207 use :func:`openfactory.components.pusher.push_path`, the first belt along the plate's
 centre line, and the plate height after the loader's default.
@@ -54,7 +57,7 @@ from typing import get_args
 
 from pydantic import ValidationError
 
-from openfactory.components.pusher import push_path
+from openfactory.components.pusher import beyond_path, push_depth, push_path
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.loader import build
 from openfactory.core.loader import lint as loader_lint
@@ -191,7 +194,19 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                             "pusher's position or plate_height, or leave plate_height unset to "
                             "size it from the parts")
                 )  # fmt: skip
-        if cfg.stroke < path.far_m - 1e-9:  # W207
+        beyond = beyond_path(cfg, scene, path)
+        if beyond is not None and beyond.near_m > path.far_m + 1e-6:  # W207, a gap (PLAN 2.5b)
+            depth = max((push_depth(cfg, part) for part in parts), default=0.0)
+            need = beyond.near_m + depth / 2
+            if cfg.stroke < need - 1e-9:
+                findings.append(
+                    Finding("warning", "W207", f"{pusher.id}: stroke {cfg.stroke:.3g} m leaves "
+                            f"the part straddling the seam; {need:.3g} m puts it fully on "
+                            f"{beyond.belt_id} ({beyond.near_m:.3g} m to its near edge across "
+                            f"the gap after {path.belt_id}, plus half the part depth "
+                            f"{depth / 2:.3g} m)")
+                )  # fmt: skip
+        elif cfg.stroke < path.far_m - 1e-9:  # W207
             findings.append(
                 Finding("warning", "W207", f"{pusher.id}: stroke {cfg.stroke:.3g} m stops "
                         f"{path.far_m - cfg.stroke:.3g} m short of {path.belt_id}'s far edge "

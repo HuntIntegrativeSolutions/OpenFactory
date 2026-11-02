@@ -127,3 +127,32 @@ def test_old_sorter_pusher_values_warn_w206_and_w207(tmp_path, sorter, strip_ans
     # leaving plate_height unset sizes it from the parts: only the stroke warning remains
     del cyl["plate_height"]
     assert codes(lint_scene(write(tmp_path, sorter, EXAMPLE.name))) == ["W207"]
+
+
+def test_w207_across_a_gap_needs_the_whole_part_on_the_belt_beyond(tmp_path, sorter):
+    """PLAN 2.5b (ruled 2026-11-01): with a gap between the swept belt and the belt beyond, the
+    stroke must reach the beyond belt's near edge plus half the part depth."""
+    conv2 = next(c for c in sorter["components"] if c["id"] == "CONV_02")
+    conv2["position"] = [2.0, 0, 0.7]  # 0.2 m gap: near edge 0.75 m from the plate's rest face
+    for lock in EXAMPLE.parent.glob(f"{EXAMPLE.stem}.*.modbus.yaml"):
+        (tmp_path / lock.name).write_text(lock.read_text(encoding="utf-8"), encoding="utf-8")
+    findings = lint_scene(write(tmp_path, sorter, EXAMPLE.name))
+    assert codes(findings) == ["W207"]
+    # the plate clears CONV_01 (far edge 0.55 m) but the 0.3 m deep part needs 0.75 + 0.15 m
+    assert (
+        "CYL_01: stroke 0.6 m leaves the part straddling the seam; 0.9 m puts it fully on "
+        "CONV_02" in findings[0].message
+    )
+    cyl = next(c for c in sorter["components"] if c["id"] == "CYL_01")
+    cyl["stroke"] = 0.9
+    assert lint_scene(write(tmp_path, sorter, EXAMPLE.name)) == []
+    cyl["stroke"] = 0.89
+    assert codes(lint_scene(write(tmp_path, sorter, EXAMPLE.name))) == ["W207"]
+
+
+def test_w207_with_touching_belts_keeps_the_far_edge_rule(tmp_path, sorter):
+    cyl = next(c for c in sorter["components"] if c["id"] == "CYL_01")
+    cyl["stroke"] = 0.55  # exactly CONV_01's far edge, where CONV_02 starts: no warning
+    for lock in EXAMPLE.parent.glob(f"{EXAMPLE.stem}.*.modbus.yaml"):
+        (tmp_path / lock.name).write_text(lock.read_text(encoding="utf-8"), encoding="utf-8")
+    assert lint_scene(write(tmp_path, sorter, EXAMPLE.name)) == []

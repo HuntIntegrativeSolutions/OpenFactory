@@ -55,9 +55,41 @@ def push_path(pusher: Any, scene: Scene) -> PushPath | None:
 
     ``pusher`` is a pusher config. Only belts whose near edge is within the stroke count.
     """
+    best: PushPath | None = None
+    for path in _along(pusher, scene):
+        if path.near_m > pusher.stroke + _EPS:
+            continue
+        if best is None or path.near_m < best.near_m:
+            best = path
+    return best
+
+
+def beyond_path(pusher: Any, scene: Scene, swept: PushPath) -> PushPath | None:
+    """The belt a part pushed off ``swept`` lands on (PLAN 2.5b, W207): the nearest belt along
+    the plate's centre line that starts at or past ``swept``'s far edge, no higher than it."""
+    best: PushPath | None = None
+    for path in _along(pusher, scene):
+        if path.belt_id == swept.belt_id or path.belt_y > swept.belt_y + _EPS:
+            continue
+        if path.near_m < swept.far_m - _EPS:
+            continue
+        if best is None or path.near_m < best.near_m:
+            best = path
+    return best
+
+
+def push_depth(pusher: Any, part: Any) -> float:
+    """A part's depth along the pusher's stroke (world-axis box, as the core keeps parts)."""
+    dx, _, dz = rotate_y((0.0, 0.0, 1.0), pusher.rotation_deg)
+    return abs(dx) * part.size[0] + abs(dz) * part.size[2]
+
+
+def _along(pusher: Any, scene: Scene) -> list[PushPath]:
+    """Every belt the plate's centre line crosses ahead of the retracted face, below the plate's
+    centre: where along the stroke it starts and ends."""
     ox, oy, oz = pusher.position
     d = rotate_y((0.0, 0.0, 1.0), pusher.rotation_deg)
-    best: PushPath | None = None
+    out: list[PushPath] = []
     for belt in scene.components:
         if belt.type not in CARRIER_TYPES or belt.position[1] > oy + _EPS:
             continue
@@ -73,11 +105,10 @@ def push_path(pusher: Any, scene: Scene) -> PushPath | None:
                 continue
             a, b = (lo - o[axis]) / u[axis], (hi - o[axis]) / u[axis]
             t0, t1 = max(t0, min(a, b)), min(t1, max(a, b))
-        if t0 >= t1 or t1 <= _EPS or t0 > pusher.stroke + _EPS:
+        if t0 >= t1 or t1 <= _EPS:
             continue
-        if best is None or t0 < best.near_m:
-            best = PushPath(belt.id, belt.position[1], t0, t1)
-    return best
+        out.append(PushPath(belt.id, belt.position[1], t0, t1))
+    return out
 
 
 def default_plate_height(pusher: Any, scene: Scene) -> float:

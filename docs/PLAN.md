@@ -856,8 +856,7 @@ runs the sorting program against it; a box visibly gets pushed.
       (belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction
       arrow in the viewer), and the accumulation (zero-pressure) conveyor, the first
       `scenes/_library/` composite built on 2.16 and 2.0, not a primitive (confirmed
-      2026-11-01). The W207 gap case (below,
-      under 2.20) is settled here with the accumulation work.
+      2026-11-01). The W207 gap case is settled here (item 5 below; 2.20's note updated).
       *Added 2026-10-27 (2.6 rulings):*
       - Part rotation on turntables: parts on a turning deck turn with it in orientation, not
         only position (the core keeps every part square to the world axes today, which is right
@@ -915,7 +914,14 @@ runs the sorting program against it; a box visibly gets pushed.
       at once and each zone behind starts the tick after the eye ahead clears (14.00 -> 14.02,
       14.60 -> 14.62, 15.20 -> 15.22 s); lint 0 errors 0 warnings; bundled, it passes its
       checks from the `.ofz`. Read "zero gaps" as no empty zone between held boxes and "no
-      pressure" as no box touching another.
+      pressure" as no box touching another (confirmed 2026-11-01: zero-pressure accumulation).
+      *5. W207 across a gap, done (2026-11-01):* `pusher.beyond_path` finds the belt a pushed
+      part lands on (the nearest along the plate's centre line starting at or past the swept
+      belt's far edge, no higher). With a gap, the stroke must reach its near edge plus half
+      the deepest emitted part's depth along the stroke: the whole part on the belt beyond,
+      not balanced on the seam (ruled "plus" deliberately). Message: "CYL_01: stroke 0.6 m
+      leaves the part straddling the seam; 0.9 m puts it fully on CONV_02". Touching belts keep
+      the far-edge rule; the shipped scenes still lint clean; 2.20's known-gap note is replaced.
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late
@@ -1477,9 +1483,10 @@ runs the sorting program against it; a box visibly gets pushed.
       stroke left them across the CONV_01/CONV_02 seam. An unset `plate_height` is now sized from
       the emitted parts. The sorter's pusher moved to y 0.175 with stroke 0.6 (plate 0.25 m,
       y 0.05 to 0.30); pushed boxes now end centred at z 0.45 on CONV_02 instead of 0.35.
-      **Known gap (W207):** the check measures to the far edge of the belt the plate sweeps across
-      (ruled correct). When a gap separates that belt from the belt beyond, clearing the swept belt
-      does not land the part on the next one; that case waits for 2.5b's accumulation work.
+      *W207 gap case (2.5b, ruled 2026-11-01):* when a gap separates the swept belt from the
+      belt beyond, the stroke must reach the beyond belt's near edge plus half the deepest
+      emitted part's depth along the stroke, the stroke that puts the whole part on the belt
+      beyond rather than balanced on the seam (the phone-demo fault).
 
 ### Milestone 3 — Process simulation (target 3–4 weeks)
 - [ ] 3.1 Flow network solver (`core/flownet.py`): directed graph of sources, pipes, valves, pumps,

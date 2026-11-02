@@ -236,7 +236,10 @@ the plate extends along local +z.
 An advancing plate pushes every part it overlaps along local +z; a retracting plate does not pull.
 `openfactory lint` warns when the plate top is below an emitted part's centre of mass (W206) or the
 stroke stops short of the far edge of the belt the plate sweeps (W207), which leaves a part
-straddling the seam.
+straddling the seam. When a gap separates that belt from the belt beyond, W207 asks for the
+stroke that puts the whole part on the belt beyond: its near edge plus half the deepest emitted
+part's depth along the stroke ("stroke 0.6 m leaves the part straddling the seam; 0.9 m puts it
+fully on CONV_02").
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes the plate where it is, with honest
 limits; stuck faults act on the limit switches).
