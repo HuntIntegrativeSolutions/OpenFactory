@@ -51,6 +51,9 @@ Behavior spec
   (:mod:`openfactory.lint`, PLAN 2.20) and exits 1 only on errors.
 - ``openfactory export SCENE [-o OUT] [--analog-encoding ENC]`` writes the I/O list CSV (PLAN 1.8)
   to OUT or stdout, and creates or updates that encoding's lockfile like ``run``.
+- ``run`` and ``export`` rewrite ``<scene>.CONTEXT.md`` beside a scene file when it changed
+  (PLAN 2.19, :mod:`openfactory.export.context_md`); a failure to write it is a warning. Nothing
+  is written for a ``.ofz`` bundle.
 - ``openfactory bundle SCENE [--out F.ofz] [--script F.py | --no-script]`` (PLAN 2.18,
   :mod:`openfactory.bundle`) writes one ``.ofz`` with the scene, its meshes and their licenses,
   both lockfiles and the stand-in script. ``run``, ``test`` and ``validate`` take a ``.ofz`` in
@@ -182,6 +185,20 @@ def _scene_source(
         log.info("the bundle carries a stand-in PLC script (%s); it runs only with "
                  "--bundled-script", carried)  # fmt: skip
     return opened.scene_path, opened.script if bundled_script else None
+
+
+def _write_context(parsed: Scene, scene: Path) -> None:
+    """Rewrite ``<scene>.CONTEXT.md`` beside the scene if it changed (PLAN 2.19). A failure is a
+    warning: the run or export itself goes on (a lockfile conflict is reported by it)."""
+    from openfactory.export.context_md import write_context
+
+    try:
+        written = write_context(parsed, scene)
+    except (OSError, ValueError) as exc:
+        log.warning("scene context not written: %s", exc)
+        return
+    if written is not None:
+        log.info("wrote scene context %s", written)
 
 
 def _encoding(value: str | None) -> Encoding | None:
@@ -344,6 +361,7 @@ def run(
     headless = headless or as_fast_as_possible
     if bundled_script and script is not None:
         raise typer.BadParameter("give --script or --bundled-script, not both")
+    from_file = not is_bundle(scene)
     scene, carried = _scene_source(ctx, scene, bundled_script)
     script = carried or script
     try:
@@ -352,6 +370,8 @@ def run(
         typer.echo(f"error: {scene}: {exc}", err=True)
         raise typer.Exit(1) from None
     log.info("OpenFactory %s: %s (training and demo tool, not safety-rated)", __version__, scene)
+    if from_file:
+        _write_context(parsed, scene)
 
     _apply_forces(loaded, force or [])
     faults = _faults(loaded, fault or [], fault_at)
@@ -958,6 +978,7 @@ def export(
     except (OSError, ValueError, ValidationError) as exc:
         typer.echo(f"error: {scene}: {exc}", err=True)
         raise typer.Exit(1) from None
+    _write_context(parsed, scene)
     if output is None:
         typer.echo(text, nl=False)
     else:

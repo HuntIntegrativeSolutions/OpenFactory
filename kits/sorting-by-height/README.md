@@ -12,6 +12,7 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `sorting-by-height.int16_scaled.modbus.yaml` | Modbus address lockfile, int16_scaled (OpenPLC) |
 | `sorting-by-height.st` | OpenPLC program (copied from `examples/openplc/`) |
 | `sorting-by-height.py` | stand-in PLC script (copied from `examples/pyplc/`) |
+| `sorting-by-height.CONTEXT.md` | tags, addresses, components, faults, checks and commands for an assistant (PLAN 2.19) |
 | `sorting-by-height-io.csv` | I/O list, float32 Modbus addresses |
 | `sorting-by-height-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `sorting-by-height-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |

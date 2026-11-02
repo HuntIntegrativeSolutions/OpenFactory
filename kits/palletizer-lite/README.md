@@ -12,6 +12,7 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `palletizer-lite.int16_scaled.modbus.yaml` | Modbus address lockfile, int16_scaled (OpenPLC) |
 | `palletizer-lite.st` | OpenPLC program (copied from `examples/openplc/`) |
 | `palletizer-lite.py` | stand-in PLC script (copied from `examples/pyplc/`) |
+| `palletizer-lite.CONTEXT.md` | tags, addresses, components, faults, checks and commands for an assistant (PLAN 2.19) |
 | `palletizer-lite-io.csv` | I/O list, float32 Modbus addresses |
 | `palletizer-lite-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `palletizer-lite-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |

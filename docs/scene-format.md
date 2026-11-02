@@ -92,6 +92,20 @@ it needs the fault token (`--fault-token` or `[server] fault_token`). Only a DI 
 A recording (`run --record FILE.ofrec`) contains the full scene file, comments included, so sharing
 a recording shares the scene.
 
+## `<scene>.CONTEXT.md`: generated context (PLAN 2.19)
+
+`openfactory run` and `openfactory export` write `<scene>.CONTEXT.md` beside the scene whenever it
+would change: one Markdown file an assistant (or a person) can read instead of the YAML and the
+lockfiles. It lists every tag with kind, component and port, description, transform, range, and
+its Modbus address in both analog encodings (from each lockfile, or as `run` would first write
+it); every component after composite expansion with its parameters, ports and the fault kinds it
+supports; the `checks:` block; and the commands to validate, lint, test, run, export and bundle
+the scene, run from the folder that holds it (the stand-in script found as `bundle` finds it).
+It depends only on the scene, its lockfiles and where its script is, so it is committed with
+each shipped scene, and `tests/unit/test_context_md.py` fails when one is stale. Each demo kit
+carries its own (paths relative to the kit; `build_kit.py --check` compares it byte for byte).
+`test` and `validate` do not write it, and nothing is written for a `.ofz` input.
+
 ## Bundles (PLAN 2.18)
 
 `openfactory bundle scenes/<name>.yaml` writes `<name>.ofz` in the current folder (`--out` to

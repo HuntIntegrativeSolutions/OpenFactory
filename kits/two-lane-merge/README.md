@@ -12,6 +12,7 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `two-lane-merge.int16_scaled.modbus.yaml` | Modbus address lockfile, int16_scaled (OpenPLC) |
 | `two-lane-merge.st` | OpenPLC program (copied from `examples/openplc/`) |
 | `two-lane-merge.py` | stand-in PLC script (copied from `examples/pyplc/`) |
+| `two-lane-merge.CONTEXT.md` | tags, addresses, components, faults, checks and commands for an assistant (PLAN 2.19) |
 | `two-lane-merge-io.csv` | I/O list, float32 Modbus addresses |
 | `two-lane-merge-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `two-lane-merge-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |

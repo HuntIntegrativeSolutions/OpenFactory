@@ -12,6 +12,7 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `sorting-by-color.int16_scaled.modbus.yaml` | Modbus address lockfile, int16_scaled (OpenPLC) |
 | `sorting-by-color.st` | OpenPLC program (copied from `examples/openplc/`) |
 | `sorting-by-color.py` | stand-in PLC script (copied from `examples/pyplc/`) |
+| `sorting-by-color.CONTEXT.md` | tags, addresses, components, faults, checks and commands for an assistant (PLAN 2.19) |
 | `sorting-by-color-io.csv` | I/O list, float32 Modbus addresses |
 | `sorting-by-color-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `sorting-by-color-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |

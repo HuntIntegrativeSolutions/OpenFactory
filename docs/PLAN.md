@@ -1380,13 +1380,33 @@ runs the sorting program against it; a box visibly gets pushed.
       unlisted member, size and count limits, a newer bundle version, a stale lockfile, a
       missing license, the script never running without the flag, and the temporary folder
       removed.
-- [ ] 2.19 Generated per-scene assistant context: `openfactory run` and `export` write
+- [x] 2.19 Generated per-scene assistant context: `openfactory run` and `export` write
       `<scene>.CONTEXT.md` next to the scene listing every tag with kind, address, description and
       transform, every component with its type and parameters, the exercise checks, and the exact
       commands to run, test, and export it. Deterministic, regenerated each time, committed with the
       scene.
       *Why:* OpenFactory's claim is that an AI assistant can author and operate scenes. Give it the
       ground truth in one file instead of making it reverse-engineer the YAML and the lockfile.
+      *Note (2026-11-01):* `src/openfactory/export/context_md.py`. Named `<scene>.CONTEXT.md`
+      (a folder holds several scenes, so a bare `CONTEXT.md` would collide). Lists every tag
+      with kind, component.port, description, transform, units and range, and its address in
+      both encodings (each lockfile, or computed as `run` would write it, marked "no lockfile
+      yet"), then reserved addresses of removed tags; every component after composite expansion
+      with parameters (defaults included), ports (bound tag or unbound), its composite, and the
+      fault kinds it supports, with a legend of the kinds and the `--fault` syntax; the
+      `checks:` block; and validate, lint, test (script and `--plc`), run, export (both
+      encodings, L5X, Ignition) and bundle commands, run from the scene's folder, with the
+      script found as `bundle` finds it. No time, machine or `openfactory.toml` values. `run`
+      and `export` rewrite it when it changed; `test` and `validate` do not; a `.ofz` input
+      gets none. Committed for the six shipped scenes (a test fails on a stale one);
+      `tests/scenes/*.CONTEXT.md` is git-ignored. `tools/build_kit.py` now exports from the
+      kit's own copy of the scene, so the kit's CONTEXT.md names the kit's files and
+      `scenes/` is never written (every other kit file came out byte-identical).
+      Done-when: `build_kit.py --check` regenerates `kits/sorting-by-height/
+      sorting-by-height.CONTEXT.md` byte-identical ("kits current", all six), and exits 1 with
+      "sorting-by-height.CONTEXT.md is stale" when one line is appended;
+      `tests/unit/test_context_md.py` asserts every tag in both lockfiles of every shipped
+      scene appears in its CONTEXT.md, in `scenes/` and in the kit (23 tests).
 - [x] 2.20 `openfactory lint scene.yaml`: unbound required ports, DO/AO tags no PLC-side could ever
       write (not in any lockfile or script), DI/AI tags nothing reads, touching conveyors without a
       connection (from Milestone 1), composites exposing no I/O, components outside the floor bounds,

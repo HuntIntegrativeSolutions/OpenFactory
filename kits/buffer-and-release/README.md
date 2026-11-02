@@ -12,6 +12,7 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `buffer-and-release.int16_scaled.modbus.yaml` | Modbus address lockfile, int16_scaled (OpenPLC) |
 | `buffer-and-release.st` | OpenPLC program (copied from `examples/openplc/`) |
 | `buffer-and-release.py` | stand-in PLC script (copied from `examples/pyplc/`) |
+| `buffer-and-release.CONTEXT.md` | tags, addresses, components, faults, checks and commands for an assistant (PLAN 2.19) |
 | `buffer-and-release-io.csv` | I/O list, float32 Modbus addresses |
 | `buffer-and-release-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `buffer-and-release-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |

@@ -12,6 +12,7 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `conveyor-start-stop.int16_scaled.modbus.yaml` | Modbus address lockfile, int16_scaled (OpenPLC) |
 | `conveyor-start-stop.st` | OpenPLC program (copied from `examples/openplc/`) |
 | `conveyor-start-stop.py` | stand-in PLC script (copied from `examples/pyplc/`) |
+| `conveyor-start-stop.CONTEXT.md` | tags, addresses, components, faults, checks and commands for an assistant (PLAN 2.19) |
 | `conveyor-start-stop-io.csv` | I/O list, float32 Modbus addresses |
 | `conveyor-start-stop-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `conveyor-start-stop-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |

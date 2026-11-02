@@ -20,6 +20,8 @@ part code can produce (ruled 2026-10-30):
 - a 60 s recording under the stand-in script (``test --script --record``, PLAN 2.12; the
   build fails if the scene's checks do), replayable with no scene file and identical on every
   build (``--check`` compares it decompressed);
+- ``<scene>.CONTEXT.md`` (PLAN 2.19), written by those exports, which run on the kit's own copy
+  of the scene so the context names the kit's files;
 - ``README.md``, the kit's index, listing every file and the commands to use it.
 
 A kit's L5X is the tag stub file; full controller programs are the user's own work, outside
@@ -84,7 +86,7 @@ def generated(scene: str) -> list[str]:
     names = [f"{scene}.yaml"]
     encodings = [e for e in ENCODING_SUFFIX if lock(scene, e).is_file()]
     names += [f"{scene}.{e}.modbus.yaml" for e in encodings]
-    names += [f"{scene}.st", f"{scene}.py"]
+    names += [f"{scene}.st", f"{scene}.py", f"{scene}.CONTEXT.md"]
     names += [f"{scene}-io{ENCODING_SUFFIX[e]}.csv" for e in encodings]
     names += [f"{scene}-tags.L5X", f"{scene}-ignition-tags.json"]
     names += [f"{scene}-grafcet.html"] if scene in grafcet.SCENES else []
@@ -110,14 +112,19 @@ def build(scene: str, out: Path) -> None:
     ):
         if path.is_file():
             shutil.copyfile(path, out / path.name)
+    # Exports run on the kit's own copy, so the lockfiles they read are the kit's and the
+    # <scene>.CONTEXT.md each one writes beside its scene (PLAN 2.19) lands in the kit, naming
+    # the kit's script; scenes/ is never written.
+    kit_scene = out / src.name
     for enc, suffix in ENCODING_SUFFIX.items():
         if lock(scene, enc).is_file():
             csv = out / f"{scene}-io{suffix}.csv"
-            openfactory("export", str(src), "--analog-encoding", enc, "-o", str(csv))
-    openfactory("export", str(src), "--format", "l5x", "-o", str(out / f"{scene}-tags.L5X"))
+            openfactory("export", str(kit_scene), "--analog-encoding", enc, "-o", str(csv))
+    openfactory("export", str(kit_scene), "--format", "l5x", "-o", str(out / f"{scene}-tags.L5X"))
     openfactory(
-        "export", str(src), "--format", "ignition", "-o", str(out / f"{scene}-ignition-tags.json")
-    )
+        "export", str(kit_scene), "--format", "ignition",
+        "-o", str(out / f"{scene}-ignition-tags.json"),
+    )  # fmt: skip
     if scene in grafcet.SCENES:
         grafcet.write(scene, out / f"{scene}-grafcet.html")
     # The recording runs a copy of the scene in a scratch folder, so `run` cannot touch scenes/.
@@ -158,6 +165,8 @@ def readme(scene: str, folder: Path) -> str:
         f"{scene}.int16_scaled.modbus.yaml": "Modbus address lockfile, int16_scaled (OpenPLC)",
         f"{scene}.st": "OpenPLC program (copied from `examples/openplc/`)",
         f"{scene}.py": "stand-in PLC script (copied from `examples/pyplc/`)",
+        f"{scene}.CONTEXT.md": "tags, addresses, components, faults, checks and commands for an "
+        "assistant (PLAN 2.19)",
         f"{scene}-io.csv": "I/O list, float32 Modbus addresses",
         f"{scene}-io-int16.csv": "I/O list, int16_scaled Modbus addresses (OpenPLC)",
         f"{scene}-tags.L5X": "Studio 5000 controller tag stubs (PLAN 2.3)",
