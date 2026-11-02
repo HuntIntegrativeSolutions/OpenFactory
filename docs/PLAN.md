@@ -854,7 +854,8 @@ runs the sorting program against it; a box visibly gets pushed.
       `lift` (moves a short conveyor between two heights; at_top/at_bottom DIs), reversible belts
       (belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction
       arrow in the viewer), and the accumulation (zero-pressure) conveyor, the first
-      `scenes/_library/` composite built on 2.16 and 2.0, not a primitive. The W207 gap case (below,
+      `scenes/_library/` composite built on 2.16 and 2.0, not a primitive (confirmed
+      2026-11-01). The W207 gap case (below,
       under 2.20) is settled here with the accumulation work.
       *Added 2026-10-27 (2.6 rulings):*
       - Part rotation on turntables: parts on a turning deck turn with it in orientation, not
@@ -1012,6 +1013,20 @@ runs the sorting program against it; a box visibly gets pushed.
       code that measured 15.4 ms and 15.8 ms on a slower day). Every before/after claim runs the
       baseline commit and the candidate in the same session on the same machine and reports both;
       a single absolute number is not evidence of a regression or an improvement.
+      **Viewer shows a queued box tipped over (opened 2026-11-01):** if the viewer shows a box
+      fallen over while the core holds it upright, a trainee sees a lie. Reproduce:
+      `uv run python tools/screenshot.py tests/scenes/gated-conveyor.yaml --seconds 10 --force
+      EMT_01_EN_DO=1 --force GC_01_RUN_DO=1 --force GC_02_RUN_DO=1`. At about t 10.5 s (tick
+      523 in the 2026-11-01 run, 4 parts; the viewer runs in real time, so the exact tick
+      varies) the viewer draws a box behind GC_01_GATE tilted up onto the box held at the gate;
+      seen in two runs (2026-10-31 and 2026-11-01). `openfactory replay` cannot reproduce it:
+      it draws parts where the recording has them, not through Rapier. The core at tick 525
+      (same forces, headless `--record`) holds all four upright on GC_01_BELT at y 0.1 m,
+      queued nose to tail at x 1.65, 1.35, 1.05 and 0.75 m, each stopped against the one ahead
+      by ticks 180, 290, 400 and 515 (frames every 5 ticks). Likely cause, not yet confirmed:
+      Rapier lets a pushed box climb the one stopped ahead of it. Fix it in the viewer (the core
+      is authoritative for queued parts) and add a viewer check that every part's drawn up-axis
+      stays within a few degrees of the core's.
 - [x] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
       `def step(io, t)` that reads DI/AI and writes DO/AO through the same writer-side rules a protocol
       server obeys. Ship `examples/pyplc/sorting-by-height.py`.
@@ -1302,13 +1317,13 @@ runs the sorting program against it; a box visibly gets pushed.
       raise `ExprError`), numeric part fields through `number()` 1250 (89 evaluate, 1161 raise),
       nothing else escapes. W208: "composite drop_chute exposes no I/O". JSON Schema: a
       composite instance's `type` excludes the built-in names, so each component matches one
-      `oneOf` branch; checked with `jsonschema` (not a project dependency): all 20 scenes in
-      `scenes/` and `tests/scenes/` valid, a composite without `parts` rejected.
-      *Overlap lint (open):* no "composites overlap lint" is written down; the 2.16 amendment of
-      2026-10-26 is the no-I/O check (W208). Read here as W205 running on expanded conveyors
-      and naming the instance, "conveyors GC_01_BELT (part of GC_01, a gated_conveyor) and
-      GC_02_BELT (part of GC_02, a gated_conveyor) overlap by 1 m x 0.5 m at the same height";
-      to be confirmed. `tests/scenes/gated-conveyor.yaml` is the plan's example (two
+      `oneOf` branch; checked with `jsonschema` (then not a project dependency): all 20 scenes
+      in `scenes/` and `tests/scenes/` valid, a composite without `parts` rejected. Since
+      2026-11-01 `jsonschema` is a dev dependency and `tests/unit/test_json_schema_scenes.py`
+      checks every scene in `scenes/`, `tests/scenes/` and `kits/` in CI.
+      *Overlap lint (ruled 2026-11-01):* W205 runs on expanded conveyors and names the
+      instance, "conveyors GC_01_BELT (part of GC_01, a gated_conveyor) and GC_02_BELT (part of
+      GC_02, a gated_conveyor) overlap by 1 m x 0.5 m at the same height". `tests/scenes/gated-conveyor.yaml` is the plan's example (two
       instances, a computed `waiting` DI, an inverted `open`), exported with
       `expr(GC_01_GATE.raised and GC_01_EYE.detect)` in the transform column.
 - [x] 2.17 Binding-level signal transforms. A binding may be `{tag: X, invert: true}` (NO/NC),
