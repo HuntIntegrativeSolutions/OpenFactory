@@ -48,4 +48,4 @@ OpenFactory is a training and demonstration tool. It is not a safety-rated simul
 ---
 
 Built by [HIS Controls](mailto:Timothy.hunt.his@outlook.com), a Rockwell Automation and Inductive Automation
-systems integrator serving California.
+systems integrator serving Central California, Northern Nevada, and Kansas.
