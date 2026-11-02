@@ -25,7 +25,9 @@
 //   pivot to the core's angle (positive swing_deg toward local +z), like the pusher plate.
 // - Turntable decks (PLAN 2.5): a belt body whose heading is the scene rotation plus the core's
 //   turn angle, re-posed about the deck centre before every step.
-// - Parts the core places (PLAN §3.3: held by a gripper, or on a turning deck) become
+// - Lift decks (PLAN 2.5b): a belt body whose home rises by the core's deck height before every
+//   step.
+// - Parts the core places (PLAN §3.3: held by a gripper, or on a turning or moving deck) become
 //   `kinematicPositionBased` and are driven to the core's position (follow); release() makes them
 //   dynamic again with the core's velocity.
 //
@@ -90,6 +92,8 @@ interface Belt {
   speed: number;
   /** Turntable deck: the centre it turns about, its scene rotation, and the core's turn angle. */
   deck?: { centre: Vec3; rotation: number; angle: number };
+  /** Lift deck: its home at the bottom and the core's deck height above it. */
+  lift?: { bottom: Vec3; height: number };
 }
 
 interface Plate {
@@ -142,6 +146,7 @@ export class PlantPhysics {
       else if (g.type === "photo_eye") this.addBeam(g);
       else if (g.type === "stopper") this.addBlade(g);
       else if (g.type === "turntable") this.addDeck(g);
+      else if (g.type === "lift") this.addLift(g);
       else if (g.type === "diverter_arm") this.addArm(g);
     }
     const blades = this.bladeColliders;
@@ -211,6 +216,18 @@ export class PlantPhysics {
       body, home, flow: rotateY([1, 0, 0], g.rotation_deg), speed: 0,
       deck: { centre: g.position, rotation: g.rotation_deg, angle: 0 },
     });
+  }
+
+  private addLift(g: ComponentGeometry): void {
+    this.addBelt(g);
+    const belt = this.belts.get(g.id)!;
+    belt.lift = { bottom: [...belt.home] as Vec3, height: 0 };
+  }
+
+  /** Lift deck height in m above the bottom (the core's `height_m` state), for the next step. */
+  setLift(id: string, height: number): void {
+    const lift = this.belts.get(id)?.lift;
+    if (lift) lift.height = height;
   }
 
   /** Turntable deck angle in degrees (the core's `angle_deg` state), for the next step. */
@@ -417,6 +434,10 @@ export class PlantPhysics {
         const heading = belt.deck.rotation + belt.deck.angle;
         belt.flow = rotateY([1, 0, 0], heading);
         belt.body.setRotation(quatY(heading), true);
+      }
+      if (belt.lift) {
+        const [x, y, z] = belt.lift.bottom;
+        belt.home = [x, y + belt.lift.height, z];
       }
       belt.body.setTranslation(vec(belt.home), true); // never let the belt drift
       belt.body.setLinvel(vec([belt.flow[0] * belt.speed, 0, belt.flow[2] * belt.speed]), true);

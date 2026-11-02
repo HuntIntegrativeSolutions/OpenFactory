@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 #: Conveyor types whose ``run`` command is counted for utilization.
-CONVEYOR_TYPES = ("belt_conveyor", "roller_conveyor", "turntable")
+CONVEYOR_TYPES = ("belt_conveyor", "roller_conveyor", "turntable", "lift")
 _EPS = 1e-9
 
 
@@ -45,6 +45,8 @@ def _home(comp: Any) -> bool | None:
         return abs(comp.angle) <= _EPS
     if kind == "stopper":
         return comp.position >= 1.0 - _EPS
+    if kind == "lift":
+        return comp.height <= _EPS  # a cycle: up to the top and back to the bottom
     if kind == "pick_and_place":
         return comp.x <= _EPS  # at the pick side: lowering there to pick is part of the cycle
     return None

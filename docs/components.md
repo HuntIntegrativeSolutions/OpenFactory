@@ -161,6 +161,45 @@ origin is not the infeed end.
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the deck belt and the turn; stuck
 faults act on `running`, `at_0`, `at_90`).
 
+### `lift`
+
+A short belt (the deck) that rises and falls between two heights (PLAN 2.5b). Origin: the centre
+of the deck's infeed end at deck-belt top height with the deck at the bottom, as `belt_conveyor`;
+flow is local +x and the deck rises straight up.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `length` | required | Deck length, meters |
+| `width` | required | Deck width, meters |
+| `speed_mps` | required | Deck belt speed while running |
+| `lift_height` | required | Rise from the bottom to the top, meters |
+| `lift_time_s` | 2.0 | Time for the full rise, seconds |
+| `start` | `bottom` | Where the deck starts: `bottom` or `top` |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `run` | DO | yes | Deck belt run command |
+| `raise` | DO | yes | Raise command |
+| `running` | DI | no | Deck belt running feedback |
+| `at_top` | DI | no | At the top |
+| `at_bottom` | DI | no | At the bottom |
+
+- `raise` held true drives the deck to the top; released, it returns to the bottom (the stopper's
+  `raise` and the turntable's `turn` work the same way). `at_top` and `at_bottom` are both false
+  while moving.
+- Parts on the deck move up and down with it; the deck belt carries them along local +x.
+- A lift may appear in several `connections`, feeding (or fed by) conveyors at different heights.
+  A connection to or from the deck hands parts across only while the two belt tops are level
+  within 1 mm, so a lift fed at the bottom hands parts on at the top. A part reaching the end of a
+  conveyor whose connections are all out of level waits there. A part sticking out over the
+  deck's end when it starts to move goes with the deck: wait for `at_top` or `at_bottom` before
+  running the deck belt.
+- In the viewer, parts on a moving deck follow the core's position. Example:
+  `tests/scenes/demo-lift.yaml` with its stand-in script.
+
+Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the deck belt and the lift; slow
+runs both at half speed; stuck faults act on `running`, `at_top`, `at_bottom`).
+
 ## Actuators
 
 ### `pusher`

@@ -1,7 +1,7 @@
 // Mesh builder registry: scene `type` -> builder (PLAN §5). Unknown types get a grey fallback box,
 // so any valid scene renders with no scene-specific code (PLAN G4).
 import { BELT_TYPES, type ComponentGeometry } from "../api";
-import { beltConveyor, rollerConveyor, turntable } from "./conveyor";
+import { beltConveyor, lift, rollerConveyor, turntable } from "./conveyor";
 import {
   boxEmitter,
   distanceSensor,
@@ -32,6 +32,7 @@ export const BUILDERS: Record<string, Builder> = {
   selector_switch: selectorSwitch,
   stopper,
   turntable,
+  lift,
   diverter_arm: diverterArm,
   pick_and_place: pickAndPlace,
   distance_sensor: distanceSensor,
@@ -45,7 +46,7 @@ export function buildComponent(g: ComponentGeometry, ctx: BuildContext): Compone
 
 /** Floor height for a scene: 0.75 m below its lowest conveyor top (or component origin). */
 export function floorFor(components: ComponentGeometry[]): number {
-  const tops = components.filter((c) => BELT_TYPES.has(c.type) || c.type === "turntable").map((c) => c.position[1]);
+  const tops = components.filter((c) => BELT_TYPES.has(c.type) || c.type === "turntable" || c.type === "lift").map((c) => c.position[1]);
   const ys = tops.length ? tops : components.map((c) => c.position[1]);
   return Math.min(0, ...ys) - 0.75;
 }

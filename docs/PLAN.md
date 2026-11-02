@@ -340,6 +340,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `roller_conveyor` | run, speed (opt) | running | Same as belt, drawn as rollers; its own `friction` (default the scene's). | 2 |
 | `stopper` | raise | raised, lowered | Blade that rises out of the belt and holds the queue; a part already over it passes. | 2 |
 | `turntable` | run, turn | running, at_0, at_90 | Turns its deck conveyor ±90°; `turn` held drives to `turn_deg`, released returns to 0. | 2 |
+| `lift` | run, raise | running, at_top, at_bottom | Raises its deck conveyor `lift_height`; `raise` held drives to the top, released returns to the bottom; hands parts across only while level. | 2 (2.5b) |
 | `diverter_arm` | extend | extended, retracted | Paddle swinging across a belt; parts slide along it onto a side conveyor. | 2 |
 | `pick_and_place` | traverse, lower, grip | at_pick, at_place, lowered, holding | Two-axis gantry with a gripper pad. | 2 |
 | `distance_sensor` | — | distance (AI), switching (AI) | Range to the nearest part or belt along its beam, metres 0 to `beam_length`. | 2 |
@@ -881,6 +882,15 @@ runs the sorting program against it; a box visibly gets pushed.
       `range_from` may now name a `[lo, hi]` parameter. Viewer: real segment meshes, lit in the
       segment color (screenshot of `tests/scenes/counter-display.yaml` under its counting
       script reads "12" at t 24 s).
+      *2. lift, done (2026-11-01):* `src/openfactory/components/lift.py`. `run`, `raise` (held:
+      up; released: down, at `lift_height / lift_time_s`), `running`, `at_top`, `at_bottom`,
+      `start: bottom|top`. Kinematics: lifts join turntables as switching conveyors
+      (`SWITCHING_TYPES`, may feed several); parts on the deck move with it; a connection with a
+      lift is active only while the belt tops are level within 1 mm (`LEVEL_M`); belt tops are
+      read from each conveyor's current frame. Parts on a moving deck follow the core in the
+      viewer, whose deck body rises with the core's `height_m`. `tests/scenes/demo-lift.yaml`
+      (infeed at 0, outfeed at 0.6 m) under `demo-lift.py`: PASS 3 of 3, 6 boxes at 60 s, 36 at
+      300 s, longest dwell 16.58 s both; every existing parity trace and kit unchanged.
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late

@@ -64,3 +64,23 @@ describe("photo-eye beams see parts only", () => {
     expect(edges).toEqual(["PE_01 true"]);
   });
 });
+
+describe("lift deck (PLAN 2.5b)", () => {
+  it("moves its belt body to the core's deck height, so a box comes to rest on the raised deck", async () => {
+    const R = await loadRapier();
+    const g: ComponentGeometry = {
+      id: "LFT_01", type: "lift", description: "", position: [2, 0, 0], rotation_deg: 0,
+      length: 1, width: 0.5, lift_height: 0.6,
+    };
+    const physics = new PlantPhysics(R, { components: [g], friction: 0.8, dt: DT });
+    physics.setLift("LFT_01", 0.6);
+    physics.step();
+    physics.addPart("P1", [0.3, 0.3, 0.3], [2.5, 0.8, 0]);
+    for (let k = 0; k < 60; k++) physics.step();
+    expect(physics.part("P1")!.position[1]).toBeCloseTo(0.75, 2);
+    physics.setLift("LFT_01", 0);
+    physics.addPart("P2", [0.3, 0.3, 0.3], [2.15, 0.2, 0]);
+    for (let k = 0; k < 60; k++) physics.step();
+    expect(physics.part("P2")!.position[1]).toBeCloseTo(0.15, 2);
+  });
+});

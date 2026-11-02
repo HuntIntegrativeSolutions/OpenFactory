@@ -674,6 +674,7 @@
               "counter_display",
               "distance_sensor",
               "diverter_arm",
+              "lift",
               "part_remover",
               "photo_eye",
               "pick_and_place",
@@ -1400,6 +1401,217 @@
         "tag"
       ],
       "title": "DoTagSpec",
+      "type": "object"
+    },
+    "Lift": {
+      "additionalProperties": false,
+      "description": "Origin: centre of the deck's infeed end, at deck-belt top height with the deck at the\nbottom (as belt_conveyor). Flow is local +x; the deck rises ``lift_height`` straight up.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "type": {
+          "const": "lift",
+          "title": "Type",
+          "type": "string"
+        },
+        "length": {
+          "exclusiveMinimum": 0,
+          "title": "Length",
+          "type": "number"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "speed_mps": {
+          "description": "Deck belt surface speed while running.",
+          "exclusiveMinimum": 0,
+          "title": "Speed Mps",
+          "type": "number"
+        },
+        "lift_height": {
+          "description": "Rise from the bottom to the top, meters.",
+          "exclusiveMinimum": 0,
+          "title": "Lift Height",
+          "type": "number"
+        },
+        "lift_time_s": {
+          "default": 2.0,
+          "description": "Time for the full rise, seconds.",
+          "exclusiveMinimum": 0,
+          "title": "Lift Time S",
+          "type": "number"
+        },
+        "start": {
+          "default": "bottom",
+          "description": "Where the deck starts.",
+          "enum": [
+            "bottom",
+            "top"
+          ],
+          "title": "Start",
+          "type": "string"
+        },
+        "io": {
+          "$ref": "#/$defs/LiftIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type",
+        "length",
+        "width",
+        "speed_mps",
+        "lift_height",
+        "io"
+      ],
+      "title": "Lift",
+      "type": "object"
+    },
+    "LiftIO": {
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Deck conveyor run command",
+          "title": "Run",
+          "x-io-kind": "DO"
+        },
+        "raise": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Raise command (held: to the top; released: back to the bottom)",
+          "title": "Raise",
+          "x-io-kind": "DO"
+        },
+        "running": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Deck conveyor running feedback",
+          "title": "Running",
+          "x-io-kind": "DI"
+        },
+        "at_top": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "At the top",
+          "title": "At Top",
+          "x-io-kind": "DI"
+        },
+        "at_bottom": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "At the bottom",
+          "title": "At Bottom",
+          "x-io-kind": "DI"
+        }
+      },
+      "required": [
+        "run",
+        "raise"
+      ],
+      "title": "LiftIO",
       "type": "object"
     },
     "MeshSpec": {
@@ -3182,6 +3394,9 @@
             "$ref": "#/$defs/Turntable"
           },
           {
+            "$ref": "#/$defs/Lift"
+          },
+          {
             "$ref": "#/$defs/DiverterArm"
           },
           {
@@ -3227,7 +3442,7 @@
       "type": "array"
     },
     "connections": {
-      "description": "Which conveyor feeds which. Loops (recirculation) are allowed; each conveyor feeds at most one downstream conveyor, except a turntable, which may feed several and hands parts across only while its deck is aligned with one.",
+      "description": "Which conveyor feeds which. Loops (recirculation) are allowed; each conveyor feeds at most one downstream conveyor, except a turntable or lift, which may feed several and hands parts across only while its deck is aligned (a turntable) or level (a lift) with one.",
       "items": {
         "$ref": "#/$defs/Connection"
       },

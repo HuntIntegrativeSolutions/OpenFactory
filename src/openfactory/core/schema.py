@@ -513,6 +513,31 @@ class Turntable(ComponentBase):
     io: TurntableIO
 
 
+class LiftIO(IOModel):
+    run: DoTag = port("DO", "Deck conveyor run command", required=True)
+    raise_: DoTag = port(
+        "DO", "Raise command (held: to the top; released: back to the bottom)", required=True,
+        alias="raise",
+    )  # fmt: skip
+    running: DiTag | None = port("DI", "Deck conveyor running feedback")
+    at_top: DiTag | None = port("DI", "At the top")
+    at_bottom: DiTag | None = port("DI", "At the bottom")
+
+
+class Lift(ComponentBase):
+    """Origin: centre of the deck's infeed end, at deck-belt top height with the deck at the
+    bottom (as belt_conveyor). Flow is local +x; the deck rises ``lift_height`` straight up."""
+
+    type: Literal["lift"]
+    length: PositiveFloat
+    width: PositiveFloat
+    speed_mps: PositiveFloat = Field(description="Deck belt surface speed while running.")
+    lift_height: PositiveFloat = Field(description="Rise from the bottom to the top, meters.")
+    lift_time_s: PositiveFloat = Field(2.0, description="Time for the full rise, seconds.")
+    start: Literal["bottom", "top"] = Field("bottom", description="Where the deck starts.")
+    io: LiftIO
+
+
 class PhotoEyeIO(IOModel):
     detect: DiTag = port("DI", "Part detected", required=True)
 
@@ -794,6 +819,7 @@ Component = Annotated[
     | RollerConveyor
     | Stopper
     | Turntable
+    | Lift
     | DiverterArm
     | PickAndPlace
     | DistanceSensor
@@ -817,6 +843,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         RollerConveyor,
         Stopper,
         Turntable,
+        Lift,
         DiverterArm,
         PickAndPlace,
         DistanceSensor,
@@ -934,6 +961,7 @@ SceneComponent = Annotated[
     | Annotated[RollerConveyor, Tag("roller_conveyor")]
     | Annotated[Stopper, Tag("stopper")]
     | Annotated[Turntable, Tag("turntable")]
+    | Annotated[Lift, Tag("lift")]
     | Annotated[DiverterArm, Tag("diverter_arm")]
     | Annotated[PickAndPlace, Tag("pick_and_place")]
     | Annotated[DistanceSensor, Tag("distance_sensor")]
@@ -952,9 +980,14 @@ SceneComponent = Annotated[
 
 
 #: Component types that carry parts on their top surface (PLAN §5). Connections join these.
-CARRIER_TYPES = frozenset({"belt_conveyor", "roller_conveyor", "turntable"})
-#: Conveyors that may feed, and be fed by, several others: the active connection is the aligned one.
+CARRIER_TYPES = frozenset({"belt_conveyor", "roller_conveyor", "turntable", "lift"})
+#: Conveyors whose deck turns: a connection to or from one is active while the headings agree.
 TURNING_TYPES = frozenset({"turntable"})
+#: Conveyors whose deck rises and falls: a connection is active while the tops are level.
+LIFTING_TYPES = frozenset({"lift"})
+#: Conveyors that may feed, and be fed by, several others: the active connection is the aligned
+#: (or level) one.
+SWITCHING_TYPES = TURNING_TYPES | LIFTING_TYPES
 
 
 class Connection(StrictModel):
@@ -1030,8 +1063,9 @@ class Scene(StrictModel):
     connections: list[Connection] = Field(
         default_factory=list,
         description="Which conveyor feeds which. Loops (recirculation) are allowed; "
-        "each conveyor feeds at most one downstream conveyor, except a turntable, which may "
-        "feed several and hands parts across only while its deck is aligned with one.",
+        "each conveyor feeds at most one downstream conveyor, except a turntable or lift, "
+        "which may feed several and hands parts across only while its deck is aligned (a "
+        "turntable) or level (a lift) with one.",
     )
     checks: Checks | None = Field(None, description="Exercise checks for `openfactory test`.")
 
@@ -1087,8 +1121,8 @@ class Scene(StrictModel):
                     )
             if conn.from_ == conn.to:
                 raise ValueError(f"conveyor {conn.from_!r} cannot feed itself")
-            if types[conn.from_] in TURNING_TYPES:
-                continue  # a turntable feeds whichever connected conveyor its deck lines up with
+            if types[conn.from_] in SWITCHING_TYPES:
+                continue  # a turntable or lift feeds whichever connected conveyor lines up
             if conn.from_ in downstream:
                 raise ValueError(
                     f"conveyor {conn.from_!r} feeds both {downstream[conn.from_]!r} and "

@@ -165,3 +165,62 @@ export const turntable: Builder = (g, ctx) => {
     },
   };
 };
+
+/**
+ * lift: origin at the centre of the deck's infeed end, at deck-belt top height with the deck at the
+ * bottom (PLAN 2.5b). Four guide posts stand from the floor past the top; the deck (belt, rails,
+ * slats) rises with the core's height_m. The belt shows status like belt_conveyor; the posts are
+ * green while the deck moves.
+ */
+export const lift: Builder = (g, ctx) => {
+  const length = num(g, "length", 1);
+  const width = num(g, "width", 0.5);
+  const rise = num(g, "lift_height", 0.5);
+  const group = placed(g);
+  const postTop = rise + 0.15;
+  const postBottom = ctx.floorY - g.position[1];
+  const posts: THREE.Mesh[] = [];
+  for (const x of [0.05, length - 0.05]) {
+    for (const side of [-1, 1]) {
+      const h = postTop - postBottom;
+      const post = box([0.05, h, 0.05], NEUTRAL.frame, [x, postBottom + h / 2, side * (width / 2 + 0.06)]);
+      post.name = "post";
+      posts.push(post);
+    }
+  }
+  group.add(...posts);
+  const deck = new THREE.Group();
+  deck.name = "deck";
+  group.add(deck);
+  const belt = box([length, BELT_T, width], ISA101.stopped, [length / 2, -BELT_T / 2, 0]);
+  belt.name = "belt";
+  deck.add(belt);
+  for (const side of [-1, 1]) {
+    deck.add(box([length, RAIL_H, 0.03], NEUTRAL.frame, [length / 2, -RAIL_H / 2 + 0.01, side * (width / 2 + 0.015)]));
+  }
+  const slats: THREE.Mesh[] = [];
+  const count = Math.max(1, Math.floor(length / SLAT_PITCH));
+  for (let i = 0; i < count; i++) {
+    const slat = box([0.015, 0.003, width * 0.96], NEUTRAL.slat, [i * SLAT_PITCH, 0.0015, 0]);
+    slats.push(slat);
+    deck.add(slat);
+  }
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, postTop, -width / 2),
+    pickable: [],
+    housing: posts,
+    update(state) {
+      deck.position.y = typeof state.height_m === "number" ? state.height_m : 0;
+      setColor(belt, state.running ? ISA101.running : ISA101.stopped);
+      for (const post of posts) setColor(post, state.moving ? ISA101.running : NEUTRAL.frame);
+      const travel = typeof state.travel_m === "number" ? state.travel_m : 0;
+      const phase = ((travel % SLAT_PITCH) + SLAT_PITCH) % SLAT_PITCH;
+      slats.forEach((slat, i) => {
+        slat.position.x = (i * SLAT_PITCH + phase) % (count * SLAT_PITCH);
+      });
+    },
+  };
+};

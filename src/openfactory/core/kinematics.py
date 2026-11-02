@@ -42,6 +42,13 @@ Each part is either *carried* by a conveyor (:attr:`Part.carrier`) or *falling*.
   conveyors' headings agree within ``ALIGN_DEG``; other connections are always active. A part
   reaching the discharge end of a conveyor that has connections but no active one waits there
   (its front face stops at the end), as a box held against a turned deck's side would.
+- **Lifts (PLAN 2.5b):** a ``lift`` deck is a conveyor whose frame moves up and down with it
+  (:meth:`Lift.frame`). Each step, before anything moves, every part the deck carries is moved
+  up or down by the height the deck moved since the last step. Connections from or to a deck are
+  active only while the two belt tops are level within ``LEVEL_M``, so a deck fed at the bottom
+  hands parts on at the top; a part waits at the end of a conveyor whose connections are all out
+  of level, as at a turned deck. A part sticking out over the deck's end when it starts to move
+  moves with the deck (the PLC is expected to wait for ``at_top``/``at_bottom``).
 - **Diverted (PLAN 2.5):** a ``diverter_arm`` is a frictionless fence for the parts carried by
   the belt its pivot stands on (within 0.1 m of its edge) and by belts level with it, such as a
   side conveyor under the arm's tip. After the parts move, a part that
@@ -95,7 +102,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from openfactory.core.geometry import rotate_y, to_local, to_world
-from openfactory.core.schema import CARRIER_TYPES, TURNING_TYPES, Connection
+from openfactory.core.schema import CARRIER_TYPES, LIFTING_TYPES, TURNING_TYPES, Connection
 from openfactory.core.sizing import ON_BELT_M
 from openfactory.core.world import Part, World
 
@@ -105,6 +112,8 @@ if TYPE_CHECKING:
 GRAVITY = 9.81
 #: Two conveyor headings closer than this are aligned, so a connection between them is active.
 ALIGN_DEG = 1.0
+#: Two belt tops closer than this are level, so a connection to or from a lift is active, meters.
+LEVEL_M = 0.001
 #: A diverter arm acts on the belt its pivot stands on, or one this far beside (its edge), meters.
 BESIDE_BELT_M = 0.1
 ARM_CLEARANCE_M = 0.005  # diverter_arm.CLEARANCE_M: the arm's bottom above the belt
@@ -148,6 +157,9 @@ class KinematicModel:
         ]
         #: Deck heading each turntable had when its parts were last turned with it.
         self._heading_seen: dict[str, float] = {c.id: c.heading for c in self.turntables}  # type: ignore[attr-defined]
+        self.lifts: list[Component] = [c for c in self.carriers.values() if c.type in LIFTING_TYPES]
+        #: Deck height each lift had when its parts were last moved with it.
+        self._height_seen: dict[str, float] = {c.id: c.height for c in self.lifts}  # type: ignore[attr-defined]
         self._refresh()
         self._boxes: dict[str, dict[str, tuple[float, float, float, float, float, float]]] = {}
         #: Per belt, ``(x, part id)`` of every box in ``_boxes``, sorted by x (PLAN 2.9): the
@@ -155,7 +167,7 @@ class KinematicModel:
         self._order: dict[str, list[tuple[float, str]]] = {}
         #: Per belt, an upper bound on any box's half length along the flow this tick.
         self._max_half: dict[str, float] = {}
-        tops = [self._top(c) for c in self.carriers.values()]
+        tops = [c.config.position[1] for c in self.carriers.values()]  # a lift's bottom
         self.lost_below = (min(tops) if tops else 0.0) - FALL_LIMIT_M
         self.pushers: list[Component] = [c for c in components if c.type == "pusher"]
         #: Plate position (m out from retracted) each pusher had when parts were last pushed.
@@ -208,6 +220,9 @@ class KinematicModel:
 
     def _aligned(self, up: str, down: str) -> bool:
         a, b = self.carriers[up], self.carriers[down]
+        lifting = a.type in LIFTING_TYPES or b.type in LIFTING_TYPES
+        if lifting and abs(self._top(a) - self._top(b)) > LEVEL_M:
+            return False  # a lift's deck is above or below the other belt
         if a.type not in TURNING_TYPES and b.type not in TURNING_TYPES:
             return True
         diff = (self._frame(a)[1] - self._frame(b)[1] + 180.0) % 360.0 - 180.0
@@ -225,9 +240,10 @@ class KinematicModel:
 
     # -- geometry helpers ------------------------------------------------------------------------
 
-    @staticmethod
-    def _top(carrier: Component) -> float:
-        return carrier.config.position[1]
+    @classmethod
+    def _top(cls, carrier: Component) -> float:
+        """Belt top height now (a lift's deck moves)."""
+        return cls._frame(carrier)[0][1]
 
     @staticmethod
     def _frame(carrier: Component) -> tuple[tuple[float, float, float], float]:
@@ -267,6 +283,8 @@ class KinematicModel:
     def step(self, dt: float) -> None:
         for deck in self.turntables:
             self._turn(deck)
+        for deck in self.lifts:
+            self._lift(deck)
         self._refresh()
         for pusher in self.pushers:
             self._push(pusher)
@@ -491,14 +509,28 @@ class KinematicModel:
                 dx, _, dz = rotate_y((x - cx, 0.0, z - cz), delta)
                 part.position = (cx + dx, y, cz + dz)
 
+    def _lift(self, deck: Component) -> None:
+        """Move the parts on a lift deck up or down by the height it moved since the last step."""
+        height = deck.height  # type: ignore[attr-defined]
+        delta = height - self._height_seen[deck.id]
+        self._height_seen[deck.id] = height
+        if abs(delta) <= _EPS:
+            return
+        for part in self.world.parts.values():
+            if part.carrier == deck.id:
+                x, y, z = part.position
+                part.position = (x, y + delta, z)
+
     def follows_core(self, part: Part) -> bool:
         """True while the viewer should place this part at the core's position instead of
         simulating it (PLAN §3.3): held by a gripper, in contact with a diverter arm, or on a
-        turning deck."""
+        turning or moving deck."""
         if part.held_by is not None or part.id in self.guided:
             return True
         deck = self.carriers.get(part.carrier) if part.carrier else None
-        return deck is not None and bool(getattr(deck, "turning", False))
+        if deck is None:
+            return False
+        return bool(getattr(deck, "turning", False) or getattr(deck, "moving", False))
 
     def velocity(self, part: Part) -> tuple[float, float, float]:
         """World velocity, m/s: along its belt's current heading while carried, else its fall."""
