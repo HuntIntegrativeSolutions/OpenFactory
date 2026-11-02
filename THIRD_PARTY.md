@@ -67,18 +67,23 @@ file before relying on an entry for a distribution decision.
 
 | Package | Version | License | Source |
 |---------|---------|---------|--------|
+| attrs | 26.1.0 | MIT | https://www.attrs.org/en/stable/changelog.html |
 | certifi | 2026.10.23 | Mozilla Public License 2.0 (MPL 2.0) | https://github.com/certifi/python-certifi |
 | coverage | 7.17.0 | Apache-2.0 | https://github.com/coveragepy/coveragepy |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 | https://greenlet.readthedocs.io |
 | httpcore | 1.0.9 | BSD-3-Clause | https://www.encode.io/httpcore/ |
 | httpx | 0.28.1 | BSD License | https://github.com/encode/httpx |
 | iniconfig | 2.3.1 | MIT | https://github.com/pytest-dev/iniconfig |
+| jsonschema | 4.26.0 | MIT | https://github.com/python-jsonschema/jsonschema |
+| jsonschema-specifications | 2025.9.1 | MIT | https://github.com/python-jsonschema/jsonschema-specifications |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
 | playwright | 1.64.1 | Apache-2.0 | https://github.com/Microsoft/playwright-python |
 | pluggy | 1.7.0 | MIT License | https://github.com/pytest-dev/pluggy |
 | pyee | 13.0.1 | MIT License | https://github.com/jfhbrook/pyee |
 | pytest | 9.1.1 | MIT | https://docs.pytest.org/en/latest/ |
 | pytest-cov | 7.1.0 | MIT | https://pytest-cov.readthedocs.io/en/latest/changelog.html |
+| referencing | 0.37.0 | MIT | https://github.com/python-jsonschema/referencing |
+| rpds-py | 2026.9.1 | MIT | https://github.com/crate-py/rpds |
 | ruff | 0.17.2 | MIT | https://docs.astral.sh/ruff |
 
 ## Web viewer runtime (bundled into `web/dist`)
