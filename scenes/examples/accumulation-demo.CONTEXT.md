@@ -153,7 +153,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 Zero-Pressure Accumulation Conveyor Zone 1 Photo Eye. Position [2.35, 0.05, 0.0].
 Part of `ACC`, a `accumulation_conveyor` composite (PLAN 2.16).
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.6
+Parameters: `rotation_deg` 0.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
@@ -166,7 +166,7 @@ Faults: `stuck_on`, `stuck_off`, `misaligned`, `noisy`
 Zero-Pressure Accumulation Conveyor Zone 2 Photo Eye. Position [3.35, 0.05, 0.0].
 Part of `ACC`, a `accumulation_conveyor` composite (PLAN 2.16).
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.6
+Parameters: `rotation_deg` 0.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
@@ -179,7 +179,7 @@ Faults: `stuck_on`, `stuck_off`, `misaligned`, `noisy`
 Zero-Pressure Accumulation Conveyor Zone 3 Photo Eye. Position [4.35, 0.05, 0.0].
 Part of `ACC`, a `accumulation_conveyor` composite (PLAN 2.16).
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.6
+Parameters: `rotation_deg` 0.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
@@ -192,7 +192,7 @@ Faults: `stuck_on`, `stuck_off`, `misaligned`, `noisy`
 Zero-Pressure Accumulation Conveyor Zone 4 Photo Eye. Position [5.35, 0.05, 0.0].
 Part of `ACC`, a `accumulation_conveyor` composite (PLAN 2.16).
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.6
+Parameters: `rotation_deg` 0.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|

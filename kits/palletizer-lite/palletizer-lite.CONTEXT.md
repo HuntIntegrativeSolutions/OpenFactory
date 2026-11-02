@@ -98,7 +98,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
 Infeed Box At Pick Position Photo Eye. Position [2.05, 0.1, 0.0].
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.6
+Parameters: `rotation_deg` 0.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
@@ -158,7 +158,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
 Layer Row Complete Photo Eye. Position [3.15, 0.1, 1.0].
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.6
+Parameters: `rotation_deg` 0.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|

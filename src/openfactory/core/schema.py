@@ -569,6 +569,11 @@ class PhotoEye(ComponentBase):
 
     type: Literal["photo_eye"]
     beam_length: PositiveFloat
+    debounce_ms: Annotated[float, Field(ge=0, le=1000)] = Field(
+        20.0,
+        description="On/off debounce of detect, milliseconds (PLAN 2.5b): a change must last this "
+        "long to reach the PLC. 20 (one tick at 50 Hz) unless set.",
+    )
     io: PhotoEyeIO
 
 
@@ -720,6 +725,11 @@ class ColorSensor(ComponentBase):
     teach: PartColor = Field(description="The taught color: match is true while it is seen.")
     axis: Literal["+z", "-y"] = Field("-y", description="Beam direction in the sensor's frame.")
     beam_length: PositiveFloat = Field(0.5, description="Sensing range, meters.")
+    debounce_ms: Annotated[float, Field(ge=0, le=1000)] = Field(
+        0.0,
+        description="On/off debounce of match and detect, each on its own, milliseconds "
+        "(PLAN 2.5b); 0 (the default) follows the part at the step boundary.",
+    )
     io: ColorSensorIO
 
 

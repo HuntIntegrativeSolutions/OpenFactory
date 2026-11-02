@@ -5,9 +5,11 @@ Behavior spec
 The beam is a line segment ``beam_length`` long through the component origin, along local z (across
 the flow). Each step the raw beam state is *blocked* when any part's box touches that segment
 (within 1 nm, so float drift cannot miss an exact touch). ``detect`` (DI) follows the raw state
-through a 20 ms debounce on both edges: a change must be seen on consecutive steps for at least
-20 ms, measured from the first step that saw it, before ``detect`` changes. At the default 50 Hz
-step that is one tick of delay; a block or a gap shorter than the debounce never reaches the PLC.
+through a ``debounce_ms`` debounce on both edges (default 20 ms; PLAN 2.5b made it a setting,
+:mod:`openfactory.core.debounce`): a change must be seen on consecutive steps for at least that
+long, measured from the first step that saw it, before ``detect`` changes. At the default 50 Hz
+step 20 ms is one tick of delay; a block or a gap shorter than the debounce never reaches the PLC;
+0 follows the beam in the same step.
 
 Geometry: the origin is the beam midpoint.
 """
@@ -17,10 +19,11 @@ from __future__ import annotations
 from typing import Any
 
 from openfactory.core.component import Component, register
+from openfactory.core.debounce import Debounce
 from openfactory.core.geometry import segment_hits_aabb, to_world
 
+#: The default debounce (``debounce_ms`` unset), seconds.
 DEBOUNCE_S = 0.020
-_EPS = 1e-9
 #: Contact tolerance in meters, so float drift in part positions cannot miss an exact touch.
 _TOUCH_M = 1e-9
 
@@ -32,8 +35,12 @@ class PhotoEye(Component):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.blocked = False  # raw beam state this step
-        self.detect = False  # debounced state written to the PLC
-        self._pending_s: float | None = None  # time the raw state has differed from detect
+        self._debounce = Debounce(self.config.debounce_ms / 1000.0)
+
+    @property
+    def detect(self) -> bool:
+        """The debounced state written to the PLC."""
+        return self._debounce.state
 
     @property
     def beam_offset(self) -> float:
@@ -60,16 +67,7 @@ class PhotoEye(Component):
 
     def step(self, dt: float) -> None:
         self.blocked = self.beam_blocked()
-        if self.blocked == self.detect:
-            self._pending_s = None
-        elif self._pending_s is None:
-            self._pending_s = 0.0  # first step that sees the change
-        else:
-            self._pending_s += dt
-        if self._pending_s is not None and self._pending_s >= DEBOUNCE_S - _EPS:
-            self.detect = self.blocked
-            self._pending_s = None
-        self.write("detect", self.detect)
+        self.write("detect", self._debounce.update(self.blocked, dt))
 
     def state(self) -> dict[str, Any]:
         return {"detect": self.detect, "blocked": self.blocked, "beam_offset_m": self.beam_offset}

@@ -95,7 +95,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 Buffer Batch Ready Photo Eye. Position [3.2, 0.1, 0.0].
 Part of `BUF`, a `gated_buffer` composite (PLAN 2.16).
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.6
+Parameters: `rotation_deg` 0.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
@@ -122,7 +122,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
 Outfeed Release Count Photo Eye. Position [4.16, 0.1, 0.0].
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.6
+Parameters: `rotation_deg` 0.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|

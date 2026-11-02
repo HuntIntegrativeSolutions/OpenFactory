@@ -100,7 +100,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
 Lane A Box Waiting Photo Eye. Position [3.75, 0.1, 0.0].
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.6
+Parameters: `rotation_deg` 0.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
@@ -141,7 +141,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
 Lane B Box Waiting Photo Eye. Position [4.4, 0.1, 0.65].
 
-Parameters: `rotation_deg` 90.0, `beam_length` 0.6
+Parameters: `rotation_deg` 90.0, `beam_length` 0.6, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
@@ -169,7 +169,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
 Turntable Straight-Through Photo Eye. Position [4.56, 0.1, 0.0].
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.4
+Parameters: `rotation_deg` 0.0, `beam_length` 0.4, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
@@ -181,7 +181,7 @@ Faults: `stuck_on`, `stuck_off`, `misaligned`, `noisy`
 
 Turntable Side Load Centred Photo Eye. Position [4.4, 0.1, -0.16].
 
-Parameters: `rotation_deg` 90.0, `beam_length` 0.4
+Parameters: `rotation_deg` 90.0, `beam_length` 0.4, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|

@@ -545,6 +545,14 @@
           "title": "Beam Length",
           "type": "number"
         },
+        "debounce_ms": {
+          "default": 0.0,
+          "description": "On/off debounce of match and detect, each on its own, milliseconds (PLAN 2.5b); 0 (the default) follows the part at the step boundary.",
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Debounce Ms",
+          "type": "number"
+        },
         "io": {
           "$ref": "#/$defs/ColorSensorIO"
         }
@@ -2009,6 +2017,14 @@
         "beam_length": {
           "exclusiveMinimum": 0,
           "title": "Beam Length",
+          "type": "number"
+        },
+        "debounce_ms": {
+          "default": 20.0,
+          "description": "On/off debounce of detect, milliseconds (PLAN 2.5b): a change must last this long to reach the PLC. 20 (one tick at 50 Hz) unless set.",
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Debounce Ms",
           "type": "number"
         },
         "io": {

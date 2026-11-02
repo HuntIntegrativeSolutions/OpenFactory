@@ -350,10 +350,11 @@ A through-beam photo eye. Origin: the beam midpoint; the beam spans local z.
 | Parameter | Default | Meaning |
 |---|---|---|
 | `beam_length` | required | Beam length, meters |
+| `debounce_ms` | 20 | On/off debounce of `detect`, milliseconds, 0 to 1000 (PLAN 2.5b); 20 is one tick at 50 Hz |
 
 | Port | Kind | Required | Meaning |
 |---|---|---|---|
-| `detect` | DI | yes | True while a part blocks the beam (20 ms debounce on both edges) |
+| `detect` | DI | yes | True while a part blocks the beam (`debounce_ms` debounce on both edges) |
 
 Faults: `stuck_on`, `stuck_off`, `misaligned`, `noisy` (misaligned moves the beam `offset_m` along
 the flow; positive sees late).
@@ -395,6 +396,7 @@ Origin: the sensor face.
 | `teach` | required | The taught color: `red`, `green`, `blue`, `yellow`, `white`, or `black` |
 | `axis` | `-y` | Beam direction: `-y` straight down, or `+z` across the flow (turned with the sensor) |
 | `beam_length` | 0.5 | Sensing range, meters |
+| `debounce_ms` | 0 | On/off debounce of `match` and `detect`, each on its own, milliseconds, 0 to 1000 (PLAN 2.5b); 0 follows the part at the step boundary |
 
 | Port | Kind | Required | Meaning |
 |---|---|---|---|

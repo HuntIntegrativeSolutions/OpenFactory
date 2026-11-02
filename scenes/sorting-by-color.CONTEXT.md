@@ -79,7 +79,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
 Sorting Line Red Box Color Sensor. Position [1.0, 0.6, 0.0].
 
-Parameters: `rotation_deg` 0.0, `teach` "red", `axis` "-y", `beam_length` 0.5
+Parameters: `rotation_deg` 0.0, `teach` "red", `axis` "-y", `beam_length` 0.5, `debounce_ms` 0.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|
@@ -121,7 +121,7 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow`
 
 Red Box Lane Arrival Photo Eye. Position [3.4, 0.1, 0.5].
 
-Parameters: `rotation_deg` 0.0, `beam_length` 0.5
+Parameters: `rotation_deg` 0.0, `beam_length` 0.5, `debounce_ms` 20.0
 
 | Port | Kind | Tag | What it is |
 |---|---|---|---|

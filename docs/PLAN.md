@@ -851,7 +851,7 @@ runs the sorting program against it; a box visibly gets pushed.
       pusher plates, stopper blades and diverter arms never trip one.
       *Ruled 2026-10-30:* `parity-turntable` stays informational under §9 rule 9; the seam loss
       is a 2.9 item ("Seam crossing").
-- [ ] 2.5b Components split from 2.5: `counter_display` (4-digit readout of an AO on a panel),
+- [x] 2.5b Components split from 2.5: `counter_display` (4-digit readout of an AO on a panel),
       `lift` (moves a short conveyor between two heights; at_top/at_bottom DIs), reversible belts
       (belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction
       arrow in the viewer), and the accumulation (zero-pressure) conveyor, the first
@@ -942,6 +942,13 @@ runs the sorting program against it; a box visibly gets pushed.
       penetration 0.0 m, measured before the change), so parity traces and kit recordings are
       unchanged; `contact` is not added to the component's state, and only the CONTEXT.md
       files list the new port.
+      *8. Sensor debounce settings, done (2026-11-02):* `photo_eye.debounce_ms` (default 20,
+      the old fixed value, so every trace is unchanged) and `color_sensor.debounce_ms`
+      (default 0, as before), 0 to 1000, through the shared `core/debounce.py` (the photo
+      eye's algorithm moved there unchanged: a change must hold on consecutive steps for the
+      debounce, from the first step that saw it). The color sensor debounces `match` and
+      `detect` each on its own. Parity traces, kit recordings and every other kit file are
+      byte-identical; CONTEXT.md files list the new parameter. With item 8, 2.5b is done.
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late
