@@ -604,6 +604,28 @@
       "title": "ColorSensorIO",
       "type": "object"
     },
+    "CompositeConnection": {
+      "additionalProperties": false,
+      "description": "A connection between two of a composite's own conveyor parts, by part id (PLAN 2.5b).",
+      "properties": {
+        "from": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "CompositeConnection",
+      "type": "object"
+    },
     "CompositeDef": {
       "additionalProperties": false,
       "description": "A component type declared in the scene from built-in parts (PLAN 2.16).",
@@ -669,6 +691,24 @@
             }
           },
           "title": "Io",
+          "type": "object"
+        },
+        "connections": {
+          "description": "Which of the composite's conveyor parts feeds which (part ids); expanded into the scene's connections (PLAN 2.5b).",
+          "items": {
+            "$ref": "#/$defs/CompositeConnection"
+          },
+          "title": "Connections",
+          "type": "array"
+        },
+        "logic": {
+          "description": "part.port (a built-in part's DO) -> a boolean expression over parts' DI/AI ports and the composite's `command` io names, evaluated each tick before the parts step (one tick of delay), e.g. z1.run: \"not (z1_eye.detect and z2_eye.detect)\" (PLAN 2.5b).",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$": {
+              "type": "string"
+            }
+          },
+          "title": "Logic",
           "type": "object"
         }
       },
@@ -761,7 +801,7 @@
     },
     "CompositeIo": {
       "additionalProperties": false,
-      "description": "One port of a composite type: a command passed `to` a part, or a DI/AI read `from` one.",
+      "description": "One port of a composite type: a command passed `to` a part, a DI/AI read `from` one, or a\n`command` only the composite's `logic:` reads (PLAN 2.5b).",
       "properties": {
         "to": {
           "anyOf": [
@@ -794,6 +834,20 @@
           "description": "With `to` on a DO: the part acts on the opposite.",
           "title": "Invert",
           "type": "boolean"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "const": "DO",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A PLC command (DO) read only by the composite's logic: block, by its io name (PLAN 2.5b); no part port is bound to it.",
+          "title": "Command"
         }
       },
       "title": "CompositeIo",
@@ -1426,6 +1480,24 @@
         "tag"
       ],
       "title": "DoTagSpec",
+      "type": "object"
+    },
+    "LibraryComposite": {
+      "additionalProperties": false,
+      "description": "A composite type loaded by name from ``_library/<name>.yaml`` beside the scene or in a\nfolder above it (PLAN 2.5b).",
+      "properties": {
+        "library": {
+          "description": "Type name; the file _library/<name>.yaml defines it.",
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Library",
+          "type": "string"
+        }
+      },
+      "required": [
+        "library"
+      ],
+      "title": "LibraryComposite",
       "type": "object"
     },
     "Lift": {
@@ -3402,9 +3474,16 @@
       }
     },
     "composites": {
-      "description": "Component types declared from built-in parts (PLAN 2.16); a component whose type names one is expanded into its parts at load.",
+      "description": "Component types declared from built-in parts (PLAN 2.16), or loaded by name from a _library/ folder ({library: name}, PLAN 2.5b); a component whose type names one is expanded into its parts at load.",
       "items": {
-        "$ref": "#/$defs/CompositeDef"
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CompositeDef"
+          },
+          {
+            "$ref": "#/$defs/LibraryComposite"
+          }
+        ]
       },
       "title": "Composites",
       "type": "array"

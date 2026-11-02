@@ -212,7 +212,7 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                             "from the parts")
                 )  # fmt: skip
     for d in scene.composites:
-        if not d.io:
+        if hasattr(d, "io") and not d.io:  # a {library: name} entry was checked in its file
             findings.append(
                 Finding("warning", "W208", f"composite {d.type} exposes no I/O (its io: block is "
                         "empty): no PLC can command or read an instance of it; add io entries "

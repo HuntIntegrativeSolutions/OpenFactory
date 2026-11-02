@@ -132,6 +132,8 @@ class Component(ABC):
         self.raw: dict[str, Value] = {}
         #: The injected fault, if any (PLAN 2.6).
         self.fault: Fault | None = None
+        #: Input ports a composite's logic: block drives (PLAN 2.5b): read instead of a tag.
+        self.driven: dict[str, Value] = {}
 
     @property
     def type(self) -> str:
@@ -153,8 +155,11 @@ class Component(ABC):
         }
 
     def read(self, port: str, default: Value) -> Value:
-        """Current value of an input port, or ``default`` when the port is unbound."""
+        """Current value of an input port, or ``default`` when the port is unbound. A port a
+        composite's logic drives (PLAN 2.5b) reads the logic's value."""
         self._check_port(port, plc_writes=True)
+        if port in self.driven:
+            return self.driven[port]
         tag = self.bindings.get(port)
         if tag is None:
             return default

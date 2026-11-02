@@ -11,6 +11,8 @@ Behavior spec
 - for a Modbus scene, both address lockfiles (ADR-0004). A lockfile on disk must already match the
   scene (it is never changed by bundling); a missing one is generated exactly as ``run`` or
   ``export`` would write it, seeded from the other encoding's digital addresses;
+- every library composite the scene uses (PLAN 2.5b), as ``_library/<name>.yaml`` beside the
+  scene, where the loader finds it when the bundle is opened;
 - the stand-in PLC script (PLAN 2.10), if any: ``--script F.py``, else ``<scene>.py`` beside the
   scene, else ``examples/pyplc/<scene>.py`` in the nearest folder above the scene that has one;
   ``--no-script`` leaves it out. It is stored as ``scripts/<file>``;
@@ -72,7 +74,7 @@ MAX_TOTAL_BYTES = 256 * 1024 * 1024
 
 _DATE = (1980, 1, 1, 0, 0, 0)
 _MODE = 0o100644 << 16  # a regular file, rw-r--r--
-ROLES = ("scene", "lockfile", "mesh", "license", "script")
+ROLES = ("scene", "lockfile", "mesh", "license", "script", "composite")
 
 
 class BundleError(ValueError):
@@ -197,6 +199,8 @@ def collect(
     if scene.plc.protocol == "modbus_tcp":
         files += _lockfiles(scene, scene_path)
     files += _meshes(scene, scene_path)
+    for library in scene.library_files():  # PLAN 2.5b
+        files.append(BundleFile(f"_library/{library.name}", "composite", library.read_bytes()))
     script_path = None if no_script else (Path(script) if script else find_script(scene_path))
     inner = None
     if script_path is not None:

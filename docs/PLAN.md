@@ -903,6 +903,19 @@ runs the sorting program against it; a box visibly gets pushed.
       `bidirectional` parameter). Viewer: a direction arrow on the near rail; Rapier carries
       parts back at the negative belt speed. `tests/scenes/demo-reversing.yaml`: 3 boxes on to
       REM_FWD and 2 back across the seam to REM_BACK in 60 s, none lost.
+      *4. Composite logic and the accumulation conveyor, done (2026-11-01):* `logic:` drives a
+      built-in part's DO port from an expression over parts' DI/AI ports and `{command: DO}` io
+      names, evaluated each tick before the parts step (`core/logic.py`, one tick of delay); the
+      port has no tag, and exposing it in io too is a load error naming both. Composites gain
+      `connections:` between their own conveyors. `{library: name}` loads
+      `_library/<name>.yaml` beside the scene or above it, and bundles carry it. First entry:
+      `scenes/_library/accumulation_conveyor.yaml` (four zones, `release` DO, four zone eyes).
+      `scenes/examples/accumulation-demo.yaml` under its script: four boxes rest one per zone,
+      no zone empty between them, 0.69-0.71 m apart (none touching); on release zone 4 starts
+      at once and each zone behind starts the tick after the eye ahead clears (14.00 -> 14.02,
+      14.60 -> 14.62, 15.20 -> 15.22 s); lint 0 errors 0 warnings; bundled, it passes its
+      checks from the `.ofz`. Read "zero gaps" as no empty zone between held boxes and "no
+      pressure" as no box touching another.
 - [x] 2.6 `fault_inject` API on all components + `/api/fault` endpoint + viewer context menu.
       Taxonomy (per component where meaningful): `stuck_on`, `stuck_off`, `jammed` (actuator or belt
       stops moving, feedback honest), `slow` (actuator at 50 % speed), `misaligned` (sensor sees late

@@ -187,6 +187,7 @@ def _components(scene: Scene) -> list[str]:
     bound: dict[str, dict[str, str]] = {}
     for b in scene.tag_bindings():
         bound.setdefault(b.component_id, {})[b.port.name] = b.name
+    driven = {(d.part_id, d.port): d.local for d in scene.logic_drives()}
     lines = ["## Components", ""]
     for comp in scene.components:
         lines.append(f"### {comp.id} ({comp.type})")
@@ -212,10 +213,18 @@ def _components(scene: Scene) -> list[str]:
         for port, spec in specs.items():
             tag = bound.get(comp.id, {}).get(port)
             shown = f"`{tag}`" if tag else ("unbound (required)" if spec.required else "unbound")
+            if (comp.id, port) in driven:
+                shown = f"driven by the composite's logic: `{_cell(driven[comp.id, port])}`"
             lines.append(f"| {port} | {spec.kind} | {shown} | {_cell(spec.description)} |")
         for port, tag in bound.get(comp.id, {}).items():
-            if port not in specs:  # a composite's computed DI, listed after its component
-                lines.append(f"| {port} | DI | `{tag}` | computed from the parts' ports |")
+            if port not in specs:  # a composite's computed DI or command, after its component
+                kind = next(b.kind for b in scene.tag_bindings() if b.name == tag)
+                what = (
+                    "command read by the composite's logic"
+                    if kind == "DO"
+                    else "computed from the parts' ports"
+                )
+                lines.append(f"| {port} | {kind} | `{tag}` | {what} |")
         faults = REGISTRY.resolve(comp.type).FAULTS
         lines += ["", "Faults: " + (", ".join(f"`{k}`" for k in faults) if faults else "none"), ""]
     return lines

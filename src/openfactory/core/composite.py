@@ -26,6 +26,23 @@ Expansion of an instance ``ID``:
   instance sets a parameter by giving it as a field (``length: 3.0``);
 - the instance's ``io`` bindings move to the parts' ports, so tag names are the instance's own.
 
+Additions of PLAN 2.5b:
+
+- ``name: {command: DO}``: a PLC command the instance binds to a tag like any io, but that no
+  part port receives: only the ``logic:`` block reads it, by its io name. Required on an instance.
+- ``logic:`` maps a built-in part's DO port (``z1.run``) to a boolean expression over parts'
+  DI/AI ports and the composite's ``command`` names, in the grammar of computed DIs. Each tick,
+  before the parts step, the expression is evaluated with the parts' DI/AI values from the end
+  of the previous tick (one tick of delay) and the part reads the result on that port instead
+  of a tag; the port has no tag, so no PLC can see or write it. A port driven by logic cannot
+  also be exposed in ``io`` (a load error naming both), and counts as wired for the
+  unexposed-port check.
+- ``connections:`` joins the composite's own conveyor parts by part id, expanded into the
+  scene's connections (``z1 -> z2`` becomes ``ACC_Z1 -> ACC_Z2``).
+- ``composites: [{library: name}]`` loads ``_library/<name>.yaml`` (``openfactory: "0.1"`` and a
+  ``composite:`` definition whose type is ``name``) from the scene's folder or the nearest folder
+  above it that has one; the files used are listed for bundles (PLAN 2.18).
+
 Load errors, each naming what is wrong: an unknown or duplicate type, a type that shadows a
 built-in, a recursive definition (the cycle is named, ``a -> b -> a``), nesting more than one
 level, a part ``io``, an ``io`` entry naming an unknown part or port or a port of the wrong
@@ -38,8 +55,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import yaml
 from pydantic import TypeAdapter, ValidationError
 
 from openfactory.core.expr import ExprError, number, parse
@@ -52,6 +71,20 @@ if TYPE_CHECKING:
 SINGLE_REF = re.compile(r"^\s*([a-z][a-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s*$")
 _REF_IN_TEXT = re.compile(r"(?<![\w.])([a-z][a-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)")
 _PLACEMENT = ("id", "type", "description", "position", "rotation_deg")
+#: Stands in for a logic-driven port's binding while the part is validated, then is removed.
+_LOGIC_PLACEHOLDER = "LOGIC_PLACEHOLDER_DO"
+LIBRARY_DIR = "_library"
+
+
+@dataclass(frozen=True)
+class LogicDrive:
+    """One part port driven by a composite's logic: block (PLAN 2.5b), after expansion."""
+
+    part_id: str  # expanded part id, e.g. ACC_Z1
+    port: str  # its DO port, e.g. run
+    text: str  # the expression with expanded refs, e.g. "not (ACC_Z1_EYE.detect and ...)"
+    local: str  # the expression as the composite wrote it
+    commands: dict[str, str]  # command io name -> the instance's tag
 
 
 @dataclass
@@ -65,6 +98,15 @@ class Expansion:
     #: Computed DIs (expression ``from:``): (after component id, io name, binding, expanded
     #: expression, the expression as the composite wrote it).
     computed: list[tuple[str, str, Any, str, str]] = field(default_factory=list)
+    #: Command io (PLAN 2.5b): (owner part id, io name, the instance's binding, the instance's
+    #: description).
+    commands: list[tuple[str, str, Any, str]] = field(default_factory=list)
+    #: Part ports driven by logic: blocks (PLAN 2.5b).
+    logic: list[LogicDrive] = field(default_factory=list)
+    #: Connections between composites' own parts, expanded ids (PLAN 2.5b).
+    connections: list[tuple[str, str]] = field(default_factory=list)
+    #: Library files the scene's composites came from (PLAN 2.5b).
+    libraries: list[Path] = field(default_factory=list)
 
 
 def ports_of(type_name: str, defs: dict[str, CompositeDef]) -> dict[str, str]:
@@ -77,6 +119,9 @@ def ports_of(type_name: str, defs: dict[str, CompositeDef]) -> dict[str, str]:
     d = defs[type_name]
     kinds = {}
     for name, spec in d.io.items():
+        if spec.command:
+            kinds[name] = spec.command
+            continue
         part, _, port = (spec.to or spec.from_ or "").partition(".")
         inner = next((p for p in d.parts if p["id"] == part), None)
         sub = ports_of(inner["type"], defs).get(port) if inner and SINGLE_REF.match(
@@ -96,6 +141,9 @@ def required_ports(type_name: str, defs: dict[str, CompositeDef]) -> set[str]:
     d = defs[type_name]
     out = set()
     for name, spec in d.io.items():
+        if spec.command:
+            out.add(name)  # the logic reads it, so an instance must bind it
+            continue
         single = SINGLE_REF.match(spec.to or spec.from_ or "")
         if single:
             part, port = single.groups()
@@ -153,6 +201,8 @@ def _check_io(d: CompositeDef, defs: dict[str, CompositeDef]) -> None:
     driven: dict[str, str] = {}
     for name, spec in d.io.items():
         where = f"composite {d.type}: io.{name}"
+        if spec.command:
+            continue  # read by logic: only; no part port
         text = spec.to or spec.from_ or ""
         single = SINGLE_REF.match(text)
         if spec.to and not single:
@@ -196,6 +246,9 @@ def _check_io(d: CompositeDef, defs: dict[str, CompositeDef]) -> None:
             if target in driven:
                 raise ValueError(f"{where}: {target} is already bound by io.{driven[target]}")
             driven[target] = name
+    for target in _check_logic(d, defs, driven):
+        driven[target] = f"logic {target}"
+    _check_connections(d)
     for part_id, part in parts.items():
         kinds = ports_of(part["type"], defs)
         for port in sorted(required_ports(part["type"], defs)):
@@ -205,6 +258,118 @@ def _check_io(d: CompositeDef, defs: dict[str, CompositeDef]) -> None:
                     f"composite {d.type}: part {part_id}'s required port {port!r} is unexposed; "
                     f"add it to io, for example `{part_id}_{port}: {{{way}: {part_id}.{port}}}`"
                 )
+
+
+def _check_logic(
+    d: CompositeDef, defs: dict[str, CompositeDef], driven: dict[str, str]
+) -> list[str]:
+    """Check a composite's logic: block; return the part ports it drives."""
+    from openfactory.core.schema import COMPONENT_MODELS
+
+    parts = {p["id"]: p for p in d.parts}
+    commands = {n for n, spec in d.io.items() if spec.command}
+    targets = []
+    for target, text in d.logic.items():
+        where = f"composite {d.type}: logic {target}"
+        part_id, port = target.split(".")
+        if part_id not in parts:
+            raise ValueError(f"{where}: no part {part_id!r} (parts: {', '.join(parts)})")
+        if parts[part_id]["type"] not in COMPONENT_MODELS:
+            raise ValueError(f"{where}: logic drives built-in parts' ports only")
+        kinds = ports_of(parts[part_id]["type"], defs)
+        if port not in kinds:
+            raise ValueError(
+                f"{where}: {parts[part_id]['type']} part {part_id} has no port {port!r} "
+                f"(ports: {', '.join(kinds)})"
+            )
+        if kinds[port] != "DO":
+            raise ValueError(f"{where}: {target} is a {kinds[port]} port; logic drives DO ports")
+        if target in driven:
+            raise ValueError(
+                f"{where}: io.{driven[target]} also drives {target}; a part command driven by "
+                "logic cannot also be exposed in io"
+            )
+        try:
+            expr = parse(text, refs=True)
+        except ExprError as exc:
+            raise ValueError(f"{where}: {exc}") from None
+        unknown = [n for n in expr.names if n not in commands]
+        if unknown:
+            known = ", ".join(sorted(commands)) or "none"
+            raise ValueError(
+                f"{where}: {unknown[0]!r} is not a command io of {d.type} (commands: {known}); "
+                "use part.port for a part's DI/AI"
+            )
+        kinds_of_refs: dict[str, str] = dict.fromkeys(expr.names, "DI")
+        for ref in expr.refs:
+            ref_part, ref_port = ref.split(".")
+            if ref_part not in parts or parts[ref_part]["type"] not in COMPONENT_MODELS:
+                raise ValueError(f"{where}: {ref!r} is not a port of a built-in part")
+            ref_kinds = ports_of(parts[ref_part]["type"], defs)
+            if ref_kinds.get(ref_port) not in ("DI", "AI"):
+                raise ValueError(f"{where}: {ref!r} is not a DI or AI port")
+            kinds_of_refs[ref] = ref_kinds[ref_port]
+        _probe(expr, kinds_of_refs, where)
+        targets.append(target)
+    return targets
+
+
+def _check_connections(d: CompositeDef) -> None:
+    from openfactory.core.schema import CARRIER_TYPES
+
+    parts = {p["id"]: p for p in d.parts}
+    for conn in d.connections:
+        for end in (conn.from_, conn.to):
+            if end not in parts:
+                raise ValueError(
+                    f"composite {d.type}: connection names no part {end!r} "
+                    f"(parts: {', '.join(parts)})"
+                )
+            if parts[end]["type"] not in CARRIER_TYPES:
+                raise ValueError(
+                    f"composite {d.type}: connection end {end} is a {parts[end]['type']}, "
+                    "not a built-in conveyor"
+                )
+
+
+def find_library(name: str, scene_dir: Path) -> Path | None:
+    """``_library/<name>.yaml`` in ``scene_dir`` or the nearest folder above it, or None."""
+    folder = Path(scene_dir).resolve()
+    for candidate in (folder, *folder.parents):
+        path = candidate / LIBRARY_DIR / f"{name}.yaml"
+        if path.is_file():
+            return path
+    return None
+
+
+def _library(name: str, scene_dir: Path | None) -> tuple[CompositeDef, Path]:
+    from openfactory.core.schema import SCHEMA_VERSION, CompositeDef, _SceneYamlLoader
+
+    if scene_dir is None:
+        raise ValueError(
+            f"library composite {name!r}: the scene was not loaded from a file, so there is no "
+            f"folder to look for {LIBRARY_DIR}/{name}.yaml in"
+        )
+    path = find_library(name, scene_dir)
+    if path is None:
+        raise ValueError(
+            f"library composite {name!r}: no {LIBRARY_DIR}/{name}.yaml in {scene_dir} or a folder "
+            "above it"
+        )
+    data = yaml.load(path.read_text(encoding="utf-8"), Loader=_SceneYamlLoader)  # noqa: S506
+    if not isinstance(data, dict) or set(data) != {"openfactory", "composite"}:
+        raise ValueError(f"{path}: a library file holds `openfactory` and `composite` only")
+    if str(data["openfactory"]) != SCHEMA_VERSION:
+        raise ValueError(
+            f"{path}: openfactory {data['openfactory']!r}, expected {SCHEMA_VERSION!r}"
+        )
+    try:
+        d = CompositeDef.model_validate(data["composite"])
+    except ValidationError as exc:
+        raise ValueError(f"{path}: {exc}") from None
+    if d.type != name:
+        raise ValueError(f"{path}: defines composite type {d.type!r}, not {name!r}")
+    return d, path
 
 
 #: AI readings to evaluate a computed DI with at load; two, so a denominator that is zero for one
@@ -253,14 +418,23 @@ def _invert(binding: Any) -> Any:
     return {"tag": binding, "invert": True}
 
 
-def expand(scene: Scene) -> Expansion:
-    """Replace every composite instance in ``scene.components`` by its parts (in place)."""
-    from openfactory.core.schema import CompositeInstance
+def expand(scene: Scene, scene_dir: Path | None = None) -> Expansion:
+    """Replace every composite instance in ``scene.components`` by its parts (in place).
+    ``scene_dir`` is where library composites are looked up (PLAN 2.5b)."""
+    from openfactory.core.schema import CompositeInstance, Connection, LibraryComposite
 
     out = Expansion()
     if not scene.composites and not any(isinstance(c, CompositeInstance) for c in scene.components):
         return out
-    defs = check_definitions(scene.composites)
+    resolved = []
+    for entry in scene.composites:
+        if isinstance(entry, LibraryComposite):
+            d, path = _library(entry.library, scene_dir)
+            resolved.append(d)
+            out.libraries.append(path)
+        else:
+            resolved.append(entry)
+    defs = check_definitions(resolved)
     flat: list[Any] = []
     for comp in scene.components:
         if not isinstance(comp, CompositeInstance):
@@ -281,6 +455,11 @@ def expand(scene: Scene) -> Expansion:
         out.instance_type[comp.id] = comp.type
         flat.extend(parts)
     scene.components = flat
+    if out.connections:
+        scene.connections = [
+            *scene.connections,
+            *(Connection.model_validate({"from": a, "to": b}) for a, b in out.connections),
+        ]
     return out
 
 
@@ -316,8 +495,14 @@ def _instance(
             target = d.io[name].to or d.io[name].from_
             raise ValueError(f"{where}: io.{name} is required (it binds {target}, a required port)")
     to_part: dict[str, dict[str, Any]] = {}
+    logic_ports: dict[str, list[str]] = {}
+    for target in d.logic:
+        part_id, port = target.split(".")
+        logic_ports.setdefault(part_id, []).append(port)
     for name, spec in d.io.items():
         binding = io.get(name)
+        if spec.command:
+            continue
         single = SINGLE_REF.match(spec.to or spec.from_ or "")
         if binding is None or not single:
             continue
@@ -348,11 +533,37 @@ def _instance(
                                placed["rotation_deg"], fields, to_part.get(part["id"], {}), defs,
                                out)  # fmt: skip
             continue
-        data = {**placed, "type": part["type"], **fields, "io": to_part.get(part["id"], {})}
+        part_io = dict(to_part.get(part["id"], {}))
+        driven = logic_ports.get(part["id"], [])
+        for port in driven:  # satisfies a required port while validating; removed below
+            part_io[port] = _LOGIC_PLACEHOLDER
+        data = {**placed, "type": part["type"], **fields, "io": part_io}
         try:
-            built.append(adapter.validate_python(data))
+            model = adapter.validate_python(data)
         except ValidationError as exc:
             raise ValueError(f"{pwhere}: {exc}") from None
+        if driven:
+            from openfactory.core.schema import port_specs
+
+            specs = port_specs(type(model.io))
+            for port in driven:  # the port has no tag: the logic stage drives it
+                object.__setattr__(model.io, specs[port].attr or port, None)
+        built.append(model)
+    commands = {name: io[name] for name, spec in d.io.items() if spec.command}
+    if commands and built:
+        for name, binding in commands.items():
+            out.commands.append((built[0].id, name, binding, description))
+    from openfactory.core.schema import binding_tag
+
+    command_tags = {name: binding_tag(binding) for name, binding in commands.items()}
+    for target, text in d.logic.items():
+        part_id, port = target.split(".")
+        expanded = _REF_IN_TEXT.sub(lambda m: f"{inst_id}_{m[1].upper()}.{m[2]}", text)
+        out.logic.append(
+            LogicDrive(f"{inst_id}_{part_id.upper()}", port, expanded, text, command_tags)
+        )
+    for conn in d.connections:
+        out.connections.append((f"{inst_id}_{conn.from_.upper()}", f"{inst_id}_{conn.to.upper()}"))
     for name, spec in d.io.items():
         binding = io.get(name)
         if binding is None or not spec.from_ or SINGLE_REF.match(spec.from_):

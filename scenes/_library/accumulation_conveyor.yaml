@@ -1,0 +1,55 @@
+# OpenFactory library composite (PLAN 2.5b): a zero-pressure accumulation conveyor, four zones.
+# Use it from a scene with `composites: [{library: accumulation_conveyor}]`; the file is found in
+# _library/ beside the scene or in a folder above it. Training and demo use only. Not a
+# safety-rated simulation.
+openfactory: "0.1"
+composite:
+  type: accumulation_conveyor
+  description: >-
+    Zero-pressure accumulation conveyor of four equal zones, each a belt with a photo eye near
+    its discharge end. A zone holding a box stops while the zone ahead also holds one, so boxes
+    wait one per zone without touching; `release` runs the last zone, and each zone behind
+    starts as the zone ahead empties.
+  params:
+    zone_length: 1.0     # meters per zone
+    width: 0.5
+    speed_mps: 0.5
+    eye_setback: 0.15    # the eye's distance before its zone's discharge end
+    eye_height: 0.05     # beam height above the belt
+  parts:
+    - {id: z1, type: belt_conveyor, description: Zone 1 Belt, position: [0, 0, 0],
+       length: "{zone_length}", width: "{width}", speed_mps: "{speed_mps}"}
+    - {id: z2, type: belt_conveyor, description: Zone 2 Belt, position: ["{zone_length}", 0, 0],
+       length: "{zone_length}", width: "{width}", speed_mps: "{speed_mps}"}
+    - {id: z3, type: belt_conveyor, description: Zone 3 Belt,
+       position: ["2 * {zone_length}", 0, 0],
+       length: "{zone_length}", width: "{width}", speed_mps: "{speed_mps}"}
+    - {id: z4, type: belt_conveyor, description: Zone 4 Belt,
+       position: ["3 * {zone_length}", 0, 0],
+       length: "{zone_length}", width: "{width}", speed_mps: "{speed_mps}"}
+    - {id: z1_eye, type: photo_eye, description: Zone 1 Photo Eye,
+       position: ["{zone_length} - {eye_setback}", "{eye_height}", 0], beam_length: "{width} + 0.1"}
+    - {id: z2_eye, type: photo_eye, description: Zone 2 Photo Eye,
+       position: ["2 * {zone_length} - {eye_setback}", "{eye_height}", 0],
+       beam_length: "{width} + 0.1"}
+    - {id: z3_eye, type: photo_eye, description: Zone 3 Photo Eye,
+       position: ["3 * {zone_length} - {eye_setback}", "{eye_height}", 0],
+       beam_length: "{width} + 0.1"}
+    - {id: z4_eye, type: photo_eye, description: Zone 4 Photo Eye,
+       position: ["4 * {zone_length} - {eye_setback}", "{eye_height}", 0],
+       beam_length: "{width} + 0.1"}
+  connections:
+    - {from: z1, to: z2}
+    - {from: z2, to: z3}
+    - {from: z3, to: z4}
+  io:
+    release: {command: DO}
+    zone1_eye: {from: z1_eye.detect}
+    zone2_eye: {from: z2_eye.detect}
+    zone3_eye: {from: z3_eye.detect}
+    zone4_eye: {from: z4_eye.detect}
+  logic:
+    z1.run: "not (z1_eye.detect and z2_eye.detect)"
+    z2.run: "not (z2_eye.detect and z3_eye.detect)"
+    z3.run: "not (z3_eye.detect and z4_eye.detect)"
+    z4.run: "release or not z4_eye.detect"

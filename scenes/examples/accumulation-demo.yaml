@@ -1,0 +1,54 @@
+# PLAN 2.5b library example (not a shipped scene): an infeed belt feeds the four-zone
+# accumulation conveyor from scenes/_library/. The stand-in script beside it
+# (accumulation-demo.py) lets four boxes accumulate, one per zone, then releases them.
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: accumulation-demo
+  description: Four boxes accumulate one per zone on a zero-pressure conveyor, then release.
+  author: HIS Controls
+  seed: 13
+plc:
+  protocol: modbus_tcp
+checks:
+  duration_s: 60
+  parts_reached: {REM_01: box}
+  none_lost: true
+composites:
+  - {library: accumulation_conveyor}
+components:
+  - id: CONV_IN
+    type: belt_conveyor
+    description: Accumulation Infeed Belt Conveyor
+    position: [0, 0, 0]
+    length: 1.5
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_IN_RUN_DO
+  - id: EMT_01
+    type: box_emitter
+    description: Accumulation Infeed Box Source
+    position: [0.3, 0.155, 0]
+    interval_s: 2.5
+    parts:
+      - {name: box, size: [0.3, 0.3, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: ACC
+    type: accumulation_conveyor
+    description: Zero-Pressure Accumulation Conveyor
+    position: [1.5, 0, 0]
+    io:
+      release: ACC_REL_DO
+      zone1_eye: ACC_Z1_DI
+      zone2_eye: ACC_Z2_DI
+      zone3_eye: ACC_Z3_DI
+      zone4_eye: ACC_Z4_DI
+  - id: REM_01
+    type: part_remover
+    description: Accumulation Discharge Part Remover
+    position: [5.65, 0, 0]
+    size: [0.3, 1.0, 1.0]
+connections:
+  - {from: CONV_IN, to: ACC_Z1}

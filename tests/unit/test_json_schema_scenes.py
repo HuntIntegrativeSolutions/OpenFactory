@@ -35,7 +35,11 @@ def _scene_files() -> list[Path]:
         *REPO.glob("tests/scenes/*.yaml"),
         *REPO.glob("kits/*/*.yaml"),
     ]
-    return sorted(p for p in found if not p.name.endswith(".modbus.yaml"))
+    return sorted(
+        p
+        for p in found
+        if not p.name.endswith(".modbus.yaml") and "_library" not in p.parts  # library files
+    )
 
 
 SCENES = _scene_files()
@@ -70,7 +74,7 @@ def test_every_scene_kind_is_covered():
 @pytest.mark.parametrize("path", SCENES, ids=lambda p: p.relative_to(REPO).as_posix())
 def test_scene_is_valid_against_the_exported_json_schema(validator, path):
     data = _read(path)
-    parse_scene(path.read_text(encoding="utf-8"))  # the loader accepts it too
+    parse_scene(path.read_text(encoding="utf-8"), path.parent)  # the loader accepts it too
     assert _errors(validator, data) == []
 
 

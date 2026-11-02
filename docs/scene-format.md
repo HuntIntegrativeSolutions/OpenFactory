@@ -228,3 +228,44 @@ components:
   instance.
 - Example: `scenes/buffer-and-release.yaml` (one `gated_buffer` instance, `BUF`) and
   `tests/scenes/gated-conveyor.yaml` (two `gated_conveyor` instances with a computed DI).
+
+### Logic, commands, connections and library composites (PLAN 2.5b)
+
+A composite can carry its own control, join its own conveyors, and live in a shared file:
+
+```yaml
+    io:
+      release: {command: DO}             # a PLC command only the logic reads
+      zone4_eye: {from: z4_eye.detect}
+    connections:                         # between the composite's own conveyor parts
+      - {from: z3, to: z4}
+    logic:                               # part DO port: boolean expression
+      z3.run: "not (z3_eye.detect and z4_eye.detect)"
+      z4.run: "release or not z4_eye.detect"
+```
+
+- **`logic:`** drives a built-in part's DO port from an expression over parts' DI/AI ports and
+  the composite's `command` names (the grammar of a computed DI). It runs every tick before the
+  parts step, with the values parts wrote at the end of the previous tick (each port's own
+  output, faults included, before any binding transform): one tick of delay. A driven port has
+  no tag, so no PLC sees or writes it, and it counts as wired for the required-port rule. A port
+  driven by logic cannot also be exposed in `io` (a load error naming both). The scene's
+  CONTEXT.md shows each driven port with its expression.
+- **`{command: DO}`** is an `io` entry with no part port: the instance binds it to a tag the PLC
+  writes, and only `logic:` reads it, by its name. An instance must bind it. The I/O list
+  describes it as `"<instance description> — <name> command"`.
+- **`connections:`** joins two of the composite's conveyor parts by part id; each instance adds
+  `<ID>_<A> -> <ID>_<B>` to the scene's connections.
+- **Library composites.** `composites: [{library: accumulation_conveyor}]` loads
+  `_library/accumulation_conveyor.yaml` from the scene's folder or the nearest folder above it
+  that has one. The file holds `openfactory: "0.1"` and one `composite:` definition whose type is
+  the file's name. A bundle (`openfactory bundle`) carries every library file the scene uses, as
+  `_library/<name>.yaml` beside the scene.
+- **The first library entry**, `scenes/_library/accumulation_conveyor.yaml`: a zero-pressure
+  accumulation conveyor of four zones (parameters `zone_length` 1.0, `width` 0.5, `speed_mps`
+  0.5, `eye_setback` 0.15, `eye_height` 0.05), each a belt with an eye near its discharge end.
+  A zone holding a box stops while the zone ahead holds one, so boxes wait one per zone without
+  touching; `release` (DO) runs the last zone, and each zone behind starts the tick after the
+  zone ahead empties. It exposes `release` and `zone1_eye` to `zone4_eye` (DI). Example:
+  `scenes/examples/accumulation-demo.yaml` with its script (not a shipped scene; a scene in
+  `tests/scenes/` would not find `scenes/_library/`).

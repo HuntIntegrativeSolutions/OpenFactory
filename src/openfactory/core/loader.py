@@ -45,6 +45,7 @@ from openfactory.core.geometry import to_world
 from openfactory.core.heartbeat import HEARTBEAT_TAG, heartbeat_tag, heartbeat_value
 from openfactory.core.iotable import IOTable, Tag, Writer
 from openfactory.core.kinematics import KinematicModel
+from openfactory.core.logic import LogicStage
 from openfactory.core.schema import CARRIER_TYPES, TURNING_TYPES, Scene, load_scene
 from openfactory.core.sizing import resolve_defaults
 from openfactory.core.transforms import TransformStage
@@ -71,6 +72,8 @@ class LoadedScene:
     warnings: list[str] = field(default_factory=list)
     #: Binding-level signal transforms (PLAN 2.17), applied after the components each tick.
     transforms: TransformStage | None = None
+    #: Composite logic: blocks (PLAN 2.5b), evaluated before the components each tick.
+    logic: LogicStage | None = None
     #: Custom meshes (PLAN 2.15) that resolved to a usable file: component id -> file.
     meshes: dict[str, Path] = field(default_factory=dict)
     #: Exam mode (PLAN 2.11): ``exam: switch`` tag -> the operator switch's position, written
@@ -99,6 +102,8 @@ class LoadedScene:
         Never reads the clock."""
         self.world.tick = self.tick + 1  # parts spawned in this tick carry its number
         self.kinematics.step(dt)
+        if self.logic is not None:
+            self.logic.step()  # composite logic: values from the end of the last tick
         for comp in self.components:
             comp.tick(dt)  # advances an injected fault's clock, then steps
         if self.transforms is not None:
@@ -124,7 +129,8 @@ def build_iotable(scene: Scene) -> IOTable:
             Tag.new(
                 binding.name,
                 binding.kind,  # type: ignore[arg-type]
-                description=f"{descriptions[binding.component_id]} — {binding.description}",
+                description=binding.tag_description
+                or f"{descriptions[binding.component_id]} — {binding.description}",
                 owner=binding.component_id,
                 range=binding.port.range,
                 units=binding.port.units,
@@ -221,6 +227,9 @@ def build(
         log.warning("%s: %s", scene.scene.name, warning)
     transforms = TransformStage.build(io, components, scene.tag_bindings())
     transforms.prime()
+    logic = LogicStage.build(io, components, scene.logic_drives()) if scene.logic_drives() else None
+    if logic is not None:
+        logic.prime()
     return LoadedScene(
         scene,
         io,
@@ -230,6 +239,7 @@ def build(
         warnings=warnings,
         transforms=transforms,
         meshes=meshes,
+        logic=logic,
     )
 
 

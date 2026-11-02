@@ -40,6 +40,7 @@ from pydantic import (
     PrivateAttr,
     StringConstraints,
     Tag,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -885,7 +886,8 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
 
 
 class CompositeIo(StrictModel):
-    """One port of a composite type: a command passed `to` a part, or a DI/AI read `from` one."""
+    """One port of a composite type: a command passed `to` a part, a DI/AI read `from` one, or a
+    `command` only the composite's `logic:` reads (PLAN 2.5b)."""
 
     to: str | None = Field(None, description="part.port: the DO/AO this port drives.")
     from_: str | None = Field(
@@ -895,12 +897,24 @@ class CompositeIo(StrictModel):
         'DI/AI ports, e.g. "gate.raised and not belt.running" (a computed DI).',
     )
     invert: bool = Field(False, description="With `to` on a DO: the part acts on the opposite.")
+    command: Literal["DO"] | None = Field(
+        None,
+        description="A PLC command (DO) read only by the composite's logic: block, by its io "
+        "name (PLAN 2.5b); no part port is bound to it.",
+    )
 
     @model_validator(mode="after")
     def _one_direction(self) -> CompositeIo:
-        if (self.to is None) == (self.from_ is None):
-            raise ValueError("a composite io entry has exactly one of `to` or `from`")
+        if sum(v is not None for v in (self.to, self.from_, self.command)) != 1:
+            raise ValueError("a composite io entry has exactly one of `to`, `from` or `command`")
         return self
+
+
+class CompositeConnection(StrictModel):
+    """A connection between two of a composite's own conveyor parts, by part id (PLAN 2.5b)."""
+
+    from_: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")] = Field(alias="from")
+    to: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")]
 
 
 class CompositeDef(StrictModel):
@@ -930,6 +944,20 @@ class CompositeDef(StrictModel):
     io: dict[Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")], CompositeIo] = Field(
         default_factory=dict, description="The instance's ports."
     )
+    connections: list[CompositeConnection] = Field(
+        default_factory=list,
+        description="Which of the composite's conveyor parts feeds which (part ids); expanded "
+        "into the scene's connections (PLAN 2.5b).",
+    )
+    logic: dict[
+        Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$")], str
+    ] = Field(
+        default_factory=dict,
+        description="part.port (a built-in part's DO) -> a boolean expression over parts' DI/AI "
+        "ports and the composite's `command` io names, evaluated each tick before the parts "
+        'step (one tick of delay), e.g. z1.run: "not (z1_eye.detect and z2_eye.detect)" '
+        "(PLAN 2.5b).",
+    )
 
     @field_validator("parts")
     @classmethod
@@ -949,6 +977,15 @@ class CompositeDef(StrictModel):
                 )
             seen.add(pid)
         return parts
+
+
+class LibraryComposite(StrictModel):
+    """A composite type loaded by name from ``_library/<name>.yaml`` beside the scene or in a
+    folder above it (PLAN 2.5b)."""
+
+    library: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=64)] = Field(
+        description="Type name; the file _library/<name>.yaml defines it."
+    )
 
 
 class CompositeInstance(StrictModel):
@@ -1037,6 +1074,9 @@ class TagBinding:
     transform: Transform = Transform()
     #: Marked ``exam: switch``: in exam mode an operator switch drives the tag (PLAN 2.11).
     exam: bool = False
+    #: The tag's whole description when it is not "<component> — <port>": a composite's
+    #: command, described by its instance (PLAN 2.5b).
+    tag_description: str | None = None
 
     @property
     def description(self) -> str:
@@ -1075,10 +1115,11 @@ class Scene(StrictModel):
     openfactory: Literal["0.1"]
     scene: SceneMeta
     plc: PlcConfig = PlcConfig()
-    composites: list[CompositeDef] = Field(
+    composites: list[CompositeDef | LibraryComposite] = Field(
         default_factory=list,
-        description="Component types declared from built-in parts (PLAN 2.16); a component whose "
-        "type names one is expanded into its parts at load.",
+        description="Component types declared from built-in parts (PLAN 2.16), or loaded by name "
+        "from a _library/ folder ({library: name}, PLAN 2.5b); a component whose type names one "
+        "is expanded into its parts at load.",
     )
     components: list[SceneComponent] = Field(min_length=1)
     connections: list[Connection] = Field(
@@ -1095,15 +1136,30 @@ class Scene(StrictModel):
     _instance_type: dict[str, str] = PrivateAttr(default_factory=dict)
     #: Computed DIs of composite instances, after which component each one is listed.
     _computed: dict[str, list[TagBinding]] = PrivateAttr(default_factory=dict)
+    #: Library composite files the scene uses (PLAN 2.5b), for bundles.
+    _libraries: list[Path] = PrivateAttr(default_factory=list)
+    #: Part ports driven by a composite's logic: block (PLAN 2.5b).
+    _logic: list[Any] = PrivateAttr(default_factory=list)
 
     @model_validator(mode="after")
-    def _expand_composites(self) -> Scene:
-        """Runs first: every later check sees only built-in components (PLAN 2.16)."""
+    def _expand_composites(self, info: ValidationInfo) -> Scene:
+        """Runs first: every later check sees only built-in components (PLAN 2.16). Library
+        composites resolve against ``context["scene_dir"]`` (PLAN 2.5b)."""
         from openfactory.core.composite import expand
 
-        expansion = expand(self)
+        scene_dir = (info.context or {}).get("scene_dir")
+        expansion = expand(self, scene_dir)
         self._composite_of = expansion.composite_of
         self._instance_type = expansion.instance_type
+        self._libraries = expansion.libraries
+        self._logic = expansion.logic
+        for after, name, binding, owner in expansion.commands:
+            spec = PortSpec(name, "DO", f"{name}: command read by the composite's logic", False,
+                            None, None)  # fmt: skip
+            command = TagBinding(binding_tag(binding), "DO", after, spec,
+                                 binding_address(binding), binding_initial(binding),
+                                 tag_description=f"{owner} — {name} command")  # fmt: skip
+            self._computed.setdefault(after, []).append(command)
         for after, name, binding, text, local in expansion.computed:
             t = binding_transform(binding)
             refs = parse(text, refs=True).refs
@@ -1114,6 +1170,14 @@ class Scene(StrictModel):
                                   getattr(binding, "exam", None) == "switch")  # fmt: skip
             self._computed.setdefault(after, []).append(computed)
         return self
+
+    def library_files(self) -> list[Path]:
+        """The ``_library/<name>.yaml`` files this scene's composites came from (PLAN 2.5b)."""
+        return list(self._libraries)
+
+    def logic_drives(self) -> list[Any]:
+        """Part ports driven by composites' logic: blocks (:class:`composite.LogicDrive`)."""
+        return list(self._logic)
 
     def composite_of(self, component_id: str) -> str | None:
         """The composite instance an expanded component came from, or None (PLAN 2.16)."""
@@ -1270,15 +1334,17 @@ _SceneYamlLoader.add_implicit_resolver(
 )
 
 
-def parse_scene(text: str) -> Scene:
-    """Parse and validate scene YAML text."""
+def parse_scene(text: str, scene_dir: str | Path | None = None) -> Scene:
+    """Parse and validate scene YAML text. ``scene_dir`` (the scene file's folder) is where
+    library composites are looked up (PLAN 2.5b); without it a scene using one fails."""
     data = yaml.load(text, Loader=_SceneYamlLoader)  # noqa: S506 - SafeLoader subclass
-    return Scene.model_validate(data)
+    context = {"scene_dir": Path(scene_dir)} if scene_dir is not None else None
+    return Scene.model_validate(data, context=context)
 
 
 def load_scene(path: str | Path) -> Scene:
     """Load and validate a scene file."""
-    return parse_scene(Path(path).read_text(encoding="utf-8"))
+    return parse_scene(Path(path).read_text(encoding="utf-8"), Path(path).parent)
 
 
 def scene_json_schema() -> str:
