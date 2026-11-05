@@ -1091,6 +1091,11 @@ runs the sorting program against it; a box visibly gets pushed.
       3.0-4.6 ms). Byte-identical: a 90 s load-200 recording and a 120 s queue-200 recording
       equal their baseline recordings byte for byte; every parity trace (`parity_trace.py
       --check`) and every kit's 60 s recording (`build_kit.py --check`, all six scenes) unchanged.
+      **Tick cost from 2.5b (added 2026-11-04):** 2.5b made the step 11-22 % slower at 200 parts
+      (same session, alternating, against `efde1d0`: queue-200 mean 2.41-3.22 ms before,
+      2.68-3.92 ms after; load-200 3.30-3.39 ms before, 3.67-3.89 ms after). Recover it: back to
+      the `efde1d0` numbers or better on both scenes, measured against `efde1d0` in the same
+      session, with every trace, recording and kit byte-identical.
       **Measure against a same-session baseline (added 2026-10-27):** absolute tick times on the
       development machine vary about 30 % from day to day (11.65 ms on 2026-10-26 for the same
       code that measured 15.4 ms and 15.8 ms on a slower day). Every before/after claim runs the
@@ -1294,6 +1299,14 @@ runs the sorting program against it; a box visibly gets pushed.
       load, component-level role gating, the gateway role names and write permissions, the
       demo defaults on its params, PE review) are listed in the kit README under "Needs
       Designer load before client use". The kit READMEs list nothing as missing.
+      *Library composites (ruled 2026-11-04, from 2.5b):* a kit copies every library composite
+      its scene names to `_library/` beside the kit's scene, where the loader finds it, and
+      `--check` compares those files too. A kit can be built from `scenes/examples/` (its
+      script beside the scene, no `.st`, and then no OpenPLC lines in the README).
+      `tests/integration/test_demo_kit.py` builds the accumulation example's kit outside the
+      repository: it holds `_library/accumulation_conveyor.yaml`, passes 2 of 2 checks from
+      the kit folder, and without the library file `validate` fails naming it. The six shipped
+      kits are byte-identical.
 - [x] 2.15 Custom mesh per component: an optional `mesh: {file: models/press.glb, scale: 1.0,
       offset: [0,0,0], rotation_deg: 0}` on any component replaces the viewer's fixed housing
       with a user-supplied model. The headless model and physics collider keep using the

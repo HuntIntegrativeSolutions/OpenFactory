@@ -9,9 +9,11 @@ Usage::
 A kit is everything a client demo of one scene needs, in one folder. This tool regenerates every
 part code can produce (ruled 2026-10-30):
 
-- the scene and its committed lockfiles, copied from ``scenes/``;
+- the scene and its committed lockfiles, copied from ``scenes/`` (or ``scenes/examples/``);
+- every library composite the scene names, copied to ``_library/`` beside it (PLAN 2.5b), so
+  the kit loads with no ``scenes/`` folder around it;
 - the OpenPLC program (``examples/openplc/<scene>.st``) and the stand-in script
-  (``examples/pyplc/<scene>.py``), copied;
+  (``examples/pyplc/<scene>.py``, or the script beside the scene), copied;
 - the I/O list CSV for each analog encoding that has a lockfile (``export``);
 - the Studio 5000 controller tag stubs (``export --format l5x``, PLAN 2.3);
 - the Ignition 8.3 tag JSON (``export --format ignition``, PLAN 2.4);
@@ -55,6 +57,8 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "tools"))
 import grafcet_from_st as grafcet  # noqa: E402 - a sibling tool, not a package
 
+from openfactory.core.schema import load_scene  # noqa: E402
+
 KITS = REPO / "kits"
 PE_HEADER = "generated, pending PE review"
 #: Files made outside this tool that a kit may hold: file name pattern -> what makes it.
@@ -81,12 +85,37 @@ def openfactory(*args: str) -> None:
         raise SystemExit(f"openfactory {' '.join(args)} failed:\n{done.stdout}{done.stderr}")
 
 
+def source(scene: str) -> Path:
+    """The scene file: ``scenes/<scene>.yaml``, else ``scenes/examples/<scene>.yaml``."""
+    for folder in (REPO / "scenes", REPO / "scenes" / "examples"):
+        if (folder / f"{scene}.yaml").is_file():
+            return folder / f"{scene}.yaml"
+    raise SystemExit(f"no scene scenes/{scene}.yaml or scenes/examples/{scene}.yaml")
+
+
+def script(scene: str) -> Path:
+    """The stand-in script: ``examples/pyplc/<scene>.py``, else the one beside the scene."""
+    shipped = REPO / "examples" / "pyplc" / f"{scene}.py"
+    return shipped if shipped.is_file() else source(scene).with_suffix(".py")
+
+
+def program(scene: str) -> Path:
+    return REPO / "examples" / "openplc" / f"{scene}.st"
+
+
+def libraries(scene: str) -> list[Path]:
+    """The library composite files the scene names (PLAN 2.5b), in the order it names them."""
+    return load_scene(source(scene)).library_files()
+
+
 def generated(scene: str) -> list[str]:
     """The file names this tool writes for ``scene``, in README order."""
     names = [f"{scene}.yaml"]
+    names += [f"_library/{p.name}" for p in libraries(scene)]
     encodings = [e for e in ENCODING_SUFFIX if lock(scene, e).is_file()]
     names += [f"{scene}.{e}.modbus.yaml" for e in encodings]
-    names += [f"{scene}.st", f"{scene}.py", f"{scene}.CONTEXT.md"]
+    names += [f"{scene}.st"] if program(scene).is_file() else []
+    names += [f"{scene}.py", f"{scene}.CONTEXT.md"]
     names += [f"{scene}-io{ENCODING_SUFFIX[e]}.csv" for e in encodings]
     names += [f"{scene}-tags.L5X", f"{scene}-ignition-tags.json"]
     names += [f"{scene}-grafcet.html"] if scene in grafcet.SCENES else []
@@ -95,23 +124,17 @@ def generated(scene: str) -> list[str]:
 
 
 def lock(scene: str, encoding: str) -> Path:
-    return REPO / "scenes" / f"{scene}.{encoding}.modbus.yaml"
+    return source(scene).parent / f"{scene}.{encoding}.modbus.yaml"
 
 
 def build(scene: str, out: Path) -> None:
     """Write every generated file of ``scene``'s kit into ``out``."""
-    src = REPO / "scenes" / f"{scene}.yaml"
-    if not src.is_file():
-        raise SystemExit(f"no scene scenes/{scene}.yaml")
+    src = source(scene)
     out.mkdir(parents=True, exist_ok=True)
-    for path in (
-        src,
-        *(lock(scene, e) for e in ENCODING_SUFFIX),
-        REPO / "examples" / "openplc" / f"{scene}.st",
-        REPO / "examples" / "pyplc" / f"{scene}.py",
-    ):
+    for path in (src, *(lock(scene, e) for e in ENCODING_SUFFIX), program(scene), script(scene)):
         if path.is_file():
             shutil.copyfile(path, out / path.name)
+    copy_libraries(scene, out)
     # Exports run on the kit's own copy, so the lockfiles they read are the kit's and the
     # <scene>.CONTEXT.md each one writes beside its scene (PLAN 2.19) lands in the kit, naming
     # the kit's script; scenes/ is never written.
@@ -131,15 +154,23 @@ def build(scene: str, out: Path) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp) / src.name
         shutil.copyfile(src, scratch)
+        copy_libraries(scene, Path(tmp))
         for enc in ENCODING_SUFFIX:
             if lock(scene, enc).is_file():
                 shutil.copyfile(lock(scene, enc), Path(tmp) / lock(scene, enc).name)
         # `test` serves no protocol, and fails the build if the scene's checks fail
         openfactory(
-            "test", str(scratch), "--script", str(REPO / "examples" / "pyplc" / f"{scene}.py"),
+            "test", str(scratch), "--script", str(script(scene)),
             "--duration", str(RECORD_SECONDS), "--record", str(out / f"{scene}.ofrec"), "-q",
         )  # fmt: skip
     (out / "README.md").write_text(readme(scene, out), encoding="utf-8")
+
+
+def copy_libraries(scene: str, folder: Path) -> None:
+    """Copy the scene's library composites to ``folder/_library/``, where the scene finds them."""
+    for path in libraries(scene):
+        (folder / "_library").mkdir(exist_ok=True)
+        shutil.copyfile(path, folder / "_library" / path.name)
 
 
 def skill_status(scene: str, folder: Path) -> list[tuple[str, str, str]]:
@@ -159,12 +190,19 @@ def skill_status(scene: str, folder: Path) -> list[tuple[str, str, str]]:
 
 def readme(scene: str, folder: Path) -> str:
     """The kit index. ``folder`` is where the skill-made files are looked for."""
+    home = source(scene).parent.relative_to(REPO).as_posix()
     files = {
-        f"{scene}.yaml": "the scene (copied from `scenes/`)",
+        f"{scene}.yaml": f"the scene (copied from `{home}/`)",
+        **{
+            f"_library/{p.name}": "a library composite the scene names (copied from "
+            "`scenes/_library/`, PLAN 2.5b)"
+            for p in libraries(scene)
+        },
         f"{scene}.float32.modbus.yaml": "Modbus address lockfile, float32 analogs (ADR-0004)",
         f"{scene}.int16_scaled.modbus.yaml": "Modbus address lockfile, int16_scaled (OpenPLC)",
         f"{scene}.st": "OpenPLC program (copied from `examples/openplc/`)",
-        f"{scene}.py": "stand-in PLC script (copied from `examples/pyplc/`)",
+        f"{scene}.py": "stand-in PLC script (copied from "
+        f"`{script(scene).parent.relative_to(REPO).as_posix()}/`)",
         f"{scene}.CONTEXT.md": "tags, addresses, components, faults, checks and commands for an "
         "assistant (PLAN 2.19)",
         f"{scene}-io.csv": "I/O list, float32 Modbus addresses",
@@ -210,10 +248,13 @@ def readme(scene: str, folder: Path) -> str:
         f"uv run openfactory run kits/{scene}/{scene}.yaml --opcua  # Ignition: docs/ignition.md",
         "```",
         "",
-        f"With OpenPLC, load `{scene}.st` and configure its Slave Device from",
-        f"`{scene}-io-int16.csv` (docs/guides/openplc-quickstart.md).",
-        "",
     ]
+    if program(scene).is_file():
+        lines += [
+            f"With OpenPLC, load `{scene}.st` and configure its Slave Device from",
+            f"`{scene}-io-int16.csv` (docs/guides/openplc-quickstart.md).",
+            "",
+        ]
     return "\n".join(lines)
 
 
@@ -243,7 +284,8 @@ def check(scene: str) -> list[str]:
             elif not same(kit / name, fresh / name):
                 problems.append(f"{scene}: {name} is stale")
         skill = {pattern.format(scene=scene) for pattern in SKILL_FILES}
-        extra = sorted(p.name for p in kit.iterdir() if p.name not in set(generated(scene)) | skill)
+        names = (p.relative_to(kit).as_posix() for p in kit.rglob("*") if p.is_file())
+        extra = sorted(n for n in names if n not in set(generated(scene)) | skill)
         problems += [f"{scene}: {name} is not a kit file" for name in extra]
         if scene in grafcet.SCENES and (why := grafcet.stale(scene)):
             problems.append(f"{scene}: {scene}-grafcet.html is stale: {why}")

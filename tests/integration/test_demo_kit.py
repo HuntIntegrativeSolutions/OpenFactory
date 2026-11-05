@@ -45,3 +45,40 @@ def test_the_kit_files_agree():
     readme = (KIT / "README.md").read_text("utf-8")
     assert "pending PE review" in readme and "missing" not in readme  # ruled 2026-10-31
     assert "### Needs Designer load before client use" in readme
+
+
+def test_a_kit_carries_the_library_composites_its_scene_names(tmp_path):
+    """PLAN 2.5b and 2.14: a kit built from the accumulation example holds
+    ``_library/accumulation_conveyor.yaml`` beside its scene, so it loads, exports and passes its
+    checks with no ``scenes/`` folder above it (``tmp_path`` is outside the repository)."""
+    import subprocess
+    import sys
+
+    kit = tmp_path / "accumulation-demo"
+    build_kit.build("accumulation-demo", kit)  # exports and the recording run on kit copies
+    lib = REPO / "scenes" / "_library" / "accumulation_conveyor.yaml"
+    assert (kit / "_library" / lib.name).read_bytes() == lib.read_bytes()
+    names = build_kit.generated("accumulation-demo")
+    assert "_library/accumulation_conveyor.yaml" in names and "accumulation-demo.st" not in names
+    assert sorted(p.relative_to(kit).as_posix() for p in kit.rglob("*") if p.is_file()) == sorted(
+        names
+    )
+    readme = (kit / "README.md").read_text("utf-8")
+    assert "| `_library/accumulation_conveyor.yaml` |" in readme and "OpenPLC" not in readme
+    done = subprocess.run(
+        [sys.executable, "-m", "openfactory", "test", str(kit / "accumulation-demo.yaml"),
+         "--script", str(kit / "accumulation-demo.py")],
+        cwd=tmp_path, capture_output=True, text=True,
+    )  # fmt: skip
+    assert done.returncode == 0 and "PASS: 2 of 2 checks passed" in done.stdout, done.stdout
+    rec = read_recording(kit / "accumulation-demo.ofrec")
+    assert not rec.truncated and rec.end["removed"]
+    (kit / "_library" / lib.name).unlink()  # without it the kit's scene does not load
+    done = subprocess.run(
+        [sys.executable, "-m", "openfactory", "validate", str(kit / "accumulation-demo.yaml")],
+        cwd=tmp_path, capture_output=True, text=True,
+    )  # fmt: skip
+    assert (
+        done.returncode == 1
+        and "no _library/accumulation_conveyor.yaml" in done.stdout + done.stderr
+    )
