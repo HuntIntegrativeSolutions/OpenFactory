@@ -8,6 +8,10 @@
 // asks for it once, keeps it for the browser tab (sessionStorage), and sends it in the
 // X-OpenFactory-Fault-Token header; a 403 means the server has the fault API off.
 //
+// Right-click (or long-press) empty space for the comms menu (PLAN 2.13b): drop every request or
+// delay every reply on the run's protocol servers (Modbus TCP and OPC UA alike, one fault), or
+// clear it; GET /api/fault names the servers it covers. A run with no protocol server shows none.
+//
 // OrbitControls pans on a right-button drag, so the menu opens only when the right button moved no
 // more than CLICK_SLOP_PX between press and release; a long-press is 600 ms with no more than
 // TOUCH_SLOP_PX of movement.
@@ -20,6 +24,41 @@ const LONG_PRESS_MS = 600;
 interface FaultList {
   active: { id: string; kind: string; params: Record<string, unknown>; tick: number }[];
   supported: Record<string, string[]>;
+  /** The protocol servers' comms fault (PLAN 2.13), null with no protocol server. */
+  comms?: { drop: boolean; latency_ms: number } | null;
+  /** The protocol servers it covers (PLAN 2.13b). */
+  protocols?: string[];
+}
+
+/** Reply delays the comms menu offers, milliseconds. */
+export const COMMS_LATENCIES_MS = [250, 1000];
+
+/** One comms menu entry: its text and the request it sends (`body` null: DELETE). */
+export interface CommsItem {
+  text: string;
+  method: "POST" | "DELETE";
+  path: string;
+  body: Record<string, unknown> | null;
+}
+
+/** The comms menu (PLAN 2.13b): a title, then drop, each delay, and clear when one is active;
+ * null when the run has no protocol server. A filled dot marks the active fault. */
+export function commsItems(faults: Pick<FaultList, "comms" | "protocols">): { title: string; items: CommsItem[] } | null {
+  const comms = faults.comms;
+  if (!comms) return null;
+  const servers = faults.protocols?.length ? faults.protocols.join(" and ") : "protocol servers";
+  const items: CommsItem[] = [
+    { text: `${comms.drop ? "● " : ""}Drop every request`, method: "POST", path: "/api/fault", body: { comms: { drop: true } } },
+    ...COMMS_LATENCIES_MS.map((ms): CommsItem => ({
+      text: `${!comms.drop && comms.latency_ms === ms ? "● " : ""}Delay every reply ${ms} ms`,
+      method: "POST", path: "/api/fault", body: { comms: { latency_ms: ms } },
+    })),
+  ];
+  if (comms.drop || comms.latency_ms > 0) {
+    const now = comms.drop ? "drop" : `${comms.latency_ms} ms`;
+    items.push({ text: `Clear comms fault (${now})`, method: "DELETE", path: "/api/fault/comms", body: null });
+  }
+  return { title: `Comms · ${servers}`, items };
 }
 
 export interface FaultMenuOptions {
@@ -79,20 +118,35 @@ export class FaultMenu {
     this.element.replaceChildren();
   }
 
-  /** Open the menu for the component under a viewport point (exposed for the screenshot runner). */
+  /** Open the menu for the component under a viewport point, or the comms menu on empty space
+   * (exposed for the screenshot runner and tests). Returns the component id, "comms", or null. */
   async openAt(clientX: number, clientY: number): Promise<string | null> {
     const hit = this.options.pick(clientX, clientY);
     this.close();
-    if (!hit) return null;
     const res = await guardedFetch("/api/fault");
     if (!res.ok) {
       if (res.status === 401) forgetToken(); // wrong token: ask again next time
-      this.add(`${hit.id} · ${hit.type}`, null, true);
+      this.add(hit ? `${hit.id} · ${hit.type}` : "Comms", null, true);
       this.add(res.status === 403 ? "Fault injection is off on this server" : "Fault token not accepted", null);
       this.show(clientX, clientY);
-      return hit.id;
+      return hit ? hit.id : "comms";
     }
     const faults = (await res.json()) as FaultList;
+    if (!hit) {
+      const menu = commsItems(faults);
+      if (!menu) return null; // no protocol server: nothing to fault
+      this.add(menu.title, null, true);
+      for (const item of menu.items) {
+        this.add(item.text, () =>
+          guardedFetch(item.path, {
+            method: item.method,
+            ...(item.body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.body) } : {}),
+          }),
+        );
+      }
+      this.show(clientX, clientY);
+      return "comms";
+    }
     const kinds = faults.supported[hit.id] ?? [];
     const active = faults.active.find((f) => f.id === hit.id);
     this.add(`${hit.id} · ${hit.type}`, null, true);

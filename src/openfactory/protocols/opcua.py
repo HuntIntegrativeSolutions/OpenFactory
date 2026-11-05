@@ -23,6 +23,22 @@ on whatever thread made it, is handed to the server's event loop with
 runs under the simulation's step lock. On start every variable is set from the table once more
 after the change subscription is in place, so no change is lost in between.
 
+**Comms faults (PLAN 2.13b), as on the Modbus server.** :attr:`OpcUaServer.comms`
+(:class:`~openfactory.protocols.comms.CommsFault`, one object shared with the Modbus server in a
+run) stalls or delays the server without touching the simulation. ``drop``: every service
+request (read, write, browse, publish, the client's keep-alive read) is ignored with no reply, so
+the client's requests time out and a write in a dropped request is not applied; responses
+already on their way, subscription notifications included, are not sent either. The request is
+still decoded, so the secure channel's sequence numbers stay in step; once the fault clears the
+server answers again (asyncua's own client closes a connection whose requests timed out and must
+reconnect, as Ignition's client does by itself). Channel renewals (OpenSecureChannel) are still
+answered.
+``latency_ms``: each service request is processed that much later, and each subscription
+notification is sent that much later. asyncua processes a connection's requests one after
+another, so latency queues them, as a slow link does. Implemented by wrapping three
+``UaProcessor`` methods of asyncua 2.1.0 (``server/uaprocessor.py``: ``process_message``,
+``send_response``, ``forward_publish_response``), which look the fault up on their own server.
+
 asyncua is LGPL-3.0-or-later, an optional extra (``openfactory[opcua]``) imported here only
 (``THIRD_PARTY.md``). API from asyncua 2.1.0's own source (``server/server.py``,
 ``server/internal_session.py``: ``CallbackType.PostWrite`` carries the write request and its
@@ -37,9 +53,11 @@ from typing import Any
 
 from asyncua import Server, ua
 from asyncua.common.callback import CallbackType, ServerItemCallback
+from asyncua.server.uaprocessor import UaProcessor
 
 from openfactory.core.config import OPCUA_NAMESPACE, Endpoint
 from openfactory.core.iotable import IOTable, Value, Writer
+from openfactory.protocols.comms import CommsFault
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +68,56 @@ VARIANT = {
     "int16": ua.VariantType.Int16,
 }
 WRITABLE = frozenset({"DO", "AO"})
+#: Attribute on asyncua's InternalServer holding the OpcUaServer that owns it.
+_COMMS_ATTR = "openfactory_server"
+
+
+def _comms_of(processor: UaProcessor) -> CommsFault | None:
+    owner = getattr(processor.iserver, _COMMS_ATTR, None)
+    return owner.comms if owner is not None else None
+
+
+def _install_comms_hooks() -> None:
+    """Wrap UaProcessor once so each connection obeys its server's comms fault (PLAN 2.13b)."""
+    if getattr(UaProcessor, "_openfactory_comms_hooks", False):
+        return
+    process_message = UaProcessor.process_message
+    send_response = UaProcessor.send_response
+    forward_publish_response = UaProcessor.forward_publish_response
+
+    async def _process_message(self: UaProcessor, seqhdr: Any, body: Any) -> Any:
+        comms = _comms_of(self)
+        if comms is not None:
+            if comms.drop:
+                return True  # decoded, never processed or answered: the client times out
+            if comms.latency_ms > 0:
+                await asyncio.sleep(comms.latency_ms / 1000.0)
+                if comms.drop:
+                    return True  # the fault became a drop while it waited
+        return await process_message(self, seqhdr, body)
+
+    def _send_response(
+        self: UaProcessor,
+        requesthandle: Any,
+        seqhdr: Any,
+        response: Any,
+        msgtype: ua.MessageType = ua.MessageType.SecureMessage,
+    ) -> None:
+        comms = _comms_of(self)
+        if comms is not None and comms.drop and msgtype == ua.MessageType.SecureMessage:
+            return  # a reply already on its way when the fault started is lost too
+        send_response(self, requesthandle, seqhdr, response, msgtype)
+
+    async def _forward_publish_response(self: UaProcessor, result: Any, requestdata: Any) -> None:
+        comms = _comms_of(self)
+        if comms is not None and comms.latency_ms > 0:
+            await asyncio.sleep(comms.latency_ms / 1000.0)  # a late value
+        await forward_publish_response(self, result, requestdata)
+
+    UaProcessor.process_message = _process_message  # type: ignore[method-assign]
+    UaProcessor.send_response = _send_response  # type: ignore[method-assign]
+    UaProcessor.forward_publish_response = _forward_publish_response  # type: ignore[method-assign]
+    UaProcessor._openfactory_comms_hooks = True  # type: ignore[attr-defined]
 
 
 class OpcUaServer:
@@ -73,6 +141,8 @@ class OpcUaServer:
         self._unsubscribe: Any = None
         self._ready = False
         self._stop: asyncio.Event | None = None
+        #: Comms fault (PLAN 2.13b), read on every request; the run shares one with Modbus.
+        self.comms = CommsFault()
 
     @property
     def url(self) -> str:
@@ -82,8 +152,10 @@ class OpcUaServer:
         return ua.NodeId(name, self.namespace_index)
 
     async def _build(self) -> Server:
+        _install_comms_hooks()
         server = Server()
         await server.init()
+        setattr(server.iserver, _COMMS_ATTR, self)  # read through .comms: it may be replaced
         server.set_endpoint(self.url)
         server.set_server_name(f"OpenFactory: {self.scene_name}")
         server.set_security_policy([ua.SecurityPolicyType.NoSecurity])

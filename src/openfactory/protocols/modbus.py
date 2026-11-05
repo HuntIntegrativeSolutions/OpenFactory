@@ -87,7 +87,7 @@ import struct
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Literal, get_args
 
 import yaml
 from pymodbus.constants import ExcCodes
@@ -100,6 +100,7 @@ from openfactory.core.config import Endpoint
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.iotable import IOTable, Tag, Writer
 from openfactory.core.netinfo import describe_reachable
+from openfactory.protocols.comms import CommsFault
 
 if TYPE_CHECKING:
     from openfactory.core.schema import Scene
@@ -487,22 +488,6 @@ def _block(table: Table, size: int) -> list[SimData]:
 
 #: Function codes for which pymodbus calls the action hook twice (set, then get the echo).
 _TWO_CALL_FCS = frozenset({5, 6, 23})
-
-
-@dataclass
-class CommsFault:
-    """A comms fault on a protocol server (PLAN 2.13); all defaults mean healthy."""
-
-    #: Ignore every request: no reply, the client times out.
-    drop: bool = False
-    #: Answer every request this much later, milliseconds.
-    latency_ms: float = 0.0
-
-    def active(self) -> bool:
-        return self.drop or self.latency_ms > 0
-
-    def describe(self) -> dict[str, Any]:
-        return {"drop": self.drop, "latency_ms": self.latency_ms}
 
 
 class ModbusServer:

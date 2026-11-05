@@ -109,8 +109,10 @@ class Runtime:
         self.scheduled_faults: list[tuple[float, str, str, dict[str, Any]]] = []
         #: A run being recorded (PLAN 2.12, ``--record``), fed each tick's snapshot and each event.
         self.recorder: Any = None
-        #: The protocol server's comms fault (PLAN 2.13), or None with no protocol server.
+        #: The protocol servers' shared comms fault (PLAN 2.13, 2.13b), or None with none.
         self.comms: Any = None
+        #: The protocol servers it covers, for the viewer's comms menu (PLAN 2.13b).
+        self.protocols: list[str] = []
         self.scheduler = Scheduler(self._step, rate_hz, realtime=realtime)
         self._snapshot: dict[str, Any] | None = None  # built on demand; None = stale
         self.events: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
@@ -373,8 +375,9 @@ class Runtime:
                     if c.fault is not None
                 ],
                 "supported": {c.id: list(c.FAULTS) for c in self.loaded.components},
-                # PLAN 2.13: the protocol server's comms fault; None with no protocol server
+                # PLAN 2.13: the protocol servers' comms fault; None with no protocol server
                 "comms": self.comms.describe() if self.comms is not None else None,
+                "protocols": list(self.protocols),  # PLAN 2.13b: which servers it covers
             }
 
     def _log_fault(self, event: str, data: dict[str, Any]) -> None:

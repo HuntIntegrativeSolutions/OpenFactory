@@ -36,8 +36,8 @@ Behavior spec
   (simulated seconds, default 0): each fault is checked against its component before the run and
   injected between ticks once the simulated time reaches T, logged like an ``/api/fault`` request,
   so a headless run or a graded exercise can include a jammed pusher or a stuck eye (PLAN 2.11).
-  ``--fault comms=drop`` or ``--fault comms=latency:ms=N`` stalls or delays the Modbus server
-  instead (PLAN 2.13); the simulation keeps running.
+  ``--fault comms=drop`` or ``--fault comms=latency:ms=N`` stalls or delays the protocol servers
+  instead, Modbus and OPC UA alike (PLAN 2.13, 2.13b); the simulation keeps running.
 - ``openfactory test SCENE --script FILE.py | --plc`` (PLAN 2.11) runs the scene headless for its
   ``checks.duration_s`` (or ``--duration``) and grades the run against its ``checks:`` block
   (:mod:`openfactory.checks`): as fast as possible under a stand-in script, or in real time with
@@ -84,6 +84,7 @@ from openfactory.core.config import Endpoint, load_settings, resolve_endpoint
 from openfactory.core.iotable import Writer
 from openfactory.core.loader import LoadedScene, build
 from openfactory.core.schema import PLC_WRITES, Scene, load_scene
+from openfactory.protocols.comms import CommsFault
 from openfactory.protocols.modbus import (
     LOCKFILE_SUFFIX,
     AddressError,
@@ -574,8 +575,13 @@ def _simulate(
             )
     runtime = Runtime(loaded, realtime=not fast, controller=controller)
     runtime.scheduled_faults = list(faults or [])
-    runtime.comms = modbus.comms if modbus is not None else None  # PLAN 2.13
-    if modbus is None and any(f[1] == "comms" for f in runtime.scheduled_faults):
+    # PLAN 2.13, 2.13b: one comms fault for every protocol server in the run
+    servers_with_comms = [s for s in (modbus, opcua) if s is not None]
+    runtime.comms = CommsFault() if servers_with_comms else None
+    for server in servers_with_comms:
+        server.comms = runtime.comms
+    runtime.protocols = [name for name, s in (("Modbus TCP", modbus), ("OPC UA", opcua)) if s]
+    if not servers_with_comms and any(f[1] == "comms" for f in runtime.scheduled_faults):
         typer.echo("error: --fault comms=...: this run has no protocol server", err=True)
         raise typer.Exit(1)
     web = None

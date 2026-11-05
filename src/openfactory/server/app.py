@@ -16,7 +16,8 @@ Behavior spec
   ``DELETE /api/fault/{id}`` clears it. ``{"comms": {"drop": true}}`` or
   ``{"comms": {"latency_ms": N}}`` stalls or delays the protocol server instead (PLAN 2.13; 400
   with no protocol server), ``DELETE /api/fault/comms`` clears that, and ``GET`` shows it as
-  ``comms``. Unknown components are 404, unsupported kinds or bad
+  ``comms`` with ``protocols``, the servers it covers (PLAN 2.13b: one fault for Modbus TCP and
+  OPC UA alike). Unknown components are 404, unsupported kinds or bad
   parameters 400. Faults act from the next tick. Access (PLAN §6.4, ruled 2026-10-27): open when
   the server is bound to a loopback address; bound beyond loopback, every ``/api/fault`` request
   needs the configured token in the :data:`FAULT_TOKEN_HEADER` header (401 without it or with a
