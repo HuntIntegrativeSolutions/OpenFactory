@@ -12,8 +12,8 @@
 #   3. scene JSON Schema is current; every shipped scene validates and lints with no errors
 #   4. npm ci, npm run build (web/dist must exist afterwards), npm test
 #   5. Playwright's Chromium is present (installed by the workflow; never installed here)
-#   6. tools/screenshot.py on the shipped scene, with its non-blank PNG check (before pytest, so
-#      test_screenshot_check has a real Playwright PNG to decode)
+#   6. tools/screenshot.py on the shipped scene, with its non-blank PNG check and its tilt check
+#      (before pytest, so test_screenshot_check has a real Playwright PNG to decode)
 #   7. pytest with CI=true and -rs: the screenshot and parity tests fail instead of skipping when
 #      the viewer build, node, Chromium, or a screenshot is missing; the run must show zero skips
 #   8. tools/parity_trace.py --check (committed parity traces match the kinematic model)
@@ -87,7 +87,7 @@ PY
 step "screenshot runner with non-blank check"
 uv run python tools/screenshot.py scenes/sorting-by-height.yaml --seconds 3 \
   --out tools/screenshots/ci-sorting-by-height.png \
-  --force CONV_01_RUN_DO=1 --force CONV_02_RUN_DO=1 --force EMT_01_EN_DO=1
+  --force CONV_01_RUN_DO=1 --force CONV_02_RUN_DO=1 --force EMT_01_EN_DO=1 --max-tilt-deg 5
 
 step "pytest (CI=true: zero skips allowed)"
 uv run pytest -q -rs | tee tools/screenshots/ci-pytest.log

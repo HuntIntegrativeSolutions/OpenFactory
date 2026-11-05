@@ -66,6 +66,17 @@ export function toWorld(origin: Vec3, degrees: number, local: Vec3): Vec3 {
   return [origin[0] + w[0], origin[1] + w[1], origin[2] + w[2]];
 }
 
+/**
+ * Degrees between a body's up axis (its local +y turned by quaternion `q` = [x, y, z, w]) and
+ * world +y. The core holds every part upright, so this is how far a drawn part has tipped from
+ * the core's pose (PLAN 2.9).
+ */
+export function tiltDeg(q: [number, number, number, number]): number {
+  const [x, , z] = q;
+  const up = 1 - 2 * (x * x + z * z); // y component of the rotated +y axis
+  return (Math.acos(Math.max(-1, Math.min(1, up))) * 180) / Math.PI;
+}
+
 function quatY(degrees: number) {
   const half = (degrees * Math.PI) / 360;
   return { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
@@ -336,6 +347,21 @@ export class PlantPhysics {
     if (belt) belt.speed = speed;
   }
 
+  /**
+   * Put every plate, blade and arm at the pose its last setter asked for now, instead of moving
+   * it there during the next step (PLAN 2.9). For a viewer joining a run already going (the
+   * first frame, or a restarted run): there, a raised stopper would otherwise rise out of the
+   * belt in one step, through the box the core holds against it, and throw it into the air.
+   * Call it before adding the frame's parts.
+   */
+  snapDevices(): void {
+    const bodies = [...this.plates.values(), ...this.blades.values(), ...this.arms.values()];
+    for (const { body } of bodies) {
+      body.setTranslation(body.nextTranslation(), true);
+      body.setRotation(body.nextRotation(), true);
+    }
+  }
+
   /** Pusher plate travel in m from retracted (the core's `position_m` state), for the next step. */
   setPusher(id: string, stroke: number): void {
     const plate = this.plates.get(id);
@@ -388,6 +414,11 @@ export class PlantPhysics {
     this.partHandles.add(collider.handle);
     this.parts.set(id, body);
     this.sizes.set(id, size);
+    // A part placed over a raised blade's line is one the core let pass (the blade rose under it,
+    // or the viewer joined after it did), so it passes here too instead of being thrown off it.
+    for (const blade of this.blades.values()) {
+      if (blade.raised > 0 && this.overBlade(blade, body, size)) blade.exempt.add(collider.handle);
+    }
   }
 
   removePart(id: string): void {

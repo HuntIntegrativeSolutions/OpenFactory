@@ -2,7 +2,7 @@
 // numbers the unit tests pin (tests/unit/test_<component>.py).
 import { describe, expect, it } from "vitest";
 import type { ComponentGeometry } from "./api";
-import { loadRapier, PlantPhysics } from "./physics";
+import { loadRapier, PlantPhysics, tiltDeg } from "./physics";
 
 const DT = 0.02;
 
@@ -99,5 +99,55 @@ describe("reversible belt (PLAN 2.5b)", () => {
     const x = physics.part("P1")!.position[0];
     expect(x).toBeLessThan(1.6); // about 0.5 m back in 1 s, less the ramp-up
     expect(x).toBeGreaterThan(1.4);
+  });
+});
+
+describe("a viewer joining a run already going (PLAN 2.9, the tipped box)", () => {
+  // tests/scenes/gated-conveyor.yaml's GC_01: a 2 m belt at 0.4 m/s with a 0.1 m gate blade at
+  // x 1.8, and the box the core holds against it (centre x 1.65, front face on the blade line).
+  const comps: ComponentGeometry[] = [
+    { id: "GC_01_BELT", type: "belt_conveyor", description: "", position: [0, 0, 0], rotation_deg: 0, length: 2, width: 0.5 },
+    { id: "GC_01_GATE", type: "stopper", description: "", position: [1.8, 0, 0], rotation_deg: 0, width: 0.5, height: 0.1, thickness: 0.02 },
+    { id: "GC_02_BELT", type: "belt_conveyor", description: "", position: [2, 0, 0], rotation_deg: 0, length: 3, width: 0.5 },
+  ];
+
+  /** The viewer's first frame (main.ts, plan.reset): devices to the frame's pose, then the parts
+   * at the core's; then 100 steps. Returns the box's worst tilt (degrees), top height and x. */
+  async function join(snap: boolean, x: number): Promise<{ tilt: number; y: number; x: number }> {
+    const R = await loadRapier();
+    const physics = new PlantPhysics(R, { components: comps, friction: 0.8, dt: DT });
+    physics.setBelt("GC_01_BELT", 0.4);
+    physics.setBelt("GC_02_BELT", 0.4);
+    physics.setStopper("GC_01_GATE", 1);
+    if (snap) physics.snapDevices();
+    physics.addPart("P1", [0.3, 0.2, 0.3], [x, 0.1, 0]);
+    let tilt = 0;
+    let y = 0;
+    for (let k = 0; k < 100; k++) {
+      physics.step();
+      const pose = physics.part("P1")!;
+      tilt = Math.max(tilt, tiltDeg(pose.rotation));
+      y = Math.max(y, pose.position[1]);
+    }
+    const end = physics.part("P1")!.position[0];
+    physics.free();
+    return { tilt, y, x: end };
+  }
+
+  it("keeps the box held at a raised gate upright; a blade rising through it would throw it", async () => {
+    const held = await join(true, 1.65);
+    expect(held.tilt).toBeLessThan(2);
+    expect(held.y).toBeLessThan(0.11);
+    expect(held.x).toBeCloseTo(1.65, 2); // still against the blade
+    const swept = await join(false, 1.65); // the cause: the blade rose out of the belt in one step
+    console.log(`joined at the gate: snapped tilt ${held.tilt.toFixed(2)} deg, swept ${swept.tilt.toFixed(1)} deg, top ${swept.y.toFixed(2)} m`);
+    expect(swept.tilt).toBeGreaterThan(45);
+  });
+
+  it("lets a box the core holds over a raised blade's line pass, as the core does", async () => {
+    const over = await join(true, 1.8); // the blade rose under it before the viewer joined
+    expect(over.tilt).toBeLessThan(2);
+    expect(over.y).toBeLessThan(0.11);
+    expect(over.x).toBeGreaterThan(2.3); // carried on past the blade onto GC_02
   });
 });

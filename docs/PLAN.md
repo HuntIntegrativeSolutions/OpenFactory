@@ -1132,6 +1132,36 @@ runs the sorting program against it; a box visibly gets pushed.
       Rapier lets a pushed box climb the one stopped ahead of it. Fix it in the viewer (the core
       is authoritative for queued parts) and add a viewer check that every part's drawn up-axis
       stays within a few degrees of the core's.
+      *Done (2026-11-04):* the cause was not a climb. A viewer joining a run already going
+      (its first frame, `planSteps` reset) set the raised gate with
+      `setNextKinematicTranslation` before adding the frame's parts at the core's poses, so on
+      the next step the blade rose out of the belt in one tick, through the bottom of the box the
+      core holds against it, and threw it (up to 0.49 m high, turned 173-180 degrees); it fell
+      back across the queue or over the gate. `screenshot.py` opens the page a variable time
+      after the run starts, so the bug appeared only when the first box reached the gate
+      (tick 180) before the viewer joined. Evidence: replaying the core's inputs through
+      `physics.ts` from tick 1, with jittered spawns or with frames dropping up to 4 ticks in 14,
+      never tilted a box past 0.9 degrees (13 runs); replaying a join from the core's state at
+      ticks 200, 220, 260, 300, 400, 523 and 700 flipped the gate box every time. Fix, viewer only:
+      `PlantPhysics.snapDevices()` puts every plate, blade and arm at its set pose at once, and the
+      viewer calls it on a reset frame before adding parts; `addPart` exempts a part placed over a
+      raised blade's line, which the core let pass. The same joins after the fix: worst tilt
+      0.06-0.19 degrees, no part above y 0.100. Live, the viewer opened when the core reached
+      tick 523: before (fix call removed), joined at 520, P000001 flipped 179.98 degrees by tick
+      568 and rode GC_02 while the core held it at the gate; after, joined at 542, worst tilt
+      0.18 degrees through tick 1180, the queue whole (screenshots at the join +2, +10, +25, +50
+      and +100 ticks). The viewer check: the viewer publishes `maxTiltDeg` and `tilt` (part,
+      tick) for parts the core carries on a conveyor, `tools/screenshot.py` prints them and
+      fails above `--max-tilt-deg N`, and CI runs it with 5 (`tools/ci_local.sh`).
+      `web/src/physics.components.test.ts` joins at the gate (0.04 degrees; 173 without the snap)
+      and over the blade line (passes; 92 degrees without the exemption).
+      **Sorter divert overshoots in the viewer (found 2026-11-04 by the tilt check):** in
+      `sorting-by-height` under its script, Rapier sends a pushed 0.4 m box across CONV_02 and
+      over its far edge (z 1.3 m) while the core carries it on CONV_02: in two 60 s runs, P000003
+      at tick 662 (drawn at y -6.9 m) and at tick 619 (y -0.34 m). The core moves a pushed part
+      with the plate and gives it no momentum; Rapier keeps the plate's speed. The other five
+      shipped scenes stay under 2 degrees for 40 s. Not fixed: falling parts are outside the
+      check (they may tumble), but this one the core still carries.
 - [x] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
       `def step(io, t)` that reads DI/AI and writes DO/AO through the same writer-side rules a protocol
       server obeys. Ship `examples/pyplc/sorting-by-height.py`.

@@ -20,6 +20,9 @@ What it does:
    also requires N custom meshes drawn and none failed (PLAN 2.15; the viewer settles every mesh
    before its first frame, so ``ready`` already implies they have loaded or failed). It then
    prints the viewer's physics backend and the core's ``/api/status`` counts of events received.
+   It also prints how far the viewer has drawn any part the core carries on a conveyor from
+   upright (``window.__openfactory.maxTiltDeg``: the core holds such parts upright, so a tilt is
+   the viewer departing from it; PLAN 2.9), and ``--max-tilt-deg N`` fails above N degrees.
 4. Saves a PNG (default ``tools/screenshots/<scene>-<N>s.png``, git-ignored) and checks it is not
    blank: at least 2 % of pixels must differ from the ISA-101 background ``#1F2A36`` and at most
    90 % may be near-black. A failed check, a viewer error, or a timeout exits 1.
@@ -293,6 +296,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--size", default="1280x720", help="viewport WIDTHxHEIGHT")
     parser.add_argument("--build", action="store_true", help="run npm run build first")
     parser.add_argument(
+        "--max-tilt-deg",
+        type=float,
+        default=None,
+        metavar="N",
+        help="fail if the viewer drew a part on a conveyor more than N degrees from upright",
+    )
+    parser.add_argument(
         "--min-sensor-events",
         type=int,
         default=0,
@@ -337,6 +347,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"custom meshes: {meshes['loaded']} drawn, {meshes['failed']} failed")
     core = result["core"]
     print(f"core /api/status: t = {core['t']:.2f} s, events received {core['events']}")  # type: ignore[index]
+    tilt, worst = float(status.get("maxTiltDeg") or 0.0), status.get("tilt")
+    where = f" ({worst['part']} at tick {worst['tick']})" if worst else ""
+    print(f"carried parts drawn at most {tilt:.2f} degrees from upright{where}")
+    if args.max_tilt_deg is not None and tilt > args.max_tilt_deg:
+        print(f"tilt check failed: {tilt:.2f} > {args.max_tilt_deg:g} degrees")
+        ok = False
     print(summary)
     for line in result["console"]:  # type: ignore[union-attr]
         if line.startswith(("error", "pageerror", "warning")):

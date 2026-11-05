@@ -24,7 +24,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame, type Vec3 } from "./api";
-import { loadRapier, PlantPhysics, type Rapier } from "./physics";
+import { loadRapier, PlantPhysics, tiltDeg, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { attachMeshes } from "./meshes";
 import { cssColor, ISA101 } from "./isa101";
@@ -45,6 +45,8 @@ window.__openfactory = {
   sensorEvents: 0,
   physicsSteps: 0,
   droppedTicks: 0,
+  maxTiltDeg: 0,
+  tilt: null,
   firstTick: null,
   reloads: 0,
   exam: false,
@@ -299,6 +301,9 @@ function stepToFrame(frame: StateFrame): void {
     strokes.set(id, to);
     if (plan.steps === 0) physics.setLift(id, to);
   }
+  // Joining a run (or a restarted one): devices start at this frame's pose, not swept to it
+  // through the parts added below during the next step (PLAN 2.9, the tipped box).
+  if (plan.reset) physics.snapDevices();
   for (const p of frame.parts) {
     if (p.follow && plan.steps === 0) physics.follow(p.id, p.position, drawnYaw(p, frame));
     corePositions.set(p.id, p.position);
@@ -309,9 +314,18 @@ function stepToFrame(frame: StateFrame): void {
   const alive = new Set(frame.parts.map((p) => p.id));
   for (const id of physics.partIds()) if (!alive.has(id)) physics.removePart(id);
   for (const p of frame.parts) physics.addPart(p.id, p.size, p.position, p.velocity, drawnYaw(p, frame));
+  const carried = new Set(frame.parts.filter((p) => p.carrier).map((p) => p.id));
   for (const id of physics.partIds()) {
     const pose = physics.part(id);
-    if (pose) parts.setPose(id, pose.position, pose.rotation);
+    if (!pose) continue;
+    parts.setPose(id, pose.position, pose.rotation);
+    // The core holds every part it carries upright: a drawn tilt there is the viewer departing
+    // from it (PLAN 2.9). A falling part (off a belt end or pushed into a chute) may tumble.
+    const tilt = carried.has(id) ? tiltDeg(pose.rotation) : 0;
+    if (tilt > Number(status.maxTiltDeg)) {
+      status.maxTiltDeg = tilt;
+      status.tilt = { part: id, tick: frame.tick, deg: tilt, position: pose.position };
+    }
   }
 }
 
