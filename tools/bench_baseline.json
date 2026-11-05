@@ -1,0 +1,21 @@
+{
+ "comment": "tools/bench.py --update; commit with the change that moves it (PLAN 2.9)",
+ "measured_on": "CPython 3.11.15, x86_64",
+ "warm_ticks": 3000,
+ "blocks": 40,
+ "block_ticks": 50,
+ "scenes": {
+  "load-200": {
+   "score": 0.0251,
+   "step_ms": 2.482,
+   "calibration_ms": 98.675,
+   "parts": 200
+  },
+  "queue-200": {
+   "score": 0.0264,
+   "step_ms": 2.822,
+   "calibration_ms": 106.76,
+   "parts": 200
+  }
+ }
+}

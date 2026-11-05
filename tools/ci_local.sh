@@ -10,14 +10,17 @@
 #      so a local run never strips them from the dev venv)
 #   2. ruff check and ruff format --check
 #   3. scene JSON Schema is current; every shipped scene validates and lints with no errors
-#   4. npm ci, npm run build (web/dist must exist afterwards), npm test
-#   5. Playwright's Chromium is present (installed by the workflow; never installed here)
-#   6. tools/screenshot.py on the shipped scene, with its non-blank PNG check and its tilt check
+#   4. every shipped scene passes its checks under its stand-in script (PLAN 2.11)
+#   5. npm ci, npm run build (web/dist must exist afterwards), npm test
+#   6. Playwright's Chromium is present (installed by the workflow; never installed here)
+#   7. tools/screenshot.py on the shipped scene, with its non-blank PNG check and its tilt check
 #      (before pytest, so test_screenshot_check has a real Playwright PNG to decode)
-#   7. pytest with CI=true and -rs: the screenshot and parity tests fail instead of skipping when
+#   8. pytest with CI=true and -rs: the screenshot and parity tests fail instead of skipping when
 #      the viewer build, node, Chromium, or a screenshot is missing; the run must show zero skips
-#   8. tools/parity_trace.py --check (committed parity traces match the kinematic model)
-#   9. the working tree is unchanged (no step rewrote a lockfile, trace, or schema)
+#   9. tools/parity_trace.py --check (committed parity traces match the kinematic model)
+#  10. tools/build_kit.py --check (every demo kit is current, PLAN 2.14)
+#  11. tools/bench.py: the tick cost within 25 % of tools/bench_baseline.json (PLAN 2.9)
+#  12. the working tree is unchanged (no step rewrote a lockfile, trace, or schema)
 #
 # Training and demo tool; not a safety-rated simulation.
 set -euo pipefail
@@ -102,6 +105,9 @@ echo "web/src/fixtures/parity-*.json match core/kinematics.py"
 
 step "demo kits current (PLAN 2.14)"
 uv run python tools/build_kit.py --check
+
+step "tick-cost gate (PLAN 2.9)"
+uv run python tools/bench.py
 
 step "working tree unchanged"
 git status --short
