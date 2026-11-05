@@ -36,6 +36,27 @@ describe("component mesh builders", () => {
     expect(color(belt)).toBe(ISA101.stopped);
   });
 
+  it("draws a belt's slats as one instanced mesh that runs with the core's travel (PLAN 2.9)", () => {
+    const view = buildComponent(geom("belt_conveyor", { length: 4, width: 0.5 }), ctx);
+    const slats = view.object.getObjectByName("slats") as THREE.InstancedMesh;
+    expect(slats).toBeInstanceOf(THREE.InstancedMesh);
+    expect(slats.count).toBe(16); // one every 0.25 m
+    const xs = () => {
+      const m = new THREE.Matrix4();
+      const v = new THREE.Vector3();
+      return Array.from({ length: slats.count }, (_, i) => {
+        slats.getMatrixAt(i, m);
+        return v.setFromMatrixPosition(m).x;
+      });
+    };
+    expect(xs()[1]).toBeCloseTo(0.25, 6);
+    view.update({ running: true, travel_m: 1.1 }); // 0.1 m past a whole number of pitches
+    const moved = xs();
+    expect(moved[0]).toBeCloseTo(0.1, 6);
+    expect(moved[15]).toBeCloseTo(3.85, 6);
+    expect(Math.max(...moved)).toBeLessThan(4); // wrapped round, never past the discharge end
+  });
+
   it("draws the belt from the infeed end along local +x, with legs to the floor", () => {
     const view = buildComponent({ ...geom("belt_conveyor", { length: 4, width: 0.5 }), position: [0, 0, 0], rotation_deg: 0 }, ctx);
     view.object.updateMatrixWorld(true);

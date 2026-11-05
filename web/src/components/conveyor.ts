@@ -24,13 +24,24 @@ export const beltConveyor: Builder = (g, ctx) => {
   for (const x of [0, length]) frame.push(zCylinder(0.04, width, NEUTRAL.structure, [x, -0.045, 0]));
   group.add(...frame);
 
-  const slats: THREE.Mesh[] = [];
+  // One instanced mesh for all of a belt's slats: one draw call instead of one per slat (PLAN 2.9).
   const count = Math.max(1, Math.floor(length / SLAT_PITCH));
-  for (let i = 0; i < count; i++) {
-    const slat = box([0.015, 0.003, width * 0.96], NEUTRAL.slat, [i * SLAT_PITCH, 0.0015, 0]);
-    slats.push(slat);
-    group.add(slat);
-  }
+  const slats = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(0.015, 0.003, width * 0.96),
+    new THREE.MeshStandardMaterial({ color: NEUTRAL.slat, roughness: 0.7, metalness: 0.1 }),
+    count,
+  );
+  slats.name = "slats";
+  const slatAt = new THREE.Matrix4();
+  const placeSlats = (phase: number) => {
+    for (let i = 0; i < count; i++) {
+      slats.setMatrixAt(i, slatAt.makeTranslation((i * SLAT_PITCH + phase) % (count * SLAT_PITCH), 0.0015, 0));
+    }
+    slats.instanceMatrix.needsUpdate = true;
+    slats.computeBoundingSphere(); // three culls an instanced mesh by the instances' bounds
+  };
+  placeSlats(0);
+  group.add(slats);
 
   const arrow = directionArrow(g, length, width);
   if (arrow) group.add(arrow.mesh);
@@ -46,10 +57,7 @@ export const beltConveyor: Builder = (g, ctx) => {
       arrow?.update(state);
       setColor(belt, state.running ? ISA101.running : ISA101.stopped);
       const travel = typeof state.travel_m === "number" ? state.travel_m : 0;
-      const phase = ((travel % SLAT_PITCH) + SLAT_PITCH) % SLAT_PITCH;
-      slats.forEach((slat, i) => {
-        slat.position.x = (i * SLAT_PITCH + phase) % (count * SLAT_PITCH);
-      });
+      placeSlats(((travel % SLAT_PITCH) + SLAT_PITCH) % SLAT_PITCH);
     },
   };
 };

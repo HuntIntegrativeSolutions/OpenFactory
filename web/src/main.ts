@@ -32,6 +32,7 @@ import { ExamPanel } from "./exampanel";
 import { FaultMenu } from "./faultmenu";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
+import { FrameStats } from "./framestats";
 
 window.__openfactory = {
   ready: false,
@@ -46,6 +47,11 @@ window.__openfactory = {
   physicsSteps: 0,
   droppedTicks: 0,
   maxTiltDeg: 0,
+  frameMs: null,
+  frameP95Ms: null,
+  renderMs: 0,
+  drawCalls: 0,
+  stateMs: 0,
   tilt: null,
   firstTick: null,
   reloads: 0,
@@ -331,6 +337,7 @@ function stepToFrame(frame: StateFrame): void {
 
 function onFrame(frame: StateFrame): void {
   if (loading || !doc) return;
+  const start = performance.now();
   lastFrame = frame;
   for (const view of views) {
     const state = frame.components[view.id] ?? {};
@@ -350,7 +357,28 @@ function onFrame(frame: StateFrame): void {
   hud.textContent =
     `OpenFactory · ${doc.scene.name}${doc.mode === "replay" ? "   REPLAY" : ""}\n` +
     `t = ${frame.t.toFixed(2)} s   tick ${frame.tick}   parts ${frame.parts.length}\n` +
-    `running: ${running.map((v) => v.id).join(", ") || "none"}`;
+    `running: ${running.map((v) => v.id).join(", ") || "none"}\n` +
+    frameLine();
+  stateCost.frame(start, performance.now() - start);
+  status.stateMs = stateCost.renderMs; // main-thread ms per state frame: scene updates and physics
+}
+
+const stateCost = new FrameStats(40);
+
+const frameStats = new FrameStats();
+
+/**
+ * The stats overlay's frame line (PLAN 2.9): mean and p95 time between rendered frames, then
+ * where the main thread's time goes: rendering per frame, and per 20 Hz state frame the scene
+ * updates and viewer physics. A frame time well above those is spent on the GPU (or its driver).
+ */
+function frameLine(): string {
+  const mean = frameStats.meanMs;
+  const p95 = frameStats.p95Ms;
+  if (mean === null || p95 === null) return "frame: measuring";
+  return `frame ${mean.toFixed(1)} ms (${(1000 / mean).toFixed(0)} fps), p95 ${p95.toFixed(1)} ms   ` +
+    `render ${frameStats.renderMs.toFixed(1)} ms   state ${stateCost.renderMs.toFixed(1)} ms   ` +
+    `draw calls ${renderer.info.render.calls}`;
 }
 
 /**
@@ -456,9 +484,16 @@ start().catch((err: unknown) => {
   hud.textContent = `OpenFactory: ${String(err)}`;
 });
 
-renderer.setAnimationLoop(() => {
+renderer.setAnimationLoop((now) => {
+  const start = performance.now();
   controls.update();
   parts.animate(); // eases meshes toward their latest pose between 20 Hz frames; never steps physics
   renderer.render(scene, camera);
   labels.render(scene, camera);
+  frameStats.frame(now, performance.now() - start);
+  const status = window.__openfactory;
+  status.frameMs = frameStats.meanMs;
+  status.frameP95Ms = frameStats.p95Ms;
+  status.renderMs = frameStats.renderMs;
+  status.drawCalls = renderer.info.render.calls;
 });

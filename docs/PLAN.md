@@ -1083,6 +1083,28 @@ runs the sorting program against it; a box visibly gets pushed.
       +22.0 % (fails both runs); the step wrapped in a 1 ms busy wait +50.6 % and +49.2 %
       (fails). Open: the baseline was measured on the development machine; how well the score
       carries to the GitHub runner's CPU is first seen on the next CI run.
+      **60 fps at 200 parts (ruled 2026-11-04):** measure frame time on the software renderer
+      and on the owner's machine through a number in the stats overlay; instance part meshes and
+      merge static belt geometry if needed; report before and after.
+      *Progress (2026-11-04), not done (waits for the owner's reading):* the HUD's fourth line
+      shows the mean and p95 time between rendered frames, the main thread's render time per
+      frame, its time per 20 Hz state frame (scene updates and viewer physics) and the draw
+      calls (`web/src/framestats.ts`; also `window.__openfactory.frameMs`, `frameP95Ms`,
+      `renderMs`, `stateMs`, `drawCalls`). Each belt's slats are one instanced mesh, not one
+      mesh per slat. Software renderer (headless Chromium, SwiftShader, 8 cores shared with the
+      core), `tests/scenes/load-200.yaml` with every DO forced, at 200 parts, 1280x720: before,
+      215-230 ms a frame (p95 517-550), 1732 draw calls, render 22.6-23.3 ms; after, 208-224 ms
+      (p95 533), 542 draw calls, render 6-8.6 ms, state 6-9.6 ms. The frame time did not move
+      because SwiftShader is bound by rasterizing on the CPU, not by draw calls or the main
+      thread (busy 17-24 % of the time): hiding all 200 parts (142 draw calls) left it at
+      211 ms; `conveyor-start-stop` idle (23 draw calls, no parts) runs 80-90 ms at 1280x720
+      and 30 ms at 640x360. 60 fps is out of reach on the software renderer at any part count.
+      Parts are not instanced: here they cost about 0.3 ms of render time. The owner's
+      reading decides the next step: run `uv run openfactory run tests/scenes/load-200.yaml`
+      with `--force` on every DO (`CONV_nn_RUN_DO=1`, `EMT_nn_EN_DO=1`, nn 01-10), open the
+      viewer, and read the frame line once parts reach 200. A p95 above 16.7 ms with render plus
+      state well below it means the GPU or its driver: part instancing (400 of the 542 draw
+      calls) and a static merge come next.
       **Physics engine check:** Jolt (MIT) compiled to multi-threaded WASM supports true conveyor
       surface velocity through its contact listener, which Rapier JS lacks (`libraries.md`). Build a
       spike branch swapping Rapier for `jolt-physics` on the sorter, compare parity trace, frame time at
