@@ -46,6 +46,8 @@ export interface PhysicsScene {
   components: ComponentGeometry[];
   friction: number;
   dt: number;
+  /** The scene's conveyor connections (PLAN 2.9): where two belts meet end to end. */
+  connections?: { from: string; to: string }[];
 }
 
 export interface SensorEdge {
@@ -98,6 +100,9 @@ const num = (g: ComponentGeometry, key: string, fallback: number) =>
 
 interface Belt {
   body: RapierNs.RigidBody;
+  /** The belt's length and width (m). */
+  length: number;
+  width: number;
   home: Vec3;
   flow: Vec3;
   speed: number;
@@ -144,6 +149,10 @@ export class PlantPhysics {
   private readonly bladeColliders = new Map<number, Blade>();
   private readonly hooks: RapierNs.PhysicsHooks;
   private readonly reported = new Map<string, boolean>(); // eye id -> last state step() returned
+  /** Connected conveyor pairs, upstream belt first (PLAN 2.9, seams). */
+  private readonly seams: [Belt, Belt][] = [];
+  /** Part colliders whose contacts Rapier recomputes every step: those at an equal-speed seam. */
+  private fresh = new Set<number>();
 
   constructor(R: Rapier, scene: PhysicsScene) {
     this.R = R;
@@ -159,6 +168,12 @@ export class PlantPhysics {
       else if (g.type === "turntable") this.addDeck(g);
       else if (g.type === "lift") this.addLift(g);
       else if (g.type === "diverter_arm") this.addArm(g);
+    }
+    for (const { from, to } of scene.connections ?? []) {
+      const up = this.belts.get(from);
+      const down = this.belts.get(to);
+      if (!up || !down) continue;
+      this.seams.push([up, down]);
     }
     const blades = this.bladeColliders;
     this.hooks = {
@@ -224,7 +239,7 @@ export class PlantPhysics {
     );
     this.world.createCollider(beltCollider(R, length, width).setFriction(this.friction).setRestitution(0), body);
     this.belts.set(g.id, {
-      body, home, flow: rotateY([1, 0, 0], g.rotation_deg), speed: 0,
+      body, length, width, home, flow: rotateY([1, 0, 0], g.rotation_deg), speed: 0,
       deck: { centre: g.position, rotation: g.rotation_deg, angle: 0 },
     });
   }
@@ -302,7 +317,7 @@ export class PlantPhysics {
     if (own < this.friction) collider.setFrictionCombineRule(R.CoefficientCombineRule.Min);
     if (own > this.friction) collider.setFrictionCombineRule(R.CoefficientCombineRule.Max);
     this.world.createCollider(collider, body);
-    this.belts.set(g.id, { body, home, flow: rotateY([1, 0, 0], g.rotation_deg), speed: 0 });
+    this.belts.set(g.id, { body, length, width, home, flow: rotateY([1, 0, 0], g.rotation_deg), speed: 0 });
   }
 
   private addPlate(g: ComponentGeometry): void {
@@ -360,6 +375,47 @@ export class PlantPhysics {
       body.setTranslation(body.nextTranslation(), true);
       body.setRotation(body.nextRotation(), true);
     }
+  }
+
+  /**
+   * Seam crossing (PLAN 2.9). Rapier recycles a contact pair's contacts while the two bodies barely
+   * move relative to each other, and a box riding a belt hardly moves relative to the belt it
+   * meets at a seam, so the contacts against that belt's rounded entry edge go stale: the box's
+   * leading bottom edge (sunk about 0.4 mm into the belt, Rapier's allowed penetration) strikes it
+   * and loses about 7 mm, 1.2-1.5 ticks at 0.5 m/s, where the core loses nothing. Rapier never
+   * recycles a pair that has active hooks, so each step every part within reach of a seam between
+   * two connected belts in line, level, and running at the same non-zero speed gets the
+   * contact-pair hook (which keeps its contacts), and every other part goes without it, as before.
+   * At unequal speeds, where the faster belt pulls the box across, nothing changes.
+   */
+  private refreshSeamContacts(): void {
+    const now = new Set<number>();
+    for (const [up, down] of this.seams) {
+      if (up.speed === 0 || Math.abs(up.speed - down.speed) > 1e-9) continue; // stopped, or unequal
+      if (up.flow[0] * down.flow[0] + up.flow[2] * down.flow[2] < Math.cos((1 * Math.PI) / 180)) continue; // turned away
+      if (Math.abs(up.home[1] - down.home[1]) > 1e-3) continue; // a lift above or below
+      const top = up.home[1] + BELT_HALF_THICKNESS;
+      const seamX = up.home[0] + (up.flow[0] * up.length) / 2;
+      const seamZ = up.home[2] + (up.flow[2] * up.length) / 2;
+      for (const [id, body] of this.parts) {
+        if (body.isKinematic()) continue; // placed by the core
+        const size = this.sizes.get(id)!;
+        const t = body.translation();
+        if (Math.abs(t.y - size[1] / 2 - top) > 0.01) continue; // not resting at belt height
+        const dx = t.x - seamX;
+        const dz = t.z - seamZ;
+        const reach = Math.hypot(size[0], size[2]) / 2 + 0.05;
+        const along = dx * up.flow[0] + dz * up.flow[2];
+        const across = -dx * up.flow[2] + dz * up.flow[0];
+        if (Math.abs(along) < reach && Math.abs(across) < up.width / 2 + reach) now.add(body.collider(0).handle);
+      }
+    }
+    const { R } = this;
+    for (const handle of this.fresh) {
+      if (!now.has(handle) && this.partHandles.has(handle)) this.world.getCollider(handle).setActiveHooks(R.ActiveHooks.NONE);
+    }
+    for (const handle of now) if (!this.fresh.has(handle)) this.world.getCollider(handle).setActiveHooks(R.ActiveHooks.FILTER_CONTACT_PAIRS);
+    this.fresh = now;
   }
 
   /** Pusher plate travel in m from retracted (the core's `position_m` state), for the next step. */
@@ -479,6 +535,7 @@ export class PlantPhysics {
         if (id === undefined || !this.overBlade(blade, this.parts.get(id)!, this.sizes.get(id)!)) blade.exempt.delete(handle);
       }
     }
+    this.refreshSeamContacts();
     this.world.step(this.events, this.hooks);
     this.events.drainCollisionEvents((h1, h2, started) => {
       const eye = this.beams.get(h1) ?? this.beams.get(h2);

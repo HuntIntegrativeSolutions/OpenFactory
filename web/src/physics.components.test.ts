@@ -151,3 +151,35 @@ describe("a viewer joining a run already going (PLAN 2.9, the tipped box)", () =
     expect(over.x).toBeGreaterThan(2.3); // carried on past the blade onto GC_02
   });
 });
+
+describe("seam crossing (PLAN 2.9)", () => {
+  /** Metres a box riding at 0.5 m/s falls behind ideal travel while crossing from belt A onto
+   * belt B, both at 0.5 m/s; `connected`: the scene declares the A-to-B connection. */
+  async function lag(connected: boolean): Promise<number> {
+    const R = await loadRapier();
+    const comps: ComponentGeometry[] = [
+      { id: "A", type: "belt_conveyor", description: "", position: [0, 0, 0], rotation_deg: 0, length: 2, width: 0.5 },
+      { id: "B", type: "belt_conveyor", description: "", position: [2, 0, 0], rotation_deg: 0, length: 2, width: 0.5 },
+    ];
+    const physics = new PlantPhysics(R, {
+      components: comps, connections: connected ? [{ from: "A", to: "B" }] : [], friction: 0.8, dt: DT,
+    });
+    physics.setBelt("A", 0.5);
+    physics.setBelt("B", 0.5);
+    physics.addPart("P1", [0.3, 0.2, 0.3], [1.0, 0.1, 0], [0.5, 0, 0]);
+    for (let k = 0; k < 20; k++) physics.step(); // settled on A at belt speed
+    const x0 = physics.part("P1")!.position[0];
+    for (let k = 0; k < 150; k++) physics.step(); // across the seam at x 2.0 and on along B
+    const x = physics.part("P1")!.position[0];
+    physics.free();
+    return x0 + 0.5 * DT * 150 - x;
+  }
+
+  it("carries a box across an equal-speed seam without the 1.2-tick loss Rapier's recycled contacts cause", async () => {
+    const fresh = await lag(true);
+    const recycled = await lag(false); // the same belts, undeclared: the old behaviour
+    console.log(`seam lag at 0.5 m/s: ${(fresh * 1000).toFixed(2)} mm connected, ${(recycled * 1000).toFixed(2)} mm not`);
+    expect(Math.abs(fresh)).toBeLessThan(0.001);
+    expect(recycled).toBeGreaterThan(0.005);
+  });
+});

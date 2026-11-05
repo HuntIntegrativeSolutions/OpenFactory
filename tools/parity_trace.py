@@ -120,18 +120,15 @@ TRACES: dict[str, TraceSpec] = {
     ),
     # Ruled 2026-10-28: the turntable demo under its script. Straight boxes ride the deck at 0;
     # every other box is centred, turned 90 degrees (core-placed while turning, §3.3), and run off
-    # onto CONV_SIDE. PE_TT sees each box arrive on the deck. Not a gate (PLAN §9 rule 9, note
-    # under PLAN 2.5): worst 3 ticks, on the straight boxes' PE_TT edges, from the ~1.2 tick a box
-    # loses crossing an equal-speed belt seam in Rapier (a plain belt in the deck's place loses the
-    # same) on top of the eye's usual 1 tick; the turned boxes agree within 2. Accepted as
-    # informational on 2026-10-30; the seam loss is a PLAN 2.9 item.
+    # onto CONV_SIDE. PE_TT sees each box arrive on the deck. A gate again since PLAN 2.9 (seam
+    # crossing, 2026-11-04): it was informational at worst 3 ticks while Rapier lost ~1.2 ticks
+    # at the equal-speed CONV_IN/deck seam; the viewer now keeps a part's contacts fresh there.
     "parity-turntable": TraceSpec(
         scene=REPO / "tests" / "scenes" / "demo-turntable.yaml",
         script=REPO / "tests" / "scenes" / "demo-turntable.py",
         seconds=25.0,
         checkpoints=(1.0, 2.0, 3.0, 4.0),
         schedule={},
-        gate=False,
     ),
     # Ruled 2026-10-28: the pick-and-place demo under its script. The gantry lifts each box off
     # CONV_A (core-placed while held, §3.3), sets it on CONV_B, and Rapier carries it from there.

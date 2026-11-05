@@ -59,7 +59,9 @@ function load(name: string): Trace {
 
 async function replay(trace: Trace) {
   const R = await loadRapier();
-  const physics = new PlantPhysics(R, { components: trace.scene.components, friction: trace.friction, dt: trace.dt });
+  const physics = new PlantPhysics(R, {
+    components: trace.scene.components, connections: trace.scene.connections, friction: trace.friction, dt: trace.dt,
+  });
   const byTick = new Map(trace.inputs.map((entry) => [entry.tick, entry]));
   const edges: Record<string, [number, boolean][]> = Object.fromEntries(Object.keys(trace.edges).map((id) => [id, []]));
   const checkpoints: Record<string, Record<string, number>> = {};

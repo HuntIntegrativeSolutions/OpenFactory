@@ -416,7 +416,7 @@ async function loadScene(): Promise<void> {
   lastFrame = null;
   events = new EventLink();
   if (rapier) {
-    physics = replaying() ? null : new PlantPhysics(rapier, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
+    physics = replaying() ? null : new PlantPhysics(rapier, { components: doc.components, connections: doc.connections, friction: doc.scene.friction, dt: doc.dt });
   }
   loading = false;
 }
@@ -466,7 +466,7 @@ async function start(): Promise<void> {
   });
   try {
     rapier = await loadRapier();
-    if (doc && !replaying()) physics = new PlantPhysics(rapier, { components: doc.components, friction: doc.scene.friction, dt: doc.dt });
+    if (doc && !replaying()) physics = new PlantPhysics(rapier, { components: doc.components, connections: doc.connections, friction: doc.scene.friction, dt: doc.dt });
     window.__openfactory.physics = replaying() ? "off: replay" : `rapier ${rapier.version()}`;
   } catch (err) {
     window.__openfactory.physics = `off: ${String(err)}`; // parts follow the core positions instead

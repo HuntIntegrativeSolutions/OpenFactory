@@ -850,7 +850,7 @@ runs the sorting program against it; a box visibly gets pushed.
       the same commit) makes beams ignore every collider that is not a part's, so belts, decks,
       pusher plates, stopper blades and diverter arms never trip one.
       *Ruled 2026-10-30:* `parity-turntable` stays informational under §9 rule 9; the seam loss
-      is a 2.9 item ("Seam crossing").
+      is a 2.9 item ("Seam crossing"). *Re-gated 2026-11-04* (2.9, seam crossing): worst 1 tick.
 - [x] 2.5b Components split from 2.5: `counter_display` (4-digit readout of an AO on a panel),
       `lift` (moves a short conveyor between two heights; at_top/at_bottom DIs), reversible belts
       (belt and roller conveyors gain `bidirectional: true` with a `reverse` DO and a direction
@@ -1065,6 +1065,24 @@ runs the sorting program against it; a box visibly gets pushed.
       **Seam crossing (ruled 2026-10-30):** Rapier loses about 1.2 ticks per belt-to-belt seam at
       equal speeds; the headless model loses none. Either model the loss headless or correct it in
       the viewer so seam-heavy scenes gate at 2 ticks (`parity-turntable`, note under 2.5).
+      *Done (2026-11-04), in the viewer; the core is unchanged:* the cause is Rapier's contact
+      recycling. Rapier reuses a contact pair's contacts while the two bodies barely move
+      relative to each other (on by default since Rapier 0.35, per its changelog), and a box
+      riding a belt hardly moves relative to the belt it meets at a seam, so its contacts against
+      that belt's rounded entry edge go stale. The box sinks about 0.4 mm into the belt it rides
+      (Rapier's allowed penetration: a 0.2 m box rests at y 0.09964), its leading bottom edge
+      strikes the next belt's end, and it rises 0.13 mm and travels 8.8, 7.4 and 6.2 mm in the
+      next three ticks instead of 10: 7.4 mm lost at 0.5 m/s. Rapier never recycles a pair with
+      active hooks, so `PlantPhysics` (now given the scene's `connections`) sets the
+      contact-pair hook, each step, on every part within reach of a seam between two connected
+      belts in line, level and running at the same non-zero speed, and clears it once the part
+      is clear; the hook keeps the default. Ruled out first: longer belt colliders filling the
+      seam (2.0-3.2 mm left), rounded part colliders (0.7-11.9 mm, erratic), more solver
+      iterations (0.6-3.0 mm), a smaller allowed error (no change). The hook flag on whole belts
+      also removed the loss but moved the unequal-speed queue and stopper traces from 2 ticks to
+      3, so it is per part and only at equal speeds. Results: a box crossing an equal-speed seam
+      loses 0.03 mm (7.38 mm undeclared, `physics.components.test.ts`); `parity-turntable` worst
+      3 ticks to 1 and a gate again; every row of the other seven traces unchanged.
       Add `tools/bench.py` running a fixed 500-part benchmark scene headless for 60 simulated seconds
       and reporting mean and p99 tick time; CI fails if p99 exceeds 15 ms. The scheduler overrun
       counter from Milestone 1 is the production-side signal for the same limit.
