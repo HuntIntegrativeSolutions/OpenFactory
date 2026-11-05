@@ -1096,6 +1096,23 @@ runs the sorting program against it; a box visibly gets pushed.
       2.68-3.92 ms after; load-200 3.30-3.39 ms before, 3.67-3.89 ms after). Recover it: back to
       the `efde1d0` numbers or better on both scenes, measured against `efde1d0` in the same
       session, with every trace, recording and kit byte-identical.
+      *Done (2026-11-04):* the cost was `Part.footprint` (and its `round`), called through
+      `_extent` about four times per part per tick, plus the new sort key. `_convey` now reads
+      the part's local position and half-extents from the box `_record` cached this tick (the
+      part has not moved since, so they are the same numbers), `_record` reuses the
+      half-extents when the part stays on its belt, `footprint` returns `size` for a part with
+      no yaw, and the step keeps the `efde1d0` sort key unless a belt runs in reverse. Measured
+      by interleaving: a base and a candidate process hold the same scene in memory and take
+      turns running 50-tick blocks (80 each, order alternating), so machine drift hits both;
+      separate runs varied 30 % for the same code. Candidate over `efde1d0` per block pair,
+      median (quartiles), two runs each: queue-200 0.915 (0.870-0.981) and 0.953
+      (0.885-1.051); load-200 0.885 (0.839-0.946) and 0.890 (0.798-0.958). The same method
+      on the code before the change (`b61b3f5`): queue-200 1.178, load-200 1.235. Medians, ms:
+      queue-200 3.244 base, 3.054 candidate; load-200 2.463 base, 2.301 candidate.
+      Byte-identical against `b61b3f5`: recordings of queue-200 (120 s), load-200 (90 s),
+      demo-turntable, demo-pick-place, demo-reversing, demo-lift, counter-display,
+      buffer-and-release and two-lane-merge (120 s each) and the accumulation example (60 s);
+      `parity_trace.py --check` passes and `build_kit.py --check` reports all six kits current.
       **Measure against a same-session baseline (added 2026-10-27):** absolute tick times on the
       development machine vary about 30 % from day to day (11.65 ms on 2026-10-26 for the same
       code that measured 15.4 ms and 15.8 ms on a slower day). Every before/after claim runs the

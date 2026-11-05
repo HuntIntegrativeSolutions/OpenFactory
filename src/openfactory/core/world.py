@@ -71,6 +71,8 @@ class Part:
         """The box's world-axis size: ``size`` with x and z swapped when the part's yaw, rounded
         to the nearest 90 degrees, is an odd number of quarter turns (PLAN 2.5b). Exact once a
         deck has stopped turning; while it turns, the nearer quarter."""
+        if self.yaw == 0.0:  # every part that never rode a turning deck (PLAN 2.9, tick cost)
+            return self.size
         sx, sy, sz = self.size
         return (sz, sy, sx) if round(self.yaw / 90.0) % 2 else (sx, sy, sz)
 

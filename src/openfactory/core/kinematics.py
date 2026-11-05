@@ -140,6 +140,8 @@ _EPS = 1e-9
 #: Slack on the queueing search's stopping test, far above float rounding and far below any
 #: real gap, so stopping early never skips a box a full scan would have found nearer.
 _PRUNE_MARGIN = 1e-6
+#: A carried part's box in its belt's frame: (x, z, half_x, half_z, y, height).
+Box = tuple[float, float, float, float, float, float]
 
 
 class KinematicModel:
@@ -176,7 +178,7 @@ class KinematicModel:
         #: Deck height each lift had when its parts were last moved with it.
         self._height_seen: dict[str, float] = {c.id: c.height for c in self.lifts}  # type: ignore[attr-defined]
         self._refresh()
-        self._boxes: dict[str, dict[str, tuple[float, float, float, float, float, float]]] = {}
+        self._boxes: dict[str, dict[str, Box]] = {}
         #: Per belt, ``(x, part id)`` of every box in ``_boxes``, sorted by x (PLAN 2.9): the
         #: queueing check walks forward from a part and stops once nothing further can be nearer.
         self._order: dict[str, list[tuple[float, str]]] = {}
@@ -325,31 +327,43 @@ class KinematicModel:
                 return (1, -self._rank[p.carrier], x)  # type: ignore[index]
             return (0, self._rank[p.carrier], -x)  # type: ignore[index]
 
-        carried = sorted((p for p in parts if p.carrier is not None), key=order)
+        def forward(p: Part) -> tuple[int, float]:
+            return (self._rank[p.carrier], -self._boxes[p.carrier][p.id][0])  # type: ignore[index]
+
+        reversing = any(c.surface_speed < 0 for c in self.carriers.values())  # type: ignore[attr-defined]
+        carried = sorted(
+            (p for p in parts if p.carrier is not None), key=order if reversing else forward
+        )
         for part in carried:
             before = part.carrier
-            self._convey(part, dt)
+            box = self._convey(part, dt)
             self._forget(before, part.id)  # type: ignore[arg-type]
             if part.carrier is not None:
-                self._record(part)  # its new box, on whichever belt now carries it
+                # its new box, on whichever belt now carries it; on the same belt its
+                # half-extents are unchanged (only the deck turn, before this, changes yaw)
+                self._record(part, box[2:4] if part.carrier == before else None)
         self.guided = set()
         for arm, belt_id in self.arms:
             self._fence(arm, belt_id)
         for part in falling:
             self._fall(part, dt)
 
-    def _convey(self, part: Part, dt: float) -> None:
+    def _convey(self, part: Part, dt: float) -> Box:
+        """Move one carried part; returns its box as it was before the move."""
         carrier = self.carriers[part.carrier]  # type: ignore[index]
         cfg = carrier.config
-        x, _, z = self._local(carrier, part.position)
-        part.v_flow = self._friction_speed(part.v_flow, self._supports(part, carrier, x), dt)
+        # The part's belt-local box, cached by _record this tick: the part has not moved since,
+        # so these are the numbers _local and _extent would give (PLAN 2.9, tick cost).
+        box = self._boxes[carrier.id][part.id]
+        x, z, half_x, half_z = box[0], box[1], box[2], box[3]
+        part.v_flow = self._friction_speed(part.v_flow, self._supports(carrier, x, half_x), dt)
         if part.v_flow > 0:
-            room = self._room_ahead(part, carrier, x, z)
+            room = self._room_ahead(part, carrier, x, z, half_x, half_z)
             if x + part.v_flow * dt > room:  # queued: stop at the back face of the part ahead
                 advance = max(0.0, room - x)
                 part.v_flow = advance / dt
         elif part.v_flow < 0:  # reversing (PLAN 2.5b)
-            floor = self._room_behind(part, carrier, x, z)
+            floor = self._room_behind(part, carrier, x, z, half_x, half_z)
             if x + part.v_flow * dt < floor:  # stop at the front face of the part behind
                 part.v_flow = min(0.0, floor - x) / dt
         x += part.v_flow * dt
@@ -360,7 +374,7 @@ class KinematicModel:
             lateral = min(max(z, -half_w), half_w)
             part.position = self._world(nxt, (x - cfg.length, rest_y, lateral))
             part.carrier = nxt.id
-            return
+            return box
         if x < -_EPS and part.v_flow < 0:
             feeder = self._feeder_for(carrier, self._world(carrier, (x, rest_y, z)))
             if feeder is not None:  # hands back to the conveyor feeding this one
@@ -368,20 +382,21 @@ class KinematicModel:
                 lateral = min(max(z, -half_w), half_w)
                 part.position = self._world(feeder, (feeder.config.length + x, rest_y, lateral))
                 part.carrier = feeder.id
-                return
+                return box
         part.position = self._world(carrier, (x, rest_y, z))
         if not self._holds(carrier, part.position):
             part.carrier = None  # off the end or the side: falls from here
             part.vy = 0.0
             part.v_flow = 0.0
+        return box
 
     def _supports(
-        self, part: Part, carrier: Component, x: float
+        self, carrier: Component, x: float, half: float
     ) -> list[tuple[float, float, float]]:
-        """``(belt speed, share of the part's footprint, μ·g)`` for each belt under the part. A part
-        straddling a connection seam rests on both belts, in proportion to its overlap."""
+        """``(belt speed, share of the part's footprint, μ·g)`` for each belt under a part at
+        local ``x`` with half length ``half`` along the flow. A part straddling a connection seam
+        rests on both belts, in proportion to its overlap."""
         own = (carrier.surface_speed, self.accel[carrier.id])  # type: ignore[attr-defined]
-        half, _ = self._extent(part, carrier)
         length = carrier.config.length
         if carrier.id in self.downstream and x + half > length:  # nose onto the next belt
             share = min(1.0, (x + half - length) / (2 * half))
@@ -430,11 +445,12 @@ class KinematicModel:
         sx, _, sz = part.footprint
         return (c * sx + s * sz) / 2, (s * sx + c * sz) / 2
 
-    def _record(self, part: Part) -> None:
-        """Cache a carried part's box in its belt's frame: (x, z, half_x, half_z, y, height)."""
+    def _record(self, part: Part, halves: tuple[float, float] | None = None) -> None:
+        """Cache a carried part's box in its belt's frame: (x, z, half_x, half_z, y, height).
+        ``halves`` are its half-extents on this belt when already known."""
         carrier = self.carriers[part.carrier]  # type: ignore[index]
         x, _, z = self._local(carrier, part.position)
-        half_x, half_z = self._extent(part, carrier)
+        half_x, half_z = halves if halves is not None else self._extent(part, carrier)
         self._boxes[carrier.id][part.id] = (x, z, half_x, half_z, part.position[1], part.size[1])
         insort(self._order[carrier.id], (x, part.id))
         if half_x > self._max_half[carrier.id]:
@@ -447,10 +463,12 @@ class KinematicModel:
             order = self._order[belt_id]
             del order[bisect_left(order, (box[0], part_id))]
 
-    def _room_ahead(self, part: Part, carrier: Component, x: float, z: float) -> float:
+    def _room_ahead(
+        self, part: Part, carrier: Component, x: float, z: float, half_x: float, half_z: float
+    ) -> float:
         """Largest local x the part's center may reach this step without overlapping a carried
-        part ahead of it, on its own belt or on the belt it feeds (mapped past this belt's end)."""
-        half_x, half_z = self._extent(part, carrier)
+        part ahead of it, on its own belt or on the belt it feeds (mapped past this belt's end).
+        ``half_x``/``half_z`` are its half-extents along and across the flow."""
         y, height = part.position[1], part.size[1]
         room = math.inf
         frames = [(carrier.id, 0.0)]
@@ -501,11 +519,12 @@ class KinematicModel:
                 best, best_d = up, d
         return best
 
-    def _room_behind(self, part: Part, carrier: Component, x: float, z: float) -> float:
+    def _room_behind(
+        self, part: Part, carrier: Component, x: float, z: float, half_x: float, half_z: float
+    ) -> float:
         """Smallest local x the part's center may reach this step moving in reverse without
         overlapping a carried part behind it, on its own belt or on a conveyor feeding it
         (mapped before this belt's infeed end). The mirror of :meth:`_room_ahead`."""
-        half_x, half_z = self._extent(part, carrier)
         y, height = part.position[1], part.size[1]
         floor = -math.inf
         frames = [(carrier.id, 0.0)]
