@@ -1128,6 +1128,17 @@ runs the sorting program against it; a box visibly gets pushed.
       spike branch swapping Rapier for `jolt-physics` on the sorter, compare parity trace, frame time at
       200 parts, bundle size, and API ergonomics. Write ADR-0005 either way. Do not switch on a hunch;
       switch if parity tightens or frame time halves.
+      *Ruled 2026-11-04:* a written comparison in `docs/research/`, no dependency change, a
+      recommendation with numbers (in place of the spike branch and ADR-0005).
+      *Done (2026-11-04):* `docs/research/jolt-vs-rapier.md` recommends keeping Rapier; neither
+      switching criterion is met. Same setups in both engines in Node (`docs/research/
+      jolt-spike/bench.mjs`, Jolt 1.1.0 single-threaded with conveyor surface velocity from its
+      contact listener, Rapier 0.21 built as `physics.ts` without the seam fix). Ramp to belt
+      speed: 4 ticks in both, as the core. Equal-speed seam: Rapier 7.38 mm stock (0.03 mm in
+      the viewer now), Jolt 14.3-25.4 mm over nine convex radius settings. Queue at a stop,
+      worst centre error: Rapier 4.07 mm, Jolt 1.14-1.26 mm. Step at 200 boxes: Rapier mean
+      2.00-2.42 ms, Jolt 1.26-1.99 ms (not halved; p99 worse). Bundle gzip: Rapier 1.65 MB,
+      Jolt 0.88-0.91 MB.
       **Headless queueing cost (from 2.0, added 2026-10-26):** the part-to-part queueing check in
       `core/kinematics.py` costs 11.7 ms per tick at the 200-part cap after the belt-local box
       cache (56.4 ms before it), and it is still quadratic in the parts on a belt. Target under
