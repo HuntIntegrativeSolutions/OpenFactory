@@ -15,6 +15,7 @@ import pusher from "../public/housings/pusher.glb?inline";
 import stopper from "../public/housings/stopper.glb?inline";
 import turntable from "../public/housings/turntable.glb?inline";
 import diverterArm from "../public/housings/diverter_arm.glb?inline";
+import pushbutton from "../public/housings/pushbutton.glb?inline";
 
 const MODELS: Record<string, string> = {
   conveyor_frame: conveyorFrame,
@@ -23,9 +24,10 @@ const MODELS: Record<string, string> = {
   stopper,
   turntable,
   diverter_arm: diverterArm,
+  pushbutton,
 };
 /** The types with a default model so far (PLAN 4.2). */
-const TYPES = ["belt_conveyor", "roller_conveyor", "photo_eye", "pusher", "stopper", "turntable", "diverter_arm"];
+const TYPES = ["belt_conveyor", "roller_conveyor", "photo_eye", "pusher", "stopper", "turntable", "diverter_arm", "pushbutton"];
 
 /**
  * Fixed-size housings: the model fills the primitive housing's box, give or take `grow` m on
@@ -35,6 +37,7 @@ const FILLS: [string, Record<string, unknown>, number][] = [
   ["stopper", {}, 0],
   ["turntable", { length: 0.8, width: 0.5 }, 0.06], // the bearing and base plate are wider
   ["diverter_arm", { length: 0.6 }, 0.09], // the motor behind the pivot
+  ["pushbutton", {}, 0.006], // the guard collar in front of the plate
 ];
 const ctx = { floorY: -0.75 };
 

@@ -165,6 +165,8 @@ export const pushbutton: Builder = (g) => {
     labelAnchor: new THREE.Vector3(0, 0.07, 0),
     pickable: [cap],
     housing: [plate],
+    // the enclosure and guard collar (PLAN 4.2); the cap, which shows the color and moves, stays
+    defaultHousing: { model: "pushbutton", parts: [{ part: "panel", at: [0, 0, 0] }] },
     update(state) {
       cap.material.emissiveIntensity = state.pressed ? 0.8 : 0;
       cap.position.z = state.pressed ? -0.02 : -0.0125;

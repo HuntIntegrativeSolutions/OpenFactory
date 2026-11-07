@@ -1858,6 +1858,11 @@ runs the sorting program against it; a box visibly gets pushed.
         where the primitive pivot post stands: an aluminium hub, a dark right-angle gearbox
         and the motor along -x behind the pivot, away from the arm at rest. Fixed size; the
         arm and paddle, which swing and show status, stay primitives.
+      - `pushbutton` (7 428 bytes): the 0.08 m enclosure behind the primitive plate's face, a
+        dark legend plate under the operator, and an aluminium guard collar around the cap
+        (`_panel` in `tools/make_models.py`, shared with the other operator devices). The cap,
+        which shows the button's color, moves when pressed and is what a click presses, stays
+        a primitive.
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from

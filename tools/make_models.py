@@ -318,6 +318,23 @@ def diverter_arm() -> dict[str, Geometry]:
     return {"drive": drive}
 
 
+def _panel(face: Geometry) -> Geometry:
+    """The enclosure every operator device sits in: a 0.08 m square front plate, 0.02 m deep,
+    its front face at z -0.02 (the primitive plate's), and a legend plate under the operator."""
+    face.box(FRAME, (-0.04, -0.04, -0.04), (0.04, 0.04, -0.02))
+    face.box(DARK, (-0.024, -0.039, -0.02), (0.024, -0.033, -0.018))  # legend plate
+    return face
+
+
+def pushbutton() -> dict[str, Geometry]:
+    """pushbutton, in the button's local frame (the face toward +z). ``panel``: the enclosure
+    with an aluminium guard collar around the cap (0.033 m radius, z -0.02 to -0.014), so the
+    cap, which shows the button's color and moves when pressed, stays a primitive."""
+    panel = _panel(Geometry())
+    panel.cylinder(ALUMINIUM, 2, (0, 0, -0.017), 0.033, 0.006, 32)
+    return {"panel": panel}
+
+
 MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "conveyor_frame": conveyor_frame,
     "photo_eye": photo_eye,
@@ -325,6 +342,7 @@ MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "stopper": stopper,
     "turntable": turntable,
     "diverter_arm": diverter_arm,
+    "pushbutton": pushbutton,
 }
 
 
