@@ -66,3 +66,11 @@ def test_the_check_needs_cyclonedx_1_5_and_package_urls():
     found = sbom.problems({"bomFormat": "SPDX", "specVersion": "2.3", "components": [bare]})
     assert "not a CycloneDX 1.5 document" in found
     assert f"{name}@{version}: needs a name, a version and a package URL" in found
+
+
+def test_licenses_come_without_third_party_md_notes():
+    """THIRD_PARTY.md notes a platform-only runtime dependency in parentheses; the SBOM's license
+    is the license alone."""
+    rows = sbom.listed()["pypi"]
+    assert rows["colorama"][1] == "BSD License"  # listed with "(runtime dependency only when ...)"
+    assert not [name for name, (_, lic) in rows.items() if "runtime dependency" in lic]

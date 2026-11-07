@@ -68,7 +68,10 @@ def listed() -> dict[str, dict[str, tuple[str, str]]]:
         for line in text[start : end if end != -1 else None].splitlines():
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
             if len(cells) >= 3 and cells[0] not in ("Package", "") and not cells[0].startswith("-"):
-                rows[third_party.norm(cells[0])] = (cells[1], cells[2])
+                # the license alone: a trailing note in parentheses (a platform marker,
+                # "reviewed on PyPI") is THIRD_PARTY.md's, not part of the license
+                license_ = re.sub(r"\s*\((?:reviewed|runtime dependency)[^)]*\)$", "", cells[2])
+                rows[third_party.norm(cells[0])] = (cells[1], license_)
         out[ecosystem] = rows
     return out
 

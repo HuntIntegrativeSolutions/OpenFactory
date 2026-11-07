@@ -219,7 +219,11 @@ def main() -> int:
     installed = python_licenses()
     py_runtime, py_dev = [], []
     for key, info in sorted(installed.items()):
-        row = (info["Name"], info["Version"], info["License"], info.get("URL", ""))
+        lic = info["License"]
+        marker = runtime[key][1] if key in runtime else ""
+        if marker:  # installed here for another reason (a dev tool needs it), runtime only there
+            lic = f"{lic} (runtime dependency only when {marker})"
+        row = (info["Name"], info["Version"], lic, info.get("URL", ""))
         (py_runtime if key in runtime else py_dev).append(row)
     for key, (version, marker) in sorted(runtime.items()):
         if key not in installed:  # platform-specific, not installed on the generating host
