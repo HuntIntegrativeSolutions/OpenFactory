@@ -1849,6 +1849,11 @@ runs the sorting program against it; a box visibly gets pushed.
         round barrel end and two air ports. Fixed size; the blade stays a primitive. Hidden under
         the belt from the default camera, so its fit is checked by a bounds test (it fills the
         primitive box), not by eye.
+      - `turntable` (22 560 bytes): the pedestal from under the platform to the floor: a
+        slewing-bearing housing (0.12 m radius), a round column (0.07 m radius) stretched
+        between it and the base, and a 0.32 m base plate on a pad with a collar. The
+        platform, which shows turning, and the deck stay primitives. No model under 0.1 m of
+        pedestal (the primitive draws one from 0.01 m).
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from

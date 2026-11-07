@@ -291,11 +291,27 @@ def stopper() -> dict[str, Geometry]:
     return {"actuator": actuator}
 
 
+def turntable() -> dict[str, Geometry]:
+    """turntable pedestal, in the turntable's local frame turned about its pivot (y up).
+    ``bearing``: the slewing-ring housing under the platform, 0.12 m radius, from y 0 down to
+    -0.03. ``column``: the round pedestal tube, 0.07 m radius, from y 0 down to -1 (stretched
+    to the height above the floor). ``base``: the floor plate, 0.32 m square, on a rubber pad,
+    from the floor at y 0 to y 0.016, with a gusset collar around the column."""
+    bearing = Geometry().cylinder(STRUCTURE, 1, (0, -0.015, 0), 0.12, 0.03, 40)
+    bearing.cylinder(DARK, 1, (0, -0.033, 0), 0.1, 0.006, 40)
+    column = Geometry().cylinder(FRAME, 1, (0, -0.5, 0), 0.07, 1, 32)
+    base = Geometry().box(BLACK, (-0.155, 0, -0.155), (0.155, 0.004, 0.155))
+    base.box(DARK, (-0.16, 0.004, -0.16), (0.16, 0.016, 0.16))
+    base.cylinder(DARK, 1, (0, 0.031, 0), 0.09, 0.03, 32)
+    return {"bearing": bearing, "column": column, "base": base}
+
+
 MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "conveyor_frame": conveyor_frame,
     "photo_eye": photo_eye,
     "pusher": pusher,
     "stopper": stopper,
+    "turntable": turntable,
 }
 
 

@@ -98,7 +98,10 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   `pusher` (a round aluminium barrel and four tie rods stretched to the stroke, square end caps
   with the rod gland and air ports, and a mounting foot under each cap);
   `stopper` (the actuator under the belt: a flange plate, a square cylinder body with a round
-  barrel end, and two air ports).
+  barrel end, and two air ports);
+  `turntable` (the pedestal: a slewing bearing under the platform, a round column stretched to
+  the floor, and a base plate with a collar; none when the turntable stands under 0.1 m from
+  the floor).
 - **Viewer authority (PLAN §3.3).** Parts on conveyors, pushed by a plate, or held by a stopper
   are simulated by the viewer's Rapier physics. Parts held by a gripper, touching a diverter arm,
   or on a turning turntable deck follow the core's position. Sensors are read by the core only.

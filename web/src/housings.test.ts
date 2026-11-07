@@ -13,16 +13,20 @@ import conveyorFrame from "../public/housings/conveyor_frame.glb?inline";
 import photoEye from "../public/housings/photo_eye.glb?inline";
 import pusher from "../public/housings/pusher.glb?inline";
 import stopper from "../public/housings/stopper.glb?inline";
+import turntable from "../public/housings/turntable.glb?inline";
 
-const MODELS: Record<string, string> = { conveyor_frame: conveyorFrame, photo_eye: photoEye, pusher, stopper };
+const MODELS: Record<string, string> = { conveyor_frame: conveyorFrame, photo_eye: photoEye, pusher, stopper, turntable };
 /** The types with a default model so far (PLAN 4.2). */
-const TYPES = ["belt_conveyor", "roller_conveyor", "photo_eye", "pusher", "stopper"];
+const TYPES = ["belt_conveyor", "roller_conveyor", "photo_eye", "pusher", "stopper", "turntable"];
 
 /**
  * Fixed-size housings: the model fills the primitive housing's box, give or take `grow` m on
  * any side (a collar or a motor that the plain box leaves out), so nothing floats or sinks.
  */
-const FILLS: [string, Record<string, unknown>, number][] = [["stopper", {}, 0]];
+const FILLS: [string, Record<string, unknown>, number][] = [
+  ["stopper", {}, 0],
+  ["turntable", { length: 0.8, width: 0.5 }, 0.06], // the bearing and base plate are wider
+];
 const ctx = { floorY: -0.75 };
 
 function geom(type: string, extra: Record<string, unknown> = {}) {
@@ -113,6 +117,12 @@ describe("default component models", () => {
       view.update({ position_m: stroke, extending: true });
       expect(bounds(view.object.getObjectByName("housing")!).min.z).toBeCloseTo(model.min.z, 5);
     }
+  });
+
+  it("give a turntable on the floor no pedestal model, as it has no primitive pedestal", () => {
+    const low = buildComponent({ ...geom("turntable"), position: [0, -0.66, 0] as [number, number, number] }, ctx);
+    expect(low.housing).toEqual([]);
+    expect(low.defaultHousing).toBeUndefined();
   });
 
   it.each(FILLS)("fill the %s's primitive housing box", async (type, extra, grow) => {

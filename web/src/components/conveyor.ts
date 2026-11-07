@@ -132,6 +132,25 @@ function frameModel(g: ComponentGeometry, ctx: BuildContext, length: number, wid
   return { model: "conveyor_frame", parts };
 }
 
+/**
+ * The turntable pedestal model (PLAN 4.2, `turntable` in tools/make_models.py) over the primitive
+ * pedestal's span, from under the platform to the floor: the slewing bearing under the
+ * platform, the round column stretched between it and the base, and the base plate on the
+ * floor. None when the turntable stands too close to the floor for a column.
+ */
+function pedestalModel(pedestal: number): DefaultHousing | undefined {
+  if (pedestal < 0.1) return undefined;
+  const top = -RAIL_H - 0.04; // the platform's underside
+  return {
+    model: "turntable",
+    parts: [
+      { part: "bearing", at: [0, top, 0] },
+      { part: "column", at: [0, top - 0.03, 0], scale: [1, pedestal - 0.03 - 0.016, 1] },
+      { part: "base", at: [0, top - pedestal, 0] },
+    ],
+  };
+}
+
 /** Side rails and floor legs of a straight conveyor: its fixed frame (PLAN 2.15 housing). */
 function railsAndLegs(g: ComponentGeometry, ctx: BuildContext, length: number, width: number): THREE.Mesh[] {
   const parts: THREE.Mesh[] = [];
@@ -235,6 +254,7 @@ export const turntable: Builder = (g, ctx) => {
     labelAnchor: new THREE.Vector3(0, 0.15, -radius),
     pickable: [],
     housing: fixed,
+    defaultHousing: pedestalModel(pedestal),
     update(state) {
       deck.rotation.y = THREE.MathUtils.degToRad(typeof state.angle_deg === "number" ? state.angle_deg : 0);
       setColor(belt, state.running ? ISA101.running : ISA101.stopped);
