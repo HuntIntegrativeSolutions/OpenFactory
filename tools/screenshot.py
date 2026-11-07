@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import os
 import socket
 import struct
 import subprocess
@@ -350,7 +351,9 @@ def main(argv: list[str] | None = None) -> int:
         f"{status['frames']} frames, t = {status['simTime']:.2f} s"
     )
     print(
-        f"viewer physics: {status.get('physics')}, sensor events sent: {status.get('sensorEvents')}"
+        f"viewer physics: {status.get('physics')}, "
+        f"sensor events sent: {status.get('sensorEvents')}, "
+        f"steps {status.get('physicsSteps')}, ticks dropped {status.get('droppedTicks')}"
     )
     meshes = status.get("meshes") or {}
     if meshes.get("loaded") or meshes.get("failed"):
@@ -359,16 +362,22 @@ def main(argv: list[str] | None = None) -> int:
     print(f"core /api/status: t = {core['t']:.2f} s, events received {core['events']}")  # type: ignore[index]
     tilt, worst = float(status.get("maxTiltDeg") or 0.0), status.get("tilt")
     where = f" ({worst['part']} at tick {worst['tick']})" if worst else ""
-    print(f"carried parts drawn at most {tilt:.2f} degrees from upright{where}")
+    tilt_line = f"carried parts drawn at most {tilt:.2f} degrees from upright{where}"
+    print(tilt_line)
     if args.max_tilt_deg is not None and tilt > args.max_tilt_deg:
         print(f"tilt check failed: {tilt:.2f} > {args.max_tilt_deg:g} degrees")
         ok = False
     off, worst = float(status.get("maxOffDeckM") or 0.0), status.get("offDeck")
     where = f" ({worst['part']} off {worst['carrier']} at tick {worst['tick']})" if worst else ""
-    print(f"carried parts drawn at most {off * 1000:.1f} mm outside their deck{where}")
+    off_line = f"carried parts drawn at most {off * 1000:.1f} mm outside their deck{where}"
+    print(off_line)
     if args.max_off_deck_m is not None and off > args.max_off_deck_m:
         print(f"position check failed: {off:.3f} > {args.max_off_deck_m:g} m")
         ok = False
+    if os.environ.get("GITHUB_ACTIONS") == "true":  # readable without signing in, as bench.py
+        level = "notice" if ok else "error"
+        frames = f"{status['frames']} frames, {status.get('droppedTicks')} ticks dropped"
+        print(f"::{level} title=screenshot {args.scene.name}::{tilt_line}; {off_line}; {frames}")
     print(summary)
     for line in result["console"]:  # type: ignore[union-attr]
         if line.startswith(("error", "pageerror", "warning")):
