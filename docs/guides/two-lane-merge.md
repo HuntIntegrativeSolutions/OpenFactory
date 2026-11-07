@@ -28,7 +28,7 @@ program.
 Why the stoppers: a turned deck leaves a 0.15 m gap at the end of the lane it is not serving. The
 headless model holds a box at the end of a conveyor whose connections are all out of line, but the
 viewer's physics has no wall there, so the box would tip into the gap. Each lane's blade keeps its
-next box clear of the deck until the deck lines up (`docs/components.md`, `turntable`).
+next box clear of the deck until the deck lines up ([`turntable`](../components.md#turntable) in the component reference).
 
 ## I/O
 

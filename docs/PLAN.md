@@ -358,7 +358,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 #### Milestone 1 behavior as built
 
 The full behavior spec for each type is in its module docstring (`src/openfactory/components/`), and
-`docs/components.md` is the component reference (parameters, ports, behavior) for every type,
+[`docs/components.md`](components.md) is the component reference (parameters, ports, behavior) for every type,
 Milestone 2 ones included. The choices that go beyond the table above:
 
 - **`belt_conveyor`**: origin is the center of the infeed end at belt top-surface height; flow is local

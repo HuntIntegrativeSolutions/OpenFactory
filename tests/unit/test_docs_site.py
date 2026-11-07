@@ -111,3 +111,14 @@ def test_links_out_of_docs_go_to_github_and_links_inside_are_left_alone():
 
 def test_the_readme_names_the_pages_url():
     assert CONFIG["site_url"] in (REPO / "README.md").read_text(encoding="utf-8")
+
+
+def test_pages_cite_the_component_reference_by_link_not_by_file_name():
+    """A code span naming docs/components.md is dead text on the site, where the file is not a
+    page; a link to it is rerouted to the generated pages. PLAN.md's task notes keep theirs as
+    history; components.md is the source itself."""
+    for page in nav_pages(CONFIG["nav"]):
+        if page in ("PLAN.md", "components.md") or not (REPO / "docs" / page).is_file():
+            continue
+        text = (REPO / "docs" / page).read_text(encoding="utf-8")
+        assert "`docs/components.md`" not in text, f"{page}: link the component reference"

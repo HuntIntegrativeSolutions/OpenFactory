@@ -2,7 +2,7 @@
 
 The full scene format is specified in `docs/PLAN.md` §4, and the machine-readable form is
 `web/public/scene.schema.json` (generated from `src/openfactory/core/schema.py`). Components and
-their parameters are in `docs/components.md`. This page covers the scene-level blocks that need
+their parameters are in the [component reference](components.md). This page covers the scene-level blocks that need
 more explanation than §4 gives.
 
 OpenFactory is a training and demo tool, not a safety-rated simulation.
@@ -160,12 +160,12 @@ Any component may draw its own model in the viewer in place of its fixed housing
 
 - **Visual only.** The core, the viewer's physics colliders, the sensors, and the parity traces
   all use the component's declared dimensions. The mesh replaces only the fixed housing
-  (`docs/components.md`, "Custom mesh", lists it per type); moving and status-colored parts stay
+  (the [component reference](components.md#conventions), "Custom mesh", lists it per type); moving and status-colored parts stay
   primitives, so ISA-101 status still shows. A scene mesh also replaces the type's default model
-  (PLAN 4.2, `docs/components.md`, "Default models").
+  (PLAN 4.2; the [component reference](components.md#conventions), "Default models").
 - **`.glb` only** (binary glTF 2.0, one self-contained file). The file is in the component's local
-  frame: the same origin and axes as the primitive (`docs/components.md` gives each type's
-  origin), in meters.
+  frame: the same origin and axes as the primitive (the [component reference](components.md) gives each
+  type's origin), in meters.
 - **Paths.** `file` is relative to the scene file's folder and must stay in it: an absolute path,
   a `..` segment, or a URL fails validation (`openfactory validate` exits 1). The viewer fetches
   the file from `/models/<component id>.glb`; the server serves only the files a scene declares,
