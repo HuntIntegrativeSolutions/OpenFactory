@@ -32,7 +32,34 @@ export interface ComponentView {
    * Empty when a type has none; a mesh is then drawn beside the primitive.
    */
   housing?: THREE.Object3D[];
+  /**
+   * The type's default model (PLAN 4.2), drawn in place of the primitive housing when the scene
+   * gives the component no `mesh`: which parts of web/public/housings/<model>.glb go where.
+   */
+  defaultHousing?: DefaultHousing;
   update(state: Record<string, unknown>): void;
+}
+
+/** One copy of a model part, in the local frame of the housing's parent (PLAN 4.2). */
+export interface HousingPart {
+  /** The part's node name in the model (tools/make_models.py). */
+  part: string;
+  at: [number, number, number];
+  /** Stretch per axis; a negative value mirrors. Default [1, 1, 1]. */
+  scale?: [number, number, number];
+  /** Turn about local +y, degrees. */
+  turnDeg?: number;
+}
+
+/** A builder's default model: the file, the part copies, where they hang, what they hide. */
+export interface DefaultHousing {
+  /** web/public/housings/<model>.glb */
+  model: string;
+  parts: HousingPart[];
+  /** The group the parts hang in; default the component's object. */
+  parent?: THREE.Object3D;
+  /** The primitives the model replaces; default the view's `housing`. */
+  replaces?: THREE.Object3D[];
 }
 
 export type Builder = (geometry: ComponentGeometry, ctx: BuildContext) => ComponentView;

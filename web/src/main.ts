@@ -26,6 +26,7 @@ import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer
 import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame, type Vec3 } from "./api";
 import { loadRapier, offDeck, PlantPhysics, tiltDeg, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
+import { attachHousings } from "./housings";
 import { attachMeshes } from "./meshes";
 import { cssColor, ISA101 } from "./isa101";
 import { ExamPanel } from "./exampanel";
@@ -60,6 +61,7 @@ window.__openfactory = {
   reloads: 0,
   exam: false,
   meshes: { loaded: 0, failed: 0 },
+  housings: { loaded: 0, failed: 0, types: [] as string[] },
 };
 
 /** Phones report a device pixel ratio of 3 or more; rendering at that drops frames for no gain. */
@@ -415,6 +417,8 @@ async function loadScene(): Promise<void> {
     // custom housings (PLAN 2.15) are in place before the first frame is drawn, or have failed
     const specs = new Map(doc.components.filter((g) => g.mesh).map((g) => [g.id, g.mesh!]));
     status.meshes = await attachMeshes(views, specs);
+    // default models (PLAN 4.2) for every other component whose type has one
+    status.housings = await attachHousings(views, new Set(specs.keys()));
     status.scene = doc.scene.name;
     status.components = doc.components.length;
   }

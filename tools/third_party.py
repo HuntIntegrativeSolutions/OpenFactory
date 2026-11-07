@@ -16,6 +16,8 @@ plus LGPL for the dynamically imported packages in :data:`LGPL_DYNAMIC`).
 THIRD_PARTY.md lists them from those sidecars. ``--models`` rewrites only that section and needs
 neither pip-licenses nor license-checker, so adding a mesh does not refresh the package tables.
 Either mode exits 1 when a tracked ``.glb`` has no sidecar or a sidecar lacks one of the lines.
+Both modes also write ``ATTRIBUTION.md`` (PLAN 4.2) from the same sidecars: the attribution each
+model's license asks for (CC-BY-4.0: title, author, source, license), one entry per file.
 """
 
 from __future__ import annotations
@@ -188,12 +190,66 @@ def models_section() -> tuple[list[str], list[str]]:
     return lines, problems
 
 
+ATTRIBUTION = REPO / "ATTRIBUTION.md"
+LICENSE_URLS = {
+    "CC-BY-4.0": "https://creativecommons.org/licenses/by/4.0/",
+    "CC0-1.0": "https://creativecommons.org/publicdomain/zero/1.0/",
+}
+
+
+def model_records() -> list[tuple[str, dict[str, str]]]:
+    """(path, {Author, License, Source}) for every tracked .glb with a complete sidecar."""
+    out = []
+    for mesh in model_files():
+        sidecar = mesh.with_name(mesh.name + ".license.txt")
+        if not sidecar.is_file():
+            continue
+        found = {
+            k.strip(): v.strip()
+            for k, v in (
+                line.split(":", 1)
+                for line in sidecar.read_text(encoding="utf-8").splitlines()
+                if ":" in line
+            )
+        }
+        if all(found.get(f) for f in MODEL_FIELDS):
+            out.append((mesh.relative_to(REPO).as_posix(), found))
+    return out
+
+
+def attribution_text() -> str:
+    """ATTRIBUTION.md: the credit line each model's license asks for, from its sidecar."""
+    lines = [
+        "# Attribution",
+        "",
+        "The 3D models in this repository, with the attribution their licenses ask for. Generated",
+        "by `tools/third_party.py --models` from each file's `<file>.license.txt` sidecar (the",
+        'same records as THIRD_PARTY.md\'s "3D models" section); do not edit by hand. A copy or',
+        "adaptation of a CC-BY model keeps its line, with a note of any change.",
+        "",
+        "OpenFactory is a training and demo tool, not a safety-rated simulation.",
+        "",
+    ]
+    for path, record in model_records():
+        license_ = record["License"]
+        spdx = license_.split()[0]  # a sidecar may follow the identifier with its URL
+        url = LICENSE_URLS.get(spdx)
+        named = f"[{spdx}]({url})" if url else license_
+        lines += [
+            f"- **`{path}`** by {record['Author']}, licensed under {named}.",
+            f"  Source: {record['Source'].rstrip('.')}.",
+        ]
+    return "\n".join(lines) + "\n"
+
+
 def write_models_section() -> list[str]:
-    """Replace (or append) the 3D-models section of THIRD_PARTY.md; return problems."""
+    """Replace (or append) the 3D-models section of THIRD_PARTY.md and rewrite ATTRIBUTION.md;
+    return problems."""
     lines, problems = models_section()
     text = OUT.read_text(encoding="utf-8")
     head = text.split(MODELS_HEADING)[0].rstrip("\n") + "\n\n"
     OUT.write_text(head + "\n".join(lines), encoding="utf-8")
+    ATTRIBUTION.write_text(attribution_text(), encoding="utf-8")
     return problems
 
 
@@ -281,6 +337,7 @@ def main() -> int:
     ]
     problems += models[1]
     OUT.write_text("\n".join(lines), encoding="utf-8")
+    ATTRIBUTION.write_text(attribution_text(), encoding="utf-8")
     print(
         f"wrote {OUT}: {len(py_runtime)} Python runtime, {len(py_dev)} Python dev, "
         f"{len(npm_prod)} web runtime, {len(npm_all) - len(npm_prod)} web build"

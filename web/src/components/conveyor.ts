@@ -6,7 +6,7 @@
 import * as THREE from "three";
 import type { ComponentGeometry } from "../api";
 import { ISA101 } from "../isa101";
-import { NEUTRAL, box, num, placed, setColor, zCylinder, type BuildContext, type Builder } from "./types";
+import { NEUTRAL, box, num, placed, setColor, zCylinder, type BuildContext, type Builder, type DefaultHousing, type HousingPart } from "./types";
 
 const BELT_T = 0.02;
 const RAIL_H = 0.08;
@@ -53,6 +53,7 @@ export const beltConveyor: Builder = (g, ctx) => {
     labelAnchor: new THREE.Vector3(0, 0.12, -width / 2),
     pickable: [],
     housing: frame,
+    defaultHousing: frameModel(g, ctx, length, width, true),
     update(state) {
       arrow?.update(state);
       setColor(belt, state.running ? ISA101.running : ISA101.stopped);
@@ -93,18 +94,54 @@ function directionArrow(g: ComponentGeometry, length: number, width: number) {
   };
 }
 
+/** Where a straight conveyor's floor legs stand (local x), and how tall they are; none if 0. */
+function legs(g: ComponentGeometry, ctx: BuildContext, length: number): { xs: number[]; height: number } {
+  const height = g.position[1] - RAIL_H - ctx.floorY;
+  return { xs: height > 0.01 ? [0.15, length - 0.15] : [], height };
+}
+
+/**
+ * The conveyor frame model (PLAN 4.2, `conveyor_frame` in tools/make_models.py) fitted to this
+ * conveyor: channel rails, flanges outward, over the primitive rails' span; a leg, foot and low
+ * brace where each primitive leg stands; and for a belt, the end drums with their bearing blocks.
+ */
+function frameModel(g: ComponentGeometry, ctx: BuildContext, length: number, width: number, drums: boolean): DefaultHousing {
+  const parts: HousingPart[] = [];
+  const side = (s: number) => s * (width / 2 + 0.003); // the rail web, just outside the belt
+  for (const s of [-1, 1]) {
+    // the model's flanges point to -z: the -z rail as drawn, the +z rail mirrored
+    parts.push({ part: "rail", at: [-0.04, 0, side(s)], scale: [length + 0.08, 1, s < 0 ? 1 : -1] });
+  }
+  const { xs, height } = legs(g, ctx, length);
+  for (const x of xs) {
+    for (const s of [-1, 1]) {
+      const z = s * (width / 2 + 0.015);
+      parts.push({ part: "leg", at: [x, -RAIL_H, z], scale: [1, height - 0.012, 1] });
+      parts.push({ part: "foot", at: [x, -RAIL_H - height, z] });
+    }
+    parts.push({ part: "crossbar", at: [x, -RAIL_H - 0.7 * height, 0], scale: [1, 1, width + 0.03] });
+  }
+  if (drums) {
+    for (const x of [0, length]) {
+      parts.push({ part: "drum", at: [x, -0.045, 0], scale: [1, 1, width] });
+      for (const s of [-1, 1]) {
+        parts.push({ part: "bearing", at: [x, -0.045, s * (width / 2 + 0.05)], scale: [1, 1, s] });
+      }
+    }
+  }
+  return { model: "conveyor_frame", parts };
+}
+
 /** Side rails and floor legs of a straight conveyor: its fixed frame (PLAN 2.15 housing). */
 function railsAndLegs(g: ComponentGeometry, ctx: BuildContext, length: number, width: number): THREE.Mesh[] {
   const parts: THREE.Mesh[] = [];
   for (const side of [-1, 1]) {
     parts.push(box([length + 0.08, RAIL_H, 0.03], NEUTRAL.frame, [length / 2, -RAIL_H / 2 + 0.01, side * (width / 2 + 0.015)]));
   }
-  const legHeight = g.position[1] - RAIL_H - ctx.floorY;
-  if (legHeight > 0.01) {
-    for (const x of [0.15, length - 0.15]) {
-      for (const side of [-1, 1]) {
-        parts.push(box([0.05, legHeight, 0.05], NEUTRAL.frame, [x, -RAIL_H - legHeight / 2, side * (width / 2 + 0.015)]));
-      }
+  const { xs, height: legHeight } = legs(g, ctx, length);
+  for (const x of xs) {
+    for (const side of [-1, 1]) {
+      parts.push(box([0.05, legHeight, 0.05], NEUTRAL.frame, [x, -RAIL_H - legHeight / 2, side * (width / 2 + 0.015)]));
     }
   }
   return parts;
@@ -141,6 +178,7 @@ export const rollerConveyor: Builder = (g, ctx) => {
     labelAnchor: new THREE.Vector3(0, 0.12, -width / 2),
     pickable: [],
     housing: frame,
+    defaultHousing: frameModel(g, ctx, length, width, false),
     update(state) {
       arrow?.update(state);
       const color = state.running ? ISA101.running : ISA101.stopped;

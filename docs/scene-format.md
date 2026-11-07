@@ -161,7 +161,8 @@ Any component may draw its own model in the viewer in place of its fixed housing
 - **Visual only.** The core, the viewer's physics colliders, the sensors, and the parity traces
   all use the component's declared dimensions. The mesh replaces only the fixed housing
   (`docs/components.md`, "Custom mesh", lists it per type); moving and status-colored parts stay
-  primitives, so ISA-101 status still shows.
+  primitives, so ISA-101 status still shows. A scene mesh also replaces the type's default model
+  (PLAN 4.2, `docs/components.md`, "Default models").
 - **`.glb` only** (binary glTF 2.0, one self-contained file). The file is in the component's local
   frame: the same origin and axes as the primitive (`docs/components.md` gives each type's
   origin), in meters.

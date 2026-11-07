@@ -14,7 +14,7 @@
 #   5. npm ci, npm run build (web/dist must exist afterwards), npm test
 #   6. Playwright's Chromium is present (installed by the workflow; never installed here)
 #   7. tools/screenshot.py on the shipped scene under its stand-in script, with its non-blank PNG
-#      check, its tilt check and its position check (before pytest, so test_screenshot_check has
+#      check, its tilt check, its position check and its default-models check (before pytest, so test_screenshot_check has
 #      a real Playwright PNG to decode)
 #   8. pytest with CI=true and -rfEs: the screenshot and parity tests fail instead of skipping when
 #      the viewer build, node, Chromium, or a screenshot is missing; the run must show zero skips
@@ -111,10 +111,12 @@ print(f"chromium: {path}")
 PY
 
 step "screenshot runner with non-blank check"
-# 20 s under the stand-in script: several tall boxes pushed onto CONV_02 (PLAN 2.9, the divert)
+# 20 s under the stand-in script: several tall boxes pushed onto CONV_02 (PLAN 2.9, the divert),
+# drawn with the default models of the types listed (PLAN 4.2)
 uv run python tools/screenshot.py scenes/sorting-by-height.yaml --seconds 20 \
   --out tools/screenshots/ci-sorting-by-height.png \
-  --script examples/pyplc/sorting-by-height.py --max-tilt-deg 5 --max-off-deck-m 0.05
+  --script examples/pyplc/sorting-by-height.py --max-tilt-deg 5 --max-off-deck-m 0.05 \
+  --housings belt_conveyor
 
 step "pytest (CI=true: zero skips allowed)"
 # -rfEs, not -rs: -r replaces pytest's default "fE", and the FAILED and ERROR summary lines are what

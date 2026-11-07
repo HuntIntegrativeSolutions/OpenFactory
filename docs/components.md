@@ -82,6 +82,14 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   stay primitives. `photo_eye` (its heads move with a `misaligned` fault), `box_emitter`, and
   `part_remover` (outlines of a zone, not equipment) have no housing: their mesh is drawn beside
   the primitive.
+- **Default models (PLAN 4.2).** Without a scene `mesh`, a type that has one draws its housing
+  from OpenFactory's own model (`web/public/housings/<model>.glb`, built by
+  `tools/make_models.py`, CC-BY-4.0, credited in `ATTRIBUTION.md`), fitted to the component's
+  declared dimensions: rails stretched to its length, legs to its height above the floor. It
+  replaces the same parts a scene mesh would and is visual only; a scene `mesh` still wins.
+  If a model fails to load, the primitive stays. Types with a default model so far:
+  `belt_conveyor` (channel rails, legs on feet, braces, end drums and bearing blocks) and
+  `roller_conveyor` (the same frame, no drums).
 - **Viewer authority (PLAN §3.3).** Parts on conveyors, pushed by a plate, or held by a stopper
   are simulated by the viewer's Rapier physics. Parts held by a gripper, touching a diverter arm,
   or on a turning turntable deck follow the core's position. Sensors are read by the core only.

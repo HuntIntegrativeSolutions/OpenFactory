@@ -18,7 +18,9 @@ What it does:
    (with ``--min-sensor-events N``) at least N photo-eye events sent from its Rapier physics to the
    core (it waits on the viewer's own flags, never on a fixed sleep). With ``--min-meshes N`` it
    also requires N custom meshes drawn and none failed (PLAN 2.15; the viewer settles every mesh
-   before its first frame, so ``ready`` already implies they have loaded or failed). It then
+   before its first frame, so ``ready`` already implies they have loaded or failed). With
+   ``--housings TYPE,...`` it requires each listed component type to have drawn its default
+   model (PLAN 4.2, ``window.__openfactory.housings``) and no default model to have failed. It then
    prints the viewer's physics backend and the core's ``/api/status`` counts of events received.
    It also prints how far the viewer has drawn any part the core carries on a conveyor from
    upright (``window.__openfactory.maxTiltDeg``: the core holds such parts upright, so a tilt is
@@ -262,6 +264,7 @@ def screenshot(
     timeout: float = 60.0,
     script: Path | None = None,
     min_meshes: int = 0,
+    housings: tuple[str, ...] = (),
     bundled_script: bool = False,
 ) -> dict[str, object]:
     with running_viewer(
@@ -279,6 +282,13 @@ def screenshot(
             raise RuntimeError(
                 f"custom meshes: {meshes['loaded']} drawn, {meshes['failed']} failed, "
                 f"{min_meshes} wanted\n" + "\n".join(console)
+            )
+        drawn = status.get("housings") or {"loaded": 0, "failed": 0, "types": []}
+        missing = sorted(set(housings) - set(drawn["types"]))
+        if housings and (missing or drawn["failed"]):
+            raise RuntimeError(
+                f"default models: {drawn['loaded']} drawn, {drawn['failed']} failed, none for "
+                f"{', '.join(missing) or '-'}\n" + "\n".join(console)
             )
         page.wait_for_timeout(200)  # let the last frame paint
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -327,6 +337,12 @@ def main(argv: list[str] | None = None) -> int:
         metavar="N",
         help="fail unless the viewer drew N custom meshes and none failed (PLAN 2.15)",
     )
+    parser.add_argument(
+        "--housings",
+        default="",
+        metavar="TYPE,...",
+        help="fail unless each listed type drew its default model and none failed (PLAN 4.2)",
+    )
     args = parser.parse_args(argv)
     width, height = (int(v) for v in args.size.lower().split("x"))
     out = args.out or DEFAULT_DIR / f"{args.scene.stem}-{args.seconds:g}s.png"
@@ -340,6 +356,7 @@ def main(argv: list[str] | None = None) -> int:
         size=(width, height),
         min_sensor_events=args.min_sensor_events,
         min_meshes=args.min_meshes,
+        housings=tuple(t for t in args.housings.split(",") if t),
         script=args.script.resolve() if args.script else None,
         bundled_script=args.bundled_script,
     )
@@ -358,6 +375,10 @@ def main(argv: list[str] | None = None) -> int:
     meshes = status.get("meshes") or {}
     if meshes.get("loaded") or meshes.get("failed"):
         print(f"custom meshes: {meshes['loaded']} drawn, {meshes['failed']} failed")
+    drawn = status.get("housings") or {}
+    if drawn.get("loaded") or drawn.get("failed"):
+        types = ", ".join(drawn["types"]) or "-"
+        print(f"default models: {drawn['loaded']} drawn ({types}), {drawn['failed']} failed")
     core = result["core"]
     print(f"core /api/status: t = {core['t']:.2f} s, events received {core['events']}")  # type: ignore[index]
     tilt, worst = float(status.get("maxTiltDeg") or 0.0), status.get("tilt")

@@ -197,3 +197,9 @@ def test_every_mesh_in_the_repo_is_small_and_licensed():
     assert problems == []
     text = (REPO / "THIRD_PARTY.md").read_text(encoding="utf-8")
     assert text.endswith("\n".join(lines)), "THIRD_PARTY.md: run tools/third_party.py --models"
+    attribution = (REPO / "ATTRIBUTION.md").read_text(encoding="utf-8")  # PLAN 4.2, same tool
+    assert attribution == tool.attribution_text(), (
+        "ATTRIBUTION.md: run tools/third_party.py --models"
+    )
+    for mesh in meshes:
+        assert f"**`{mesh.relative_to(REPO).as_posix()}`** by " in attribution
