@@ -48,7 +48,9 @@ per-node results). Not a safety-rated simulation.
 from __future__ import annotations
 
 import asyncio
+import collections
 import logging
+import time
 from typing import Any
 
 from asyncua import Server, ua
@@ -77,7 +79,8 @@ def _comms_of(processor: UaProcessor) -> CommsFault | None:
     return owner.comms if owner is not None else None
 
 
-#: Messages waiting out a comms latency (strong references, so a pending one is not collected).
+#: Per-connection tasks handling messages delayed by a comms latency (strong references, so a
+#: running one is not collected).
 _late_tasks: set[asyncio.Task[None]] = set()
 
 
@@ -89,28 +92,46 @@ def _install_comms_hooks() -> None:
     send_response = UaProcessor.send_response
     forward_publish_response = UaProcessor.forward_publish_response
 
-    async def _late(self: UaProcessor, comms: Any, seqhdr: Any, body: Any) -> None:
-        await asyncio.sleep(comms.latency_ms / 1000.0)
-        if comms.drop:
-            return  # the fault became a drop while it waited
-        if not await process_message(self, seqhdr, body):
-            self._transport.close()  # what asyncua's receive loop does when a message says close
+    async def _drain(self: UaProcessor) -> None:
+        """Handle this connection's delayed messages in arrival order, each when it is due."""
+        queue = self._openfactory_late
+        while queue:
+            due, seqhdr, body = queue[0]
+            if (wait := due - time.monotonic()) > 0:
+                await asyncio.sleep(wait)
+            queue.popleft()
+            comms = _comms_of(self)
+            if comms is not None and comms.drop:
+                continue  # the fault became a drop while it waited
+            if not await process_message(self, seqhdr, body):
+                queue.clear()
+                self._transport.close()  # what asyncua's receive loop does when a message says so
+                return
 
     async def _process_message(self: UaProcessor, seqhdr: Any, body: Any) -> Any:
         comms = _comms_of(self)
-        if comms is not None:
-            if comms.drop:
-                return True  # decoded, never processed or answered: the client times out
-            if comms.latency_ms > 0:
-                # asyncua handles a connection's messages one at a time, so waiting here would
-                # hold every message behind this one as well: a read arriving while the client's
-                # 1 s watchdog read waited took twice the latency. Each message is handled the
-                # latency after it arrived instead, as a slow network delivers it; equal delays
-                # expire in arrival order, so the order is kept.
-                task = asyncio.create_task(_late(self, comms, seqhdr, body))
-                _late_tasks.add(task)
-                task.add_done_callback(_late_tasks.discard)
-                return True
+        if comms is None:
+            return await process_message(self, seqhdr, body)
+        if comms.drop:
+            return True  # decoded, never processed or answered: the client times out
+        queue = self.__dict__.setdefault("_openfactory_late", collections.deque())
+        if comms.latency_ms <= 0 and not queue:
+            return await process_message(self, seqhdr, body)
+        # asyncua handles a connection's messages one at a time, so waiting here would hold every
+        # message behind this one as well: a read arriving while the client's 1 s watchdog read
+        # waited took twice the latency. Each message is due the latency (in force when it
+        # arrived) after it arrived, as a slow network delivers it, and one task per connection
+        # handles them in arrival order: a lowered latency, or one cleared while messages wait,
+        # never lets a later message overtake them.
+        queue.append((time.monotonic() + comms.latency_ms / 1000.0, seqhdr, body))
+        drain = getattr(self, "_openfactory_drain", None)
+        if drain is None or drain.done():
+            drain = asyncio.create_task(_drain(self))
+            self._openfactory_drain = drain
+            _late_tasks.add(drain)
+            drain.add_done_callback(_late_tasks.discard)
+        return True
+
         return await process_message(self, seqhdr, body)
 
     def _send_response(

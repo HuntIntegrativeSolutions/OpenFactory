@@ -235,3 +235,89 @@ def test_one_comms_fault_covers_modbus_and_opcua_and_reaches_the_recording(tmp_p
     recording = read_recording(rec)
     comms = [event for _tick, event in recording.events if event.get("type") == "comms"]
     assert comms and comms[0]["params"] == {"drop": False, "latency_ms": float(LATENCY_MS)}
+
+
+async def _served(scene: Path = SORTER):
+    """An OPC UA server on the sorter's I/O table and a patient client connected to it."""
+    loaded = load(scene)
+    loaded.io.set("CONV_01_RUN_DO", True, Writer.PLC)
+    server = OpcUaServer(loaded.io, Endpoint(port=free_port()), scene_name="sorting-by-height")
+    task = asyncio.create_task(server.serve_forever())
+    await server.wait_ready()
+    client = Client(server.url, **PATIENT)
+    await client.connect()
+    ns = await client.get_namespace_index(NAMESPACE)
+    node = client.get_node(ua.NodeId("CONV_01_RUN_DO", ns))  # set above; no ticks needed
+    return server, task, client, node
+
+
+async def _in_flight(node, count: int, done: list[int], first: int = 0) -> list[asyncio.Task]:
+    """`count` reads sent back to back on one connection, numbered from `first`; each appends its
+    number to `done` when answered."""
+
+    async def read(i: int) -> float:
+        start = time.perf_counter()
+        assert await node.read_value() is True
+        done.append(i)
+        return (time.perf_counter() - start) * 1000
+
+    tasks = [asyncio.create_task(read(i)) for i in range(first, first + count)]
+    await asyncio.sleep(0)  # each task runs to its send, in creation order
+    return tasks
+
+
+def test_ten_reads_in_flight_are_answered_in_order_each_delayed_once():
+    """PLAN 2.13b ruling (2026-11-06): ten reads sent back to back on one connection under the
+    latency are answered in the order sent, each one latency after it was sent, not queued."""
+
+    async def session() -> list[float]:
+        server, task, client, node = await _served()
+        try:
+            server.comms.latency_ms = LATENCY_MS
+            done: list[int] = []
+            times = await asyncio.gather(*await _in_flight(node, 10, done))
+            assert done == list(range(10)), done
+            return times
+        finally:
+            server.comms.latency_ms = 0
+            await client.disconnect()
+            await server.shutdown()
+            task.cancel()
+
+    times = asyncio.run(session())
+    print(f"ten reads in flight at {LATENCY_MS} ms: " + ", ".join(f"{ms:.0f}" for ms in times))
+    for ms in times:
+        assert DELAYED_MS[0] <= ms < DELAYED_MS[1], times
+
+
+def test_changing_the_latency_while_requests_wait_does_not_reorder_them():
+    """PLAN 2.13b ruling (2026-11-06): a request sent after the latency is lowered is answered
+    after the ones sent before it, which still wait out the latency they arrived under."""
+
+    async def session() -> tuple[list[int], list[float]]:
+        server, task, client, node = await _served()
+        try:
+            done: list[int] = []
+            server.comms.latency_ms = LATENCY_MS
+            first = await _in_flight(node, 3, done)
+            await asyncio.sleep(0.3)
+            server.comms.latency_ms = 0  # cleared while three requests wait
+            later = await _in_flight(node, 3, done, first=3)
+            times = await asyncio.gather(*first, *later)
+            return done, times
+        finally:
+            server.comms.latency_ms = 0
+            await client.disconnect()
+            await server.shutdown()
+            task.cancel()
+
+    order, times = asyncio.run(session())
+    print(
+        f"latency {LATENCY_MS} ms lowered to 0 with three reads waiting: answered in order "
+        f"{order}, " + ", ".join(f"{ms:.0f}" for ms in times) + " ms"
+    )
+    assert order == [0, 1, 2, 3, 4, 5], order
+    for ms in times[:3]:
+        assert DELAYED_MS[0] <= ms < DELAYED_MS[1], times  # still delayed once
+    for ms in times[3:]:  # sent 0.3 s in: answered behind the first three, about 0.7 s later
+        assert LATENCY_MS - 300 - 100 <= ms < DELAYED_MS[0], times

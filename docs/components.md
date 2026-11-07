@@ -53,7 +53,8 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   (OpenPLC included) do. On OPC UA, where a client keeps several requests in flight (publish
   requests, a watchdog read), each request is handled the latency after it arrived, as a slow
   network delivers it, so two requests sent together are both answered one latency later, in
-  order. A client whose own watchdog or request timeout is shorter than the latency sees a dead
+  order. A connection's requests are always answered in the order sent: lowering or clearing
+  the latency while requests wait lets new ones through only behind them. A client whose own watchdog or request timeout is shorter than the latency sees a dead
   server: asyncua's client probes every `watchdog_intervall` (default 1 s) and disconnects when
   a probe times out. An asyncua client whose requests timed out closes its connection and must
   reconnect once the fault clears; Ignition reconnects by itself.
