@@ -1801,6 +1801,33 @@ runs the sorting program against it; a box visibly gets pushed.
 - [ ] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
+      *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from
+      `docs/components.md` and the registry; guides and ADRs included; built in CI and deployed
+      to GitHub Pages on push to main. *Done when:* the site builds with no warnings, every
+      shipped scene's guide is a page, and the Pages URL is in the README.
+      *Progress (2026-11-06), built, not yet deployed:*
+      - `mkdocs.yml` (Material 9.8.0, `mkdocs-material~=9.8.0` in the dev group, its packages
+        added to THIRD_PARTY.md, all within ADR-0001): home page `docs/index.md`; the six scene
+        guides; the scene format, the component reference, Ignition, the versioning policy and
+        "what OpenFactory is not"; the three ADRs, the research notes, and this plan.
+        `strict: true`, with link, anchor and omitted-file validation as warnings.
+      - `tools/mkdocs_hooks.py` generates one page per registered type at build time (never
+        committed), listed in the nav without editing `mkdocs.yml`. Each page joins the type's
+        section of `docs/components.md`, the types, defaults and limits from the scene schema,
+        the ports and fault kinds from the registry, and the module docstring. A link from a
+        page to a repository file outside `docs/` is rewritten to that file on GitHub.
+      - CI step 13 runs `mkdocs build --strict`. `.github/workflows/docs.yml` builds the site
+        and deploys it to Pages on every push to main. README names
+        <https://huntintegrativesolutions.github.io/OpenFactory/>.
+      - Evidence: `mkdocs build --strict` exits 0 with no warnings, 17 component type pages;
+        `tests/unit/test_docs_site.py` checks every shipped scene's guide is a nav page, every
+        `docs/*.md` is in the nav, every registered type gets a page, the link rewriting, and
+        the README URL. Looked at the home page and the `pusher` page in Chromium.
+
+      Not ticked: the deployment has not run. It needs a push and the repository's Pages source
+      set to "GitHub Actions"; the README URL answers only after the first deploy. Material for
+      MkDocs prints at every build that it reaches end of life on 2027-05-05, with Zensical,
+      by the same team, as its successor (a printed notice, not a build warning).
 - [ ] 4.5 Public GitHub release, issue templates, Discussions, first good-first-issues.
       *Release step (ruled 2026-11-06):* every version bump rebuilds all six demo kits
       (`tools/build_kit.py`), because each kit's recording carries the package version in its

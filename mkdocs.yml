@@ -1,0 +1,82 @@
+# OpenFactory documentation site (PLAN 4.4). Build: uv run mkdocs build --strict (CI step 13);
+# preview: uv run mkdocs serve. Deployed to GitHub Pages from main by .github/workflows/docs.yml.
+# The component type pages are generated at build time by tools/mkdocs_hooks.py from
+# docs/components.md, the component registry and the scene schema; they are never committed.
+site_name: OpenFactory
+site_description: >-
+  Open-source 3D factory simulator for PLC training, prototyping and demos. A training and demo
+  tool, not a safety-rated simulation.
+site_url: https://huntintegrativesolutions.github.io/OpenFactory/
+repo_url: https://github.com/HuntIntegrativeSolutions/OpenFactory
+repo_name: HuntIntegrativeSolutions/OpenFactory
+edit_uri: edit/main/docs/
+copyright: OpenFactory by HIS Controls. Code Apache-2.0; documentation CC-BY-4.0.
+docs_dir: docs
+site_dir: build/site
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: {icon: material/brightness-4, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: {icon: material/brightness-7, name: Light mode}
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+hooks:
+  - tools/mkdocs_hooks.py
+
+exclude_docs: |
+  research/jolt-spike/
+  research/symlink-result.txt
+
+nav:
+  - Home: index.md
+  - Scene guides:
+      - guides/README.md
+      - guides/openplc-quickstart.md
+      - guides/sorting-by-color.md
+      - guides/conveyor-start-stop.md
+      - guides/buffer-and-release.md
+      - guides/two-lane-merge.md
+      - guides/palletizer-lite.md
+  - Reference:
+      - scene-format.md
+      - components.md
+      # Filled in by tools/mkdocs_hooks.py with one page per registered component type.
+      - Component types: []
+      - ignition.md
+      - versioning.md
+      - what-openfactory-is-not.md
+  - Decisions:
+      - adr/ADR-0001-stack.md
+      - adr/ADR-0003-analog-encoding.md
+      - adr/ADR-0004-modbus-address-lockfile.md
+  - Research:
+      - research/libraries.md
+      - research/landscape.md
+      - research/jolt-vs-rapier.md
+  - Roadmap: PLAN.md

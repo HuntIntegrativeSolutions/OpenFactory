@@ -23,7 +23,9 @@
 #  11. tools/bench.py: the tick cost within 25 % of tools/bench_baseline.json (PLAN 2.9)
 #  12. tools/sbom.py --check: the CycloneDX SBOM builds, and every component is in THIRD_PARTY.md
 #      with an allowed license (PLAN 4.8; written to build/sbom/, never committed)
-#  13. the working tree is unchanged (no step rewrote a lockfile, trace, or schema)
+#  13. mkdocs build --strict: the docs site builds with no warnings (PLAN 4.4; into build/site,
+#      which .github/workflows/docs.yml deploys to GitHub Pages from main)
+#  14. the working tree is unchanged (no step rewrote a lockfile, trace, or schema)
 #
 # Training and demo tool; not a safety-rated simulation.
 set -euo pipefail
@@ -136,6 +138,9 @@ uv run python tools/bench.py
 
 step "SBOM (PLAN 4.8)"
 uv run python tools/sbom.py --check
+
+step "docs site (PLAN 4.4)"
+uv run mkdocs build --strict
 
 step "working tree unchanged"
 git status --short

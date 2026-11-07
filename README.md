@@ -9,6 +9,10 @@ EtherNet/IP, or OPC UA. Watch it move in your browser.
 > or in the browser, and sorts boxes under a free soft PLC: see the
 > [OpenPLC quickstart](docs/guides/openplc-quickstart.md). [`docs/PLAN.md`](docs/PLAN.md) has the roadmap.
 
+**Documentation:** <https://huntintegrativesolutions.github.io/OpenFactory/> (scene guides, the scene
+format, a page per component type, decisions, and the roadmap; built from `docs/` by
+`mkdocs.yml`).
+
 [![OpenPLC sorting tall boxes onto the divert lane](docs/media/sorting-by-height-openplc.png)](docs/media/sorting-by-height-openplc.webm)
 
 *OpenPLC v3 in control over Modbus TCP: tall boxes trip the photo eye and are pushed onto the

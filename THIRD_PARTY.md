@@ -68,23 +68,43 @@ file before relying on an entry for a distribution decision.
 | Package | Version | License | Source |
 |---------|---------|---------|--------|
 | attrs | 26.1.0 | MIT | https://www.attrs.org/en/stable/changelog.html |
+| babel | 2.18.0 | BSD License | https://babel.pocoo.org/ |
+| backrefs | 8.2 | MIT | https://github.com/facelessuser/backrefs |
 | certifi | 2026.10.23 | Mozilla Public License 2.0 (MPL 2.0) | https://github.com/certifi/python-certifi |
+| charset-normalizer | 3.5.2 | MIT | https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md |
 | coverage | 7.17.0 | Apache-2.0 | https://github.com/coveragepy/coveragepy |
+| ghp-import | 2.1.0 | Apache Software License | https://github.com/c-w/ghp-import |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 | https://greenlet.readthedocs.io |
 | httpcore | 1.0.9 | BSD-3-Clause | https://www.encode.io/httpcore/ |
 | httpx | 0.28.1 | BSD License | https://github.com/encode/httpx |
 | iniconfig | 2.3.1 | MIT | https://github.com/pytest-dev/iniconfig |
+| Jinja2 | 3.1.6 | BSD License | https://github.com/pallets/jinja/ |
 | jsonschema | 4.26.0 | MIT | https://github.com/python-jsonschema/jsonschema |
 | jsonschema-specifications | 2025.9.1 | MIT | https://github.com/python-jsonschema/jsonschema-specifications |
+| Markdown | 3.11.3 | BSD-3-Clause | https://Python-Markdown.github.io/ |
+| MarkupSafe | 3.0.4 | BSD-3-Clause | https://github.com/pallets/markupsafe/ |
+| mergedeep | 1.3.4 | MIT License | https://github.com/clarketm/mergedeep |
+| mkdocs | 1.6.1 | BSD-2-Clause | https://github.com/mkdocs/mkdocs |
+| mkdocs-get-deps | 0.2.2 | MIT | https://github.com/mkdocs/get-deps |
+| mkdocs-material | 9.8.0 | MIT | https://github.com/squidfunk/mkdocs-material |
+| mkdocs-material-extensions | 1.3.1 | MIT | https://github.com/facelessuser/mkdocs-material-extensions |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
+| paginate | 0.5.7 | MIT License | https://github.com/Signum/paginate |
+| pathspec | 1.1.1 | Mozilla Public License 2.0 (MPL 2.0) | https://python-path-specification.readthedocs.io/en/latest/index.html |
+| platformdirs | 4.14.5 | MIT | https://github.com/tox-dev/platformdirs |
 | playwright | 1.64.1 | Apache-2.0 | https://github.com/Microsoft/playwright-python |
 | pluggy | 1.7.0 | MIT License | https://github.com/pytest-dev/pluggy |
 | pyee | 13.0.1 | MIT License | https://github.com/jfhbrook/pyee |
+| pymdown-extensions | 12.3 | MIT | https://github.com/facelessuser/pymdown-extensions |
 | pytest | 9.1.1 | MIT | https://docs.pytest.org/en/latest/ |
 | pytest-cov | 7.1.0 | MIT | https://pytest-cov.readthedocs.io/en/latest/changelog.html |
+| pyyaml_env_tag | 1.1 | MIT | https://github.com/waylan/pyyaml-env-tag |
 | referencing | 0.37.0 | MIT | https://github.com/python-jsonschema/referencing |
+| requests | 2.34.2 | Apache Software License | https://github.com/psf/requests |
 | rpds-py | 2026.9.1 | MIT | https://github.com/crate-py/rpds |
 | ruff | 0.17.2 | MIT | https://docs.astral.sh/ruff |
+| urllib3 | 2.8.0 | MIT | https://github.com/urllib3/urllib3/blob/main/CHANGES.rst |
+| watchdog | 7.1.0 | Apache-2.0 | https://github.com/gorakhargosh/watchdog |
 
 ## Web viewer runtime (bundled into `web/dist`)
 

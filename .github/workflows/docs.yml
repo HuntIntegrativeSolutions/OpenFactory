@@ -1,0 +1,50 @@
+# OpenFactory docs site (PLAN 4.4): MkDocs Material built from docs/ and deployed to GitHub Pages
+# on every push to main. CI (tools/ci_local.sh step 13) builds the same site with --strict on every
+# run; this workflow only publishes it. Needs the repository's Pages source set to "GitHub Actions".
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv and Python 3.11
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies (the hook reads the component registry)
+        run: uv sync --frozen --all-extras
+
+      - name: Build the site, failing on any warning
+        run: uv run mkdocs build --strict
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
