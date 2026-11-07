@@ -24,7 +24,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame, type Vec3 } from "./api";
-import { loadRapier, PlantPhysics, tiltDeg, type Rapier } from "./physics";
+import { loadRapier, offDeck, PlantPhysics, tiltDeg, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { attachMeshes } from "./meshes";
 import { cssColor, ISA101 } from "./isa101";
@@ -47,6 +47,8 @@ window.__openfactory = {
   physicsSteps: 0,
   droppedTicks: 0,
   maxTiltDeg: 0,
+  maxOffDeckM: 0,
+  offDeck: null,
   frameMs: null,
   frameP95Ms: null,
   renderMs: 0,
@@ -321,6 +323,7 @@ function stepToFrame(frame: StateFrame): void {
   for (const id of physics.partIds()) if (!alive.has(id)) physics.removePart(id);
   for (const p of frame.parts) physics.addPart(p.id, p.size, p.position, p.velocity, drawnYaw(p, frame));
   const carried = new Set(frame.parts.filter((p) => p.carrier).map((p) => p.id));
+  const carrierOf = new Map(frame.parts.filter((p) => p.carrier && !p.follow).map((p) => [p.id, p.carrier!]));
   for (const id of physics.partIds()) {
     const pose = physics.part(id);
     if (!pose) continue;
@@ -331,6 +334,18 @@ function stepToFrame(frame: StateFrame): void {
     if (tilt > Number(status.maxTiltDeg)) {
       status.maxTiltDeg = tilt;
       status.tilt = { part: id, tick: frame.tick, deg: tilt, position: pose.position };
+    }
+    // ... and on its carrier's deck (the position check): a part drawn off it, such as a pushed box
+    // thrown beyond the divert belt, is the viewer departing from the core too. Parts the core
+    // places (follow) are drawn at its position anyway.
+    const carrier = carrierOf.get(id);
+    const deck = carrier === undefined ? undefined : doc?.components.find((g) => g.id === carrier);
+    if (deck) {
+      const off = offDeck(deck, pose.position, Number(frame.components[deck.id]?.angle_deg ?? 0));
+      if (off > Number(status.maxOffDeckM)) {
+        status.maxOffDeckM = off;
+        status.offDeck = { part: id, carrier, tick: frame.tick, m: off, position: pose.position };
+      }
     }
   }
 }

@@ -12,7 +12,10 @@
 //   friction is exactly μr, as in the headless model.
 // - Pusher plates: `kinematicPositionBased`, driven with setNextKinematicTranslation to the
 //   core's stroke. The plate is frictionless (combine rule Min) so it pushes along its axis only,
-//   like the headless model.
+//   like the headless model. A part resting on a conveyor in the path of an advancing plate is
+//   pushed as the core pushes it (PLAN 2.9, the divert overshoot): kinematic, its back face on the
+//   plate face, still moving with the belt, and dynamic again with no speed along the plate axis
+//   once the plate stops advancing (pushParts).
 // - Photo eyes: a thin sensor cuboid along the beam with collision events; a beam is blocked
 //   while any part intersects it. step() returns the beam edges, which the viewer sends upstream.
 // - Stopper blades (PLAN 2.5): `kinematicPositionBased` cuboids rising out of the belt to the core's
@@ -79,6 +82,24 @@ export function tiltDeg(q: [number, number, number, number]): number {
   return (Math.acos(Math.max(-1, Math.min(1, up))) * 180) / Math.PI;
 }
 
+/**
+ * How far (m) point `p` lies outside the footprint of conveyor deck `g` seen from above, 0 inside
+ * (PLAN 2.9, the position check). A belt, roller or lift deck runs from its position along local
+ * +x for its length; a turntable deck is centred on its position and turned by `angleDeg` (its
+ * `angle_deg` state) on top of its scene rotation. The core keeps a part it carries on its
+ * carrier's deck, so a drawn part off it is the viewer departing from the core.
+ */
+export function offDeck(g: ComponentGeometry, p: Vec3, angleDeg = 0): number {
+  const length = num(g, "length", 1);
+  const width = num(g, "width", 0.5);
+  const turntable = g.type === "turntable";
+  const [lx, , lz] = rotateY([p[0] - g.position[0], 0, p[2] - g.position[2]], -(g.rotation_deg + (turntable ? angleDeg : 0)));
+  const x = turntable ? lx : lx - length / 2;
+  const outX = Math.max(0, Math.abs(x) - length / 2);
+  const outZ = Math.max(0, Math.abs(lz) - width / 2);
+  return Math.hypot(outX, outZ);
+}
+
 function quatY(degrees: number) {
   const half = (degrees * Math.PI) / 360;
   return { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
@@ -116,6 +137,21 @@ interface Plate {
   body: RapierNs.RigidBody;
   origin: Vec3;
   rotation: number;
+  width: number;
+  height: number;
+  /** Face travel from retracted (m) now, and for the next step (setPusher). */
+  stroke: number;
+  next: number;
+}
+
+/** A part a plate is pushing (pushParts): the velocity it keeps across the plate's axis. */
+interface Pushed {
+  carry: Vec3;
+}
+
+/** Yaw in degrees about +y of quaternion `q`, for a body near upright. */
+function yawOf(q: { x: number; y: number; z: number; w: number }): number {
+  return (2 * Math.atan2(q.y, q.w) * 180) / Math.PI;
 }
 
 interface Blade {
@@ -144,6 +180,9 @@ export class PlantPhysics {
   /** Collider handles of parts: only these block a beam, as in the core's photo eye. */
   private readonly partHandles = new Set<number>();
   private readonly parts = new Map<string, RapierNs.RigidBody>();
+  /** Parts the core places (follow), and parts a plate is pushing (pushParts). */
+  private readonly followed = new Set<string>();
+  private readonly pushed = new Map<string, Pushed>();
   private readonly sizes = new Map<string, Vec3>();
   private readonly blades = new Map<string, Blade>();
   private readonly bladeColliders = new Map<number, Blade>();
@@ -266,6 +305,8 @@ export class PlantPhysics {
   follow(id: string, position: Vec3, yawDeg = 0): void {
     const body = this.parts.get(id);
     if (!body) return;
+    this.pushed.delete(id);
+    this.followed.add(id);
     if (!body.isKinematic()) body.setBodyType(this.R.RigidBodyType.KinematicPositionBased, true);
     body.setNextKinematicTranslation(vec(position));
     body.setNextKinematicRotation(quatY(yawDeg)); // the core's yaw (PLAN 2.5b): turning with a deck
@@ -274,7 +315,7 @@ export class PlantPhysics {
   /** Hand a followed part back to the simulation, moving at `velocity` (m/s). */
   release(id: string, velocity: Vec3 = [0, 0, 0]): void {
     const body = this.parts.get(id);
-    if (!body || !body.isKinematic()) return;
+    if (!body || !this.followed.delete(id)) return;
     body.setBodyType(this.R.RigidBodyType.Dynamic, true);
     body.setLinvel(vec(velocity), true);
   }
@@ -333,7 +374,10 @@ export class PlantPhysics {
         .setFrictionCombineRule(R.CoefficientCombineRule.Min),
       body,
     );
-    this.plates.set(g.id, { body, origin: g.position, rotation: g.rotation_deg });
+    this.plates.set(g.id, {
+      body, origin: g.position, rotation: g.rotation_deg,
+      width: num(g, "plate_width", 0.3), height: num(g, "plate_height", 0.15), stroke: 0, next: 0,
+    });
   }
 
   private addBeam(g: ComponentGeometry): void {
@@ -375,6 +419,7 @@ export class PlantPhysics {
       body.setTranslation(body.nextTranslation(), true);
       body.setRotation(body.nextRotation(), true);
     }
+    for (const plate of this.plates.values()) plate.stroke = plate.next;
   }
 
   /**
@@ -418,10 +463,83 @@ export class PlantPhysics {
     this.fresh = now;
   }
 
+  /**
+   * Pushing (PLAN 2.9, the divert overshoot). The core moves a pushed part kinematically: each
+   * step the plate advances from z0 to z1, every part overlapping the plate's width and height and
+   * lying partly ahead of the old face is placed with its back face on the new face, and it keeps
+   * no speed along the plate axis afterwards. Left to Rapier, a tall box driven at the plate's
+   * 1.5 m/s caught its leading bottom edge on the next belt's rounded side edge, tipped over the
+   * plate, and was flung off the divert belt beyond it. So a part resting on a conveyor in the
+   * path of an advancing plate becomes kinematic for the step and is moved to the core's pose,
+   * upright at its yaw, still carried at its velocity across the plate axis (the belt it rides).
+   * When the plate stops advancing, or the part leaves its path, it is dynamic again with that
+   * velocity: no momentum along the axis, as in the core. A part not resting on a conveyor
+   * (falling, or pushed off one) is left to Rapier's contact with the plate.
+   */
+  private pushParts(): void {
+    const dt = this.world.timestep;
+    const now = new Set<string>();
+    for (const plate of this.plates.values()) {
+      const z0 = plate.stroke;
+      const z1 = plate.next;
+      if (z1 <= z0 + 1e-9) continue; // holding or retracting: retracting plates do not pull
+      const axis = rotateY([0, 0, 1], plate.rotation);
+      for (const [id, body] of this.parts) {
+        if (this.followed.has(id) || now.has(id)) continue;
+        const size = this.sizes.get(id)!;
+        if (!this.pushed.has(id) && !this.resting(body, size)) continue;
+        const t = body.translation();
+        const [lx, ly, lz] = rotateY([t.x - plate.origin[0], t.y - plate.origin[1], t.z - plate.origin[2]], -plate.rotation);
+        const yaw = yawOf(body.rotation());
+        const r = ((yaw - plate.rotation) * Math.PI) / 180;
+        const hx = (Math.abs(Math.cos(r)) * size[0] + Math.abs(Math.sin(r)) * size[2]) / 2;
+        const hz = (Math.abs(Math.sin(r)) * size[0] + Math.abs(Math.cos(r)) * size[2]) / 2;
+        if (Math.abs(lx) >= plate.width / 2 + hx || Math.abs(ly) >= plate.height / 2 + size[1] / 2) continue;
+        if (!(lz - hz < z1 && lz + hz > z0)) continue; // behind the old face, or beyond the new one
+        let pushed = this.pushed.get(id);
+        if (!pushed) {
+          const v = body.linvel();
+          const along = v.x * axis[0] + v.z * axis[2];
+          pushed = { carry: [v.x - along * axis[0], 0, v.z - along * axis[2]] };
+          this.pushed.set(id, pushed);
+          body.setBodyType(this.R.RigidBodyType.KinematicPositionBased, true);
+        }
+        const [x, y, z] = toWorld(plate.origin, plate.rotation, [lx, ly, Math.max(lz, z1 + hz)]);
+        body.setNextKinematicTranslation(vec([x + pushed.carry[0] * dt, y, z + pushed.carry[2] * dt]));
+        body.setNextKinematicRotation(quatY(yaw));
+        now.add(id);
+      }
+    }
+    for (const [id, pushed] of this.pushed) {
+      if (now.has(id)) continue;
+      const body = this.parts.get(id)!;
+      body.setBodyType(this.R.RigidBodyType.Dynamic, true);
+      body.setLinvel(vec(pushed.carry), true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      this.pushed.delete(id);
+    }
+  }
+
+  /** True if a part rests on a conveyor: its bottom at a deck's surface, its centre over the deck. */
+  private resting(body: RapierNs.RigidBody, size: Vec3): boolean {
+    const t = body.translation();
+    for (const belt of this.belts.values()) {
+      const top = belt.home[1] + BELT_HALF_THICKNESS;
+      if (Math.abs(t.y - size[1] / 2 - top) > 0.01) continue;
+      const dx = t.x - belt.home[0];
+      const dz = t.z - belt.home[2];
+      const along = dx * belt.flow[0] + dz * belt.flow[2];
+      const across = -dx * belt.flow[2] + dz * belt.flow[0];
+      if (Math.abs(along) <= belt.length / 2 && Math.abs(across) <= belt.width / 2) return true;
+    }
+    return false;
+  }
+
   /** Pusher plate travel in m from retracted (the core's `position_m` state), for the next step. */
   setPusher(id: string, stroke: number): void {
     const plate = this.plates.get(id);
     if (plate) {
+      plate.next = stroke;
       plate.body.setNextKinematicTranslation(vec(toWorld(plate.origin, plate.rotation, [0, 0, stroke - PLATE_HALF_DEPTH])));
     }
   }
@@ -485,6 +603,8 @@ export class PlantPhysics {
       for (const handles of this.inBeam.values()) handles.delete(handle);
       this.partHandles.delete(handle);
     }
+    this.followed.delete(id);
+    this.pushed.delete(id);
     for (const blade of this.blades.values()) blade.exempt.delete(body.collider(0).handle);
     this.world.removeRigidBody(body);
     this.parts.delete(id);
@@ -536,7 +656,9 @@ export class PlantPhysics {
       }
     }
     this.refreshSeamContacts();
+    this.pushParts();
     this.world.step(this.events, this.hooks);
+    for (const plate of this.plates.values()) plate.stroke = plate.next;
     this.events.drainCollisionEvents((h1, h2, started) => {
       const eye = this.beams.get(h1) ?? this.beams.get(h2);
       if (eye === undefined) return;

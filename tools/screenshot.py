@@ -23,6 +23,9 @@ What it does:
    It also prints how far the viewer has drawn any part the core carries on a conveyor from
    upright (``window.__openfactory.maxTiltDeg``: the core holds such parts upright, so a tilt is
    the viewer departing from it; PLAN 2.9), and ``--max-tilt-deg N`` fails above N degrees.
+   Likewise it prints how far outside its carrier's deck the viewer has drawn such a part
+   (``window.__openfactory.maxOffDeckM``, the position check: the core keeps it on the deck), and
+   ``--max-off-deck-m M`` fails above M metres.
 4. Saves a PNG (default ``tools/screenshots/<scene>-<N>s.png``, git-ignored) and checks it is not
    blank: at least 2 % of pixels must differ from the ISA-101 background ``#1F2A36`` and at most
    90 % may be near-black. A failed check, a viewer error, or a timeout exits 1.
@@ -303,6 +306,13 @@ def main(argv: list[str] | None = None) -> int:
         help="fail if the viewer drew a part on a conveyor more than N degrees from upright",
     )
     parser.add_argument(
+        "--max-off-deck-m",
+        type=float,
+        default=None,
+        metavar="M",
+        help="fail if the viewer drew a part the core carries more than M m outside its deck",
+    )
+    parser.add_argument(
         "--min-sensor-events",
         type=int,
         default=0,
@@ -352,6 +362,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"carried parts drawn at most {tilt:.2f} degrees from upright{where}")
     if args.max_tilt_deg is not None and tilt > args.max_tilt_deg:
         print(f"tilt check failed: {tilt:.2f} > {args.max_tilt_deg:g} degrees")
+        ok = False
+    off, worst = float(status.get("maxOffDeckM") or 0.0), status.get("offDeck")
+    where = f" ({worst['part']} off {worst['carrier']} at tick {worst['tick']})" if worst else ""
+    print(f"carried parts drawn at most {off * 1000:.1f} mm outside their deck{where}")
+    if args.max_off_deck_m is not None and off > args.max_off_deck_m:
+        print(f"position check failed: {off:.3f} > {args.max_off_deck_m:g} m")
         ok = False
     print(summary)
     for line in result["console"]:  # type: ignore[union-attr]

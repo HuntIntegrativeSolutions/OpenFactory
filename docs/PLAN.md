@@ -1228,6 +1228,28 @@ runs the sorting program against it; a box visibly gets pushed.
       with the plate and gives it no momentum; Rapier keeps the plate's speed. The other five
       shipped scenes stay under 2 degrees for 40 s. Not fixed: falling parts are outside the
       check (they may tumble), but this one the core still carries.
+      *Fixed (2026-11-06, ruled the next 2.9 item):* the cause is earlier than the overshoot.
+      Driven across at the plate's 1.5 m/s, the tall box caught its leading bottom edge on
+      CONV_02's rounded side edge at tick 8 of the push, tipped over the plate (38 degrees at
+      full stroke) and flew off CONV_02 (2.5 m in a Node replay). Fix, viewer only:
+      `PlantPhysics.pushParts()` pushes as the core does (kinematics.py, "Pushed"). While a
+      plate advances, a part resting on a conveyor in its path is kinematic, placed with its
+      back face on the plate face, upright at its yaw, and still carried at its velocity across
+      the plate axis. When the plate stops it is dynamic again with no speed along the axis. A
+      part not resting on a conveyor is still pushed by Rapier's contact. The position check
+      extends the tilt check: the viewer publishes `maxOffDeckM` and `offDeck` (part, carrier,
+      tick), how far it drew a part the core carries (not one it places) outside its carrier's
+      deck (`offDeck()` in `physics.ts`). `tools/screenshot.py --max-off-deck-m M` fails above
+      M, and CI step 7 now runs the sorter under its stand-in script for 20 s with
+      `--max-tilt-deg 5 --max-off-deck-m 0.05`. Sorter under its script, 20 s:
+      - before: tilt 177.43 and 174.38 degrees, off CONV_02 by 3.58 and 3.31 m, both checks fail;
+      - after, three runs: tilt 1.71 degrees, off-deck at most 20 mm.
+
+      The 20 mm is the viewer's one-tick lead. The core pushes with the plate travel of the tick
+      before, so at tick 443 it has P000002 at z 0.24 on CONV_01, where the viewer, whose plate
+      has always run a tick ahead, has it at z 0.27. `web/src/physics.components.test.ts`: at
+      four approach offsets the pushed box sits at z 0.4500 (the core's 0.45) from full stroke
+      on, upright to 0.01 degrees. All eight parity traces are unchanged, row for row.
 - [x] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
       `def step(io, t)` that reads DI/AI and writes DO/AO through the same writer-side rules a protocol
       server obeys. Ship `examples/pyplc/sorting-by-height.py`.
