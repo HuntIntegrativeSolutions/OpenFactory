@@ -12,10 +12,17 @@ import { assemble, attachHousings, type ModelLoader } from "./housings";
 import conveyorFrame from "../public/housings/conveyor_frame.glb?inline";
 import photoEye from "../public/housings/photo_eye.glb?inline";
 import pusher from "../public/housings/pusher.glb?inline";
+import stopper from "../public/housings/stopper.glb?inline";
 
-const MODELS: Record<string, string> = { conveyor_frame: conveyorFrame, photo_eye: photoEye, pusher };
+const MODELS: Record<string, string> = { conveyor_frame: conveyorFrame, photo_eye: photoEye, pusher, stopper };
 /** The types with a default model so far (PLAN 4.2). */
-const TYPES = ["belt_conveyor", "roller_conveyor", "photo_eye", "pusher"];
+const TYPES = ["belt_conveyor", "roller_conveyor", "photo_eye", "pusher", "stopper"];
+
+/**
+ * Fixed-size housings: the model fills the primitive housing's box, give or take `grow` m on
+ * any side (a collar or a motor that the plain box leaves out), so nothing floats or sinks.
+ */
+const FILLS: [string, Record<string, unknown>, number][] = [["stopper", {}, 0]];
 const ctx = { floorY: -0.75 };
 
 function geom(type: string, extra: Record<string, unknown> = {}) {
@@ -106,6 +113,19 @@ describe("default component models", () => {
       view.update({ position_m: stroke, extending: true });
       expect(bounds(view.object.getObjectByName("housing")!).min.z).toBeCloseTo(model.min.z, 5);
     }
+  });
+
+  it.each(FILLS)("fill the %s's primitive housing box", async (type, extra, grow) => {
+    const view = buildComponent(geom(type, extra), ctx);
+    const primitive = view.housing!.reduce((box, part) => box.union(bounds(part)), new THREE.Box3());
+    expect(await attachHousings([view], new Set(), committed)).toMatchObject({ loaded: 1, failed: 0 });
+    const model = bounds(view.object.getObjectByName("housing")!);
+    for (const axis of ["x", "y", "z"] as const) {
+      expect(model.min[axis]).toBeGreaterThanOrEqual(primitive.min[axis] - grow - 1e-6);
+      expect(model.max[axis]).toBeLessThanOrEqual(primitive.max[axis] + grow + 1e-6);
+      expect(model.max[axis] - model.min[axis]).toBeGreaterThan(0.6 * (primitive.max[axis] - primitive.min[axis]));
+    }
+    for (const part of view.housing!) expect(part.visible).toBe(false);
   });
 
   it("leave a component with a scene mesh, and one whose model fails, to the 2.15 path", async () => {

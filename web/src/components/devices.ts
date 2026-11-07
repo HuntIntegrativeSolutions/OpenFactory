@@ -330,6 +330,8 @@ export const stopper: Builder = (g) => {
     labelAnchor: new THREE.Vector3(0, height + 0.08, -width / 2),
     pickable: [],
     housing: [actuator],
+    // the actuator model (PLAN 4.2) where the primitive box hangs; the blade stays a primitive
+    defaultHousing: { model: "stopper", parts: [{ part: "actuator", at: [thickness / 2, -0.11, 0] }] },
     update(state) {
       const raised = typeof state.position === "number" ? state.position : 0;
       blade.position.y = height * raised - height / 2;

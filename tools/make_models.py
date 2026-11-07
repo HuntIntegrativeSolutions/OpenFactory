@@ -277,10 +277,25 @@ def pusher() -> dict[str, Geometry]:
     return {"barrel": barrel, "tie_rods": rods, "front_cap": front, "rear_cap": rear, "foot": foot}
 
 
+def stopper() -> dict[str, Geometry]:
+    """stopper actuator, centered where the primitive's 0.08 x 0.06 x 0.12 m box hangs under the
+    belt (the viewer places it at the blade's x, 0.11 m below the belt top). ``actuator``: a
+    dark flange plate on top (y 0.024 to 0.03) that bolts under the conveyor, a square
+    aluminium cylinder body below it, a round barrel end, and two air ports on the upstream
+    face. The blade stays a primitive."""
+    actuator = Geometry().box(DARK, (-0.04, 0.024, -0.06), (0.04, 0.03, 0.06))
+    actuator.box(ALUMINIUM, (-0.032, -0.012, -0.032), (0.032, 0.024, 0.032))
+    actuator.cylinder(ALUMINIUM, 1, (0, -0.021, 0), 0.026, 0.018, 24)
+    for z in (-0.014, 0.014):
+        actuator.cylinder(BLACK, 0, (-0.036, 0.008, z), 0.006, 0.008, 12)
+    return {"actuator": actuator}
+
+
 MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "conveyor_frame": conveyor_frame,
     "photo_eye": photo_eye,
     "pusher": pusher,
+    "stopper": stopper,
 }
 
 

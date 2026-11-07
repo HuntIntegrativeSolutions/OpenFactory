@@ -1844,6 +1844,11 @@ runs the sorting program against it; a box visibly gets pushed.
         stretched over the primitive body's span (stroke + 0.1 m), 0.12 m square end caps,
         the front one with the rod gland, both with an air port, and a mounting foot under
         each cap running along the barrel. The plate and rod stay primitives.
+      - `stopper` (9 644 bytes): the actuator where the primitive box hangs under the belt,
+        0.11 m below its top at the blade's x: a dark flange plate, a square aluminium body, a
+        round barrel end and two air ports. Fixed size; the blade stays a primitive. Hidden under
+        the belt from the default camera, so its fit is checked by a bounds test (it fills the
+        primitive box), not by eye.
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from
