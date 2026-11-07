@@ -1359,8 +1359,21 @@ def load_scene(path: str | Path) -> Scene:
 
 
 def scene_json_schema() -> str:
-    """The scene JSON Schema as the exact text written to ``web/public/scene.schema.json``."""
-    return json.dumps(Scene.model_json_schema(), indent=2, ensure_ascii=False) + "\n"
+    """The scene JSON Schema as the exact text written to ``web/public/scene.schema.json``.
+
+    Its ``$id`` names the scene format (``SCHEMA_VERSION``), which scenes declare as
+    ``openfactory:``; its ``$comment`` also names the package release that wrote it. The two are
+    versioned separately (docs/versioning.md): a release that adds only optional keys keeps the
+    format, so the comment, not the ``$id``, changes with the package version.
+    """
+    from openfactory import __version__
+
+    doc = Scene.model_json_schema()
+    doc["$comment"] = (
+        f"OpenFactory scene format {SCHEMA_VERSION}, exported by OpenFactory {__version__}. "
+        "The package version and the scene format version are independent (docs/versioning.md)."
+    )
+    return json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -4,12 +4,12 @@ OpenFactory is a training and demo tool, not a safety-rated simulation.
 
 Generated from the commit log by `tools/changelog.py` (PLAN 4.8), grouped by the PLAN
 milestone each commit worked on; `docs/PLAN.md` holds the reasoning behind each task. The
-project follows semantic versioning from 0.2.0; before 1.0.0 a minor version may change
-the scene format or the CLI, and the changelog says so.
+project follows semantic versioning from 0.2.0, and the scene format version is separate
+from the package version (`docs/versioning.md`).
 
 ## 0.2.0 (not yet tagged)
 
-136 commits, `35beca5` (2026-10-25) to `69920d0` (2026-11-06).
+140 commits, `35beca5` (2026-10-25) to `b39bef0` (2026-11-06).
 
 ### Milestone 0 — Project foundation
 
@@ -147,6 +147,7 @@ the scene format or the CLI, and the changelog says so.
 - No seam loss in the viewer at equal-speed belt seams; parity-turntable gates again (PLAN 2.9) (`84d1110`, 2026-11-04)
 - A pushed box stays on the divert belt in the viewer, as in the core (PLAN 2.9) (`e793e82`, 2026-11-06)
 - Timing-sensitive tests hold under load; OPC UA latency no longer queues requests (`69920d0`, 2026-11-06)
+- OPC UA requests keep their order when the comms latency changes (PLAN 2.13b) (`701d21b`, 2026-11-06)
 
 #### Performance
 
@@ -180,6 +181,7 @@ the scene format or the CLI, and the changelog says so.
 - README service area (`efde1d0`, 2026-11-01)
 - PLAN §5 component rows for the 2.5b ports and settings (`3b25e5e`, 2026-11-02)
 - Jolt vs Rapier for the viewer physics; keep Rapier (PLAN 2.9) (`648180b`, 2026-11-04)
+- Two 2.9 notes, the hanging pushed box and the plate a tick ahead (`b39bef0`, 2026-11-06)
 
 #### Tests
 
@@ -188,3 +190,13 @@ the scene format or the CLI, and the changelog says so.
 - Tall-box stopper queue as a gated parity trace (2.5 partly-done item) (`af44674`, 2026-10-27)
 - Parity traces for the turntable and gantry demos; beams see core-placed parts (ruling) (`dad2f34`, 2026-10-29)
 - Validate every scene against the exported JSON Schema with jsonschema (`54a93fe`, 2026-11-01)
+
+#### Maintenance (build, CI, chores)
+
+- Ci: a failed CI run names its failing step in a public annotation (`bd35d97`, 2026-11-06)
+
+### Milestone 4 — Editor, assets, community
+
+#### Documentation
+
+- Release hygiene, part 1: SECURITY.md, code of conduct, templates, CHANGELOG, 0.2.0 (PLAN 4.8) (`81188fa`, 2026-11-06)

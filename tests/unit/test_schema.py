@@ -231,3 +231,17 @@ def test_bad_connections_rejected(example_data, connections, message):
     data["connections"] = connections
     with pytest.raises(ValidationError, match=message):
         Scene.model_validate(data)
+
+
+def test_the_exported_schema_names_the_format_and_the_package_release_separately():
+    """Ruled 2026-11-06: scenes stay at format 0.1 while the package is 0.2.0; the schema's $id
+    is the format, its $comment also names the release that exported it (docs/versioning.md)."""
+    import json
+
+    from openfactory import __version__
+    from openfactory.core.schema import SCHEMA_VERSION, scene_json_schema
+
+    doc = json.loads(scene_json_schema())
+    assert doc["$id"] == f"urn:openfactory:scene:{SCHEMA_VERSION}" == "urn:openfactory:scene:0.1"
+    assert f"scene format {SCHEMA_VERSION}" in doc["$comment"]
+    assert f"OpenFactory {__version__}" in doc["$comment"]

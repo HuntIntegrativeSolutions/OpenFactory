@@ -54,3 +54,11 @@ jobs:
           name: ci-screenshot
           path: tools/screenshots/ci-sorting-by-height.png
           if-no-files-found: ignore
+
+      - name: Keep the SBOM (PLAN 4.8; built by tools/sbom.py, never committed)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: build/sbom/
+          if-no-files-found: ignore

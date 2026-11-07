@@ -1738,15 +1738,24 @@ runs the sorting program against it; a box visibly gets pushed.
 - [ ] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
-- [ ] 4.5 Public GitHub release, issue templates, Discussions, first good-first-issues
+- [ ] 4.5 Public GitHub release, issue templates, Discussions, first good-first-issues.
+      *Release step (ruled 2026-11-06):* every version bump rebuilds all six demo kits
+      (`tools/build_kit.py`), because each kit's recording carries the package version in its
+      header, and regenerates the JSON Schema, whose `$comment` names the package version
+      (`docs/versioning.md`, "Release steps").
 - [ ] 4.6 Desktop packaging (PyInstaller + bundled viewer) for Windows users without Python
 - [ ] 4.7 Scene schema versioning: `openfactory: "0.2"` bumps require `openfactory migrate` to rewrite
       older scenes, with a test corpus of every shipped scene at every past version. Must exist before
       4.5, because a public release freezes the format people depend on.
-- [ ] 4.8 Release hygiene before 4.5: SECURITY.md with a disclosure contact, CODE_OF_CONDUCT.md,
+      *Ruled 2026-11-06:* the package version and the scene format version are independent.
+      Milestone 2 added optional keys and component types only, so scenes stay at
+      `openfactory: "0.1"` while the package is 0.2.0, and `migrate` waits for the first
+      breaking format change (`docs/versioning.md`). The exported schema keeps
+      `$id: urn:openfactory:scene:0.1` and names the package release in its `$comment`.
+- [x] 4.8 Release hygiene before 4.5: SECURITY.md with a disclosure contact, CODE_OF_CONDUCT.md,
       semantic versioning policy, CHANGELOG.md, SBOM generated from `THIRD_PARTY.md`, and a one-page
       "what OpenFactory is not" statement (not safety-rated, not virtual commissioning, not a PLC).
-      *Progress (2026-11-06, started as ruled with Milestone 2 otherwise complete), not done:*
+      *Part 1 (2026-11-06, started as ruled with Milestone 2 otherwise complete):*
       - `SECURITY.md`: private reporting to the README's contact address, or GitHub's private
         advisory form if the repository enables it; supported versions; the security model of
         §6.4 (loopback by default, Modbus and anonymous OPC UA by design, the fault token,
@@ -1764,11 +1773,29 @@ runs the sorting program against it; a box visibly gets pushed.
         `openfactory` version changed. No tag: the owner tags after the Docker items and the
         video re-recording.
 
-      Left: the semantic versioning policy as its own page (the changelog's preamble states
-      it in one sentence), the SBOM, and the "what OpenFactory is not" page. The scene
-      schema's version, which the ruling also bumps, waits on a ruling: 4.7 says an
-      `openfactory: "0.2"` bump needs `openfactory migrate` and a corpus of every shipped
-      scene at every past version.
+      *Done (2026-11-06, the rest as ruled):*
+      - `docs/versioning.md`: semantic versioning from 0.2.0, approved; what bumps major, minor
+        and patch (before 1.0.0 a breaking change bumps the minor version and the changelog
+        says so); the package version and the scene format version are independent; and the
+        release steps, including the kit rebuild (each kit's recording carries the package
+        version) and the schema regeneration (its `$comment` names the package version).
+      - The scene schema, ruled metadata only: scenes stay at `openfactory: "0.1"`,
+        `$id` stays `urn:openfactory:scene:0.1`, and the exported schema's `$comment` names the
+        format and the package release (`scene_json_schema()`, `tests/unit/test_schema.py`).
+        `docs/scene-format.md` says the two versions are independent.
+      - The SBOM: `tools/sbom.py` merges `uv export --format cyclonedx1.5` (runtime closure,
+        extras included, no dev tools) and `npm sbom --sbom-format cyclonedx --omit dev` (what
+        the viewer bundles) into one CycloneDX 1.5 document in `build/sbom/` (git-ignored,
+        never committed). Python components take their license from THIRD_PARTY.md, since
+        uv's export has none. `--check` fails on a component missing from THIRD_PARTY.md's
+        runtime tables or listed at another version, a missing license or package URL, a
+        duplicate `bom-ref`, or a license outside the ADR-0001 allowlist. CI step 12 runs
+        it, and the workflow keeps the SBOM as an artifact. 36 Python and 2 npm components,
+        check passing; `tests/unit/test_sbom.py` pins what the check catches.
+      - `docs/what-openfactory-is-not.md`: not safety-rated, not virtual commissioning, not a
+        PLC, not a throughput model, not a plant-network service, not a finished engineering
+        deliverable, not a copy of a commercial simulator.
+      - The kit-rebuild release step is added to 4.5 as well.
 - [ ] 4.9 Dependency upgrade cadence: a quarterly task that bumps three, Rapier, and pymodbus, reruns
       the parity trace and the Modbus round trip, and records the result in `docs/research/`.
       *Why:* Rapier and pymodbus both changed APIs under us during planning (§2.1, 1.7).

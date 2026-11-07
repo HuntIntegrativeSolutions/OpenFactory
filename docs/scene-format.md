@@ -7,6 +7,16 @@ more explanation than §4 gives.
 
 OpenFactory is a training and demo tool, not a safety-rated simulation.
 
+## `openfactory:`: the format version
+
+Every scene starts with `openfactory: "0.1"`, the scene format version. It is not the
+OpenFactory package version: the package is 0.2.0 and scenes are still format `0.1`, because
+everything added since (component types, optional keys) is optional and older scenes still mean
+the same. The format version changes only when the format breaks, and then `openfactory migrate`
+rewrites older scenes (PLAN 4.7). A scene using a key or component type added in a later release
+needs that release; an older one rejects the scene and names the key. The whole policy is in
+[the versioning policy](versioning.md).
+
 ## `checks:`: exercise checks (PLAN 2.11)
 
 A scene may declare what a correct control program achieves. `openfactory test` runs the scene,

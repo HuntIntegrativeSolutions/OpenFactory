@@ -21,7 +21,9 @@
 #   9. tools/parity_trace.py --check (committed parity traces match the kinematic model)
 #  10. tools/build_kit.py --check (every demo kit is current, PLAN 2.14)
 #  11. tools/bench.py: the tick cost within 25 % of tools/bench_baseline.json (PLAN 2.9)
-#  12. the working tree is unchanged (no step rewrote a lockfile, trace, or schema)
+#  12. tools/sbom.py --check: the CycloneDX SBOM builds, and every component is in THIRD_PARTY.md
+#      with an allowed license (PLAN 4.8; written to build/sbom/, never committed)
+#  13. the working tree is unchanged (no step rewrote a lockfile, trace, or schema)
 #
 # Training and demo tool; not a safety-rated simulation.
 set -euo pipefail
@@ -125,6 +127,9 @@ uv run python tools/build_kit.py --check
 
 step "tick-cost gate (PLAN 2.9)"
 uv run python tools/bench.py
+
+step "SBOM (PLAN 4.8)"
+uv run python tools/sbom.py --check
 
 step "working tree unchanged"
 git status --short

@@ -18,6 +18,7 @@ openfactory.local.toml
 .env
 
 # Tooling output
+build/
 tools/screenshots/
 *.ofz
 *.log
