@@ -42,3 +42,20 @@ def test_the_committed_baseline_covers_every_scene_at_the_200_part_cap():
 
 def test_the_calibration_is_deterministic():
     assert bench.calibrate(3) == bench.calibrate(3)
+
+
+def test_on_github_actions_each_result_is_also_an_annotation(monkeypatch, capsys):
+    """The score a CI runner measured is readable from the public check-runs API (PLAN 2.9)."""
+    base = json.loads(bench.BASELINE.read_text(encoding="utf-8"))["scenes"]
+    monkeypatch.setattr(bench, "measure", lambda path: got(base["load-200"]["score"] * 1.3))
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert bench.main([]) == 1
+    lines = capsys.readouterr().out.splitlines()
+    notes = [line for line in lines if line.startswith("::")]
+    assert len(notes) == len(bench.SCENES)
+    load = next(n for n in notes if "tick-cost gate load-200::" in n)
+    assert load.startswith("::error title=tick-cost gate load-200::load-200: step 2.500 ms")
+    assert json.loads(load[load.index("{") :]) == got(base["load-200"]["score"] * 1.3)
+    monkeypatch.delenv("GITHUB_ACTIONS")
+    bench.main([])
+    assert not [line for line in capsys.readouterr().out.splitlines() if line.startswith("::")]

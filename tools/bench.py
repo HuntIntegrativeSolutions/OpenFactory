@@ -17,6 +17,12 @@ of the score as well.
 The gate fails when a scene's score is more than ``LIMIT`` times its baseline score. The baseline
 is regenerated with ``--update`` and committed with the change that moves it (ruled 2026-11-04),
 so a deliberate cost shows up in the diff of ``tools/bench_baseline.json``.
+
+On GitHub Actions (``GITHUB_ACTIONS=true``) each scene's result line and its measurement as JSON
+also go out as a workflow annotation (``::notice``, or ``::error`` on a failure). Annotations are
+readable through the public check-runs API without signing in, unlike the job log, so the score a
+CI runner measured can be read back and, if the runner's score differs from this machine's,
+committed as the baseline (PLAN 2.9).
 """
 
 from __future__ import annotations
@@ -24,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import platform
 import statistics
 import sys
@@ -136,6 +143,9 @@ def main(argv: list[str] | None = None) -> int:
     for name, got in results.items():
         ok, line = compare(name, got, base.get(name))
         print(line)
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            level = "notice" if ok else "error"
+            print(f"::{level} title=tick-cost gate {name}::{line} {json.dumps(got)}")
         passed &= ok
     return 0 if passed else 1
 
