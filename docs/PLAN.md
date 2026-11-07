@@ -1826,6 +1826,11 @@ runs the sorting program against it; a box visibly gets pushed.
         rails, flanges outward, over the primitive rails' span; square-tube legs on
         rubber-padded feet with a low brace per pair; for the belt, end drums with bearing
         blocks outside the rails.
+      - `photo_eye` (8 956 bytes): a head the primitive's size (0.05 x 0.09 x 0.04 m) with a
+        dark face plate, black lens and cable gland, and an angle bracket behind it; both
+        heads face the beam. The model hangs in the group a `misaligned` fault moves, which
+        the 2.15 mesh path does not (the photo eye has no fixed housing there), so the builder
+        names the heads as the parts it replaces.
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from

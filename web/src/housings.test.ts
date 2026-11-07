@@ -10,10 +10,11 @@ import type { ComponentView } from "./components/types";
 import { assemble, attachHousings, type ModelLoader } from "./housings";
 // the committed models as base64 data URIs (Vite ?inline), so the test needs no Node file API
 import conveyorFrame from "../public/housings/conveyor_frame.glb?inline";
+import photoEye from "../public/housings/photo_eye.glb?inline";
 
-const MODELS: Record<string, string> = { conveyor_frame: conveyorFrame };
+const MODELS: Record<string, string> = { conveyor_frame: conveyorFrame, photo_eye: photoEye };
 /** The types with a default model so far (PLAN 4.2). */
-const TYPES = ["belt_conveyor", "roller_conveyor"];
+const TYPES = ["belt_conveyor", "roller_conveyor", "photo_eye"];
 const ctx = { floorY: -0.75 };
 
 function geom(type: string, extra: Record<string, unknown> = {}) {
@@ -30,7 +31,9 @@ async function parse(model: string): Promise<THREE.Object3D> {
 const committed: ModelLoader = (model) => parse(model);
 
 function bounds(object: THREE.Object3D): THREE.Box3 {
-  object.updateMatrixWorld(true);
+  let root = object;
+  while (root.parent) root = root.parent;
+  root.updateMatrixWorld(true); // from the top, so a moved parent group counts
   return new THREE.Box3().setFromObject(object);
 }
 
@@ -49,7 +52,8 @@ describe("default component models", () => {
 
   it("fit a belt conveyor's frame to its length, width and height above the floor", async () => {
     const view = buildComponent(geom("belt_conveyor", { length: 3, width: 0.6 }), ctx);
-    const primitive = bounds(new THREE.Group().add(...view.housing!.map((p) => p.clone())));
+    // both in world space: the primitive frame's parts, and then the model that replaces them
+    const primitive = view.housing!.reduce((box, part) => box.union(bounds(part)), new THREE.Box3());
     const result = await attachHousings([view], new Set(), committed);
     expect(result).toEqual({ loaded: 1, failed: 0, types: ["belt_conveyor"] });
     const model = bounds(view.object.getObjectByName("housing")!);
@@ -71,6 +75,20 @@ describe("default component models", () => {
     for (const type of TYPES) expect(buildComponent(geom(type), ctx).defaultHousing).toBeDefined();
     const roller = buildComponent(geom("roller_conveyor", { length: 2 }), ctx).defaultHousing!;
     expect(roller.parts.map((p) => p.part)).not.toContain("drum");
+  });
+
+  it("hang the photo eye's heads in its moving group, facing the beam from both ends", async () => {
+    const view = buildComponent(geom("photo_eye", { beam_length: 0.6 }), ctx);
+    const replaced = view.defaultHousing!.replaces!;
+    expect(await attachHousings([view], new Set(), committed)).toMatchObject({ loaded: 1, types: ["photo_eye"] });
+    const housing = view.object.getObjectByName("housing")!;
+    const at = bounds(housing);
+    expect(at.min.z).toBeCloseTo(-(0.3 + 0.02 + 0.06), 3); // a bracket behind each head
+    expect(at.max.z).toBeCloseTo(0.3 + 0.02 + 0.06, 3);
+    for (const head of replaced) expect(head.visible).toBe(false);
+    expect(view.object.getObjectByName("beam")!.visible).toBe(true); // status stays a primitive
+    view.update({ detect: false, beam_offset_m: 0.05 }); // a misaligned fault moves the heads
+    expect(bounds(housing).getCenter(new THREE.Vector3()).x).toBeCloseTo(at.getCenter(new THREE.Vector3()).x + 0.05, 5);
   });
 
   it("leave a component with a scene mesh, and one whose model fails, to the 2.15 path", async () => {

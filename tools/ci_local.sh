@@ -116,7 +116,7 @@ step "screenshot runner with non-blank check"
 uv run python tools/screenshot.py scenes/sorting-by-height.yaml --seconds 20 \
   --out tools/screenshots/ci-sorting-by-height.png \
   --script examples/pyplc/sorting-by-height.py --max-tilt-deg 5 --max-off-deck-m 0.05 \
-  --housings belt_conveyor
+  --housings belt_conveyor,photo_eye
 
 step "pytest (CI=true: zero skips allowed)"
 # -rfEs, not -rs: -r replaces pytest's default "fE", and the FAILED and ERROR summary lines are what

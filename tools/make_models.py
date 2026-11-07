@@ -241,8 +241,23 @@ def conveyor_frame() -> dict[str, Geometry]:
             "bearing": bearing}  # fmt: skip
 
 
+def photo_eye() -> dict[str, Geometry]:
+    """photo_eye heads, in a head's own frame: the lens on the +z face, toward the beam (the viewer
+    turns the far head 180 degrees). ``head``: a 0.05 x 0.09 x 0.04 m housing, the primitive's
+    size, with a dark face plate, a black lens and a cable gland under it. ``bracket``: the angle
+    bracket behind a head that holds it to the guard rail."""
+    head = Geometry().box(FRAME, (-0.025, -0.045, -0.02), (0.025, 0.045, 0.016))
+    head.box(DARK, (-0.022, -0.042, 0.016), (0.022, 0.042, 0.02))  # face plate
+    head.cylinder(BLACK, 2, (0, 0.012, 0.022), 0.011, 0.004, 16)  # lens
+    head.cylinder(BLACK, 1, (0, -0.052, 0), 0.007, 0.014, 12)  # cable gland
+    bracket = Geometry().box(DARK, (-0.03, -0.03, -0.026), (0.03, 0.03, -0.02))
+    bracket.box(DARK, (-0.03, -0.036, -0.06), (0.03, -0.03, -0.02))
+    return {"head": head, "bracket": bracket}
+
+
 MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "conveyor_frame": conveyor_frame,
+    "photo_eye": photo_eye,
 }
 
 

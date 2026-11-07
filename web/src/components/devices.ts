@@ -6,7 +6,7 @@ import * as THREE from "three";
 import type { ComponentGeometry } from "../api";
 import { ISA101 } from "../isa101";
 import { PART_COLORS } from "../parts";
-import { NEUTRAL, box, num, placed, setColor, wireBox, zCylinder, type Builder } from "./types";
+import { NEUTRAL, box, num, placed, setColor, wireBox, zCylinder, type Builder, type HousingPart } from "./types";
 
 /** Photo eye: origin at the beam midpoint; the beam spans local z. */
 export const photoEye: Builder = (g) => {
@@ -14,9 +14,15 @@ export const photoEye: Builder = (g) => {
   const group = placed(g);
   const eye = new THREE.Group(); // heads and beam; moved along x by a misaligned fault (PLAN 2.6)
   group.add(eye);
+  const heads: THREE.Object3D[] = [];
+  const parts: HousingPart[] = [];
   for (const side of [-1, 1]) {
-    eye.add(box([0.05, 0.09, 0.04], NEUTRAL.frame, [0, 0, side * (beamLength / 2 + 0.02)]));
+    const at: [number, number, number] = [0, 0, side * (beamLength / 2 + 0.02)];
+    heads.push(box([0.05, 0.09, 0.04], NEUTRAL.frame, at));
+    // each model head faces +z: the far one turns to face the beam too (PLAN 4.2)
+    for (const part of ["head", "bracket"]) parts.push({ part, at, turnDeg: side < 0 ? 0 : 180 });
   }
+  eye.add(...heads);
   const beam = zCylinder(0.006, beamLength, ISA101.stopped);
   beam.name = "beam";
   eye.add(beam);
@@ -26,6 +32,9 @@ export const photoEye: Builder = (g) => {
     object: group,
     labelAnchor: new THREE.Vector3(0, 0.1, -beamLength / 2),
     pickable: [],
+    // the heads move with a misaligned fault, so a scene mesh is drawn beside them (2.15), but
+    // the default model hangs in the moving group and replaces them
+    defaultHousing: { model: "photo_eye", parts, parent: eye, replaces: heads },
     update(state) {
       eye.position.x = typeof state.beam_offset_m === "number" ? state.beam_offset_m : 0;
       setColor(beam, state.detect ? ISA101.running : ISA101.stopped);
