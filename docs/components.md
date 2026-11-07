@@ -101,7 +101,9 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   barrel end, and two air ports);
   `turntable` (the pedestal: a slewing bearing under the platform, a round column stretched to
   the floor, and a base plate with a collar; none when the turntable stands under 0.1 m from
-  the floor).
+  the floor);
+  `diverter_arm` (the drive on the pivot: a hub, a right-angle gearbox, and the motor behind
+  the pivot, away from the arm at rest).
 - **Viewer authority (PLAN §3.3).** Parts on conveyors, pushed by a plate, or held by a stopper
   are simulated by the viewer's Rapier physics. Parts held by a gripper, touching a diverter arm,
   or on a turning turntable deck follow the core's position. Sensors are read by the core only.

@@ -306,12 +306,25 @@ def turntable() -> dict[str, Geometry]:
     return {"bearing": bearing, "column": column, "base": base}
 
 
+def diverter_arm() -> dict[str, Geometry]:
+    """diverter_arm drive, in the arm's local frame with the origin at the pivot axis at the top
+    of the paddle (y 0), where the primitive's pivot post starts. ``drive``: an aluminium hub
+    (0.035 m radius, y 0 to 0.025), a dark right-angle gearbox above it (y 0.025 to 0.06), and
+    the motor behind the pivot along -x, away from the arm at rest."""
+    drive = Geometry().cylinder(ALUMINIUM, 1, (0, 0.0125, 0), 0.035, 0.025, 24)
+    drive.box(DARK, (-0.04, 0.025, -0.04), (0.04, 0.06, 0.04))
+    drive.cylinder(FRAME, 0, (-0.075, 0.0425, 0), 0.024, 0.07, 20)
+    drive.cylinder(BLACK, 0, (-0.112, 0.0425, 0), 0.016, 0.004, 16)  # motor end cap
+    return {"drive": drive}
+
+
 MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "conveyor_frame": conveyor_frame,
     "photo_eye": photo_eye,
     "pusher": pusher,
     "stopper": stopper,
     "turntable": turntable,
+    "diverter_arm": diverter_arm,
 }
 
 

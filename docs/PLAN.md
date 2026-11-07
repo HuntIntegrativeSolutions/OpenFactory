@@ -1854,6 +1854,10 @@ runs the sorting program against it; a box visibly gets pushed.
         between it and the base, and a 0.32 m base plate on a pad with a collar. The
         platform, which shows turning, and the deck stay primitives. No model under 0.1 m of
         pedestal (the primitive draws one from 0.01 m).
+      - `diverter_arm` (11 060 bytes): the drive on the pivot axis from the paddle's top up,
+        where the primitive pivot post stands: an aluminium hub, a dark right-angle gearbox
+        and the motor along -x behind the pivot, away from the arm at rest. Fixed size; the
+        arm and paddle, which swing and show status, stay primitives.
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from

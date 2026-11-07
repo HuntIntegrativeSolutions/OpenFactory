@@ -366,6 +366,8 @@ export const diverterArm: Builder = (g) => {
     labelAnchor: new THREE.Vector3(0, height + 0.12, 0),
     pickable: [],
     housing: [pivot],
+    // the drive model (PLAN 4.2) on the pivot axis, from the paddle's top up; the arm swings
+    defaultHousing: { model: "diverter_arm", parts: [{ part: "drive", at: [0, height, 0] }] },
     update(state) {
       const angle = typeof state.angle_deg === "number" ? state.angle_deg : 0;
       swing.rotation.y = -THREE.MathUtils.degToRad(angle); // local +x turned toward +z
