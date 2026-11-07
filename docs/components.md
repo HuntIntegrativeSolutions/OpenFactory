@@ -88,9 +88,10 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   component's declared dimensions: rails stretched to its length, legs to its height above the
   floor. A model is not one fixed shape per type: it is a kit of named parts that the type's
   builder places and stretches from the scene, so one file fits every size, and types may share
-  a file (`belt_conveyor` and `roller_conveyor` both use `conveyor_frame.glb`). It
+  a file (`belt_conveyor` and `roller_conveyor` both use `conveyor_frame.glb`). A component's
+  copies are merged into one mesh per material, so a model costs a few draw calls. It
   replaces the same parts a scene mesh would and is visual only; a scene `mesh` still wins.
-  If a model fails to load, the primitive stays. Types with a default model so far:
+  If a model fails to load, the primitive stays. The ten types with a default model:
   `belt_conveyor` (channel rails, legs on feet, braces, end drums and bearing blocks);
   `roller_conveyor` (the same frame, no drums); `photo_eye` (emitter and receiver heads with a
   face plate, lens and cable gland, on angle brackets; they hang with the beam, so a

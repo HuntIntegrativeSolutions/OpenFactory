@@ -172,11 +172,34 @@ describe("default component models", () => {
     expect(broken.object.getObjectByName("housing")).toBeUndefined();
   });
 
-  it("clone parts, sharing the parsed geometry between components", async () => {
+  it("merge a component's part copies into one mesh per material, sharing the materials", async () => {
     const root = await parse("conveyor_frame");
+    const materials = new Set<THREE.Material>();
+    root.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) materials.add((o as THREE.Mesh).material as THREE.Material);
+    });
     const views: ComponentView[] = [0, 1].map((i) => buildComponent(geom("belt_conveyor", { length: 1 + i }), ctx));
     const groups = views.map((v) => assemble(root, v.defaultHousing!));
-    const rail = (g: THREE.Group) => g.children[0] as THREE.Mesh;
-    expect(rail(groups[0]).geometry).toBe(rail(groups[1]).geometry);
+    for (const g of groups) {
+      expect(g.children.length).toBe(materials.size); // one draw call per material, of 20+ copies
+      for (const m of g.children as THREE.Mesh[]) expect(materials.has(m.material as THREE.Material)).toBe(true);
+    }
+    const first = groups[0].children[0] as THREE.Mesh;
+    const second = groups[1].children.find((m) => (m as THREE.Mesh).material === first.material) as THREE.Mesh;
+    expect(second.geometry).not.toBe(first.geometry); // each conveyor's own length baked in
+  });
+
+  it("keep a mirrored copy's faces pointing outward when baked", async () => {
+    // the +z rail is the model's rail mirrored (scale z -1): its web's outer face must face +z
+    const view = buildComponent(geom("belt_conveyor", { length: 2, width: 0.5 }), ctx);
+    const root = await parse("conveyor_frame");
+    const solo = { model: "conveyor_frame", parts: view.defaultHousing!.parts.filter((p) => p.part === "rail" && p.scale![2] < 0) };
+    const mesh = assemble(root, solo).children[0] as THREE.Mesh;
+    const pos = mesh.geometry.getAttribute("position");
+    const nrm = mesh.geometry.getAttribute("normal");
+    const idx = mesh.geometry.getIndex()!;
+    const [a, b, c] = [0, 1, 2].map((k) => new THREE.Vector3().fromBufferAttribute(pos, idx.getX(k)));
+    const face = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).normalize();
+    expect(face.dot(new THREE.Vector3().fromBufferAttribute(nrm, idx.getX(0)))).toBeGreaterThan(0.99);
   });
 });

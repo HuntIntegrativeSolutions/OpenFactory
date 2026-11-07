@@ -20,7 +20,9 @@ What it does:
    also requires N custom meshes drawn and none failed (PLAN 2.15; the viewer settles every mesh
    before its first frame, so ``ready`` already implies they have loaded or failed). With
    ``--housings TYPE,...`` it requires each listed component type to have drawn its default
-   model (PLAN 4.2, ``window.__openfactory.housings``) and no default model to have failed. It then
+   model (PLAN 4.2, ``window.__openfactory.housings``) and no default model to have failed, and
+   ``--max-draw-calls N`` fails if the last frame took more than N draw calls (the default models
+   are merged by material so the sorter stays under 45, ruled 2026-11-07). It then
    prints the viewer's physics backend and the core's ``/api/status`` counts of events received.
    It also prints how far the viewer has drawn any part the core carries on a conveyor from
    upright (``window.__openfactory.maxTiltDeg``: the core holds such parts upright, so a tilt is
@@ -338,6 +340,13 @@ def main(argv: list[str] | None = None) -> int:
         help="fail unless the viewer drew N custom meshes and none failed (PLAN 2.15)",
     )
     parser.add_argument(
+        "--max-draw-calls",
+        type=int,
+        default=None,
+        metavar="N",
+        help="fail if the viewer's last frame took more than N draw calls (PLAN 4.2)",
+    )
+    parser.add_argument(
         "--housings",
         default="",
         metavar="TYPE,...",
@@ -379,6 +388,11 @@ def main(argv: list[str] | None = None) -> int:
     if drawn.get("loaded") or drawn.get("failed"):
         types = ", ".join(drawn["types"]) or "-"
         print(f"default models: {drawn['loaded']} drawn ({types}), {drawn['failed']} failed")
+    calls = int(status.get("drawCalls") or 0)
+    print(f"draw calls in the last frame: {calls}")
+    if args.max_draw_calls is not None and calls > args.max_draw_calls:
+        print(f"draw-call check failed: {calls} > {args.max_draw_calls}")
+        ok = False
     core = result["core"]
     print(f"core /api/status: t = {core['t']:.2f} s, events received {core['events']}")  # type: ignore[index]
     tilt, worst = float(status.get("maxTiltDeg") or 0.0), status.get("tilt")
@@ -397,7 +411,10 @@ def main(argv: list[str] | None = None) -> int:
         ok = False
     if os.environ.get("GITHUB_ACTIONS") == "true":  # readable without signing in, as bench.py
         level = "notice" if ok else "error"
-        frames = f"{status['frames']} frames, {status.get('droppedTicks')} ticks dropped"
+        frames = (
+            f"{status['frames']} frames, {status.get('droppedTicks')} ticks dropped, "
+            f"{calls} draw calls"
+        )
         print(f"::{level} title=screenshot {args.scene.name}::{tilt_line}; {off_line}; {frames}")
     print(summary)
     for line in result["console"]:  # type: ignore[union-attr]

@@ -112,11 +112,11 @@ PY
 
 step "screenshot runner with non-blank check"
 # 20 s under the stand-in script: several tall boxes pushed onto CONV_02 (PLAN 2.9, the divert),
-# drawn with the default models of the types listed (PLAN 4.2)
+# drawn with the default models of the types listed, merged under 45 draw calls (PLAN 4.2)
 uv run python tools/screenshot.py scenes/sorting-by-height.yaml --seconds 20 \
   --out tools/screenshots/ci-sorting-by-height.png \
   --script examples/pyplc/sorting-by-height.py --max-tilt-deg 5 --max-off-deck-m 0.05 \
-  --housings belt_conveyor,photo_eye,pusher
+  --housings belt_conveyor,photo_eye,pusher --max-draw-calls 44
 
 step "pytest (CI=true: zero skips allowed)"
 # -rfEs, not -rs: -r replaces pytest's default "fE", and the FAILED and ERROR summary lines are what
