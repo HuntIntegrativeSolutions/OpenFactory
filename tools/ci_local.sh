@@ -16,7 +16,7 @@
 #   7. tools/screenshot.py on the shipped scene under its stand-in script, with its non-blank PNG
 #      check, its tilt check and its position check (before pytest, so test_screenshot_check has
 #      a real Playwright PNG to decode)
-#   8. pytest with CI=true and -rs: the screenshot and parity tests fail instead of skipping when
+#   8. pytest with CI=true and -rfEs: the screenshot and parity tests fail instead of skipping when
 #      the viewer build, node, Chromium, or a screenshot is missing; the run must show zero skips
 #   9. tools/parity_trace.py --check (committed parity traces match the kinematic model)
 #  10. tools/build_kit.py --check (every demo kit is current, PLAN 2.14)
@@ -52,9 +52,12 @@ annotate_failure() {
   [[ "${GITHUB_ACTIONS:-}" == "true" ]] || return 0
   echo "::error title=tools/ci_local.sh step ${STEP}::step ${STEP} (${STEP_NAME}) failed"
   if [[ "$STEP_NAME" == pytest* && -f tools/screenshots/ci-pytest.log ]]; then
-    grep -E "^(FAILED|ERROR) " tools/screenshots/ci-pytest.log | head -20 | while IFS= read -r line; do
+    # each failed, errored or skipped test, then pytest's closing count line
+    grep -E "^(FAILED|ERROR|SKIPPED) " tools/screenshots/ci-pytest.log | head -20 | while IFS= read -r line; do
       echo "::error title=pytest::${line//$'\n'/ }"
     done
+    grep -E "[0-9]+ (passed|failed|errors?|skipped).* in [0-9.]+s" tools/screenshots/ci-pytest.log | tail -1 |
+      while IFS= read -r line; do echo "::error title=pytest count::${line}"; done
   fi
 }
 trap annotate_failure ERR
@@ -112,9 +115,12 @@ uv run python tools/screenshot.py scenes/sorting-by-height.yaml --seconds 20 \
   --script examples/pyplc/sorting-by-height.py --max-tilt-deg 5 --max-off-deck-m 0.05
 
 step "pytest (CI=true: zero skips allowed)"
-uv run pytest -q -rs | tee tools/screenshots/ci-pytest.log
+# -rfEs, not -rs: -r replaces pytest's default "fE", and the FAILED and ERROR summary lines are what
+# a failure annotation quotes (run 42365962279 failed here with none to quote)
+uv run pytest -q -rfEs | tee tools/screenshots/ci-pytest.log
 if grep -Eq "[0-9]+ skipped" tools/screenshots/ci-pytest.log; then
   echo "pytest skipped tests under CI=true; every prerequisite must be present" >&2
+  annotate_failure # an explicit exit does not fire the ERR trap
   exit 1
 fi
 
