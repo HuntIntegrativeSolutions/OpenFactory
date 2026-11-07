@@ -289,6 +289,8 @@ export const selectorSwitch: Builder = (g) => {
     labelAnchor: new THREE.Vector3(0, 0.07, 0),
     pickable: [handle],
     housing: [plate, bezel],
+    // the enclosure, bezel and index marks (PLAN 4.2); the handle, which turns, stays a primitive
+    defaultHousing: { model: "selector_switch", parts: [{ part: "panel", at: [0, 0, 0] }] },
     update(state) {
       handle.rotation.z = SELECTOR_ANGLE[String(state.position ?? "a")] ?? 0;
     },

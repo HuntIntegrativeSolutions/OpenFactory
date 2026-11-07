@@ -1865,6 +1865,10 @@ runs the sorting program against it; a box visibly gets pushed.
         a primitive.
       - `pilot_light` (5 024 bytes): the shared enclosure and legend plate, and a 12-flat
         aluminium bezel ring around the lens. The lens, which lights, stays a primitive.
+      - `selector_switch` (9 416 bytes): the shared enclosure and legend plate, a dark bezel
+        the primitive bezel's size, and three light index marks on the plate at the a, center
+        and b handle positions (45 degrees either side of up). The handle, which an operator
+        turns, stays a primitive.
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from

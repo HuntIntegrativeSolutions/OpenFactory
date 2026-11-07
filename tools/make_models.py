@@ -344,6 +344,20 @@ def pilot_light() -> dict[str, Geometry]:
     return {"panel": panel}
 
 
+def selector_switch() -> dict[str, Geometry]:
+    """selector_switch, in the switch's local frame (the handle toward +z). ``panel``: the
+    enclosure with a dark bezel (0.03 m radius, z -0.02 to 0, the primitive bezel's) and three
+    light index marks on the plate at the a, center and b positions (45 degrees either side of
+    up, as the handle turns); the handle, which an operator turns, stays a primitive."""
+    panel = _panel(Geometry())
+    panel.cylinder(DARK, 2, (0, 0, -0.01), 0.03, 0.02, 32)
+    for angle in (-45, 0, 45):
+        a = math.radians(angle)
+        x, y = round(-0.035 * math.sin(a), 6), round(0.035 * math.cos(a), 6)
+        panel.box(ALUMINIUM, (x - 0.002, y - 0.002, -0.02), (x + 0.002, y + 0.002, -0.018))
+    return {"panel": panel}
+
+
 MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "conveyor_frame": conveyor_frame,
     "photo_eye": photo_eye,
@@ -353,6 +367,7 @@ MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "diverter_arm": diverter_arm,
     "pushbutton": pushbutton,
     "pilot_light": pilot_light,
+    "selector_switch": selector_switch,
 }
 
 
