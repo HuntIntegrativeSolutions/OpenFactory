@@ -1821,6 +1821,15 @@ runs the sorting program against it; a box visibly gets pushed.
       no housing): `belt_conveyor`, `photo_eye`, `stopper`, `pusher`, `turntable`, `pushbutton`,
       `pilot_light`, `selector_switch`, `diverter_arm`, and `roller_conveyor` (which shares the
       conveyor frame).
+      *Ruled 2026-11-07:* parametric builders, not one static `.glb` per type, accepted: each
+      type's housing depends on the scene's dimensions, so a model is a kit of named parts
+      that the type's builder places and stretches, and several types may share one model
+      (`conveyor_frame`). Nobody should expect `web/public/housings/<type>.glb` for every
+      type. `ATTRIBUTION.md` covers the models as our own CC-BY-4.0 work. The top-ten list
+      above is accepted. The draw calls the models add (sorter 38 to 87 with three types)
+      come back down before 4.2 ships: each component's copies are merged by material,
+      *done when* the sorter's draw calls are under 45 with its four housings drawn. No
+      reorder: 4.2 and 4.4 wait together until the owner sets the Pages source.
       *Progress:*
       - `conveyor_frame` (14 368 bytes) for `belt_conveyor` and `roller_conveyor`: channel
         rails, flanges outward, over the primitive rails' span; square-tube legs on
