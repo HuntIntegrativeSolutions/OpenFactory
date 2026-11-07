@@ -23,16 +23,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      # Each action at its first major release that runs on Node 24 (Node 20 is deprecated on
+      # the runners, run 42365962279's annotation); setup-uv@v7 is the last major tag it moves
+      - uses: actions/checkout@v5
 
       - name: Set up uv and Python 3.11
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.11"
           enable-cache: true
 
       - name: Set up Node 22 (Vite 8 needs 20.19+ or 22.12+)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -49,7 +51,7 @@ jobs:
 
       - name: Keep the CI screenshot
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ci-screenshot
           path: tools/screenshots/ci-sorting-by-height.png
@@ -57,7 +59,7 @@ jobs:
 
       - name: Keep the SBOM (PLAN 4.8; built by tools/sbom.py, never committed)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom
           path: build/sbom/
