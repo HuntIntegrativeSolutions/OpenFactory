@@ -1725,6 +1725,29 @@ runs the sorting program against it; a box visibly gets pushed.
 - [ ] 4.8 Release hygiene before 4.5: SECURITY.md with a disclosure contact, CODE_OF_CONDUCT.md,
       semantic versioning policy, CHANGELOG.md, SBOM generated from `THIRD_PARTY.md`, and a one-page
       "what OpenFactory is not" statement (not safety-rated, not virtual commissioning, not a PLC).
+      *Progress (2026-11-06, started as ruled with Milestone 2 otherwise complete), not done:*
+      - `SECURITY.md`: private reporting to the README's contact address, or GitHub's private
+        advisory form if the repository enables it; supported versions; the security model of
+        §6.4 (loopback by default, Modbus and anonymous OPC UA by design, the fault token,
+        scenes and bundles as data, scripts as code); what is in and out of scope.
+      - `CODE_OF_CONDUCT.md`: the Contributor Covenant 2.1, its official text, contact filled in.
+      - Issue forms (bug report, feature request with a clean-room checkbox, blank issues off,
+        security reports pointed at SECURITY.md) and a pull-request template with the CI,
+        scene, screenshot, PLAN-tick, DCO, 1 MB and clean-room checks.
+      - `CHANGELOG.md` from `tools/changelog.py`: every commit since the first under 0.2.0,
+        grouped by the milestone of the PLAN task it names; a commit that names none follows
+        the one before; a milestone with no ticked task, such as 3, is never assigned.
+        Regenerated when cutting the release, so not checked in CI.
+      - Version 0.2.0 in `src/openfactory/__init__.py` (which `pyproject.toml` reads) and
+        `web/package.json`. The six kit recordings are rebuilt: only their header's
+        `openfactory` version changed. No tag: the owner tags after the Docker items and the
+        video re-recording.
+
+      Left: the semantic versioning policy as its own page (the changelog's preamble states
+      it in one sentence), the SBOM, and the "what OpenFactory is not" page. The scene
+      schema's version, which the ruling also bumps, waits on a ruling: 4.7 says an
+      `openfactory: "0.2"` bump needs `openfactory migrate` and a corpus of every shipped
+      scene at every past version.
 - [ ] 4.9 Dependency upgrade cadence: a quarterly task that bumps three, Rapier, and pymodbus, reruns
       the parity trace and the Modbus round trip, and records the result in `docs/research/`.
       *Why:* Rapier and pymodbus both changed APIs under us during planning (§2.1, 1.7).

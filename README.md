@@ -39,7 +39,9 @@ a simulator where:
 ## License
 
 Code is Apache-2.0. Models, textures, and documentation are CC-BY-4.0. See [`LICENSE`](LICENSE) and
-[`CONTRIBUTING.md`](CONTRIBUTING.md), including the clean-room policy.
+[`CONTRIBUTING.md`](CONTRIBUTING.md), including the clean-room policy. Participation follows the
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md); report security problems privately as
+[`SECURITY.md`](SECURITY.md) describes. Changes are listed in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Safety
 

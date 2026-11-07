@@ -1,0 +1,33 @@
+name: Feature request
+description: A component, protocol, scene, or tool OpenFactory should have.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The training, demo, or test task you cannot do today, in plant terms.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help
+      description: |
+        The behaviour you have in mind: for a component, its ports (DI/DO/AI/AO) and what it does
+        each tick; for a protocol, the public specification it follows.
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: PLAN task
+      description: The docs/PLAN.md task this belongs to, if one exists.
+  - type: checkboxes
+    id: clean-room
+    attributes:
+      label: Clean-room policy
+      description: OpenFactory is an original work (CONTRIBUTING.md, "Clean-Room Policy").
+      options:
+        - label: This request does not copy a commercial simulator's component names, scene names, UI layout, or assets.
+          required: true

@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in OpenFactory does not behave as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        OpenFactory is a training and demo tool, not a safety-rated simulation. Security problems go
+        to the contact in SECURITY.md, not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: The behaviour you saw and the behaviour the docs or PLAN describe.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: |
+        The scene (attach it or name a shipped one), the exact command, and the steps. A minimal
+        scene that shows the problem helps most.
+      placeholder: uv run openfactory run scenes/sorting-by-height.yaml --script examples/pyplc/sorting-by-height.py
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Simulation core (components, kinematics, scheduler)
+        - Viewer (3D, physics, menus)
+        - Modbus TCP server
+        - OPC UA server
+        - EtherNet/IP (Logix client)
+        - Exporters (I/O list, L5X, Ignition)
+        - CLI, checks, record and replay
+        - Scene format, lint, bundles, kits
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The commit (`git rev-parse --short HEAD`) or the first line `openfactory run` logs.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Python version, browser and GPU for viewer problems, PLC or client if one is involved.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output
+      description: The command's output, a traceback, the browser console, or a screenshot.
+      render: text
