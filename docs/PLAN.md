@@ -1828,6 +1828,17 @@ runs the sorting program against it; a box visibly gets pushed.
       set to "GitHub Actions"; the README URL answers only after the first deploy. Material for
       MkDocs prints at every build that it reaches end of life on 2027-05-05, with Zensical,
       by the same team, as its successor (a printed notice, not a build warning).
+      *Ruled 2026-11-07:* the end-of-life banner is not a build warning. The generated type
+      pages are the site's component reference: `docs/components.md` is left out of the site
+      (`exclude_docs`) and stays in the repository as their source. Its introduction and
+      "Conventions" become `reference/components/index.md`, the "Component types" section's
+      index, with each category's introduction and links to its types; a link to
+      `components.md` from any page lands there, or on the type's page when the anchor names a
+      type (`reference_link` in the hooks; the Markdown sources keep their GitHub-readable
+      links).
+      *Follow-up:* evaluate Zensical (the same team's successor, which reads `mkdocs.yml`)
+      before Material's end of life on 2027-05-05: build this site with it, compare the
+      warnings and the generated pages, and switch or record why not.
 - [ ] 4.5 Public GitHub release, issue templates, Discussions, first good-first-issues.
       *Release step (ruled 2026-11-06):* every version bump rebuilds all six demo kits
       (`tools/build_kit.py`), because each kit's recording carries the package version in its

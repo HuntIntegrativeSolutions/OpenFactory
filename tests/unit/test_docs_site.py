@@ -60,13 +60,36 @@ def test_every_registered_component_type_gets_a_page_in_the_nav():
     assert set(types) == REGISTRY.types()
     config = hooks.on_config({"nav": yaml.safe_load(yaml.safe_dump(CONFIG["nav"]))})
     nav = nav_pages(config["nav"])
-    assert [f"{hooks.PAGES}/{name}.md" for name in types] == [p for p in nav if hooks.PAGES in p]
+    pages = [f"{hooks.PAGES}/index.md"] + [f"{hooks.PAGES}/{name}.md" for name in types]
+    assert pages == [p for p in nav if hooks.PAGES in p]
     page = hooks.type_page(*next(t for t in hooks._types() if t[0] == "pusher"))
     assert page.startswith("# `pusher`\n")
     assert "| `stroke` | number | required | > 0 |" in page  # from the scene schema
     assert "| `extend` | DO | yes |" in page  # from the registry
     assert "`stuck_on`, `stuck_off`, `jammed`, `slow`." in page
     assert "single-solenoid, spring-return linear actuator" in page  # the module docstring
+    assert "[the conventions](index.md#conventions)" in page
+
+
+def test_the_generated_pages_are_the_component_reference_and_components_md_is_not_a_page():
+    """Ruled 2026-11-07: docs/components.md is the generator's source, not a site page; its
+    introduction and conventions are the reference's index page, and links to it are rerouted."""
+    assert "components.md" not in nav_pages(CONFIG["nav"])
+    assert "components.md" in CONFIG["exclude_docs"].split()
+    text = (REPO / "docs" / "components.md").read_text(encoding="utf-8")
+    index = hooks.index_page(text)
+    assert index.startswith("# Component reference\n")
+    assert "## Conventions" in index and "## Conveyors" in index
+    assert "- [`belt_conveyor`](belt_conveyor.md)" in index
+    assert "### `" not in index  # no type section is repeated there
+    reference = hooks.PAGES
+    assert hooks.outside_link("components.md", "index.md") == f"{reference}/index.md"
+    assert hooks.outside_link("../components.md#pusher", "guides/a.md") == (
+        f"../{reference}/pusher.md"
+    )
+    assert hooks.outside_link("components.md#conventions", "index.md") == (
+        f"{reference}/index.md#conventions"
+    )
 
 
 def test_links_out_of_docs_go_to_github_and_links_inside_are_left_alone():

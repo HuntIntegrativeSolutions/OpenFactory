@@ -2,6 +2,7 @@
 # preview: uv run mkdocs serve. Deployed to GitHub Pages from main by .github/workflows/docs.yml.
 # The component type pages are generated at build time by tools/mkdocs_hooks.py from
 # docs/components.md, the component registry and the scene schema; they are never committed.
+# docs/components.md is their source, not a page: links to it land on the generated pages.
 site_name: OpenFactory
 site_description: >-
   Open-source 3D factory simulator for PLC training, prototyping and demos. A training and demo
@@ -50,6 +51,7 @@ hooks:
   - tools/mkdocs_hooks.py
 
 exclude_docs: |
+  components.md
   research/jolt-spike/
   research/symlink-result.txt
 
@@ -65,7 +67,6 @@ nav:
       - guides/palletizer-lite.md
   - Reference:
       - scene-format.md
-      - components.md
       # Filled in by tools/mkdocs_hooks.py with one page per registered component type.
       - Component types: []
       - ignition.md

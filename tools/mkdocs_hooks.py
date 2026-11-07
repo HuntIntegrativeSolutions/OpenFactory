@@ -2,11 +2,15 @@
 
 - **Component type pages.** One page per registered component type, generated at build time under
   ``reference/components/`` and listed in the nav's "Component types" section, so a new type
-  needs no nav edit. Each page joins four sources: the type's section of ``docs/components.md``
-  (the hand-written behaviour, parameters and ports, which ``test_component_reference.py``
-  keeps complete), the scene schema's parameter fields (type, default, description), the
-  registry's ports and fault kinds, and the type module's docstring. The pages are never
-  committed.
+  needs no nav edit. They are the site's component reference (ruled 2026-11-07):
+  ``docs/components.md`` itself is not a site page, only their source. Its introduction and
+  "Conventions" become the section's index page, ``reference/components/index.md``, with each
+  category's introduction and links to its types; a link to ``components.md`` from any page
+  lands there, or on the type's page when its anchor names a type. Each type page joins four
+  sources: the type's section of ``docs/components.md`` (the hand-written behaviour, parameters
+  and ports, which ``test_component_reference.py`` keeps complete), the scene schema's parameter
+  fields (type, default, description), the registry's ports and fault kinds, and the type
+  module's docstring. The pages are never committed.
 - **Links out of the docs.** A Markdown link from a page to a repository file outside ``docs/``
   (``../README.md``, ``../../examples/pyplc/x.py``) works on GitHub but not on the site, so it is
   rewritten to that file on GitHub, on ``main``. Links inside ``docs/`` are left to MkDocs, which
@@ -28,6 +32,7 @@ BLOB = "https://github.com/HuntIntegrativeSolutions/OpenFactory/blob/main/"
 TREE = "https://github.com/HuntIntegrativeSolutions/OpenFactory/tree/main/"
 PAGES = "reference/components"
 NAV_SECTION = "Component types"
+SOURCE = "components.md"  # under docs/; the generated pages' source, not a page of its own
 COMMON = {"id", "type", "description", "position", "rotation_deg", "io", "mesh"}
 #: A Markdown link or image target: ](target) or ](target "title").
 LINK = re.compile(r"(\]\()([^)\s]+)((?:\s+\"[^\"]*\")?\))")
@@ -129,7 +134,7 @@ def type_page(name: str, category: str, body: str) -> str:
         "",
         "Types, defaults and limits as `web/public/scene.schema.json` enforces them. The common"
         " fields (`id`, `type`, `description`, `position`, `rotation_deg`, `io`, `mesh`) are in"
-        " [the conventions](../../components.md#conventions).",
+        " [the conventions](index.md#conventions).",
         "",
     ]
     schema = model.model_json_schema(by_alias=True)
@@ -166,6 +171,31 @@ def type_page(name: str, category: str, body: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def index_page(text: str) -> str:
+    """``docs/components.md`` without its type sections: the introduction and the conventions in
+    full, then each category's introduction and a link to each of its types' pages."""
+    parts = re.split(r"^(## .+|### `[a-z_]+`)$", text, flags=re.MULTILINE)
+    out = [parts[0].rstrip(), ""]
+    category_types: list[str] = []
+
+    def close() -> None:
+        if category_types:
+            out.extend(f"- [`{name}`]({name}.md)" for name in category_types)
+            out.append("")
+            category_types.clear()
+
+    for i in range(1, len(parts), 2):
+        heading, body = parts[i], parts[i + 1]
+        if heading.startswith("### "):
+            category_types.append(heading[5:-1])
+            continue
+        close()
+        out += [heading, "", body.strip(), ""]
+    close()
+    out[0] = out[0].replace("# OpenFactory component reference", "# Component reference", 1)
+    return "\n".join(out).rstrip() + "\n"
+
+
 def _from_reference(target: str) -> str:
     """A link target written relative to docs/, seen from docs/reference/components/."""
     if re.match(r"^[a-z]+:|^#|^/", target):
@@ -184,8 +214,9 @@ def _types() -> list[tuple[str, str, str]]:
 
 
 def on_config(config: Any, **_: Any) -> Any:
-    """Fill the nav's "Component types" section with one page per type, in components.md order."""
-    pages = [{name: f"{PAGES}/{name}.md"} for name, _, _ in _types()]
+    """Fill the nav's "Component types" section: its index page, then one page per type, in
+    components.md order."""
+    pages = [f"{PAGES}/index.md"] + [{name: f"{PAGES}/{name}.md"} for name, _, _ in _types()]
     for section in config["nav"]:
         if isinstance(section, dict):
             for entries in section.values():
@@ -198,6 +229,8 @@ def on_config(config: Any, **_: Any) -> Any:
 def on_files(files: Any, config: Any, **_: Any) -> Any:
     from mkdocs.structure.files import File
 
+    text = (REPO / "docs" / SOURCE).read_text(encoding="utf-8")
+    files.append(File.generated(config, f"{PAGES}/index.md", content=index_page(text)))
     for name, category, body in _types():
         files.append(
             File.generated(config, f"{PAGES}/{name}.md", content=type_page(name, category, body))
@@ -220,10 +253,23 @@ def outside_link(target: str, page_src: str) -> str | None:
         elif part != ".":
             parts.append(part)
     resolved = "/".join(parts)
+    if resolved == f"docs/{SOURCE}":
+        return reference_link(anchor, page_src)
     if resolved.startswith("docs/"):
         return None
     base = TREE if (REPO / resolved).is_dir() else BLOB
     return f"{base}{resolved}" + (f"#{anchor}" if anchor else "")
+
+
+def reference_link(anchor: str, page_src: str) -> str:
+    """Where a link to ``components.md#anchor`` goes on the site, relative to ``page_src``: the
+    type's page when the anchor names a registered type, else the reference's index page."""
+    registry, _, _ = _registry()
+    name = anchor.replace("-", "_")
+    target = f"{PAGES}/{name}.md" if name in registry.types() else f"{PAGES}/index.md"
+    up = "../" * (len(PurePosixPath(page_src).parts) - 1)
+    keep = "" if target.endswith(f"/{name}.md") or not anchor else f"#{anchor}"
+    return f"{up}{target}{keep}"
 
 
 def on_page_markdown(markdown: str, page: Any, **_: Any) -> str:
