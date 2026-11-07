@@ -335,6 +335,15 @@ def pushbutton() -> dict[str, Geometry]:
     return {"panel": panel}
 
 
+def pilot_light() -> dict[str, Geometry]:
+    """pilot_light, in the light's local frame (the lens toward +z). ``panel``: the enclosure
+    with a knurled-look aluminium bezel ring (0.034 m radius, z -0.02 to -0.011); the lens,
+    which lights, stays a primitive."""
+    panel = _panel(Geometry())
+    panel.cylinder(ALUMINIUM, 2, (0, 0, -0.0155), 0.034, 0.009, 12)  # 12 flats read as knurls
+    return {"panel": panel}
+
+
 MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "conveyor_frame": conveyor_frame,
     "photo_eye": photo_eye,
@@ -343,6 +352,7 @@ MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "turntable": turntable,
     "diverter_arm": diverter_arm,
     "pushbutton": pushbutton,
+    "pilot_light": pilot_light,
 }
 
 

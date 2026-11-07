@@ -104,7 +104,9 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   the floor);
   `diverter_arm` (the drive on the pivot: a hub, a right-angle gearbox, and the motor behind
   the pivot, away from the arm at rest);
-  `pushbutton` (the enclosure, a legend plate, and an aluminium guard collar around the cap).
+  `pushbutton` (the enclosure, a legend plate, and an aluminium guard collar around the cap);
+  `pilot_light` (the enclosure, a legend plate, and a faceted aluminium bezel ring around the
+  lens).
 - **Viewer authority (PLAN §3.3).** Parts on conveyors, pushed by a plate, or held by a stopper
   are simulated by the viewer's Rapier physics. Parts held by a gripper, touching a diverter arm,
   or on a turning turntable deck follow the core's position. Sensors are read by the core only.

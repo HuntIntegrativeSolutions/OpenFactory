@@ -189,6 +189,8 @@ export const pilotLight: Builder = (g) => {
     labelAnchor: new THREE.Vector3(0, 0.07, 0),
     pickable: [],
     housing: [plate],
+    // the enclosure and bezel ring (PLAN 4.2); the lens, which lights, stays a primitive
+    defaultHousing: { model: "pilot_light", parts: [{ part: "panel", at: [0, 0, 0] }] },
     update(state) {
       lamp.material.emissiveIntensity = state.lit ? 1.2 : 0;
     },
