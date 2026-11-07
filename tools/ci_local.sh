@@ -37,10 +37,25 @@ if [[ "$REPO" == /mnt/* ]]; then
 fi
 
 STEP=0
+STEP_NAME=""
 step() {
   STEP=$((STEP + 1))
+  STEP_NAME="$1"
   printf '\n=== [%d] %s\n' "$STEP" "$1"
 }
+# On GitHub Actions a failure is also a workflow annotation naming the step, and pytest's FAILED
+# lines become annotations too: annotations are readable through the public check-runs API, the
+# job log only when signed in (PLAN 2.9; a failed run on main could not be diagnosed otherwise).
+annotate_failure() {
+  [[ "${GITHUB_ACTIONS:-}" == "true" ]] || return 0
+  echo "::error title=tools/ci_local.sh step ${STEP}::step ${STEP} (${STEP_NAME}) failed"
+  if [[ "$STEP_NAME" == pytest* && -f tools/screenshots/ci-pytest.log ]]; then
+    grep -E "^(FAILED|ERROR) " tools/screenshots/ci-pytest.log | head -20 | while IFS= read -r line; do
+      echo "::error title=pytest::${line//$'\n'/ }"
+    done
+  fi
+}
+trap annotate_failure ERR
 started=$SECONDS
 
 step "uv sync --frozen --all-extras"
