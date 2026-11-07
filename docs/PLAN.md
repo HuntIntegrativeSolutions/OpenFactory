@@ -1250,6 +1250,18 @@ runs the sorting program against it; a box visibly gets pushed.
       has always run a tick ahead, has it at z 0.27. `web/src/physics.components.test.ts`: at
       four approach offsets the pushed box sits at z 0.4500 (the core's 0.45) from full stroke
       on, upright to 0.01 degrees. All eight parity traces are unchanged, row for row.
+      **A box pushed off a belt end hangs until the plate stops (noted 2026-11-06, open):** the
+      viewer moves a pushed part kinematically while the plate advances, so a part pushed past
+      the edge of every deck stays at belt height until the plate stops advancing, then falls.
+      The core lets it fall as soon as its centre leaves the deck. No shipped scene pushes a part
+      off a deck into the air (the sorter pushes onto CONV_02), so nothing shows it yet. A fix:
+      in `pushParts()`, release a pushed part once its centre is over no deck.
+      **The viewer's plate runs one tick ahead of the core's push (noted 2026-11-06, open):** a
+      frame's steps move the plate from the last frame's stroke to this frame's, while the core
+      moves parts by the travel the plate made on the tick before. The viewer pushes a part one
+      tick early (30 mm at the sorter's 1.5 m/s), inside the parity tolerance; it is the 20 mm
+      the position check reports at the sorter's crossing tick. If parity tolerance is ever
+      tightened, feed the plate the previous tick's stroke.
 - [x] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
       `def step(io, t)` that reads DI/AI and writes DO/AO through the same writer-side rules a protocol
       server obeys. Ship `examples/pyplc/sorting-by-height.py`.
