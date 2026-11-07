@@ -50,9 +50,13 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   `--fault comms=drop` or `--fault comms=latency:ms=300`, with `--fault-at T`. Use it to test a
   program's comms watchdog, how it treats stale inputs, or Ignition's Bad quality. Latency
   assumes the client waits for each reply before its next request, as PLC Modbus masters
-  (OpenPLC included) do; an OPC UA server answers a connection's requests in order, so they
-  queue. An asyncua client whose requests timed out closes its connection and must reconnect
-  once the fault clears; Ignition reconnects by itself.
+  (OpenPLC included) do. On OPC UA, where a client keeps several requests in flight (publish
+  requests, a watchdog read), each request is handled the latency after it arrived, as a slow
+  network delivers it, so two requests sent together are both answered one latency later, in
+  order. A client whose own watchdog or request timeout is shorter than the latency sees a dead
+  server: asyncua's client probes every `watchdog_intervall` (default 1 s) and disconnects when
+  a probe times out. An asyncua client whose requests timed out closes its connection and must
+  reconnect once the fault clears; Ignition reconnects by itself.
   - `stuck_on` / `stuck_off` (`port`: one DI port, default all): the device's DI output reads
     true / false. It is the device's output, before any binding transform, so an NC eye stuck on
     reads false at the PLC. That is where a real fault lives: the sensor's output is what sticks,

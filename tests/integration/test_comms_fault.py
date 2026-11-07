@@ -26,6 +26,15 @@ from openfactory.server.runtime import Runtime
 
 SORTER = Path(__file__).resolve().parents[2] / "scenes" / "sorting-by-height.yaml"
 
+#: The injected latency (ms), large next to what a healthy request takes on a loaded machine, so
+#: the wall-clock bounds below tell the cases apart with room to spare. At 300 ms, with a 100 ms
+#: healthy bound, they failed when the machine was busy (PLAN 2.9, the flaky test).
+LATENCY_MS = 1000
+#: A healthy request answers well inside the latency a delayed one waits.
+HEALTHY_MS = LATENCY_MS / 2
+#: A delayed request waits the latency once, not twice (FC05 calls the hook twice).
+DELAYED_MS = (LATENCY_MS - 10, 2 * LATENCY_MS - 100)
+
 
 def free_port() -> int:
     with socket.socket() as s:
@@ -65,7 +74,7 @@ def test_drop_and_latency_through_the_fault_api():
 
         try:
             healthy, ms = await timed(client.read_discrete_inputs(di, count=1))
-            assert healthy.bits[0] is True and ms < 100
+            assert healthy.bits[0] is True and ms < HEALTHY_MS
             report.append(f"healthy read: {ms:.0f} ms")
 
             # drop: no reply; the sim keeps ticking; a write in a dropped request is lost
@@ -95,25 +104,32 @@ def test_drop_and_latency_through_the_fault_api():
             client.close()
             assert await client.connect()
             back, ms = await timed(client.read_discrete_inputs(di, count=1))
-            assert back.bits[0] is True and ms < 100
+            assert back.bits[0] is True and ms < HEALTHY_MS
             report.append(f"cleared: read answered in {ms:.0f} ms")
 
-            # latency: each request answered that much later, once per request
-            await http.post("/api/fault", json={"comms": {"latency_ms": 300}})
+            # latency: each request answered that much later, once per request, to a client that
+            # waits longer than the delay
+            await http.post("/api/fault", json={"comms": {"latency_ms": LATENCY_MS}})
+            client.close()
+            client = AsyncModbusTcpClient(
+                "127.0.0.1", port=modbus.endpoint.port, timeout=3 * LATENCY_MS / 1000, retries=0
+            )
+            assert await client.connect()
             _, read_ms = await timed(client.read_discrete_inputs(di, count=1))
             _, fc05_ms = await timed(client.write_coil(co, True))  # FC05: hook called twice
             _, fc03_ms = await timed(client.read_holding_registers(0, count=2))
             report.append(
-                f"latency 300 ms: FC02 {read_ms:.0f}, FC05 {fc05_ms:.0f}, FC03 {fc03_ms:.0f} ms"
+                f"latency {LATENCY_MS} ms: FC02 {read_ms:.0f}, FC05 {fc05_ms:.0f}, "
+                f"FC03 {fc03_ms:.0f} ms"
             )
             for ms in (read_ms, fc05_ms, fc03_ms):
-                assert 290 <= ms <= 450, ms
+                assert DELAYED_MS[0] <= ms < DELAYED_MS[1], ms
             assert loaded.io.get("EMT_01_EN_DO") is True  # a late write still lands
             events = [e for e in runtime.events if e["type"] == "comms"]
             assert [e["params"] for e in events] == [
                 {"drop": True, "latency_ms": 0.0},
                 {"drop": False, "latency_ms": 0.0},
-                {"drop": False, "latency_ms": 300.0},
+                {"drop": False, "latency_ms": float(LATENCY_MS)},
             ]
             bad = await http.post("/api/fault", json={"comms": {"latency_ms": -5}})
             assert bad.status_code == 422

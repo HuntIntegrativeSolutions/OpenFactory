@@ -46,7 +46,8 @@ def test_run_serves_viewer_and_modbus_then_stops_after_duration(tmp_path):
     )
     try:
         status = None
-        deadline = time.monotonic() + 15
+        # a hang guard, not a speed check: a busy machine took over 15 s (PLAN 2.9, the flaky test)
+        deadline = time.monotonic() + 60
         while status is None:
             assert proc.poll() is None, proc.stdout.read()
             assert time.monotonic() < deadline, "server did not come up"

@@ -117,7 +117,7 @@ def test_client_reads_a_sensor_writes_a_run_bit_and_survives_a_server_restart():
                 except (TimeoutError, OSError, ua.UaError):
                     return False
 
-            await wait_for(reconnect, 20, step=0.25)
+            await wait_for(reconnect, 60, step=0.25)  # a hang guard, as `up` below
             ns = await client.get_namespace_index(NAMESPACE)
             assert await node("CONV_01_RUN_DI").read_value() is True
             await node("CONV_01_RUN_DO").write_value(
@@ -196,7 +196,9 @@ def test_run_opcua_serves_every_path_the_ignition_export_names(tmp_path):
                 assert proc.poll() is None, proc.stdout.read()
                 return False
 
-        await wait_for(up, 20, step=0.25)
+        # a hang guard, not a speed check: asyncua's server took over 20 s to listen on a busy
+        # machine (PLAN 2.9, the flaky test)
+        await wait_for(up, 60, step=0.25)
         try:
             ns = await client.get_namespace_index(NAMESPACE)
             for tag, data_type in paths.items():

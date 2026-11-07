@@ -32,6 +32,19 @@ from openfactory.server.runtime import Runtime  # noqa: E402
 REPO = Path(__file__).resolve().parents[2]
 SORTER = REPO / "scenes" / "sorting-by-height.yaml"
 
+#: The injected latency (ms), large next to what a healthy request takes on a loaded machine, so
+#: the wall-clock bounds below tell the cases apart with room to spare. At 300 ms, with a 200 ms
+#: healthy bound, a healthy read took 257 ms with every core busy (PLAN 2.9, the flaky test).
+LATENCY_MS = 1000
+#: A healthy request answers well inside the latency a delayed one waits.
+HEALTHY_MS = LATENCY_MS / 2
+#: A delayed request waits the latency once, not twice.
+DELAYED_MS = (LATENCY_MS - 10, 2 * LATENCY_MS - 100)
+#: Client settings for a server under that latency: asyncua's client probes the server every
+#: ``watchdog_intervall`` seconds (default 1) with that as the probe's timeout, so a latency at or
+#: above it reads as a dead server and the client disconnects. The request timeout waits it out.
+PATIENT = {"timeout": 3 * LATENCY_MS / 1000, "watchdog_intervall": 3 * LATENCY_MS / 1000}
+
 
 def free_port() -> int:
     with socket.socket() as s:
@@ -69,7 +82,7 @@ def test_drop_and_latency_on_the_opcua_server_through_the_fault_api():
 
         try:
             value, ms = await timed(run_di.read_value())
-            assert value is True and ms < 200
+            assert value is True and ms < HEALTHY_MS
             report.append(f"healthy read: {ms:.0f} ms")
 
             # drop: no reply; the sim keeps ticking; a write in a dropped request is lost
@@ -101,12 +114,12 @@ def test_drop_and_latency_on_the_opcua_server_through_the_fault_api():
             await client.connect()
             run_di = client.get_node(ua.NodeId("CONV_01_RUN_DI", ns))
             value, ms = await timed(run_di.read_value())
-            assert value is True and ms < 200
+            assert value is True and ms < HEALTHY_MS
             report.append(f"cleared: after reconnecting, read answered in {ms:.0f} ms")
 
             # latency: reads and writes each answered that much later; a late write still lands
-            await http.post("/api/fault", json={"comms": {"latency_ms": 300}})
-            client2 = Client(server.url, timeout=2)  # a client that waits longer than the delay
+            await http.post("/api/fault", json={"comms": {"latency_ms": LATENCY_MS}})
+            client2 = Client(server.url, **PATIENT)  # waits out the delay
             await client2.connect()
             try:
                 node = client2.get_node(ua.NodeId("CONV_01_RUN_DI", ns))
@@ -114,18 +127,26 @@ def test_drop_and_latency_on_the_opcua_server_through_the_fault_api():
                 _, write_ms = await timed(
                     client2.get_node(ua.NodeId("EMT_01_EN_DO", ns)).write_value(true)
                 )
+                # requests in flight together each wait the latency from their own arrival, as on a
+                # slow network: not one behind the other (asyncua handles a connection's messages
+                # in turn, and two reads used to take twice the latency)
+                both, both_ms = await timed(asyncio.gather(node.read_value(), node.read_value()))
+                assert both == [True, True]
             finally:
                 await client2.disconnect()
-            report.append(f"latency 300 ms: read {read_ms:.0f}, write {write_ms:.0f} ms")
-            for ms in (read_ms, write_ms):
-                assert 290 <= ms <= 600, ms
+            report.append(
+                f"latency {LATENCY_MS} ms: read {read_ms:.0f}, write {write_ms:.0f}, "
+                f"two reads together {both_ms:.0f} ms"
+            )
+            for ms in (read_ms, write_ms, both_ms):
+                assert DELAYED_MS[0] <= ms < DELAYED_MS[1], ms
             assert loaded.io.get("EMT_01_EN_DO") is True
             await http.delete("/api/fault/comms")
             events = [e for e in runtime.events if e["type"] == "comms"]
             assert [e["params"] for e in events] == [
                 {"drop": True, "latency_ms": 0.0},
                 {"drop": False, "latency_ms": 0.0},
-                {"drop": False, "latency_ms": 300.0},
+                {"drop": False, "latency_ms": float(LATENCY_MS)},
                 {"drop": False, "latency_ms": 0.0},
             ]
         finally:
@@ -150,8 +171,10 @@ def test_drop_and_latency_on_the_opcua_server_through_the_fault_api():
 
 
 def test_one_comms_fault_covers_modbus_and_opcua_and_reaches_the_recording(tmp_path):
-    """`run --opcua` serves both protocols; `--fault comms=latency:ms=400 --fault-at 0` delays a
-    Modbus read and an OPC UA read alike, and the recording carries the comms event."""
+    """`run --opcua` serves both protocols; `--fault comms=latency:ms=N --fault-at 0` delays a
+    Modbus read and an OPC UA read alike, and the recording carries the comms event. The run is
+    stopped with SIGTERM once probed (a clean stop: the recording is closed whole), so a slow
+    start on a busy machine cannot outlast it."""
     from pymodbus.client import AsyncModbusTcpClient
 
     from openfactory.record import read_recording
@@ -160,15 +183,16 @@ def test_one_comms_fault_covers_modbus_and_opcua_and_reaches_the_recording(tmp_p
     rec = tmp_path / "run.ofrec"
     proc = subprocess.Popen(
         [sys.executable, "-m", "openfactory", "run", str(SORTER), "--headless", "--opcua",
-         "--port", str(modbus_port), "--opcua-port", str(opcua_port), "--duration", "12",
-         "--fault", "comms=latency:ms=400", "--fault-at", "0", "--record", str(rec), "-q"],
+         "--port", str(modbus_port), "--opcua-port", str(opcua_port), "--duration", "300",
+         "--fault", f"comms=latency:ms={LATENCY_MS}", "--fault-at", "0", "--record", str(rec),
+         "-q"],
         cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )  # fmt: skip
 
     async def probe() -> tuple[float, float]:
         url = f"opc.tcp://127.0.0.1:{opcua_port}/openfactory/"
-        deadline = time.monotonic() + 20
-        client = Client(url, timeout=3)
+        deadline = time.monotonic() + 60  # a hang guard: asyncua took over 20 s on a busy machine
+        client = Client(url, **PATIENT)
         while True:  # asyncua's server takes a second or two to listen
             try:
                 await client.connect()
@@ -184,7 +208,9 @@ def test_one_comms_fault_covers_modbus_and_opcua_and_reaches_the_recording(tmp_p
             opcua_ms = (time.perf_counter() - start) * 1000
         finally:
             await client.disconnect()
-        mb = AsyncModbusTcpClient("127.0.0.1", port=modbus_port, timeout=3, retries=0)
+        mb = AsyncModbusTcpClient(
+            "127.0.0.1", port=modbus_port, timeout=3 * LATENCY_MS / 1000, retries=0
+        )
         assert await mb.connect()
         try:
             start = time.perf_counter()
@@ -197,10 +223,15 @@ def test_one_comms_fault_covers_modbus_and_opcua_and_reaches_the_recording(tmp_p
     try:
         opcua_ms, modbus_ms = asyncio.run(probe())
     finally:
+        proc.terminate()
         out, _ = proc.communicate(timeout=60)
-    print(f"--fault comms=latency:ms=400: OPC UA read {opcua_ms:.0f} ms, Modbus {modbus_ms:.0f} ms")
+    print(
+        f"--fault comms=latency:ms={LATENCY_MS}: OPC UA read {opcua_ms:.0f} ms, "
+        f"Modbus {modbus_ms:.0f} ms"
+    )
     assert proc.returncode == 0, out
-    assert 390 <= opcua_ms <= 900 and 390 <= modbus_ms <= 900
+    for ms in (opcua_ms, modbus_ms):
+        assert DELAYED_MS[0] <= ms < DELAYED_MS[1], ms
     recording = read_recording(rec)
     comms = [event for _tick, event in recording.events if event.get("type") == "comms"]
-    assert comms and comms[0]["params"] == {"drop": False, "latency_ms": 400.0}
+    assert comms and comms[0]["params"] == {"drop": False, "latency_ms": float(LATENCY_MS)}

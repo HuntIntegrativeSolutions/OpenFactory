@@ -77,6 +77,10 @@ def _comms_of(processor: UaProcessor) -> CommsFault | None:
     return owner.comms if owner is not None else None
 
 
+#: Messages waiting out a comms latency (strong references, so a pending one is not collected).
+_late_tasks: set[asyncio.Task[None]] = set()
+
+
 def _install_comms_hooks() -> None:
     """Wrap UaProcessor once so each connection obeys its server's comms fault (PLAN 2.13b)."""
     if getattr(UaProcessor, "_openfactory_comms_hooks", False):
@@ -85,15 +89,28 @@ def _install_comms_hooks() -> None:
     send_response = UaProcessor.send_response
     forward_publish_response = UaProcessor.forward_publish_response
 
+    async def _late(self: UaProcessor, comms: Any, seqhdr: Any, body: Any) -> None:
+        await asyncio.sleep(comms.latency_ms / 1000.0)
+        if comms.drop:
+            return  # the fault became a drop while it waited
+        if not await process_message(self, seqhdr, body):
+            self._transport.close()  # what asyncua's receive loop does when a message says close
+
     async def _process_message(self: UaProcessor, seqhdr: Any, body: Any) -> Any:
         comms = _comms_of(self)
         if comms is not None:
             if comms.drop:
                 return True  # decoded, never processed or answered: the client times out
             if comms.latency_ms > 0:
-                await asyncio.sleep(comms.latency_ms / 1000.0)
-                if comms.drop:
-                    return True  # the fault became a drop while it waited
+                # asyncua handles a connection's messages one at a time, so waiting here would
+                # hold every message behind this one as well: a read arriving while the client's
+                # 1 s watchdog read waited took twice the latency. Each message is handled the
+                # latency after it arrived instead, as a slow network delivers it; equal delays
+                # expire in arrival order, so the order is kept.
+                task = asyncio.create_task(_late(self, comms, seqhdr, body))
+                _late_tasks.add(task)
+                task.add_done_callback(_late_tasks.discard)
+                return True
         return await process_message(self, seqhdr, body)
 
     def _send_response(
