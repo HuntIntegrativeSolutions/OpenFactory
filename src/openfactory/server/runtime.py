@@ -127,15 +127,26 @@ class Runtime:
 
     # -- simulation thread -----------------------------------------------------------------------
 
+    def apply_due_faults(self) -> None:
+        """Inject every scheduled fault due by the current simulated time. Each tick does this
+        first; the ``run`` command also calls it before its protocol servers listen, so a fault
+        at t = 0 (``--fault-at 0``) is in force for a client that reads before the first tick.
+        Run 42365962279 failed on that race: an OPC UA read answered at once, unfaulted."""
+        with self.lock:
+            self._apply_due_faults()
+
+    def _apply_due_faults(self) -> None:
+        due = [f for f in self.scheduled_faults if f[0] <= self.loaded.time + 1e-9]
+        for fault in due:  # between ticks, as an /api/fault request is applied
+            self.scheduled_faults.remove(fault)
+            if fault[1] == "comms":
+                self._set_comms(**fault[3])
+            else:
+                self._inject(*fault[1:])
+
     def _step(self, dt: float) -> None:
         with self.lock:
-            due = [f for f in self.scheduled_faults if f[0] <= self.loaded.time + 1e-9]
-            for fault in due:  # between ticks, as an /api/fault request is applied
-                self.scheduled_faults.remove(fault)
-                if fault[1] == "comms":
-                    self._set_comms(**fault[3])
-                else:
-                    self._inject(*fault[1:])
+            self._apply_due_faults()
             if self.controller is not None:
                 try:
                     self.controller.scan(self.loaded.time)

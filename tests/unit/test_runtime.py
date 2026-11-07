@@ -124,3 +124,42 @@ def test_snapshot_parts_carry_world_velocity():
     carried = runtime.snapshot["parts"][0]
     assert carried["carrier"] == "CONV_01"
     assert carried["velocity"] == pytest.approx([0.5, 0.0, 0.0])  # belt speed along +x
+
+
+def test_a_fault_at_t_zero_is_in_force_before_the_protocol_servers_listen():
+    """`run --fault comms=latency:ms=N --fault-at 0`: a client that reads before the first tick
+    is already delayed. Run 42365962279 failed on this race: on a fast machine an OPC UA read
+    reached the server before the first tick had applied the fault, and was answered at once."""
+    import asyncio
+
+    from openfactory.cli import _serve
+    from openfactory.core.loader import load
+    from openfactory.protocols.comms import CommsFault
+
+    runtime = Runtime(load(EXAMPLE), realtime=False)
+    runtime.comms = CommsFault()
+    runtime.scheduled_faults = [
+        (0.0, "comms", "latency", {"latency_ms": 1000.0}),
+        (0.0, "PE_01", "stuck_on", {}),
+        (5.0, "CYL_01", "jammed", {}),  # later: waits for its tick
+    ]
+    seen: list[tuple[float, str | None]] = []
+
+    class Server:  # what _serve needs of ModbusServer / OpcUaServer
+        comms = runtime.comms
+
+        async def serve_forever(self) -> None:
+            fault = runtime._component("PE_01").fault
+            seen.append((runtime.comms.latency_ms, fault.kind if fault else None))
+            await asyncio.sleep(3600)
+
+        async def wait_ready(self) -> None:
+            await asyncio.sleep(0)
+
+        async def shutdown(self) -> None:
+            pass
+
+    asyncio.run(_serve(runtime, [Server()], None, 0.5))
+    assert seen == [(1000.0, "stuck_on")]  # both t = 0 faults, before the server listened
+    assert runtime.loaded.time >= 0.5
+    assert runtime.scheduled_faults == [(5.0, "CYL_01", "jammed", {})]  # not yet due

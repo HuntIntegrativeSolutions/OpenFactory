@@ -248,6 +248,8 @@ async def _serve(
         with contextlib.suppress(NotImplementedError, RuntimeError):  # Windows
             loop.add_signal_handler(sig, stop.set)
     tasks = []
+    # faults due at t = 0 are in force before any client can connect, not from the first tick
+    runtime.apply_due_faults()
     for server in servers:
         tasks.append(asyncio.create_task(server.serve_forever()))
         await server.wait_ready()
