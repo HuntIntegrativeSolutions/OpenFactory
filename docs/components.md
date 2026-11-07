@@ -91,7 +91,9 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   `belt_conveyor` (channel rails, legs on feet, braces, end drums and bearing blocks) and
   `roller_conveyor` (the same frame, no drums), and `photo_eye` (emitter and receiver heads with
   a face plate, lens and cable gland, on angle brackets; they hang with the beam, so a
-  `misaligned` fault moves them, although a scene mesh on a photo eye is still drawn beside).
+  `misaligned` fault moves them, although a scene mesh on a photo eye is still drawn beside), and
+  `pusher` (a round aluminium barrel and four tie rods stretched to the stroke, square end caps
+  with the rod gland and air ports, and a mounting foot under each cap).
 - **Viewer authority (PLAN §3.3).** Parts on conveyors, pushed by a plate, or held by a stopper
   are simulated by the viewer's Rapier physics. Parts held by a gripper, touching a diverter arm,
   or on a turning turntable deck follow the core's position. Sensors are read by the core only.

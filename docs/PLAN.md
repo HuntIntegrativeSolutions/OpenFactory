@@ -1831,6 +1831,10 @@ runs the sorting program against it; a box visibly gets pushed.
         heads face the beam. The model hangs in the group a `misaligned` fault moves, which
         the 2.15 mesh path does not (the photo eye has no fixed housing there), so the builder
         names the heads as the parts it replaces.
+      - `pusher` (20 488 bytes): a round aluminium barrel (0.04 m radius) and four tie rods
+        stretched over the primitive body's span (stroke + 0.1 m), 0.12 m square end caps,
+        the front one with the rod gland, both with an air port, and a mounting foot under
+        each cap running along the barrel. The plate and rod stay primitives.
 - [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from

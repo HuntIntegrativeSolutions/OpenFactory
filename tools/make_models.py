@@ -255,9 +255,32 @@ def photo_eye() -> dict[str, Geometry]:
     return {"head": head, "bracket": bracket}
 
 
+def pusher() -> dict[str, Geometry]:
+    """pusher (a pneumatic cylinder), in the pusher's local frame: the plate face at the origin, the
+    plate extending along +z, the housing behind it along -z. ``barrel``: the round aluminium tube,
+    0.04 m radius, from z 0 to -1 (stretched to the stroke). ``tie_rods``: the four rods at the
+    caps' corners, z 0 to -1 (stretched). ``front_cap`` and ``rear_cap``: 0.12 m square caps,
+    0.04 m deep, from z 0 to -0.04; the front one has the rod gland, the rear one an air port
+    (the front cap's port is on the top face too). ``foot``: a mounting foot under a cap, from
+    the cap's outer face at z 0 along the barrel to z -0.1 (mirrored for the rear cap)."""
+    barrel = Geometry().cylinder(ALUMINIUM, 2, (0, 0, -0.5), 0.04, 1, 24)
+    rods = Geometry()
+    for x in (-0.05, 0.05):
+        for y in (-0.05, 0.05):
+            rods.cylinder(ALUMINIUM, 2, (x, y, -0.5), 0.006, 1, 10)
+    front = Geometry().box(DARK, (-0.06, -0.06, -0.04), (0.06, 0.06, 0))
+    front.cylinder(BLACK, 2, (0, 0, 0.006), 0.022, 0.012, 20)  # rod gland
+    front.cylinder(BLACK, 1, (0, 0.066, -0.02), 0.008, 0.012, 12)  # air port
+    rear = Geometry().box(DARK, (-0.06, -0.06, -0.04), (0.06, 0.06, 0))
+    rear.cylinder(BLACK, 1, (0, 0.066, -0.02), 0.008, 0.012, 12)  # air port
+    foot = Geometry().box(DARK, (-0.09, -0.085, -0.1), (0.09, -0.06, 0))
+    return {"barrel": barrel, "tie_rods": rods, "front_cap": front, "rear_cap": rear, "foot": foot}
+
+
 MODELS: dict[str, Callable[[], dict[str, Geometry]]] = {
     "conveyor_frame": conveyor_frame,
     "photo_eye": photo_eye,
+    "pusher": pusher,
 }
 
 

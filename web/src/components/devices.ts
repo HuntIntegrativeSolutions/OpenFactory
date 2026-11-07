@@ -6,7 +6,7 @@ import * as THREE from "three";
 import type { ComponentGeometry } from "../api";
 import { ISA101 } from "../isa101";
 import { PART_COLORS } from "../parts";
-import { NEUTRAL, box, num, placed, setColor, wireBox, zCylinder, type Builder, type HousingPart } from "./types";
+import { NEUTRAL, box, num, placed, setColor, wireBox, zCylinder, type Builder, type DefaultHousing, type HousingPart } from "./types";
 
 /** Photo eye: origin at the beam midpoint; the beam spans local z. */
 export const photoEye: Builder = (g) => {
@@ -70,12 +70,35 @@ export const pusher: Builder = (g) => {
     labelAnchor: new THREE.Vector3(0, plateH / 2 + 0.08, -0.1),
     pickable: [],
     housing: [body],
+    defaultHousing: pusherModel(bodyLength),
     update(state) {
       setStroke(typeof state.position_m === "number" ? state.position_m : 0);
       setColor(plate, state.extending ? ISA101.running : ISA101.stopped);
     },
   };
 };
+
+/**
+ * The pneumatic cylinder model (PLAN 4.2, `pusher` in tools/make_models.py) over the primitive
+ * body's span, z -0.06 to -0.06 - bodyLength: the front cap (with the rod gland) behind the
+ * retracted plate, the rear cap at the far end, the barrel between them, the tie rods from cap
+ * to cap, and a mounting foot under each cap.
+ */
+function pusherModel(bodyLength: number): DefaultHousing {
+  const front = -0.06;
+  const rear = front - bodyLength + 0.04; // where the 0.04 m deep rear cap starts
+  return {
+    model: "pusher",
+    parts: [
+      { part: "front_cap", at: [0, 0, front] },
+      { part: "rear_cap", at: [0, 0, rear] },
+      { part: "barrel", at: [0, 0, front - 0.04], scale: [1, 1, bodyLength - 0.08] },
+      { part: "tie_rods", at: [0, 0, front], scale: [1, 1, bodyLength] },
+      { part: "foot", at: [0, 0, front] },
+      { part: "foot", at: [0, 0, front - bodyLength], scale: [1, 1, -1] }, // toward the front
+    ],
+  };
+}
 
 /** Box emitter: origin at the spawn point; drawn as an open hopper outline around it. */
 export const boxEmitter: Builder = (g) => {

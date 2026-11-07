@@ -11,10 +11,11 @@ import { assemble, attachHousings, type ModelLoader } from "./housings";
 // the committed models as base64 data URIs (Vite ?inline), so the test needs no Node file API
 import conveyorFrame from "../public/housings/conveyor_frame.glb?inline";
 import photoEye from "../public/housings/photo_eye.glb?inline";
+import pusher from "../public/housings/pusher.glb?inline";
 
-const MODELS: Record<string, string> = { conveyor_frame: conveyorFrame, photo_eye: photoEye };
+const MODELS: Record<string, string> = { conveyor_frame: conveyorFrame, photo_eye: photoEye, pusher };
 /** The types with a default model so far (PLAN 4.2). */
-const TYPES = ["belt_conveyor", "roller_conveyor", "photo_eye"];
+const TYPES = ["belt_conveyor", "roller_conveyor", "photo_eye", "pusher"];
 const ctx = { floorY: -0.75 };
 
 function geom(type: string, extra: Record<string, unknown> = {}) {
@@ -89,6 +90,22 @@ describe("default component models", () => {
     expect(view.object.getObjectByName("beam")!.visible).toBe(true); // status stays a primitive
     view.update({ detect: false, beam_offset_m: 0.05 }); // a misaligned fault moves the heads
     expect(bounds(housing).getCenter(new THREE.Vector3()).x).toBeCloseTo(at.getCenter(new THREE.Vector3()).x + 0.05, 5);
+  });
+
+  it("stretch the pusher's cylinder over its body, behind the plate, for any stroke", async () => {
+    for (const stroke of [0.3, 0.6]) {
+      const view = buildComponent(geom("pusher", { stroke }), ctx);
+      const body = bounds(view.housing![0]);
+      await attachHousings([view], new Set(), committed);
+      const model = bounds(view.object.getObjectByName("housing")!);
+      expect(model.min.z).toBeCloseTo(body.min.z, 5); // the rear cap ends where the body does
+      expect(model.max.z).toBeCloseTo(body.max.z + 0.012, 5); // the rod gland, short of the plate
+      expect(model.max.z).toBeLessThan(bounds(view.object.getObjectByName("plate")!).min.z);
+      expect(view.housing![0].visible).toBe(false);
+      expect(view.object.getObjectByName("plate")!.visible).toBe(true); // status and motion stay
+      view.update({ position_m: stroke, extending: true });
+      expect(bounds(view.object.getObjectByName("housing")!).min.z).toBeCloseTo(model.min.z, 5);
+    }
   });
 
   it("leave a component with a scene mesh, and one whose model fails, to the 2.15 path", async () => {
