@@ -59,3 +59,10 @@ def test_on_github_actions_each_result_is_also_an_annotation(monkeypatch, capsys
     monkeypatch.delenv("GITHUB_ACTIONS")
     bench.main([])
     assert not [line for line in capsys.readouterr().out.splitlines() if line.startswith("::")]
+
+
+def test_the_candidate_calibration_is_deterministic_and_the_machine_is_named():
+    """PLAN 2.9, bench drift: the candidate is timed beside the gate, with the runner's CPU."""
+    assert bench.calibrate_tick(3) == bench.calibrate_tick(3) != 0
+    named = bench.machine()
+    assert named["cpu"] and named["python"].startswith(("CPython", "PyPy"))

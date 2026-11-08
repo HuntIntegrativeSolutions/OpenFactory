@@ -1101,6 +1101,37 @@ runs the sorting program against it; a box visibly gets pushed.
       +22.0 % (fails both runs); the step wrapped in a 1 ms busy wait +50.6 % and +49.2 %
       (fails). Open: the baseline was measured on the development machine; how well the score
       carries to the GitHub runner's CPU is first seen on the next CI run.
+      *Bench drift (ruled 2026-11-07: find whether the step or the calibration scales
+      differently; fix the calibration if it is the cause; regenerate the baseline from a CI
+      run only if it cannot be fixed).* Measured 2026-11-07, step and calibration separately:
+      - CI, from the annotations (which already carried both): run 42337918843 (332b3c7) step
+        1.355 / 1.334 ms, calibration 52.93 / 52.97 ms, scores -3.0 % / +0.4 %; run
+        42375694006 (2007a8e) step 0.856 / 0.834 ms, calibration 40.00 / 39.89 ms, scores
+        -18.9 % / -16.7 %. Between the two runners the step took 0.63 times as long, the
+        calibration 0.76 times.
+      - Not the code: between those commits only load-time code changed (`schema.py`,
+        `runtime.py`, `opcua.py`, `cli.py`), and three local runs at each scored the same
+        within noise (load-200 0.0253-0.0263 at both; queue-200 0.0270-0.0278 and
+        0.0263-0.0269).
+      - This machine: today it runs about 30 % slower than when the baseline was taken (step
+        3.0-3.6 ms against 2.48) and the scores still land within -1 % to +5 % of the
+        baseline, so step and calibration move together on one CPU. Under CPU contention (4
+        or 8 busy processes) both move within about +-15 %, so contention cannot tell
+        calibrations apart.
+      - So the calibration is what scales differently: it follows clock speed but not CPU
+        type. The step is almost all Python-level calls and attribute access
+        (`_room_ahead`, `_convey`, `_record`, `_local`); the calibration's time goes mostly
+        into C builtins (`insort`, `sin`, `hypot`).
+      - The candidate fix, not yet gated: `calibrate_tick` in `tools/bench.py`, a frozen
+        miniature of a tick's own operations (200 parts on four belts, methods, `getattr`,
+        bisect, tuples; it imports nothing from `src/`, so code changes still move the
+        score). It is timed in the same blocks, and the annotation carries `candidate_ms`,
+        `candidate_score`, `cpu` and `python`. Whether it carries across CPU types can only
+        be seen on more than one runner CPU, so the gate and the baseline are unchanged.
+        *Switch when:* CI runs on at least two runner CPU models put the candidate's score
+        within 10 % of its local value while the current one is not; then
+        `--update` with the candidate as the gate. If neither carries, regenerate the
+        baseline from a CI run's annotation.
       **60 fps at 200 parts (ruled 2026-11-04):** measure frame time on the software renderer
       and on the owner's machine through a number in the stats overlay; instance part meshes and
       merge static belt geometry if needed; report before and after.
