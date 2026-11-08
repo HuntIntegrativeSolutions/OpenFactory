@@ -190,7 +190,13 @@ def index_page(text: str) -> str:
             category_types.append(heading[5:-1])
             continue
         close()
-        out += [heading, "", body.strip(), ""]
+        # a category's introduction links relative to docs/components.md, as a type section does
+        out += [
+            heading,
+            "",
+            LINK.sub(lambda m: m[1] + _from_reference(m[2]) + m[3], body.strip()),
+            "",
+        ]
     close()
     out[0] = out[0].replace("# OpenFactory component reference", "# Component reference", 1)
     return "\n".join(out).rstrip() + "\n"

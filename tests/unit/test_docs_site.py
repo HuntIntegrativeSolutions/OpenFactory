@@ -82,6 +82,8 @@ def test_the_generated_pages_are_the_component_reference_and_components_md_is_no
     assert "## Conventions" in index and "## Conveyors" in index
     assert "- [`belt_conveyor`](belt_conveyor.md)" in index
     assert "### `" not in index  # no type section is repeated there
+    # a category introduction's links are relative to docs/, rebased to the index's folder
+    assert "[the flow network design](../../research/flownet-design.md)" in index
     reference = hooks.PAGES
     assert hooks.outside_link("components.md", "index.md") == f"{reference}/index.md"
     assert hooks.outside_link("../components.md#pusher", "guides/a.md") == (
