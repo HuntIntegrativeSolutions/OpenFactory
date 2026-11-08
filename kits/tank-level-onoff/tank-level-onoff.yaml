@@ -1,0 +1,78 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 3.3, the first process scene: a pump lifts water from a sump into a raised head tank, and a
+# hand valve drains the head tank back into the sump by gravity. The PLC keeps the head tank
+# between its low and high level switches, starting the pump at low and stopping it at high.
+# Guide: docs/guides/tank-level-onoff.md. PLC programs: examples/openplc/tank-level-onoff.st
+# (OpenPLC) and examples/pyplc/tank-level-onoff.py (stand-in script).
+openfactory: "0.1"
+scene:
+  name: tank-level-onoff
+  description: A pump started at a low level switch and stopped at a high one keeps a head tank filled.
+  author: HIS Controls
+  seed: 3
+  units: meters
+plc:
+  protocol: modbus_tcp
+checks:                            # PLAN 3.3: `openfactory test` grades a program against these
+  duration_s: 60
+  level_within: {TK_02: {band: [0.2, 0.8], after_s: 0}}
+  never_overflow: [TK_01, TK_02]
+  never_dry: [P_01]
+  max_starts: {P_01: 8}            # 6 starts in 300 s under the stand-in script, 1 in 60 s
+components:
+  - id: TK_01
+    type: tank
+    description: Process Water Sump
+    position: [0, 0, 0]
+    diameter: 1.0
+    height: 1.2
+    initial_level: 0.8
+  - id: P_01
+    type: pump
+    description: Head Tank Fill Pump
+    position: [0.9, 0.25, 0]
+    from: TK_01.bottom
+    to: PIPE_01
+    design_flow_m3h: 12
+    design_head_m: 4
+    io:
+      run: P_01_RUN_DO
+      running: P_01_RUN_DI
+  - id: PIPE_01
+    type: pipe
+    description: Head Tank Fill Line
+    position: [1.3, 0.25, 0]
+    from: P_01
+    to: TK_02.top
+    diameter: 0.04
+    path: [[1.3, 2.9, 0], [2.4, 2.9, 0]]
+  - id: TK_02
+    type: tank
+    description: Head Tank
+    position: [2.4, 1.6, 0]
+    diameter: 0.3
+    height: 1.0
+    initial_level: 0.5
+    hi_level: 0.75
+    lo_level: 0.25
+    io:
+      level: TK_02_LT_AI
+      hi_sw: TK_02_LSH_DI
+      lo_sw: TK_02_LSL_DI
+  - id: HV_02
+    type: valve_control
+    description: Head Tank Drain Hand Valve
+    position: [2.4, 1.3, 0.4]
+    from: TK_02.bottom
+    to: PIPE_02
+    kv: 12
+    characteristic: linear
+    opening: 100
+  - id: PIPE_02
+    type: pipe
+    description: Head Tank Return Line
+    position: [1.6, 1.3, 0.4]
+    from: HV_02
+    to: TK_01.top
+    diameter: 0.04
+    path: [[0, 1.3, 0.4]]

@@ -1907,6 +1907,13 @@ runs the sorting program against it; a box visibly gets pushed.
         one. CONTEXT.md leaves unused checks out, so shipped CONTEXT.md files and kits are
         unchanged. `tests/unit/test_process_checks.py` (9): each kind passing and failing, a
         run ending before `after_s`, a pump that never started, five load errors.
+      - `tank-level-onoff`: a pump lifts from a sump to a head tank on a stand, a hand valve
+        drains it back (the water circulates); the PLC starts the pump at LSL and stops it at
+        LSH. Stand-in script, OpenPLC program, both lockfiles, guide, kit. Checks pass at 60 s
+        and 300 s (level 0.243 to 0.759 m in 0.2 to 0.8; 1 and 6 starts, limit 8; never
+        overflowed or ran dry); a no-seal-in program fails `max_starts` (9 starts in 60 s) and
+        a stuck LSH fails `never_overflow` (54 L). Building it found the solver's status
+        deadlock (fixed in `fb02691`). Not run under OpenPLC: Docker is down.
 - [ ] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
       `/plantpax-*` skills) + Perspective faceplates. AOI parameter names in this repository come
       only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002

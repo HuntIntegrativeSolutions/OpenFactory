@@ -1,0 +1,185 @@
+{
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "OF_Pump",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Run command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Run",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Run}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Running feedback",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Running",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Running}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_Tank",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Level": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_LoSw": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "Level",
+              "enabled": true,
+              "historyEnabled": true,
+              "name": "Level",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Level}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "High level switch (on at hi_level)",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "HiSw",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_HiSw}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Low level switch (on at lo_level)",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "LoSw",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_LoSw}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TANK_LEVEL_ONOFF",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "Head Tank Fill Pump",
+          "name": "P_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "P_01"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "P_01_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "P_01_RUN_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Pump"
+        },
+        {
+          "documentation": "Head Tank",
+          "name": "TK_02",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "TK_02"
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": "TK_02_LSH_DI"
+            },
+            "Tag_Level": {
+              "dataType": "String",
+              "value": "TK_02_LT_AI"
+            },
+            "Tag_LoSw": {
+              "dataType": "String",
+              "value": "TK_02_LSL_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 1.0,
+              "engLow": 0.0,
+              "engUnit": "m",
+              "name": "Level"
+            }
+          ],
+          "typeId": "OF_Tank"
+        },
+        {
+          "accessRights": "Read_Only",
+          "dataType": "Boolean",
+          "documentation": "OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",
+          "enabled": true,
+          "historyEnabled": false,
+          "name": "SIM_HEARTBEAT",
+          "opcItemPath": "nsu=urn:openfactory:sim;s=SIM_HEARTBEAT_DI",
+          "opcServer": "OpenFactory",
+          "tagType": "AtomicTag",
+          "valueSource": "opc"
+        }
+      ]
+    }
+  ],
+  "version": "8.3.0"
+}
