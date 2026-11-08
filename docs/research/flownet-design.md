@@ -61,8 +61,23 @@ the tank levels advanced with the solved flows.
 |---|---|---|---|
 | Tank | Known: bottom elevation + level (open to atmosphere) | volume, temperature, ingredient fractions | `tank` |
 | Supply | Known: elevation + pressure / (ρg) | none (an inexhaustible source) | `supply` (new, decision 2) |
-| Drain | Known: elevation (atmospheric) | volume received (statistics) | `drain` (new, decision 2) |
+| Drain, open (no demand) | Known: elevation (atmospheric) | volume received (statistics) | `drain` (new, decision 2) |
+| Drain, with a demand | Unknown: a junction that draws its demand, reduced as its pressure falls (below) | volume received | `drain` with `demand_m3h` or `schedule` |
 | Junction | Unknown: solved | none | `junction` (new, decision 2), or implicit (decision 3) |
+
+**A drain with a demand is not a fixed-head node.**
+- An open drain discharges to atmosphere at its elevation, so its head is known.
+- A drain given a demand (a consumer drawing 3 m³/h) is a junction with a demand, and its head
+  is solved.
+- A fixed demand on a network that cannot supply it (the tank feeding it has emptied) would
+  drive that head negative without limit.
+- So the demand is pressure dependent, EPANET's model (manual §12.1, "Pressure dependent demand
+  model", Wagner's equation, equations 12.13 to 12.17):
+  - the full demand flows when the pressure head is at or above a required head `P_f`;
+  - nothing flows at or below `P_0`;
+  - between the two, the flow follows `((p − P_0)/(P_f − P_0))^0.5` of the demand.
+- EPANET folds this into the same matrix as a virtual link per demand node, so it adds no
+  second solver (decision 4).
 
 **Tank nozzles.** Each tank has named nozzles at heights above its bottom.
 - The defaults are `bottom` at 0 and `top` at the tank height.
@@ -396,10 +411,12 @@ below is the one used when the binding gives none.
   io: {}                       # no ports; a valve in front of it is the control element
 
 - type: drain                  # node, new (decision 2); origin = connection point
-  demand_m3h: null             # null: atmospheric drain, takes whatever arrives
+  demand_m3h: null             # null: open to atmosphere, takes whatever arrives (known head)
   schedule: null               # or [[0, 2.0], [120, 4.0], [300, 2.0]]: demand steps (s, m3/h)
   repeat: false
-  io: {}
+  required_head_m: 2.0         # P_f: full demand at or above this pressure head (decision 4)
+  minimum_head_m: 0.0          # P_0: no flow at or below it
+  io: {}                       # with a demand, the drain is a junction (section 2)
 
 - type: junction               # node, new (decision 3: or implicit only)
   io: {}                       # pressure read through a transmitter (measures: J_01.pressure)
@@ -433,7 +450,9 @@ below is the one used when the binding gives none.
   stroke_s: 10.0               # full stroke at the rate limit
   lag_s: 0.5                   # first-order lag of the actuator
   fail: closed                 # position when the command reads below 0 % or fails (decision 6)
-  io: {position: AO*, position_fb: AI}         # both 0-100 %
+  opening: 100                 # % held when position is unbound: a hand valve (as an unbound
+                               # conveyor speed means 100 %)
+  io: {position: AO, position_fb: AI}          # both 0-100 %
   # faults: jammed (stem sticks), slow, drift (position_fb), noisy
 
 - type: pump                   # link; origin = pump centre
@@ -502,8 +521,10 @@ optional keys, names checked at load, and no easy passes.
 **Scene.**
 - A supply tank `TK_01` (2 m, starting at 1.5 m) feeds pump `P_01` into the process tank
   `TK_02` (2 m) through a top inlet.
-- `TK_02` drains by gravity through `HV_02`, a `valve_control` held by the scene at 40 %, to
-  drain `DR_01`, which returns to `TK_01` through a pipe (decision 4).
+- `TK_02` sits above `TK_01` and drains back into it by gravity, from `TK_02.bottom` through
+  `HV_02` to `TK_01.top`. `HV_02` is a hand valve: a `valve_control` with its `position` port
+  unbound, held at `opening: 40` (see the schema). The liquid circulates, and nothing is
+  supplied or drained.
 - `TK_02` has `hi_sw` at 1.6 m and `lo_sw` at 0.6 m; the pump has `run` and `running`.
 - **The exercise:** keep `TK_02` between the switches, starting the pump at low and stopping it
   at high.
@@ -577,9 +598,12 @@ checks:
 3. **Link-to-link ends.** Allow `to: FV_01` to join a pump straight to a valve, with an implicit
    junction between them at the downstream link's position. *Alternative:* require an explicit
    `junction` between any two links, which is clearer in the file but tedious.
-4. **Closed loops of liquid.** Allow a drain to return to a tank through a pipe
-   (`returns_to: TK_01`), so `tank-level-onoff` circulates without an endless supply.
-   *Alternative:* open systems only: supplies in, drains out, and levels refilled by a supply.
+4. **Demand drains.** A drain with a demand is a junction with a pressure-dependent demand
+   (EPANET's Wagner model, §2), so a consumer on an emptied tank slows to nothing instead of
+   driving heads negative. `tank-level-pid` and `two-tank-cascade` rely on it for their load
+   steps. *Alternative:* a fixed demand that the status checks cut off when its supply tank
+   empties. Simpler, but the demand then jumps from full to zero, which a level loop sees as a
+   second disturbance.
 5. **Overflow.** A tank at its height overflows: the level holds at the height, the excess goes
    to an overflow count in the statistics, and `never_overflow` fails. *Alternative:* EPANET's
    default, where a full tank closes its inflow links. That is gentler and hides a missing high
@@ -617,6 +641,7 @@ All public:
     equation numbering.
   - Used: chapter 12, "Analysis Algorithms", §12.1:
     - the head-loss and pump relations, equations 12.1 to 12.4;
+    - the pressure-dependent demand model, equations 12.13 to 12.17;
     - the Global Gradient Algorithm, equations 12.5 to 12.12, with the linear equation solver
       and the initial flows;
     - the status checks, including the check valve, pump and tank-link rules;
