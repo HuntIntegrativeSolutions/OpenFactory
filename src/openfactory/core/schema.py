@@ -1087,10 +1087,47 @@ class Pipe(_Link):
     io: PipeIO = Field(default_factory=PipeIO)
 
 
+class _Valve(_Link):
+    """A valve: a resistance set by its flow coefficient and opening (ADR-0005 decision 6)."""
+
+    cv: PositiveFloat | None = Field(
+        None, description="Flow coefficient, US gpm at a 1 psi drop. Default 10 (with no kv)."
+    )
+    kv: PositiveFloat | None = Field(
+        None, description="Flow coefficient, m³/h at a 1 bar drop, instead of cv (Kv = 0.865 Cv)."
+    )
+
+    @model_validator(mode="after")
+    def _one_coefficient(self) -> _Valve:
+        if self.cv is not None and self.kv is not None:
+            raise ValueError(f"{self.id}: give cv or kv, not both")
+        return self
+
+    def kv_value(self) -> float:
+        """Kv, m³/h at 1 bar: ``kv``, or 0.865 × ``cv`` (default Cv 10)."""
+        return (
+            self.kv if self.kv is not None else 0.865 * (self.cv if self.cv is not None else 10.0)
+        )
+
+
+class ValveOnOffIO(IOModel):
+    open: DoTag = port("DO", "Open command", required=True)
+    opened: DiTag | None = port("DI", "Open limit switch")
+    closed: DiTag | None = port("DI", "Closed limit switch")
+
+
+class ValveOnOff(_Valve):
+    """Origin: the valve body. An on/off valve with a travel time (PLAN 3.2)."""
+
+    type: Literal["valve_onoff"]
+    travel_s: PositiveFloat = Field(2.0, description="Full open or close time, s.")
+    io: ValveOnOffIO
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
-PROCESS_TYPES = frozenset({"tank", "supply", "drain", "junction", "pipe"})
+PROCESS_TYPES = frozenset({"tank", "supply", "drain", "junction", "pipe", "valve_onoff"})
 #: Process types that are links of the flow network (``from``/``to``).
-LINK_TYPES = frozenset({"pipe"})
+LINK_TYPES = frozenset({"pipe", "valve_onoff"})
 
 
 Component = Annotated[
@@ -1115,7 +1152,8 @@ Component = Annotated[
     | Supply
     | Drain
     | Junction
-    | Pipe,
+    | Pipe
+    | ValveOnOff,
     Field(discriminator="type"),
 ]
 
@@ -1145,6 +1183,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Drain,
         Junction,
         Pipe,
+        ValveOnOff,
     )
 }
 
@@ -1304,6 +1343,7 @@ SceneComponent = Annotated[
     | Annotated[Drain, Tag("drain")]
     | Annotated[Junction, Tag("junction")]
     | Annotated[Pipe, Tag("pipe")]
+    | Annotated[ValveOnOff, Tag("valve_onoff")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]

@@ -23,6 +23,7 @@ from openfactory.components import (
     supply,
     tank,
     turntable,
+    valve_onoff,
 )
 
 __all__ = [
@@ -48,4 +49,5 @@ __all__ = [
     "supply",
     "tank",
     "turntable",
+    "valve_onoff",
 ]

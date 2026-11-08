@@ -694,3 +694,30 @@ time constant through its direct connections is under 10 ticks.
 No ports.
 
 Faults: none.
+
+### `valve_onoff`
+
+Origin: the valve body; it is drawn joined to its ends. An on/off valve between `from` and `to`:
+held `open` opens it fully, released it closes fully, taking `travel_s` for a full stroke and
+reversing at once on a change mid-travel, like the pusher. Its flow follows its flow coefficient
+and opening, `Q[m³/h] = Kv·x·√(Δp[bar])` at opening `x` (linear while it travels; nothing shut).
+Give `cv` (US gpm at a 1 psi drop, North American datasheets) or `kv` (m³/h at 1 bar); Kv =
+0.865 Cv. It starts closed. `opened` and `closed` are limit switches (ZSO, ZSC), both false
+mid-travel.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `from` | required | Upstream end, as on `pipe` |
+| `to` | required | Downstream end, as on `pipe` |
+| `cv` | 10 (with no `kv`) | Flow coefficient, US gpm at a 1 psi drop |
+| `kv` | none | Flow coefficient, m³/h at a 1 bar drop, instead of `cv` |
+| `travel_s` | 2.0 | Full open or close time, s |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `open` | DO | yes | Open command (held) |
+| `opened` | DI | no | Open limit switch |
+| `closed` | DI | no | Closed limit switch |
+
+Faults: `jammed`, `slow`, `stuck_on`, `stuck_off`. A jammed valve stops where it is with its
+limits honest; `slow` travels at `factor` of its speed; stuck faults hold a limit switch.

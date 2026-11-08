@@ -20,7 +20,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from openfactory.components._process import end_point
+from openfactory.components._process import link_points
 from openfactory.core import flownet
 from openfactory.core.component import Component, register
 
@@ -58,12 +58,7 @@ class Pipe(Component):
     def flow_built(self, by_id: dict[str, Any]) -> None:
         """Place the ends and, without a ``length``, size the pipe from its drawn length."""
         cfg = self.config
-        path = [list(p) for p in cfg.path]  # type: ignore[attr-defined]
-        raw_from = by_id[cfg.from_.partition(".")[0]].config.position  # type: ignore[attr-defined]
-        raw_to = by_id[cfg.to.partition(".")[0]].config.position  # type: ignore[attr-defined]
-        first = end_point(by_id, cfg.from_, tuple(path[0] if path else raw_to))  # type: ignore[attr-defined,arg-type]
-        last = end_point(by_id, cfg.to, tuple(path[-1] if path else raw_from))  # type: ignore[attr-defined,arg-type]
-        self.points = [first, *path, last]
+        self.points = link_points(by_id, self, [list(p) for p in cfg.path])  # type: ignore[attr-defined]
         if cfg.length is None:  # type: ignore[attr-defined]
             drawn = sum(math.dist(a, b) for a, b in zip(self.points, self.points[1:], strict=False))
             self.length = max(drawn, 0.1)

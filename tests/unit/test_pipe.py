@@ -105,6 +105,7 @@ def test_two_pipes_naming_each_other_join_through_an_implicit_junction():
     joint = s.flownet.junctions[0]  # type: ignore[union-attr]
     assert joint.id == "PIPE_01>PIPE_02" and joint.elevation == 1.0
     assert s.component("PIPE_01").points[-1] == [2.0, 1.0, 0.0]  # drawn to the joint
+    assert s.component("PIPE_02").points[0] == [2.0, 1.0, 0.0]  # and from it
 
 
 BELT = {"id": "CONV_01", "type": "belt_conveyor", "description": "Belt", "position": [0, 0, 5],

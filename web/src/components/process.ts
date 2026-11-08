@@ -153,12 +153,14 @@ export const junction: Builder = (g) => {
  * joins), one cylinder per segment with a fitting at each bend. Neutral grey: a pipe carries
  * no status of its own.
  */
-export const pipe: Builder = (g) => {
-  const group = new THREE.Group();
-  group.name = g.id;
+/** A link's drawn points (scene coordinates), or a 1 m stub from its origin without them. */
+function linkPoints(g: Parameters<Builder>[0]): THREE.Vector3[] {
   const raw = Array.isArray(g.points) ? (g.points as number[][]) : [];
-  const points = (raw.length >= 2 ? raw : [g.position, [g.position[0] + 1, g.position[1], g.position[2]]]).map((p) => new THREE.Vector3(p[0], p[1], p[2]));
-  const radius = Math.max(num(g, "diameter", 0.05) / 2, 0.015);
+  return (raw.length >= 2 ? raw : [g.position, [g.position[0] + 1, g.position[1], g.position[2]]]).map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+}
+
+/** Pipe segments through `points` into `group`, a fitting at each bend. */
+function runs(group: THREE.Group, points: THREE.Vector3[], radius: number): void {
   const material = new THREE.MeshStandardMaterial({ color: NEUTRAL.structure, roughness: 0.5, metalness: 0.3 });
   for (let i = 0; i + 1 < points.length; i++) {
     const a = points[i], b = points[i + 1];
@@ -175,6 +177,55 @@ export const pipe: Builder = (g) => {
       group.add(bend);
     }
   }
+}
+
+export const pipe: Builder = (g) => {
+  const group = new THREE.Group();
+  group.name = g.id;
+  const points = linkPoints(g);
+  runs(group, points, Math.max(num(g, "diameter", 0.05) / 2, 0.015));
   const mid = points[Math.floor(points.length / 2)];
   return { id: g.id, type: g.type, object: group, labelAnchor: mid.clone().add(new THREE.Vector3(0, 0.12, 0)), pickable: [], update() {} };
+};
+
+/**
+ * A valve drawn at its origin, joined to its ends by short runs: a body and, on top, a handle
+ * that turns with the opening (0 to 1: across the line to along it), green fully open.
+ */
+function valve(g: Parameters<Builder>[0], actuator: number): { group: THREE.Group; handle: THREE.Mesh; update(opening: number): void } {
+  const group = new THREE.Group();
+  group.name = g.id;
+  runs(group, linkPoints(g), 0.025);
+  const body = box([0.16, 0.12, 0.12], NEUTRAL.structure, [g.position[0], g.position[1], g.position[2]]);
+  body.name = "body";
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, actuator, 16), new THREE.MeshStandardMaterial({ color: NEUTRAL.frame, roughness: 0.6 }));
+  stem.position.set(g.position[0], g.position[1] + 0.06 + actuator / 2, g.position[2]);
+  const handle = box([0.2, 0.02, 0.04], ISA101.stopped, [g.position[0], g.position[1] + 0.07 + actuator, g.position[2]]);
+  handle.name = "handle";
+  group.add(body, stem, handle);
+  return {
+    group,
+    handle,
+    update(opening: number) {
+      const along = THREE.MathUtils.degToRad(g.rotation_deg);
+      handle.rotation.y = along + (1 - Math.min(Math.max(opening, 0), 1)) * (Math.PI / 2);
+      setColor(handle, opening >= 0.999 ? ISA101.running : ISA101.stopped);
+    },
+  };
+}
+
+/** On/off valve: body, actuator, and a handle across the line shut, along it open. */
+export const valveOnoff: Builder = (g) => {
+  const v = valve(g, 0.14);
+  v.update(0);
+  return {
+    id: g.id,
+    type: g.type,
+    object: v.group,
+    labelAnchor: new THREE.Vector3(g.position[0], g.position[1] + 0.35, g.position[2]),
+    pickable: [],
+    update(state) {
+      v.update(Number(state.opening ?? 0));
+    },
+  };
 };

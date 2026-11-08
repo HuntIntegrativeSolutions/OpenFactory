@@ -18,7 +18,7 @@ function color(object: THREE.Object3D | undefined): number {
 describe("component mesh builders", () => {
   it("cover every Milestone 1 type and place them at the scene origin and rotation", () => {
     for (const type of Object.keys(BUILDERS)) {
-      if (type === "pipe") continue; // drawn through its points in scene coordinates (below)
+      if (["pipe", "valve_onoff"].includes(type)) continue; // drawn in scene coordinates (below)
       const view = buildComponent(geom(type, { length: 2, width: 0.5, beam_length: 0.6, stroke: 0.5, size: [0.3, 1, 1] }), ctx);
       expect(view.type).toBe(type);
       expect(view.object.position.toArray()).toEqual([1, 0.2, -0.3]);
@@ -158,5 +158,16 @@ describe("process components (PLAN 3.2)", () => {
     expect(a.max.y).toBeCloseTo(2, 5);
     expect(b.max.x - b.min.x).toBeCloseTo(3, 5);
     expect(view.object.position.toArray()).toEqual([0, 0, 0]); // points are scene coordinates
+  });
+
+  it("turns a valve's handle along the line and green when fully open", () => {
+    const view = buildComponent(geom("valve_onoff", { position: [1, 0, 0], rotation_deg: 0, points: [[0, 0, 0], [1, 0, 0], [2, 0, 0]] }), ctx);
+    const handle = view.object.getObjectByName("handle") as THREE.Mesh;
+    expect(handle.rotation.y).toBeCloseTo(Math.PI / 2);
+    expect(color(handle)).toBe(ISA101.stopped);
+    view.update({ opening: 1 });
+    expect(handle.rotation.y).toBeCloseTo(0);
+    expect(color(handle)).toBe(ISA101.running);
+    expect((view.object.getObjectByName("body") as THREE.Mesh).position.toArray()).toEqual([1, 0, 0]);
   });
 });

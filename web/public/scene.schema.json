@@ -839,7 +839,8 @@
               "stopper",
               "supply",
               "tank",
-              "turntable"
+              "turntable",
+              "valve_onoff"
             ]
           },
           "pattern": "^[a-z][a-z0-9_]*$",
@@ -4295,6 +4296,190 @@
       ],
       "title": "TurntableIO",
       "type": "object"
+    },
+    "ValveOnOff": {
+      "additionalProperties": false,
+      "description": "Origin: the valve body. An on/off valve with a travel time (PLAN 3.2).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "from": {
+          "description": "Upstream end: TANK.nozzle, a supply, drain, junction, or link.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Downstream end, as `from`.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "To",
+          "type": "string"
+        },
+        "cv": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow coefficient, US gpm at a 1 psi drop. Default 10 (with no kv).",
+          "title": "Cv"
+        },
+        "kv": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow coefficient, m³/h at a 1 bar drop, instead of cv (Kv = 0.865 Cv).",
+          "title": "Kv"
+        },
+        "type": {
+          "const": "valve_onoff",
+          "title": "Type",
+          "type": "string"
+        },
+        "travel_s": {
+          "default": 2.0,
+          "description": "Full open or close time, s.",
+          "exclusiveMinimum": 0,
+          "title": "Travel S",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/ValveOnOffIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "from",
+        "to",
+        "type",
+        "io"
+      ],
+      "title": "ValveOnOff",
+      "type": "object"
+    },
+    "ValveOnOffIO": {
+      "additionalProperties": false,
+      "properties": {
+        "open": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Open command",
+          "title": "Open",
+          "x-io-kind": "DO"
+        },
+        "opened": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Open limit switch",
+          "title": "Opened",
+          "x-io-kind": "DI"
+        },
+        "closed": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Closed limit switch",
+          "title": "Closed",
+          "x-io-kind": "DI"
+        }
+      },
+      "required": [
+        "open"
+      ],
+      "title": "ValveOnOffIO",
+      "type": "object"
     }
   },
   "$id": "urn:openfactory:scene:0.1",
@@ -4403,6 +4588,9 @@
           },
           {
             "$ref": "#/$defs/Pipe"
+          },
+          {
+            "$ref": "#/$defs/ValveOnOff"
           },
           {
             "$ref": "#/$defs/CompositeInstance"
