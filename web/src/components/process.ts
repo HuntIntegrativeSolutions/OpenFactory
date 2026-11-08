@@ -139,3 +139,11 @@ export const drain: Builder = (g) => {
     },
   };
 };
+
+/** Junction: origin at the junction point; a small fitting. */
+export const junction: Builder = (g) => {
+  const group = placed(g);
+  const fitting = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), new THREE.MeshStandardMaterial({ color: NEUTRAL.structure, roughness: 0.5, metalness: 0.3 }));
+  group.add(fitting);
+  return { id: g.id, type: g.type, object: group, labelAnchor: new THREE.Vector3(0, 0.15, 0), pickable: [], update() {} };
+};

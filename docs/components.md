@@ -647,3 +647,19 @@ consumer's current demand.
 No ports.
 
 Faults: none.
+
+### `junction`
+
+Origin: the junction point. Where links meet, a tee or a header: a node whose head is solved each
+tick from flow continuity. It holds no liquid, and at least one link must connect to it (the
+scene fails to load otherwise). Its gauge pressure in bar is its head above its height; read it
+with a `transmitter` (`measures: J_01.pressure`); above an open drain it still connects to, it
+sits at the drain's head and reads below zero. Cut off from every node of known head (every valve
+to it shut), it carries no flow and reports no pressure. Two links in line need no junction:
+`to: FV_01` on the first and `from: P_01` on the second join them through an implicit one.
+
+No parameters beyond the common fields.
+
+No ports.
+
+Faults: none.

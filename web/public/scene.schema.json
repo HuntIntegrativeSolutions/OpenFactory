@@ -825,6 +825,7 @@
               "distance_sensor",
               "diverter_arm",
               "drain",
+              "junction",
               "lift",
               "part_remover",
               "photo_eye",
@@ -1706,6 +1707,82 @@
       "description": "A drain has no ports.",
       "properties": {},
       "title": "DrainIO",
+      "type": "object"
+    },
+    "Junction": {
+      "additionalProperties": false,
+      "description": "Origin: the junction point. Where links meet; its head is solved (PLAN 3.2).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "type": {
+          "const": "junction",
+          "title": "Type",
+          "type": "string"
+        },
+        "io": {
+          "$ref": "#/$defs/JunctionIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type"
+      ],
+      "title": "Junction",
+      "type": "object"
+    },
+    "JunctionIO": {
+      "additionalProperties": false,
+      "description": "A junction has no ports: a transmitter reads its pressure (``measures: J_01.pressure``).",
+      "properties": {},
+      "title": "JunctionIO",
       "type": "object"
     },
     "LibraryComposite": {
@@ -4165,6 +4242,9 @@
           },
           {
             "$ref": "#/$defs/Drain"
+          },
+          {
+            "$ref": "#/$defs/Junction"
           },
           {
             "$ref": "#/$defs/CompositeInstance"

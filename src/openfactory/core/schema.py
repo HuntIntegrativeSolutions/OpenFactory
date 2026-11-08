@@ -1038,8 +1038,19 @@ class Drain(ComponentBase):
         return value
 
 
+class JunctionIO(IOModel):
+    """A junction has no ports: a transmitter reads its pressure (``measures: J_01.pressure``)."""
+
+
+class Junction(ComponentBase):
+    """Origin: the junction point. Where links meet; its head is solved (PLAN 3.2)."""
+
+    type: Literal["junction"]
+    io: JunctionIO = Field(default_factory=JunctionIO)
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
-PROCESS_TYPES = frozenset({"tank", "supply", "drain"})
+PROCESS_TYPES = frozenset({"tank", "supply", "drain", "junction"})
 
 
 Component = Annotated[
@@ -1062,7 +1073,8 @@ Component = Annotated[
     | SelectorSwitch
     | Tank
     | Supply
-    | Drain,
+    | Drain
+    | Junction,
     Field(discriminator="type"),
 ]
 
@@ -1090,6 +1102,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Tank,
         Supply,
         Drain,
+        Junction,
     )
 }
 
@@ -1247,6 +1260,7 @@ SceneComponent = Annotated[
     | Annotated[Tank, Tag("tank")]
     | Annotated[Supply, Tag("supply")]
     | Annotated[Drain, Tag("drain")]
+    | Annotated[Junction, Tag("junction")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]
