@@ -18,7 +18,7 @@ import {
   selectorSwitch,
   stopper,
 } from "./devices";
-import { tank } from "./process";
+import { supply, tank } from "./process";
 import type { BuildContext, Builder, ComponentView } from "./types";
 
 export const BUILDERS: Record<string, Builder> = {
@@ -40,6 +40,7 @@ export const BUILDERS: Record<string, Builder> = {
   color_sensor: colorSensor,
   counter_display: counterDisplay,
   tank,
+  supply,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {

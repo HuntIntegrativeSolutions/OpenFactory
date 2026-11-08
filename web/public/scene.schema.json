@@ -834,6 +834,7 @@
               "roller_conveyor",
               "selector_switch",
               "stopper",
+              "supply",
               "tank",
               "turntable"
             ]
@@ -3358,6 +3359,103 @@
       "title": "StopperIO",
       "type": "object"
     },
+    "Supply": {
+      "additionalProperties": false,
+      "description": "Origin: the connection point. A source of liquid at a fixed gauge pressure (PLAN 3.2).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "type": {
+          "const": "supply",
+          "title": "Type",
+          "type": "string"
+        },
+        "pressure_bar": {
+          "default": 2.0,
+          "description": "Gauge pressure at the origin, bar.",
+          "minimum": 0,
+          "title": "Pressure Bar",
+          "type": "number"
+        },
+        "temperature_c": {
+          "default": 15.0,
+          "description": "Temperature of what it delivers, °C.",
+          "title": "Temperature C",
+          "type": "number"
+        },
+        "ingredient": {
+          "default": "water",
+          "description": "What it delivers, for mixing.",
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Ingredient",
+          "type": "string"
+        },
+        "io": {
+          "$ref": "#/$defs/SupplyIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type"
+      ],
+      "title": "Supply",
+      "type": "object"
+    },
+    "SupplyIO": {
+      "additionalProperties": false,
+      "description": "A supply has no ports: a valve in front of it is the control element.",
+      "properties": {},
+      "title": "SupplyIO",
+      "type": "object"
+    },
     "Tank": {
       "additionalProperties": false,
       "description": "Origin: the centre of the tank bottom, which stands at the origin's height. An open tank of\nconstant cross-section in the flow network (PLAN 3.1).",
@@ -3922,6 +4020,9 @@
           },
           {
             "$ref": "#/$defs/Tank"
+          },
+          {
+            "$ref": "#/$defs/Supply"
           },
           {
             "$ref": "#/$defs/CompositeInstance"

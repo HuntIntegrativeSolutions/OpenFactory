@@ -963,8 +963,26 @@ class Tank(ComponentBase):
         return {"bottom": 0.0, "top": self.height, **self.nozzles}
 
 
+#: An ingredient's name in a process scene (PLAN 3.1 mixing): lowercase.
+IngredientName = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
+
+
+class SupplyIO(IOModel):
+    """A supply has no ports: a valve in front of it is the control element."""
+
+
+class Supply(ComponentBase):
+    """Origin: the connection point. A source of liquid at a fixed gauge pressure (PLAN 3.2)."""
+
+    type: Literal["supply"]
+    pressure_bar: float = Field(2.0, ge=0, description="Gauge pressure at the origin, bar.")
+    temperature_c: float = Field(15.0, description="Temperature of what it delivers, °C.")
+    ingredient: IngredientName = Field("water", description="What it delivers, for mixing.")
+    io: SupplyIO = Field(default_factory=SupplyIO)
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
-PROCESS_TYPES = frozenset({"tank"})
+PROCESS_TYPES = frozenset({"tank", "supply"})
 
 
 Component = Annotated[
@@ -985,7 +1003,8 @@ Component = Annotated[
     | PilotLight
     | CounterDisplay
     | SelectorSwitch
-    | Tank,
+    | Tank
+    | Supply,
     Field(discriminator="type"),
 ]
 
@@ -1011,6 +1030,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         CounterDisplay,
         SelectorSwitch,
         Tank,
+        Supply,
     )
 }
 
@@ -1166,6 +1186,7 @@ SceneComponent = Annotated[
     | Annotated[CounterDisplay, Tag("counter_display")]
     | Annotated[SelectorSwitch, Tag("selector_switch")]
     | Annotated[Tank, Tag("tank")]
+    | Annotated[Supply, Tag("supply")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]

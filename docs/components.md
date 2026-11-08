@@ -578,7 +578,8 @@ Origin: the centre of the tank bottom, which stands at the origin's height. An o
 constant cross-section. Links connect to its nozzles: `bottom` (height 0), `top` (the tank's
 height), and any named in `nozzles`. A nozzle at or above the surface passes no outflow, and
 liquid entering through it falls freely (its head is the nozzle's, whatever the level). At its
-height the tank overflows: the level holds and the excess is counted. Level switches turn on at
+height the tank overflows: the level holds and the excess is counted. It starts full of water to
+`initial_level`. Level switches turn on at
 their level and off 0.02 m back, so a level hovering at a switch point does not chatter. Tag the
 switches and the level by ISA-5.1 function, as the shipped scenes do: `TK_02_LSH_DI`,
 `TK_02_LSL_DI`, `TK_01_LT_AI`.
@@ -606,3 +607,20 @@ switches and the level by ISA-5.1 function, as the shipped scenes do: `TK_02_LSH
 Faults: `stuck_on`, `stuck_off`, `drift`, `noisy`, `misaligned`. Stuck faults hold the
 switches; `drift` and `noisy` act on the analog inputs; `misaligned` makes the level read
 `offset_m` high, switches included.
+
+### `supply`
+
+Origin: the connection point. A source of liquid at a fixed gauge pressure, never exhausted: a
+node of known head (its height plus `pressure_bar` of head, 10.2 m of water per bar). It delivers
+whatever the network draws, at `temperature_c`, as `ingredient` for mixing. It has no ports; a
+valve between it and the plant is the control element. Its state reports the flow it delivers.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `pressure_bar` | 2.0 | Gauge pressure at the origin, bar |
+| `temperature_c` | 15 | Temperature of what it delivers, °C |
+| `ingredient` | `water` | What it delivers (lowercase name), for mixing |
+
+No ports.
+
+Faults: none.

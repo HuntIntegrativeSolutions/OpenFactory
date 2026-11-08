@@ -92,3 +92,31 @@ export const tank: Builder = (g, ctx) => {
     },
   };
 };
+
+/** A short flanged stub on its connection point, the shape shared by supplies and drains. */
+function stub(color: number): THREE.Group {
+  const g = new THREE.Group();
+  const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.3, 20), new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.3 }));
+  pipe.position.y = 0.15;
+  const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 24), new THREE.MeshStandardMaterial({ color: NEUTRAL.frame, roughness: 0.6 }));
+  flange.position.y = 0.3;
+  g.add(pipe, flange);
+  return g;
+}
+
+/** Supply: origin at the connection point; a flanged stub, green while it delivers. */
+export const supply: Builder = (g) => {
+  const group = placed(g);
+  const body = stub(NEUTRAL.structure);
+  group.add(body);
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, 0.45, 0),
+    pickable: [],
+    update(state) {
+      setColor(body.children[0], Number(state.flow_m3h ?? 0) > 1e-6 ? ISA101.running : NEUTRAL.structure);
+    },
+  };
+};

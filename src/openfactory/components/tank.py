@@ -9,7 +9,7 @@ connect to its nozzles, ``TK_01.bottom`` (height 0), ``TK_01.top`` (the tank's h
 named in ``nozzles``; the solver moves its volume each tick (a nozzle at or above the surface
 passes no outflow, liquid entering through it falls freely), and the tank overflows at its
 height: the level holds and the excess is counted. Liquid is well mixed: one temperature and
-one set of ingredient fractions.
+one set of ingredient fractions; what it starts with is water.
 
 Ports: ``level`` (AI, m, 0 to ``height``), ``temp`` (AI, °C, 0 to 100), and two level switches.
 ``hi_sw`` turns on at ``hi_level`` (default 90 % of height) and off 0.02 m below it; ``lo_sw``
@@ -51,6 +51,7 @@ class Tank(Component):
             area * cfg.initial_level,  # type: ignore[attr-defined]
             cfg.all_nozzles(),  # type: ignore[attr-defined]
             temperature=cfg.initial_temperature_c,  # type: ignore[attr-defined]
+            fractions={"water": 1.0},  # what it starts with is water (PLAN 3.1 mixing)
         )
         self.high_level, self.low_level = cfg.high(), cfg.low()  # type: ignore[attr-defined]
         self.hi = self.node.level >= self.high_level
