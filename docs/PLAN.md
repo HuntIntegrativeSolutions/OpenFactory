@@ -1900,6 +1900,13 @@ runs the sorting program against it; a box visibly gets pushed.
       function block), both lockfiles, checks passing at 60 s and 300 s, a guide and a kit.
       Tank switch and transmitter tags follow ISA-5.1 letters so the I/O list reads like a real
       one (`TK_02_LSH_DI`, `TK_02_LSL_DI`, `TK_01_LT_AI`). `batch-mix-heat` follows after.
+      *Progress (2026-11-08):*
+      - The four check kinds (`src/openfactory/checks.py`, `core/process_watch.py`): a run's
+        process checks are fed every tick in constant memory (each band's lowest and highest
+        level from its `after_s`, pump starts, ticks run dry), built only when a scene names
+        one. CONTEXT.md leaves unused checks out, so shipped CONTEXT.md files and kits are
+        unchanged. `tests/unit/test_process_checks.py` (9): each kind passing and failing, a
+        run ending before `after_s`, a pump that never started, five load errors.
 - [ ] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
       `/plantpax-*` skills) + Perspective faceplates. AOI parameter names in this repository come
       only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002

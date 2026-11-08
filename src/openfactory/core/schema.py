@@ -1624,6 +1624,19 @@ class TagBinding:
         return self.port.description
 
 
+class LevelBand(StrictModel):
+    """A level band a tank must hold (PLAN 3.3, ADR-0005 decision 10)."""
+
+    band: tuple[float, float] = Field(description="[lo, hi], m.")
+    after_s: float = Field(0.0, ge=0, description="From this simulated time to the end of the run.")
+
+    @model_validator(mode="after")
+    def _ordered(self) -> LevelBand:
+        if not self.band[0] < self.band[1]:
+            raise ValueError("band [lo, hi] needs lo < hi")
+        return self
+
+
 class Checks(StrictModel):
     """Exercise checks (PLAN 2.11), evaluated by ``openfactory test`` at the end of a run."""
 
@@ -1639,6 +1652,27 @@ class Checks(StrictModel):
         description="Every removed part spent at most this long from spawn to remover, and no "
         "part still in the scene at the end is older.",
     )
+
+    level_within: dict[ComponentId, LevelBand] = Field(
+        default_factory=dict,
+        description="Tank -> {band: [lo, hi], after_s}: its level stays in the band from "
+        "after_s to the end, and the run reaches after_s (PLAN 3.3).",
+    )
+    never_overflow: list[ComponentId] = Field(
+        default_factory=list, description="Tanks that never overflow (PLAN 3.3)."
+    )
+    never_dry: list[ComponentId] = Field(
+        default_factory=list,
+        description="Pumps that never run while their suction tank is dry (PLAN 3.3).",
+    )
+    max_starts: dict[ComponentId, Annotated[int, Field(ge=1)]] = Field(
+        default_factory=dict,
+        description="Pump -> starts allowed in the run (short-cycling); it must start at least "
+        "once (PLAN 3.3).",
+    )
+
+    def watches_process(self) -> bool:
+        return bool(self.level_within or self.never_overflow or self.never_dry or self.max_starts)
 
     def reached(self) -> dict[str, list[str]]:
         return {r: [n] if isinstance(n, str) else list(n) for r, n in self.parts_reached.items()}
@@ -1980,6 +2014,17 @@ class Scene(StrictModel):
                         f"checks.parts_reached.{remover}: no box_emitter makes a part named "
                         f"{name!r} (it makes {', '.join(sorted(names)) or 'none'})"
                     )
+        process = (
+            ("level_within", list(self.checks.level_within), "tank"),
+            ("never_overflow", self.checks.never_overflow, "tank"),
+            ("never_dry", self.checks.never_dry, "pump"),
+            ("max_starts", list(self.checks.max_starts), "pump"),
+        )
+        for key, ids, kind in process:
+            for cid in ids:
+                if types.get(cid) != kind:
+                    found = f"a {types[cid]}" if cid in types else "not in the scene"
+                    raise ValueError(f"checks.{key}: {cid!r} is {found}, not a {kind}")
         return self
 
 

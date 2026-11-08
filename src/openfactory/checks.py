@@ -13,6 +13,16 @@ scene, and the lost count) and returns one :class:`CheckResult` per check the sc
   remover took it, and no part still in the scene at the end is older than S. A jammed line, where
   nothing is removed, fails on the parts piling up behind the jam.
 
+Process checks (PLAN 3.3, ADR-0005 decision 10), from the run's
+:class:`~openfactory.core.process_watch.ProcessWatch`:
+
+- ``level_within: {TANK: {band: [lo, hi], after_s: T}}``: from T to the end the level stays in the
+  band, and the run reached T (a run that ends first fails, as does a tank that never filled).
+- ``never_overflow: [TANK, ...]``: the tank never overflowed.
+- ``never_dry: [PUMP, ...]``: the pump never ran while its suction tank was dry.
+- ``max_starts: {PUMP: N}``: the pump started at most N times, and at least once (a pump that
+  never ran fails: the easy pass is closed, as for ``parts_reached``).
+
 ``duration_s`` is not a check; it is how long ``openfactory test`` runs.
 """
 
@@ -72,7 +82,42 @@ def evaluate(checks: Checks, loaded: Any) -> list[CheckResult]:
             f"still in the scene {oldest:.2f} s; limit {limit:g} s"
         )
         results.append(CheckResult(f"max_cycle_s {limit:g}", passed, detail))
+    results += _process(checks, loaded)
     return results
+
+
+def _process(checks: Checks, loaded: Any) -> list[CheckResult]:
+    watch = getattr(loaded, "watch", None)
+    if not checks.watches_process():
+        return []
+    assert watch is not None, "a scene with process checks builds a ProcessWatch"
+    out: list[CheckResult] = []
+    for tid, spec in checks.level_within.items():
+        lo, hi = spec.band
+        band = watch.bands[tid]
+        name = f"level_within {tid}: {lo:g} to {hi:g} m after {spec.after_s:g} s"
+        if not band.reached:
+            out.append(CheckResult(name, False, f"the run ended before {spec.after_s:g} s"))
+            continue
+        passed = lo - 1e-9 <= band.lo and band.hi <= hi + 1e-9
+        out.append(CheckResult(name, passed, f"level {band.lo:.3f} to {band.hi:.3f} m"))
+    for tid in checks.never_overflow:
+        spilled = loaded.component(tid).node.overflow
+        detail = f"overflowed {spilled * 1000:.1f} L" if spilled else "never overflowed"
+        out.append(CheckResult(f"never_overflow {tid}", spilled == 0, detail))
+    for pid in checks.never_dry:
+        ticks = watch.dry_ticks[pid]
+        detail = f"ran dry {ticks * tick_s(loaded):.2f} s" if ticks else "never ran dry"
+        out.append(CheckResult(f"never_dry {pid}", ticks == 0, detail))
+    for pid, limit in checks.max_starts.items():
+        starts = watch.starts[pid]
+        detail = (
+            f"{starts} start{'s' if starts != 1 else ''}; limit {limit}"
+            if starts
+            else ("never started")
+        )
+        out.append(CheckResult(f"max_starts {pid}: {limit}", 1 <= starts <= limit, detail))
+    return out
 
 
 def format_results(results: list[CheckResult]) -> str:

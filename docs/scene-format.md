@@ -45,6 +45,10 @@ Every key is optional. `--duration` on `test` overrides `duration_s`.
 | `parts_reached` | For each remover and each part name under it: **at least one** part of that name reached that remover, **and no** part of that name reached any other remover. |
 | `none_lost` | No part fell out of the scene (`lost` in the run summary is empty). |
 | `max_cycle_s` | Every part a remover took spent at most this long from its spawn to its removal, **and** no part still in the scene at the end of the run is older than this. |
+| `level_within` | `{TANK: {band: [lo, hi], after_s: T}}`: from `T` to the end of the run the tank's level stays in the band, **and** the run reaches `T` (PLAN 3.3). |
+| `never_overflow` | `[TANK, ...]`: the tank never overflows. |
+| `never_dry` | `[PUMP, ...]`: the pump never runs while its suction tank is dry. |
+| `max_starts` | `{PUMP: N}`: the pump starts at most `N` times in the run, **and** at least once. |
 
 Two failure rules close the easy passes:
 
@@ -54,6 +58,11 @@ Two failure rules close the easy passes:
 - **A jammed line fails `max_cycle_s`.** The limit applies to the parts still in the scene as well
   as to the parts removed, so a line where nothing is ever removed fails on the parts piling up
   behind the jam instead of passing with no removals to measure.
+- **A process that never got going fails too.** `level_within` fails a tank that never reached
+  its band by `after_s`, and `max_starts` fails a pump that never started, so a program that
+  does nothing does not pass a process scene. Process checks name tanks and pumps, checked at
+  load. Set `max_starts` from a 300 s run, which starts a cycling pump about five times as
+  often as a 60 s one.
 
 What the scene names is checked when it loads, so a typo fails loudly instead of grading wrong:
 a `parts_reached` key must be a `part_remover` in the scene, each part name must be one some

@@ -531,6 +531,53 @@
           "default": null,
           "description": "Every removed part spent at most this long from spawn to remover, and no part still in the scene at the end is older.",
           "title": "Max Cycle S"
+        },
+        "level_within": {
+          "description": "Tank -> {band: [lo, hi], after_s}: its level stays in the band from after_s to the end, and the run reaches after_s (PLAN 3.3).",
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]*$": {
+              "$ref": "#/$defs/LevelBand"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 40
+          },
+          "title": "Level Within",
+          "type": "object"
+        },
+        "never_overflow": {
+          "description": "Tanks that never overflow (PLAN 3.3).",
+          "items": {
+            "maxLength": 40,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Never Overflow",
+          "type": "array"
+        },
+        "never_dry": {
+          "description": "Pumps that never run while their suction tank is dry (PLAN 3.3).",
+          "items": {
+            "maxLength": 40,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Never Dry",
+          "type": "array"
+        },
+        "max_starts": {
+          "description": "Pump -> starts allowed in the run (short-cycling); it must start at least once (PLAN 3.3).",
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]*$": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 40
+          },
+          "title": "Max Starts",
+          "type": "object"
         }
       },
       "title": "Checks",
@@ -1968,6 +2015,39 @@
       "description": "A junction has no ports: a transmitter reads its pressure (``measures: J_01.pressure``).",
       "properties": {},
       "title": "JunctionIO",
+      "type": "object"
+    },
+    "LevelBand": {
+      "additionalProperties": false,
+      "description": "A level band a tank must hold (PLAN 3.3, ADR-0005 decision 10).",
+      "properties": {
+        "band": {
+          "description": "[lo, hi], m.",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Band",
+          "type": "array"
+        },
+        "after_s": {
+          "default": 0.0,
+          "description": "From this simulated time to the end of the run.",
+          "minimum": 0,
+          "title": "After S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "band"
+      ],
+      "title": "LevelBand",
       "type": "object"
     },
     "LibraryComposite": {

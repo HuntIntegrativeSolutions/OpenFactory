@@ -47,6 +47,7 @@ from openfactory.core.heartbeat import HEARTBEAT_TAG, heartbeat_tag, heartbeat_v
 from openfactory.core.iotable import IOTable, Tag, Writer
 from openfactory.core.kinematics import KinematicModel
 from openfactory.core.logic import LogicStage
+from openfactory.core.process_watch import ProcessWatch
 from openfactory.core.schema import CARRIER_TYPES, TURNING_TYPES, Scene, load_scene
 from openfactory.core.sizing import resolve_defaults
 from openfactory.core.transforms import TransformStage
@@ -78,6 +79,8 @@ class LoadedScene:
     #: The process flow network (PLAN 3.1, ADR-0005), solved right after the kinematics each
     #: tick; None when no component has flow elements.
     flownet: Network | None = None
+    #: What the scene's process checks need from every tick (PLAN 3.3); None without them.
+    watch: ProcessWatch | None = None
     #: Custom meshes (PLAN 2.15) that resolved to a usable file: component id -> file.
     meshes: dict[str, Path] = field(default_factory=dict)
     #: Exam mode (PLAN 2.11): ``exam: switch`` tag -> the operator switch's position, written
@@ -117,6 +120,8 @@ class LoadedScene:
         self._write_exam()  # the switch, not the sensor, is what the PLC sees
         self.tick += 1
         self.time += dt
+        if self.watch is not None:
+            self.watch.record(self.time)
         self.io.set(HEARTBEAT_TAG, heartbeat_value(self.tick, dt), Writer.SIM)
 
     def component(self, component_id: str) -> Component:
@@ -253,6 +258,7 @@ def build(
         meshes=meshes,
         logic=logic,
         flownet=flownet,
+        watch=ProcessWatch.build(scene.checks, components),
     )
 
 

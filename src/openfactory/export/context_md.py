@@ -286,7 +286,8 @@ def context_md(scene: Scene, scene_path: str | Path) -> str:
         lines += ["None.", ""]
     else:
         checks = scene.checks.model_dump(mode="json", exclude_none=True)
-        lines += [f"- `{k}`: {_value(v)}" for k, v in checks.items()]
+        # a check a scene does not use is an empty mapping or list: leave it out
+        lines += [f"- `{k}`: {_value(v)}" for k, v in checks.items() if v not in ({}, [])]
         lines.append("")
     return "\n".join(lines)
 
