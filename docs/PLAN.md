@@ -1142,10 +1142,17 @@ runs the sorting program against it; a box visibly gets pushed.
         of the CI drift, and the candidate tracks it only a little better: not yet a fix. If
         `python` differs between the next CI runs, pinning the CI interpreter
         (`python-version` to an exact patch) may matter more than the calibration.
-        *Switch rule, proposed for ruling:* when CI runs on at least two runner CPU models or
-        Python builds put the candidate's score within 10 % of those local values while the
-        current one is not, `--update` with the candidate as the gate. If neither carries,
-        regenerate the baseline from a CI run's annotation.
+        *Switch rule (ruled 2026-11-07):* gate on the candidate calibration once two CI runs on
+        different runners score within 10 % of the local values (0.0686, 0.0736); then
+        `--update` with the candidate as the gate and commit the new baseline.
+      - First CI run with the new fields, 42445724369 (f672500, 2026-11-07): AMD EPYC 7763,
+        CPython 3.11.18 (Clang 23.1.3); the current score -4.0 % (load-200, 0.0241) and -8.3 %
+        (queue-200, 0.0242); the candidate 0.0689 and 0.0694, +0.4 % and -5.7 % of local. CI's
+        Python was not the local 3.11.15.
+      - *CPython pinned (ruled 2026-11-07):* `.python-version` and `ci.yml`'s
+        `python-version` name 3.11.15, the build the local venv and the baseline use, so the
+        score stops following interpreter builds. Runs after the pin count toward the switch
+        rule; 42445724369 ran 3.11.18 and does not.
       **60 fps at 200 parts (ruled 2026-11-04):** measure frame time on the software renderer
       and on the owner's machine through a number in the stats overlay; instance part meshes and
       merge static belt geometry if needed; report before and after.
