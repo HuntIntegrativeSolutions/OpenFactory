@@ -1,6 +1,8 @@
 # Flow network solver design (PLAN 3.1 proposal)
 
-**Status: proposal for ruling, 2026-11-07. No code has been written.** Milestone 3 tasks 3.1
+**Status: accepted 2026-11-07, all ten decisions as recommended; recorded as
+[ADR-0005](../adr/ADR-0005-flow-network-solver.md), of which this is the appendix.** The text
+below is the proposal as ruled on. Milestone 3 tasks 3.1
 (the solver), 3.2 (the process components), 3.3 (the scenes) and 3.7 (per-tag range and units)
 all build on it. The decisions that need a ruling are collected at the end, each with a
 recommendation.

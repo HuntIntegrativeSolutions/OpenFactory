@@ -1777,10 +1777,36 @@ runs the sorting program against it; a box visibly gets pushed.
 
 ### Milestone 3 — Process simulation (target 3–4 weeks)
 - [ ] 3.1 Flow network solver (`core/flownet.py`): directed graph of sources, pipes, valves, pumps,
-      tanks; per-tick mass balance, simple pressure-free model first (flow = Cv × opening × pump curve)
+      tanks; per-tick mass balance.
+      *Amended 2026-11-07 (ADR-0005, decision 1; the "pressure-free model first" is dropped):*
+      an incompressible network solved quasi-statically every tick with the Global Gradient
+      Algorithm (EPANET 2.2 §12.1): link flows and junction heads, tanks, supplies and open
+      drains as nodes of known head, demand drains as junctions with a pressure-dependent
+      demand; dense pure-Python solve, warm-started, converged at 1e-6 relative flow change and
+      1 mm head error, at most 40 iterations and 5 status re-solves per tick; forward Euler for
+      tank volumes with the tick split where a tank empties or fills. The solve runs right after
+      the kinematics in `LoadedScene.step`. The pressure-free case is the junction-free special
+      case, tested first. Design and equations: `docs/research/flownet-design.md`.
+      *Done when (ruled 2026-11-07):* the tests of the proposal's §8 pass: volume balance every
+      tick, two valves in series, a pump against rising head, convergence within the cap on
+      every shipped scene, and a `flow-` scene in `tools/bench.py`.
 - [ ] 3.2 Components: `tank`, `valve_onoff`, `valve_control`, `pump`, `pipe`, `heater`, `transmitter`,
       `vfd_motor`
+      *Amended 2026-11-07 (ADR-0005):* plus `supply`, `drain` and `junction` (decision 2), with
+      the schemas of `docs/research/flownet-design.md` as accepted: link ends may name another
+      link (decision 3); a drain with a demand draws it pressure-dependently (decision 4); a
+      full tank overflows (decision 5); `cv` or `kv`, `valve_control.position` optional with a
+      held `opening` (a hand valve), and its `fail` position triggers only under `float32`,
+      which `docs/components.md` says (decision 6). One commit per type, each with a unit test
+      and a `docs/components.md` section; the decision 9 lint checks land with the first
+      component that needs each.
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
+      *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
+      `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,
+      each with a stand-in script, an OpenPLC ST program (the PID scene uses OpenPLC's PID
+      function block), both lockfiles, checks passing at 60 s and 300 s, a guide and a kit.
+      Tank switch and transmitter tags follow ISA-5.1 letters so the I/O list reads like a real
+      one (`TK_02_LSH_DI`, `TK_02_LSL_DI`, `TK_01_LT_AI`). `batch-mix-heat` follows after.
 - [ ] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
       `/plantpax-*` skills) + Perspective faceplates. AOI parameter names in this repository come
       only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002
@@ -2021,6 +2047,9 @@ runs the sorting program against it; a box visibly gets pushed.
       view, 20.8 % non-background (`tools/screenshot.py`, looked at).
       `web/src/framing.test.ts` fails on the old framing (26.6 degrees) and with the floor
       point put back (the camera 3 m off).
+      *Follow-up (ruled 2026-11-07, not now):* portrait-phone framing. On a portrait screen the
+      horizontal field of view is narrower than the vertical, and conveyor lines are cut off at
+      the sides; fitting across too pulls every conveyor scene back about three times there.
 
 ---
 

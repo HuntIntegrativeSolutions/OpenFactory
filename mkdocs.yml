@@ -76,6 +76,7 @@ nav:
       - adr/ADR-0001-stack.md
       - adr/ADR-0003-analog-encoding.md
       - adr/ADR-0004-modbus-address-lockfile.md
+      - adr/ADR-0005-flow-network-solver.md
   - Research:
       - research/libraries.md
       - research/landscape.md
