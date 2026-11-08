@@ -42,7 +42,8 @@ export const tank: Builder = (g, ctx) => {
   body.position.y = height / 2;
   group.add(body);
   const unit = isBox ? new THREE.BoxGeometry(length * 0.98, 1, width * 0.98) : new THREE.CylinderGeometry(diameter * 0.49, diameter * 0.49, 1, 40);
-  const liquid = new THREE.Mesh(unit, new THREE.MeshStandardMaterial({ color: LIQUID, roughness: 0.3, metalness: 0.1 }));
+  // slightly translucent, so an immersion heater or anything else inside the tank still shows
+  const liquid = new THREE.Mesh(unit, new THREE.MeshStandardMaterial({ color: LIQUID, roughness: 0.3, metalness: 0.1, transparent: true, opacity: 0.7 }));
   liquid.name = "liquid";
   group.add(liquid);
   const showLevel = (level: number) => {

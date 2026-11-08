@@ -57,16 +57,27 @@ export function buildComponent(g: ComponentGeometry, ctx: BuildContext): Compone
 }
 
 /**
- * Floor height for a scene: 0.75 m below its lowest conveyor top (or component origin), or the
- * lowest tank bottom if that is lower: tanks stand on the floor (PLAN 3.2), a raised one on legs.
+ * How far below its origin each process type is drawn (PLAN 3.2): supply and drain stubs hang
+ * 0.3 m below their connection point, a pump's base 0.17 m below its centre; the rest stand on
+ * their origin (a tank's bottom, a drive cabinet's base).
+ */
+const PROCESS_DEPTH: Record<string, number> = {
+  tank: 0, supply: 0.3, drain: 0.3, junction: 0, pump: 0.17, valve_onoff: 0, valve_control: 0,
+  heater: 0, transmitter: 0, vfd_motor: 0,
+};
+
+/**
+ * Floor height for a scene: 0.75 m below its lowest conveyor top (or component origin), or under
+ * the lowest process component if that is lower: tanks stand on the floor and a raised one on
+ * legs, and nothing of a process plant is drawn below it (PLAN 3.2).
  */
 export function floorFor(components: ComponentGeometry[]): number {
   const tops = components.filter((c) => BELT_TYPES.has(c.type) || c.type === "turntable" || c.type === "lift").map((c) => c.position[1]);
-  const tanks = components.filter((c) => c.type === "tank").map((c) => c.position[1]);
-  if (tanks.length && !tops.length) return Math.min(...tanks);
+  const process = components.filter((c) => c.type in PROCESS_DEPTH).map((c) => c.position[1] - PROCESS_DEPTH[c.type]);
+  if (process.length && !tops.length) return Math.min(...process);
   const ys = tops.length ? tops : components.map((c) => c.position[1]);
   const floor = Math.min(0, ...ys) - 0.75;
-  return tanks.length ? Math.min(floor, ...tanks) : floor;
+  return process.length ? Math.min(floor, ...process) : floor;
 }
 
 export type { BuildContext, ComponentView } from "./types";

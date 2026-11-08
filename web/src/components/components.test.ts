@@ -197,4 +197,13 @@ describe("process components (PLAN 3.2)", () => {
     view.update({ running: false, fault: true });
     expect(color(door)).toBe(ISA101.alarmHigh);
   });
+
+  it("puts the floor under every process component, so a tank above a drain stands on legs", () => {
+    // tank-level-pid: the tank 1.5 m up, its consumer's connection 0.3 m up, the stub below it
+    const tank = geom("tank", { position: [0, 1.5, 0] });
+    const drain = geom("drain", { id: "DR_01", position: [1.4, 0.3, 0] });
+    expect(floorFor([tank, drain])).toBeCloseTo(0, 9);
+    const legs = buildComponent(tank, { floorY: floorFor([tank, drain]) }).object.children.filter((o) => o.position.y < 0);
+    expect(legs.length).toBe(4);
+  });
 });
