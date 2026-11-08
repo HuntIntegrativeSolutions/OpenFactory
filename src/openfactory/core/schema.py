@@ -1202,9 +1202,39 @@ class Pump(_Link):
         return self.curve[2][0] if self.curve else 2 * self.design_flow_m3h
 
 
+class HeaterIO(IOModel):
+    on: DoTag = port("DO", "Heater on command", required=True)
+    power: AoTag | None = port("AO", "Power command", range=(0.0, 100.0), units="%")
+    temp: AiTag | None = port("AI", "Tank temperature", range=(0.0, 100.0), units="°C")
+
+
+class Heater(ComponentBase):
+    """Origin: the element's centre. An immersion heater in one tank (PLAN 3.2)."""
+
+    type: Literal["heater"]
+    tank: ComponentId = Field(description="The tank it heats.")
+    rated_kw: PositiveFloat = Field(6.0, description="Power at 100 %, kW.")
+    min_level: float = Field(
+        0.3, ge=0, description="Level below which the element is uncovered and adds no heat, m."
+    )
+    ua_w_per_k: float = Field(15.0, ge=0, description="The tank's heat loss to ambient, W/K.")
+    ambient_c: float = Field(20.0, description="Ambient temperature, °C.")
+    io: HeaterIO
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
 PROCESS_TYPES = frozenset(
-    {"tank", "supply", "drain", "junction", "pipe", "valve_onoff", "valve_control", "pump"}
+    {
+        "tank",
+        "supply",
+        "drain",
+        "junction",
+        "pipe",
+        "valve_onoff",
+        "valve_control",
+        "pump",
+        "heater",
+    }
 )
 #: Process types that are links of the flow network (``from``/``to``).
 LINK_TYPES = frozenset({"pipe", "valve_onoff", "valve_control", "pump"})
@@ -1235,7 +1265,8 @@ Component = Annotated[
     | Pipe
     | ValveOnOff
     | ValveControl
-    | Pump,
+    | Pump
+    | Heater,
     Field(discriminator="type"),
 ]
 
@@ -1268,6 +1299,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         ValveOnOff,
         ValveControl,
         Pump,
+        Heater,
     )
 }
 
@@ -1430,6 +1462,7 @@ SceneComponent = Annotated[
     | Annotated[ValveOnOff, Tag("valve_onoff")]
     | Annotated[ValveControl, Tag("valve_control")]
     | Annotated[Pump, Tag("pump")]
+    | Annotated[Heater, Tag("heater")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]
@@ -1672,6 +1705,13 @@ class Scene(StrictModel):
         nozzle, or another link that names it back (PLAN 3.2, ADR-0005)."""
         by_id = {c.id: c for c in self.components}
         for comp in self.components:
+            if comp.type == "heater":
+                tank = by_id.get(comp.tank)  # type: ignore[attr-defined]
+                if tank is None or tank.type != "tank":
+                    what = f"a {tank.type}" if tank is not None else "no component"
+                    raise ValueError(f"{comp.id}.tank: {comp.tank!r} is {what}, not a tank")  # type: ignore[attr-defined]
+                if comp.min_level > tank.height:  # type: ignore[attr-defined]
+                    raise ValueError(f"{comp.id}: min_level is above {tank.id}'s height")
             if comp.type not in LINK_TYPES:
                 continue
             for side, ref in (("from", comp.from_), ("to", comp.to)):  # type: ignore[attr-defined]

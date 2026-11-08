@@ -102,8 +102,10 @@ class Tank:
     nozzles: dict[str, float]
     temperature: float = 20.0
     fractions: dict[str, float] = field(default_factory=dict)
-    #: Heat added to the liquid (W), set by a heater before the tick; 0 by default.
+    #: Heat added to the liquid (W), set before the tick; 0 by default.
     heat_w: float = 0.0
+    #: Net heat from each heater on this tank (W, its power less the tank's loss), by heater id.
+    heat_sources: dict[str, float] = field(default_factory=dict)
     #: Liquid that overflowed the top, in total (m³).
     overflow: float = 0.0
     known_head = True
@@ -705,7 +707,8 @@ class Network:
             new = old + q_net * t
             heat = old * tank.temperature - q_out * t * tank.temperature
             heat += sum(q * t * temp for q, temp, _ in inflow[id(tank)])
-            heat += tank.heat_w * t / (DENSITY * SPECIFIC_HEAT)
+            power = tank.heat_w + sum(tank.heat_sources.values())
+            heat += power * t / (DENSITY * SPECIFIC_HEAT)
             frac = {k: old * v - q_out * t * v for k, v in tank.fractions.items()}
             for q, _, fr in inflow[id(tank)]:
                 for k, v in fr.items():

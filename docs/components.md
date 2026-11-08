@@ -794,3 +794,30 @@ design head is below the static lift between the tanks or supplies its ends reac
 Faults: `jammed`, `slow`, `stuck_on`, `stuck_off`, `drift`, `noisy`.
 A jammed pump is seized (no flow, `running` honest); `slow` is a worn impeller (head times
 `factor`); stuck faults hold `running`; `drift` and `noisy` act on `flow`.
+
+### `heater`
+
+Origin: the element's centre, inside its tank. An immersion heater in one `tank`. While `on` it
+delivers `power` (unbound: 100 %) of `rated_kw` into the liquid, if the level covers the element
+(`min_level`); uncovered, it adds no heat. The tank loses `ua_w_per_k` × (its temperature −
+`ambient_c`) to ambient on the same heater's account. The tank is well mixed, so its temperature
+rises at `(P − UA·(T − Ta)) / (ρ·cp·V)`, and inflows mix in at their own temperatures. `temp`
+reads the tank's temperature. The power set in a tick heats from the next, like any actuator.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `tank` | required | The tank it heats |
+| `rated_kw` | 6.0 | Power at 100 %, kW |
+| `min_level` | 0.3 | Level below which the element is uncovered and adds no heat, m |
+| `ua_w_per_k` | 15 | The tank's heat loss to ambient, W/K |
+| `ambient_c` | 20 | Ambient temperature, °C |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `on` | DO | yes | Heater on command |
+| `power` | AO | no | Power command, 0 to 100 % |
+| `temp` | AI | no | Tank temperature (TT), °C, 0 to 100 |
+
+Faults: `stuck_off`, `drift`, `noisy`.
+An open element (`stuck_off`) adds no heat whatever the command; `drift` and `noisy` act on
+`temp`.

@@ -825,6 +825,7 @@
               "distance_sensor",
               "diverter_arm",
               "drain",
+              "heater",
               "junction",
               "lift",
               "part_remover",
@@ -1711,6 +1712,184 @@
       "description": "A drain has no ports.",
       "properties": {},
       "title": "DrainIO",
+      "type": "object"
+    },
+    "Heater": {
+      "additionalProperties": false,
+      "description": "Origin: the element's centre. An immersion heater in one tank (PLAN 3.2).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "type": {
+          "const": "heater",
+          "title": "Type",
+          "type": "string"
+        },
+        "tank": {
+          "description": "The tank it heats.",
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Tank",
+          "type": "string"
+        },
+        "rated_kw": {
+          "default": 6.0,
+          "description": "Power at 100 %, kW.",
+          "exclusiveMinimum": 0,
+          "title": "Rated Kw",
+          "type": "number"
+        },
+        "min_level": {
+          "default": 0.3,
+          "description": "Level below which the element is uncovered and adds no heat, m.",
+          "minimum": 0,
+          "title": "Min Level",
+          "type": "number"
+        },
+        "ua_w_per_k": {
+          "default": 15.0,
+          "description": "The tank's heat loss to ambient, W/K.",
+          "minimum": 0,
+          "title": "Ua W Per K",
+          "type": "number"
+        },
+        "ambient_c": {
+          "default": 20.0,
+          "description": "Ambient temperature, °C.",
+          "title": "Ambient C",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/HeaterIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type",
+        "tank",
+        "io"
+      ],
+      "title": "Heater",
+      "type": "object"
+    },
+    "HeaterIO": {
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Heater on command",
+          "title": "On",
+          "x-io-kind": "DO"
+        },
+        "power": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AoTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Power command",
+          "title": "Power",
+          "x-io-kind": "AO",
+          "x-range": [
+            0.0,
+            100.0
+          ],
+          "x-units": "%"
+        },
+        "temp": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Tank temperature",
+          "title": "Temp",
+          "x-io-kind": "AI",
+          "x-range": [
+            0.0,
+            100.0
+          ],
+          "x-units": "°C"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "title": "HeaterIO",
       "type": "object"
     },
     "Junction": {
@@ -5049,6 +5228,9 @@
           },
           {
             "$ref": "#/$defs/Pump"
+          },
+          {
+            "$ref": "#/$defs/Heater"
           },
           {
             "$ref": "#/$defs/CompositeInstance"

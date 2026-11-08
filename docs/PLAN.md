@@ -356,7 +356,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `supply` | — | — | Node of known head (ADR-0005): a fixed gauge pressure, never exhausted; delivers at its temperature and ingredient. | 3 (3.2) |
 | `drain` | — | — | Open: a node at atmospheric head taking what arrives. With a demand (and an optional schedule): a junction drawing it pressure-dependently (ADR-0005 decision 4). | 3 (3.2) |
 | `junction` | — | — | Node whose head is solved; its pressure read through a transmitter. | 3 (3.2) |
-| `heater` | on, power (AO) | temp (AI) | First-order thermal model on connected tank. | 3 |
+| `heater` | on, power (AO) | temp (AI) | Immersion heater in one tank: rated power times the command while covered, less the tank's UA loss; well mixed. | 3 (3.2) |
 | `transmitter` | — | pv (AI) | Generic 4–20 mA style scaling of any process variable with noise and fault injection. | 3 |
 | `vfd_motor` | run, speed (AO) | running, speed_fb (AI), fault | Drives a conveyor or pump; trip on overload. | 3 |
 
@@ -1873,6 +1873,10 @@ runs the sorting program against it; a box visibly gets pushed.
         faults jammed (seized), slow (worn), stuck, drift, noisy. Lint W210 (design head below
         the static lift its ends reach) lands with it. Viewer: volute and motor, green running.
         `tests/unit/test_pump.py` (8).
+      - `heater`: rated power times `power` while `on` and covered (`min_level`), the tank's
+        UA loss to ambient; several heaters on one tank add (`Tank.heat_sources`); `temp` reads
+        the tank. Faults stuck_off, drift, noisy. Viewer: a coiled element, green while heating
+        (ISA-101: red is for alarms). `tests/unit/test_heater.py` (6).
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
       *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
       `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,

@@ -278,3 +278,22 @@ export const pump: Builder = (g) => {
     },
   };
 };
+
+/** Heater: origin at the element's centre; a coiled element, green while it heats (ISA-101: running). */
+export const heater: Builder = (g) => {
+  const group = placed(g);
+  const element = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.02, 8, 24), new THREE.MeshStandardMaterial({ color: ISA101.stopped, roughness: 0.4, metalness: 0.4 }));
+  element.name = "element";
+  element.rotation.x = Math.PI / 2;
+  group.add(element);
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, 0.15, 0),
+    pickable: [],
+    update(state) {
+      setColor(element, Number(state.power_kw ?? 0) > 0 ? ISA101.running : ISA101.stopped);
+    },
+  };
+};
