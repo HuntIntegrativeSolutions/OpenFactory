@@ -981,8 +981,65 @@ class Supply(ComponentBase):
     io: SupplyIO = Field(default_factory=SupplyIO)
 
 
+class DrainIO(IOModel):
+    """A drain has no ports."""
+
+
+class Drain(ComponentBase):
+    """Origin: the connection point. Where liquid leaves the plant: open to atmosphere, or a
+    consumer drawing a demand (PLAN 3.2, ADR-0005 decision 4)."""
+
+    type: Literal["drain"]
+    demand_m3h: float | None = Field(
+        None,
+        ge=0,
+        description="A consumer's demand, m³/h. Unset (and no schedule): an open drain that takes "
+        "whatever arrives.",
+    )
+    schedule: list[tuple[Annotated[float, Field(ge=0)], Annotated[float, Field(ge=0)]]] | None = (
+        Field(
+            None,
+            description="Demand steps [[time s, m³/h], ...], times rising: each applies from its "
+            "time; before the first, demand_m3h (or 0).",
+        )
+    )
+    repeat: bool = Field(
+        False, description="Start the schedule over at its last step's time (the period)."
+    )
+    required_head_m: PositiveFloat = Field(
+        2.0, description="Pressure head at which the full demand flows, m."
+    )
+    minimum_head_m: float = Field(0.0, ge=0, description="Pressure head below which none flows, m.")
+    io: DrainIO = Field(default_factory=DrainIO)
+
+    @model_validator(mode="after")
+    def _schedule(self) -> Drain:
+        if self.minimum_head_m >= self.required_head_m:
+            raise ValueError(f"{self.id}: minimum_head_m must be below required_head_m")
+        times = [t for t, _ in self.schedule or []]
+        if any(b <= a for a, b in zip(times, times[1:], strict=False)):
+            raise ValueError(f"{self.id}: schedule times must rise")
+        if self.repeat and (not times or times[-1] <= 0):
+            raise ValueError(f"{self.id}: repeat needs a schedule whose last step is after 0 s")
+        return self
+
+    def has_demand(self) -> bool:
+        return self.demand_m3h is not None or bool(self.schedule)
+
+    def demand_at(self, t: float) -> float:
+        """Demand (m³/h) at simulated time ``t``."""
+        steps = self.schedule or []
+        if self.repeat and steps:
+            t = t % steps[-1][0]
+        value = self.demand_m3h or 0.0
+        for start, demand in steps:
+            if t >= start:
+                value = demand
+        return value
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
-PROCESS_TYPES = frozenset({"tank", "supply"})
+PROCESS_TYPES = frozenset({"tank", "supply", "drain"})
 
 
 Component = Annotated[
@@ -1004,7 +1061,8 @@ Component = Annotated[
     | CounterDisplay
     | SelectorSwitch
     | Tank
-    | Supply,
+    | Supply
+    | Drain,
     Field(discriminator="type"),
 ]
 
@@ -1031,6 +1089,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         SelectorSwitch,
         Tank,
         Supply,
+        Drain,
     )
 }
 
@@ -1187,6 +1246,7 @@ SceneComponent = Annotated[
     | Annotated[SelectorSwitch, Tag("selector_switch")]
     | Annotated[Tank, Tag("tank")]
     | Annotated[Supply, Tag("supply")]
+    | Annotated[Drain, Tag("drain")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]

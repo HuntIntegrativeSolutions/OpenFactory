@@ -824,6 +824,7 @@
               "counter_display",
               "distance_sensor",
               "diverter_arm",
+              "drain",
               "lift",
               "part_remover",
               "photo_eye",
@@ -1567,6 +1568,144 @@
         "tag"
       ],
       "title": "DoTagSpec",
+      "type": "object"
+    },
+    "Drain": {
+      "additionalProperties": false,
+      "description": "Origin: the connection point. Where liquid leaves the plant: open to atmosphere, or a\nconsumer drawing a demand (PLAN 3.2, ADR-0005 decision 4).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "type": {
+          "const": "drain",
+          "title": "Type",
+          "type": "string"
+        },
+        "demand_m3h": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A consumer's demand, m³/h. Unset (and no schedule): an open drain that takes whatever arrives.",
+          "title": "Demand M3H"
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Demand steps [[time s, m³/h], ...], times rising: each applies from its time; before the first, demand_m3h (or 0).",
+          "title": "Schedule"
+        },
+        "repeat": {
+          "default": false,
+          "description": "Start the schedule over at its last step's time (the period).",
+          "title": "Repeat",
+          "type": "boolean"
+        },
+        "required_head_m": {
+          "default": 2.0,
+          "description": "Pressure head at which the full demand flows, m.",
+          "exclusiveMinimum": 0,
+          "title": "Required Head M",
+          "type": "number"
+        },
+        "minimum_head_m": {
+          "default": 0.0,
+          "description": "Pressure head below which none flows, m.",
+          "minimum": 0,
+          "title": "Minimum Head M",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/DrainIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type"
+      ],
+      "title": "Drain",
+      "type": "object"
+    },
+    "DrainIO": {
+      "additionalProperties": false,
+      "description": "A drain has no ports.",
+      "properties": {},
+      "title": "DrainIO",
       "type": "object"
     },
     "LibraryComposite": {
@@ -4023,6 +4162,9 @@
           },
           {
             "$ref": "#/$defs/Supply"
+          },
+          {
+            "$ref": "#/$defs/Drain"
           },
           {
             "$ref": "#/$defs/CompositeInstance"

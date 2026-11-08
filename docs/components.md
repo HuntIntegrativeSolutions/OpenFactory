@@ -624,3 +624,26 @@ valve between it and the plant is the control element. Its state reports the flo
 No ports.
 
 Faults: none.
+
+### `drain`
+
+Origin: the connection point. Where liquid leaves the plant. With no `demand_m3h` and no
+`schedule` it is an **open drain**: a node at atmospheric head at its height that takes whatever
+arrives. With a demand it is a **consumer** that draws its demand pressure-dependently: all of it
+while its pressure head is at or above `required_head_m`, none at or below `minimum_head_m`, and
+the square root of the fraction between (EPANET's Wagner model). A consumer fed from a tank that
+runs dry slows to nothing. `schedule` steps the demand, the load change a level loop exercise
+needs; the demand set in a tick is drawn from the next. Its state reports the flow it takes and a
+consumer's current demand.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `demand_m3h` | none | A consumer's demand, m³/h; unset with no schedule: an open drain |
+| `schedule` | none | Demand steps `[[time s, m³/h], ...]`, times rising; each applies from its time, and before the first, `demand_m3h` (or 0) |
+| `repeat` | false | Start the schedule over at its last step's time (give that step the first step's value) |
+| `required_head_m` | 2.0 | Pressure head at which the full demand flows, m |
+| `minimum_head_m` | 0 | Pressure head at or below which none flows, m |
+
+No ports.
+
+Faults: none.

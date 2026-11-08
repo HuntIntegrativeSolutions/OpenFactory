@@ -120,3 +120,22 @@ export const supply: Builder = (g) => {
     },
   };
 };
+
+/** Drain: origin at the connection point; a stub under a funnel, green while it takes flow. */
+export const drain: Builder = (g) => {
+  const group = placed(g);
+  const body = stub(NEUTRAL.structure);
+  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.05, 0.14, 24, 1, true), new THREE.MeshStandardMaterial({ color: NEUTRAL.frame, side: THREE.DoubleSide, roughness: 0.6 }));
+  funnel.position.y = 0.37;
+  group.add(body, funnel);
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, 0.55, 0),
+    pickable: [],
+    update(state) {
+      setColor(body.children[0], Number(state.flow_m3h ?? 0) > 1e-6 ? ISA101.running : NEUTRAL.structure);
+    },
+  };
+};

@@ -354,6 +354,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `pump` | run, speed (opt) | running, flow (AI) | Flow = f(speed, head) with a simple curve. | 3 |
 | `pipe` | — | — | Topology only; connects sources and sinks for mass balance. | 3 |
 | `supply` | — | — | Node of known head (ADR-0005): a fixed gauge pressure, never exhausted; delivers at its temperature and ingredient. | 3 (3.2) |
+| `drain` | — | — | Open: a node at atmospheric head taking what arrives. With a demand (and an optional schedule): a junction drawing it pressure-dependently (ADR-0005 decision 4). | 3 (3.2) |
 | `heater` | on, power (AO) | temp (AI) | First-order thermal model on connected tank. | 3 |
 | `transmitter` | — | pv (AI) | Generic 4–20 mA style scaling of any process variable with noise and fault injection. | 3 |
 | `vfd_motor` | run, speed (AO) | running, speed_fb (AI), fault | Drives a conveyor or pump; trip on overload. | 3 |
@@ -1845,6 +1846,9 @@ runs the sorting program against it; a box visibly gets pushed.
       - `supply`: a fixed-pressure source node, its delivered flow in its state; tanks now start
         full of water (an ingredient for mixing). Viewer: a flanged stub, green while it
         delivers. `tests/unit/test_supply.py` (2).
+      - `drain`: open (atmospheric) or a consumer with `demand_m3h` and a `schedule` (steps,
+        optionally repeating), pressure-dependent; a consumer with no link fails to build.
+        Viewer: a stub under a funnel. `tests/unit/test_drain.py` (8).
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
       *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
       `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,
