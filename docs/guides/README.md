@@ -37,9 +37,11 @@ uv run openfactory run scenes/<scene>.yaml --bind 0.0.0.0 --analog-encoding int1
 uv run openfactory export scenes/<scene>.yaml -o <scene>.csv
 ```
 
-Each scene also declares `checks:` (PLAN 2.11): every part reaches its remover, none is lost, and
-none takes longer than the scene's `max_cycle_s` from spawn to remover. `openfactory test` grades a
-program against them and exits 1 on a failure:
+Each scene also declares `checks:` (PLAN 2.11). In the conveyor scenes, every part reaches its
+remover, none is lost, and none takes longer than the scene's `max_cycle_s` from spawn to
+remover. In the process scenes (PLAN 3.3) a tank's level stays in its band once the loop has
+settled, no tank overflows, no pump runs dry, and a pump does not short-cycle. `openfactory test`
+grades a program against them and exits 1 on a failure:
 
 ```bash
 uv run openfactory test scenes/<scene>.yaml --script examples/pyplc/<scene>.py   # 60 s, fast
