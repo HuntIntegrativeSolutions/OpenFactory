@@ -1919,6 +1919,15 @@ runs the sorting program against it; a box visibly gets pushed.
       *Follow-up:* evaluate Zensical (the same team's successor, which reads `mkdocs.yml`)
       before Material's end of life on 2027-05-05: build this site with it, compare the
       warnings and the generated pages, and switch or record why not.
+      *Node 24 actions (ruled 2026-11-07, CI only, held with this task):* `docs.yml` moves to
+      `checkout@v5`, `setup-uv@v7`, `upload-pages-artifact@v5` and `deploy-pages@v5`, as
+      `ci.yml` did, so its first run raises no Node 20 deprecation warning. Each tag's
+      `action.yml` read 2026-11-07: checkout v5, setup-uv v7 and deploy-pages v5 declare
+      `node24` (deploy-pages v4 declared `node20`); upload-pages-artifact v5 is a composite
+      wrapping `upload-artifact` v7.0.0, which declares `node24` (v3 and v4 wrapped
+      upload-artifact v4). v5 leaves hidden files out of the artifact; the built site has none.
+      The workflow cannot run until the Pages source is set, so this is checked by reading the
+      action manifests only.
 - [ ] 4.5 Public GitHub release, issue templates, Discussions, first good-first-issues.
       *Release step (ruled 2026-11-06):* every version bump rebuilds all six demo kits
       (`tools/build_kit.py`), because each kit's recording carries the package version in its

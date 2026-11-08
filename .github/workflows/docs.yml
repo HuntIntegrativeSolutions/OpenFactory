@@ -1,6 +1,9 @@
 # OpenFactory docs site (PLAN 4.4): MkDocs Material built from docs/ and deployed to GitHub Pages
 # on every push to main. CI (tools/ci_local.sh step 13) builds the same site with --strict on every
 # run; this workflow only publishes it. Needs the repository's Pages source set to "GitHub Actions".
+# Actions are on their first major that runs on Node 24 (GitHub's Node 20 deprecation, as in
+# ci.yml): checkout v5, setup-uv v7, upload-pages-artifact v5 (wraps upload-artifact v7, node24;
+# leaves hidden files out, and the built site has none) and deploy-pages v5.
 name: Docs
 
 on:
@@ -21,10 +24,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up uv and Python 3.11
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.11"
 
@@ -34,7 +37,7 @@ jobs:
       - name: Build the site, failing on any warning
         run: uv run mkdocs build --strict
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: build/site
 
@@ -47,4 +50,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
