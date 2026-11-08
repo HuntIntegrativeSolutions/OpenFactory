@@ -28,12 +28,14 @@ The solve is the Global Gradient Algorithm (Todini and Pilati; manual §12.1, eq
 continuity (dense Gaussian elimination with partial pivoting), update every flow, repeat until
 the summed flow change is below ``ACCURACY`` of the summed flow and every link's head error is
 below ``HEAD_TOL``, at most ``MAX_ITERATIONS`` times (a solve that reaches the cap is counted in
-:attr:`Network.stats` and its last iterate used). Then the status checks: a pump or a
-``check_valve`` pipe with reverse flow closes, a link drawing out of a tank through a dry nozzle
-closes, a link that would draw liquid out of an open drain (``sink_only``) closes, and a closed
-one reopens when its heads would drive flow the allowed way; the solve
-repeats while statuses change, at most ``MAX_STATUS_ROUNDS`` times. Junctions that no open link
-connects to a node of known head carry no flow (their links are idle this solve).
+:attr:`Network.stats` and its last iterate used). Then the status checks, from every available
+link open at the start of each solve: a pump whose lift reaches its speed-adjusted shutoff head
+closes (EPANET's pump rule), a pump or a ``check_valve`` pipe with reverse flow closes, a link
+drawing out of a tank through a dry nozzle closes, a link that would draw liquid out of an open
+drain (``sink_only``) closes, and a closed one reopens when its heads would drive flow the
+allowed way; the solve repeats while statuses change, at most ``MAX_STATUS_ROUNDS`` times.
+Junctions that no open link connects to a node of known head carry no flow (their links are
+idle this solve).
 
 **Integration** (manual §12.1, "Extended period analysis", adapted to a fixed tick): tank
 volumes advance by forward Euler with the solved flows. Where a tank's level would fall to a
@@ -194,7 +196,8 @@ class Link:
     position: tuple[float, float, float] = (0.0, 0.0, 0.0)
     #: Flow (m³/s), positive from ``from`` to ``to``; kept between ticks as the next start.
     flow: float = 0.0
-    #: Closed by a status check this tick (reverse flow, a dry nozzle); reconsidered every solve.
+    #: Closed by a status check in this solve (reverse flow, a dry nozzle); every solve starts
+    #: with it clear.
     held_closed: bool = False
     #: Ends after :meth:`Network.build`: (node, nozzle or None).
     start: tuple[Node, str | None] | None = None
@@ -485,6 +488,11 @@ class Network:
         """Solve flows and junction heads for the current tank levels and link settings.
         Returns the Global Gradient iterations used (all status rounds)."""
         links = [*self.links, *self._sync_demands()]
+        for lk in links:
+            # statuses are found afresh each solve, from every available link open: a closure
+            # carried over could cut a junction off from every known head, and then nothing
+            # could show the closed link should reopen (a pump that ramped up behind a pipe)
+            lk.held_closed = False
         total = 0
         for round_ in range(MAX_STATUS_ROUNDS + 1):
             active = [lk for lk in links if lk.available() and not lk.held_closed]
@@ -510,7 +518,9 @@ class Network:
                 continue
             fwd, rev = self._allowed(lk)
             if not lk.held_closed:
-                if (lk.flow > 0 and not fwd) or (lk.flow < 0 and not rev) or (not fwd and not rev):
+                stalled = isinstance(lk, Pump) and self._lift(lk) >= -lk.zero_flow_drive()
+                wrong = (lk.flow > 0 and not fwd) or (lk.flow < 0 and not rev)
+                if wrong or stalled or (not fwd and not rev):
                     lk.held_closed, lk.flow, changed = True, 0.0, True
                 continue
             h_from, h_to = self._end_head(lk.start), self._end_head(lk.end)  # type: ignore[arg-type]
@@ -520,6 +530,10 @@ class Network:
             if (fwd and drop > lk.zero_flow_drive()) or (rev and drop < -lk.zero_flow_drive()):
                 lk.held_closed, changed = False, True
         return changed
+
+    def _lift(self, lk: Link) -> float:
+        """Head rise from a link's ``from`` end to its ``to`` end (nan with an end cut off)."""
+        return self._end_head(lk.end) - self._end_head(lk.start)  # type: ignore[arg-type]
 
     def _gga(self, active: list[Link]) -> int:
         """Global Gradient iterations over the ``active`` links; returns how many."""

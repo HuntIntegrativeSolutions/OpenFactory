@@ -401,3 +401,34 @@ def test_every_scene_with_a_network_converges_within_the_cap_for_60_s():
             loaded.step(DT)
         stats = loaded.flownet.stats  # type: ignore[union-attr]
         assert stats.cap_hits == 0 and stats.split_cap_hits == 0, path.name
+
+
+def test_a_pump_ramping_up_behind_a_pipe_into_a_top_inlet_starts_delivering():
+    """Found building tank-level-onoff (PLAN 3.3): a pump too slow to lift on its first ticks
+    closed, which left its pipe to a top nozzle a dead end that closed too; a closure carried
+    over cut the junction between them off from every known head, and the pump never reopened.
+    Every solve now starts from every available link open."""
+    sump = tank("TK_01", area=0.8, level=0.8)
+    head = tank("TK_02", elevation=1.6, area=0.07, height=1.0, level=0.5)
+    shutoff, b, n = pump_curve([(12 / 3600, 4.0)])
+    pump = Pump("P_01", "TK_01.bottom", "PIPE_01", shutoff=shutoff, coefficient=b, exponent=n,
+                running=True, speed=0.02)  # fmt: skip
+    pipe = Resistance("PIPE_01", "P_01", "TK_02.top", r=pipe_resistance(4, 0.04, 0.02, 1.5))
+    net = Network.build([sump, head], [pump, pipe])
+    for k in range(100):
+        pump.speed = min(1.0, 0.02 * (k + 1))  # ramping over 1 s
+        net.step(DT)
+    assert pump.flow > 5 / 3600 and pipe.flow == pytest.approx(pump.flow)
+
+
+def test_a_pump_at_its_shutoff_head_closes_instead_of_trickling():
+    """EPANET's pump rule: an open pump whose lift reaches its speed-adjusted shutoff head closes,
+    so a lift Euler took a hair past shutoff gives no flow, not solver noise."""
+    sump = tank("TK_01", area=50.0, level=1.0)
+    shutoff, b, n = pump_curve([(6 / 3600, 8.0)])
+    upper = tank("TK_02", elevation=2.0, area=0.02, height=12.0, level=shutoff - 1.0 + 1e-6)
+    pump = Pump("P_01", "TK_01.bottom", "TK_02.bottom", shutoff=shutoff, coefficient=b,
+                exponent=n, running=True)  # fmt: skip
+    net = Network.build([sump, upper], [pump])
+    net.step(DT)
+    assert pump.flow == 0.0 and pump.held_closed
