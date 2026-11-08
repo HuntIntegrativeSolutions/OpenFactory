@@ -721,3 +721,41 @@ mid-travel.
 
 Faults: `jammed`, `slow`, `stuck_on`, `stuck_off`. A jammed valve stops where it is with its
 limits honest; `slow` travels at `factor` of its speed; stuck faults hold a limit switch.
+
+### `valve_control`
+
+Origin: the valve body; it is drawn joined to its ends. A throttling valve between `from` and
+`to`, positioned by the PLC through `position` (AO, 0 to 100 %). The stem follows with a
+first-order lag (`lag_s`) and at most 100 % per `stroke_s`, the actuator's rate limit, and
+`position_fb` (AI) reports where it is, so a program can alarm on deviation. Its flow is
+`Q[m³/h] = Kv·f(x)·√(Δp[bar])` at stem position `x`, with the inherent `characteristic`: `linear`
+(`f = x`) or `equal_percentage` (`f = R^(x−1)`, R the `rangeability`, and 0 shut: it closes
+tight). `cv` or `kv` as on `valve_onoff`. The stem starts at its command. With `position` unbound
+it is a **hand valve** held at `opening`.
+
+**`fail` acts only under `float32`.** `fail` is where the stem goes while the command reads below
+0 %: `closed`, `open`, or `last` (it holds where it is). Only a `float32` AO can carry a value
+below 0 %. Under `int16_scaled` the raw count clamps at 0 (ADR-0003), so the command never reads
+below 0 % and `fail` never acts: a PLC on `int16_scaled` cannot command the fail position, and an
+exercise that needs it must use `float32`.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `from` | required | Upstream end, as on `pipe` |
+| `to` | required | Downstream end, as on `pipe` |
+| `cv` | 10 (with no `kv`) | Flow coefficient, US gpm at a 1 psi drop |
+| `kv` | none | Flow coefficient, m³/h at a 1 bar drop, instead of `cv` |
+| `characteristic` | `equal_percentage` | `equal_percentage` or `linear` |
+| `rangeability` | 50 | Equal percentage: full capacity over the capacity just open |
+| `stroke_s` | 10 | Full stroke at the rate limit, s |
+| `lag_s` | 0.5 | First-order lag of the actuator, s (0: rate limit only) |
+| `fail` | `closed` | Where it goes while the command reads below 0 % (`float32` only): `closed`, `open`, `last` |
+| `opening` | 100 | Opening held while `position` is unbound (a hand valve), % |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `position` | AO | no | Position command, 0 to 100 % |
+| `position_fb` | AI | no | Stem position feedback (ZT), 0 to 100 % |
+
+Faults: `jammed`, `slow`, `drift`, `noisy`.
+A jammed stem sticks; `slow` scales the rate limit; `drift` and `noisy` act on the feedback.

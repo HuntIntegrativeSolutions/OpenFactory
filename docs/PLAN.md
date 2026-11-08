@@ -350,7 +350,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `counter_display` | value (AO) | — | Seven-segment readout on a panel, `digits` 1-6 (default 4), `decimals`; dashes when the value does not fit. | 2 (2.5b) |
 | `tank` | — | level (AI), hi_sw, lo_sw, temp (AI) | Node of the flow network (ADR-0005): volume from the solved flows, level from volume and footprint; overflows at its height; well mixed. | 3 (3.2) |
 | `valve_onoff` | open | opened, closed | Link of the flow network: opens or closes over `travel_s` (held command, reverses mid-travel); `Q = Kv·x·√Δp`, `cv` or `kv`. | 3 (3.2) |
-| `valve_control` | position (AO) | position_fb (AI) | First-order lag, stroke time. | 3 |
+| `valve_control` | position (AO) | position_fb (AI) | Link of the flow network: stem with rate limit and first-order lag, linear or equal-percentage characteristic, fail position (float32 only), a hand valve when unbound. | 3 (3.2) |
 | `pump` | run, speed (opt) | running, flow (AI) | Flow = f(speed, head) with a simple curve. | 3 |
 | `pipe` | — | — | Link of the flow network: Darcy-Weisbach resistance at a fixed friction factor plus minor losses, the drawn length by default, optional check valve. | 3 (3.2) |
 | `supply` | — | — | Node of known head (ADR-0005): a fixed gauge pressure, never exhausted; delivers at its temperature and ingredient. | 3 (3.2) |
@@ -1863,6 +1863,11 @@ runs the sorting program against it; a box visibly gets pushed.
         with `valve_control`); faults jammed, slow, stuck. Link-to-link ends are now drawn at
         the downstream link's origin from both sides. Viewer: a body with a handle that turns
         along the line as it opens, joined to its ends. `tests/unit/test_valve_onoff.py` (4).
+      - `valve_control`: stem with `stroke_s` rate limit and `lag_s` lag, ZT feedback,
+        equal-percentage (closes tight) or linear; `fail` closed/open/last below 0 %, which
+        acts only under `float32` (int16_scaled clamps at 0), as `docs/components.md` says
+        (ruled 2026-11-07); unbound it is a hand valve at `opening`. Faults jammed, slow,
+        drift, noisy. `tests/unit/test_valve_control.py` (10).
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
       *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
       `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,

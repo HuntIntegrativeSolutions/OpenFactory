@@ -1124,10 +1124,39 @@ class ValveOnOff(_Valve):
     io: ValveOnOffIO
 
 
+class ValveControlIO(IOModel):
+    position: AoTag | None = port("AO", "Position command", range=(0.0, 100.0), units="%")
+    position_fb: AiTag | None = port("AI", "Position feedback", range=(0.0, 100.0), units="%")
+
+
+class ValveControl(_Valve):
+    """Origin: the valve body. A throttling valve positioned by an AO, or a hand valve held at
+    ``opening`` when the AO is unbound (PLAN 3.2, ADR-0005 decision 6)."""
+
+    type: Literal["valve_control"]
+    characteristic: Literal["equal_percentage", "linear"] = Field(
+        "equal_percentage", description="Inherent flow characteristic."
+    )
+    rangeability: Annotated[float, Field(gt=1)] = Field(
+        50.0, description="Equal percentage: full capacity over the capacity just open."
+    )
+    stroke_s: PositiveFloat = Field(10.0, description="Full stroke at the rate limit, s.")
+    lag_s: float = Field(0.5, ge=0, description="First-order lag of the actuator, s.")
+    fail: Literal["closed", "open", "last"] = Field(
+        "closed", description="Where it goes while the command reads below 0 % (float32 only)."
+    )
+    opening: Annotated[float, Field(ge=0, le=100)] = Field(
+        100.0, description="Opening held while position is unbound (a hand valve), %."
+    )
+    io: ValveControlIO = Field(default_factory=ValveControlIO)
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
-PROCESS_TYPES = frozenset({"tank", "supply", "drain", "junction", "pipe", "valve_onoff"})
+PROCESS_TYPES = frozenset(
+    {"tank", "supply", "drain", "junction", "pipe", "valve_onoff", "valve_control"}
+)
 #: Process types that are links of the flow network (``from``/``to``).
-LINK_TYPES = frozenset({"pipe", "valve_onoff"})
+LINK_TYPES = frozenset({"pipe", "valve_onoff", "valve_control"})
 
 
 Component = Annotated[
@@ -1153,7 +1182,8 @@ Component = Annotated[
     | Drain
     | Junction
     | Pipe
-    | ValveOnOff,
+    | ValveOnOff
+    | ValveControl,
     Field(discriminator="type"),
 ]
 
@@ -1184,6 +1214,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Junction,
         Pipe,
         ValveOnOff,
+        ValveControl,
     )
 }
 
@@ -1344,6 +1375,7 @@ SceneComponent = Annotated[
     | Annotated[Junction, Tag("junction")]
     | Annotated[Pipe, Tag("pipe")]
     | Annotated[ValveOnOff, Tag("valve_onoff")]
+    | Annotated[ValveControl, Tag("valve_control")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]

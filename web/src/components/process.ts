@@ -229,3 +229,19 @@ export const valveOnoff: Builder = (g) => {
     },
   };
 };
+
+/** Control valve: body, a taller actuator, and a handle that turns with the stem position. */
+export const valveControl: Builder = (g) => {
+  const v = valve(g, 0.24);
+  v.update(0);
+  return {
+    id: g.id,
+    type: g.type,
+    object: v.group,
+    labelAnchor: new THREE.Vector3(g.position[0], g.position[1] + 0.45, g.position[2]),
+    pickable: [],
+    update(state) {
+      v.update(Number(state.position ?? 0) / 100);
+    },
+  };
+};

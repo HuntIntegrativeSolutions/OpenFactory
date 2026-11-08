@@ -840,6 +840,7 @@
               "supply",
               "tank",
               "turntable",
+              "valve_control",
               "valve_onoff"
             ]
           },
@@ -4297,6 +4298,224 @@
       "title": "TurntableIO",
       "type": "object"
     },
+    "ValveControl": {
+      "additionalProperties": false,
+      "description": "Origin: the valve body. A throttling valve positioned by an AO, or a hand valve held at\n``opening`` when the AO is unbound (PLAN 3.2, ADR-0005 decision 6).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "from": {
+          "description": "Upstream end: TANK.nozzle, a supply, drain, junction, or link.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Downstream end, as `from`.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "To",
+          "type": "string"
+        },
+        "cv": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow coefficient, US gpm at a 1 psi drop. Default 10 (with no kv).",
+          "title": "Cv"
+        },
+        "kv": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow coefficient, m³/h at a 1 bar drop, instead of cv (Kv = 0.865 Cv).",
+          "title": "Kv"
+        },
+        "type": {
+          "const": "valve_control",
+          "title": "Type",
+          "type": "string"
+        },
+        "characteristic": {
+          "default": "equal_percentage",
+          "description": "Inherent flow characteristic.",
+          "enum": [
+            "equal_percentage",
+            "linear"
+          ],
+          "title": "Characteristic",
+          "type": "string"
+        },
+        "rangeability": {
+          "default": 50.0,
+          "description": "Equal percentage: full capacity over the capacity just open.",
+          "exclusiveMinimum": 1,
+          "title": "Rangeability",
+          "type": "number"
+        },
+        "stroke_s": {
+          "default": 10.0,
+          "description": "Full stroke at the rate limit, s.",
+          "exclusiveMinimum": 0,
+          "title": "Stroke S",
+          "type": "number"
+        },
+        "lag_s": {
+          "default": 0.5,
+          "description": "First-order lag of the actuator, s.",
+          "minimum": 0,
+          "title": "Lag S",
+          "type": "number"
+        },
+        "fail": {
+          "default": "closed",
+          "description": "Where it goes while the command reads below 0 % (float32 only).",
+          "enum": [
+            "closed",
+            "open",
+            "last"
+          ],
+          "title": "Fail",
+          "type": "string"
+        },
+        "opening": {
+          "default": 100.0,
+          "description": "Opening held while position is unbound (a hand valve), %.",
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Opening",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/ValveControlIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "from",
+        "to",
+        "type"
+      ],
+      "title": "ValveControl",
+      "type": "object"
+    },
+    "ValveControlIO": {
+      "additionalProperties": false,
+      "properties": {
+        "position": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AoTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Position command",
+          "title": "Position",
+          "x-io-kind": "AO",
+          "x-range": [
+            0.0,
+            100.0
+          ],
+          "x-units": "%"
+        },
+        "position_fb": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Position feedback",
+          "title": "Position Fb",
+          "x-io-kind": "AI",
+          "x-range": [
+            0.0,
+            100.0
+          ],
+          "x-units": "%"
+        }
+      },
+      "title": "ValveControlIO",
+      "type": "object"
+    },
     "ValveOnOff": {
       "additionalProperties": false,
       "description": "Origin: the valve body. An on/off valve with a travel time (PLAN 3.2).",
@@ -4591,6 +4810,9 @@
           },
           {
             "$ref": "#/$defs/ValveOnOff"
+          },
+          {
+            "$ref": "#/$defs/ValveControl"
           },
           {
             "$ref": "#/$defs/CompositeInstance"
