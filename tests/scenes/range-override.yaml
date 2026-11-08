@@ -1,0 +1,33 @@
+# PLAN 3.7 test scene (tests only, not a shipped scene): per-tag range on analog bindings. The
+# belt's speed command is scaled 0 to 50 % instead of the port's 0 to 100 %, so a PLC at full
+# scale runs the belt at half speed; the distance sensor's reading is scaled 0 to 0.5 m instead
+# of 0 to its 0.8 m beam, so the PLC gets finer counts over the range it cares about.
+# int16_scaled, so the lockfile records both ranges. Training and demo use only. Not a
+# safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: range-override
+  description: Analog tags scaled over their own ranges, set on the binding.
+  seed: 5
+plc:
+  protocol: modbus_tcp
+  analog_encoding: int16_scaled
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Range Test Belt Conveyor
+    position: [0, 0, 0]
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_01_RUN_DO
+      speed: {tag: CONV_01_SPD_AO, range: [0, 50]}
+  - id: DS_01
+    type: distance_sensor
+    description: Range Test Box Height Distance Sensor
+    position: [1.5, 0.6, 0]
+    axis: "-y"
+    beam_length: 0.8
+    io:
+      distance: {tag: DS_01_DIST_AI, range: [0, 0.5]}

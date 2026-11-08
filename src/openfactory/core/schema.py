@@ -137,9 +137,36 @@ class DoTagSpec(TagSpec):
     )
 
 
-class AiTagSpec(TagSpec):
+class AnalogRange(StrictModel):
+    """Per-tag range and units on an analog binding (PLAN 3.7): ``range: [lo, hi]`` is the tag's
+    engineering span, which ``int16_scaled`` scales raw 0 to 32767 across (ADR-0003) and the
+    lockfile, I/O list, CONTEXT.md and Ignition export carry, in place of the port's own range.
+    It is in the port's units: the component still reads and writes the port's physical value,
+    so ``speed: {tag: X_AO, range: [0, 50]}`` makes full scale 50 %. ``units`` names the units
+    of a port that declares none of its own; it cannot convert a port's units."""
+
+    range: tuple[float, float] | None = Field(
+        None,
+        description="[lo, hi]: the tag's engineering range in the port's units, in place of the "
+        "port's own (PLAN 3.7).",
+    )
+    units: Annotated[str, StringConstraints(min_length=1, max_length=16)] | None = Field(
+        None, description="Engineering units of a port that declares none (PLAN 3.7)."
+    )
+
+    @model_validator(mode="after")
+    def _range_ordered(self) -> AnalogRange:
+        if self.range is not None and not self.range[0] < self.range[1]:
+            raise ValueError(
+                f"{getattr(self, 'tag', '')}: range [lo, hi] needs lo < hi".lstrip(": ")
+            )
+        return self
+
+
+class AiTagSpec(TagSpec, AnalogRange):
     """An AI binding. With ``window: [lo, hi]`` the port feeds a DI tag instead, true while the
-    value is inside the window (a distance sensor's switching window, PLAN 2.17)."""
+    value is inside the window (a distance sensor's switching window, PLAN 2.17). ``range`` and
+    ``units`` set the tag's own span (PLAN 3.7; not with ``window``, which makes it a DI)."""
 
     tag: Annotated[
         str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]*_(?:AI|DI)$", max_length=TAG_MAX_LEN)
@@ -156,10 +183,14 @@ class AiTagSpec(TagSpec):
             )
         if self.window is not None and self.window[0] > self.window[1]:
             raise ValueError(f"{self.tag}: window [lo, hi] needs lo <= hi")
+        if self.window is not None and (self.range is not None or self.units is not None):
+            raise ValueError(f"{self.tag}: a windowed binding is a DI and takes no range or units")
         return self
 
 
-class AoTagSpec(TagSpec):
+class AoTagSpec(TagSpec, AnalogRange):
+    """An AO binding; ``range`` and ``units`` set the tag's own span (PLAN 3.7)."""
+
     tag: _tag_name("AO")  # type: ignore[valid-type]
     initial: float | None = Field(
         None,
@@ -188,6 +219,19 @@ def binding_address(value: str | TagSpec) -> int | None:
 def binding_initial(value: str | TagSpec) -> bool | float | None:
     """The startup value of a DO/AO port binding, or None for the kind's default."""
     return getattr(value, "initial", None)
+
+
+def binding_port(spec: PortSpec, value: str | TagSpec) -> PortSpec:
+    """The port as its tag sees it: the binding's ``range`` and ``units`` (PLAN 3.7) in place of
+    the port's own. Components keep the port's own (:func:`instance_ports`)."""
+    rng, units = getattr(value, "range", None), getattr(value, "units", None)
+    if rng is None and units is None:
+        return spec
+    return replace(
+        spec,
+        range=(float(rng[0]), float(rng[1])) if rng is not None else spec.range,
+        units=units if units is not None else spec.units,
+    )
 
 
 @dataclass(frozen=True)
@@ -1258,6 +1302,15 @@ class Scene(StrictModel):
                             f"{where}: `from` entry {ref!r} is not a DI port of {cid} "
                             f"(DI ports: {di_ports})"
                         )
+            comp = next(c for c in self.components if c.id == binding.component_id)
+            own_spec = instance_ports(comp).get(binding.port.name)
+            own = own_spec.units if own_spec else None
+            units = getattr(own_spec.value(comp.io), "units", None) if own_spec else None  # type: ignore[attr-defined]
+            if units is not None and own and units != own:
+                raise ValueError(
+                    f"{where}: units {units!r}: {binding.component_id}.{binding.port.name} is in "
+                    f"{own}, and a binding cannot convert units (give range in {own})"
+                )
             rng = binding.port.range
             if (
                 isinstance(binding.initial, float)
@@ -1284,7 +1337,7 @@ class Scene(StrictModel):
                             binding_tag(value),
                             "DI" if transform.window is not None else spec.kind,
                             comp.id,
-                            spec,
+                            binding_port(spec, value),
                             binding_address(value),
                             binding_initial(value),
                             transform,

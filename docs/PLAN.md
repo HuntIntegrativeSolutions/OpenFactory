@@ -261,7 +261,9 @@ Rules:
 - A binding is a tag name or a mapping `{tag: NAME, address: N, initial: V}`; both keys are
   optional. DI bindings may also carry signal transforms, `invert`, `on_delay_s`, `off_delay_s`,
   and `combine: or|and` with `from: [A.port, B.port]`; DO bindings may carry `invert`; an AI port
-  may bind a `_DI` tag with `window: [lo, hi]` (PLAN 2.17). `address` pins the tag's Modbus address (§6.1, ADR-0004). `initial`, on DO and AO tags
+  may bind a `_DI` tag with `window: [lo, hi]` (PLAN 2.17). AI and AO bindings may set the tag's
+  own `range: [lo, hi]` (in the port's units) and, on a port without units, `units` (PLAN 3.7).
+  `address` pins the tag's Modbus address (§6.1, ADR-0004). `initial`, on DO and AO tags
   only, seeds the I/O table at startup before any PLC write: `true`/`false` for a DO, an
   engineering value inside the port's range for an AO (a value outside it fails at load). The
   PLC's first write replaces it, and `openfactory run --force TAG=VALUE` overrides it. Without
@@ -1814,8 +1816,20 @@ runs the sorting program against it; a box visibly gets pushed.
       number and revision.
 - [ ] 3.5 MQTT Sparkplug B publisher (`protocols/sparkplug.py`) tested against Ignition 8.3 MQTT Engine
 - [ ] 3.6 Trend endpoint `/api/history?tag=` ring buffer so the viewer can show a 10-minute trend
-- [ ] 3.7 Per-tag `range` and `units` override in the binding form (closes the §8 analog-range risk)
+- [x] 3.7 Per-tag `range` and `units` override in the binding form (closes the §8 analog-range risk)
       before any 3.2 component lands.
+      *Done (2026-11-07):* an AI or AO binding may carry `range: [lo, hi]`, the tag's
+      engineering span in the port's units (`AnalogRange` in `core/schema.py`), and `units`,
+      for a port that declares none (a port's own units cannot be converted: a load error says
+      so). The tag takes them, so `int16_scaled` scaling, the lockfile's `ranges:`, the I/O
+      list CSV, CONTEXT.md and the Ignition export all show the binding's span; the component
+      keeps its port's physical range, so `speed: {tag: X_AO, range: [0, 50]}` runs a belt at
+      half speed at full scale. Load errors: lo not below hi, `range`/`units` with `window`, an
+      `initial` outside the binding's range. `tests/scenes/range-override.yaml` (belt speed 0
+      to 50 %, a distance 0 to 0.5 m on a 0.8 m beam) and `tests/unit/test_range_override.py`:
+      raw 32767 decodes to 50 % and the belt runs 0.25 m/s; 0.25 m encodes to 16384; the CSV
+      and CONTEXT.md rows show `0 to 50` and `0 to 0.5`; the lockfile records both, and a
+      changed range fails it. Every shipped scene's CSV, lockfiles and CONTEXT.md unchanged.
 - [ ] 3.8 Process demo kit (`kits/tank-level-pid/`) built with 2.14, including PlantPAx L5X and
       Perspective faceplates from 3.4.
 
@@ -2066,7 +2080,7 @@ runs the sorting program against it; a box visibly gets pushed.
 | Scene format freezes at public release | Breaking changes after 4.5 strand users' scenes | Schema versioning and `migrate` (4.7) before release |
 | Physics or protocol library API churn | Parity or Modbus binding silently breaks on upgrade | Pinned minors; quarterly upgrade task (4.9) reruns parity and round-trip tests |
 | Users mistake it for virtual commissioning or safety validation | Reputational and liability exposure | "What OpenFactory is not" statement (4.8) in README, docs site, and every scene header |
-| Analog range is per port type, not per tag | Milestone 3 transmitters and tanks need their own engineering ranges (for example 0–2 m level, 0–150 °C), which `int16_scaled` scaling (ADR-0003) depends on | Add a per-tag range override in the scene before Milestone 3 component work starts |
+| Analog range is per port type, not per tag | Milestone 3 transmitters and tanks need their own engineering ranges (for example 0–2 m level, 0–150 °C), which `int16_scaled` scaling (ADR-0003) depends on | Closed by 3.7 (2026-11-07): `range` and `units` on an analog binding |
 
 ---
 

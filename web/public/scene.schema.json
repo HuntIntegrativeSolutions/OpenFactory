@@ -2,8 +2,46 @@
   "$defs": {
     "AiTagSpec": {
       "additionalProperties": false,
-      "description": "An AI binding. With ``window: [lo, hi]`` the port feeds a DI tag instead, true while the\nvalue is inside the window (a distance sensor's switching window, PLAN 2.17).",
+      "description": "An AI binding. With ``window: [lo, hi]`` the port feeds a DI tag instead, true while the\nvalue is inside the window (a distance sensor's switching window, PLAN 2.17). ``range`` and\n``units`` set the tag's own span (PLAN 3.7; not with ``window``, which makes it a DI).",
       "properties": {
+        "range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[lo, hi]: the tag's engineering range in the port's units, in place of the port's own (PLAN 3.7).",
+          "title": "Range"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Engineering units of a port that declares none (PLAN 3.7).",
+          "title": "Units"
+        },
         "tag": {
           "maxLength": 40,
           "pattern": "^[A-Z][A-Z0-9_]*_(?:AI|DI)$",
@@ -57,7 +95,46 @@
     },
     "AoTagSpec": {
       "additionalProperties": false,
+      "description": "An AO binding; ``range`` and ``units`` set the tag's own span (PLAN 3.7).",
       "properties": {
+        "range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[lo, hi]: the tag's engineering range in the port's units, in place of the port's own (PLAN 3.7).",
+          "title": "Range"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Engineering units of a port that declares none (PLAN 3.7).",
+          "title": "Units"
+        },
         "tag": {
           "maxLength": 40,
           "pattern": "^[A-Z][A-Z0-9_]*_AO$",
