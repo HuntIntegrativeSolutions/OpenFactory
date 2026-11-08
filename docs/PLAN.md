@@ -1118,20 +1118,34 @@ runs the sorting program against it; a box visibly gets pushed.
         baseline, so step and calibration move together on one CPU. Under CPU contention (4
         or 8 busy processes) both move within about +-15 %, so contention cannot tell
         calibrations apart.
-      - So the calibration is what scales differently: it follows clock speed but not CPU
-        type. The step is almost all Python-level calls and attribute access
-        (`_room_ahead`, `_convey`, `_record`, `_local`); the calibration's time goes mostly
-        into C builtins (`insort`, `sin`, `hypot`).
+      - So the calibration is what scales differently between those two runs: it scaled less
+        than the step. Two causes fit, and the runs cannot tell them apart: a different runner
+        CPU, or a different Python build, since 2007a8e also moved CI from `setup-uv@v6` to
+        `@v7`, which may install another CPython 3.11 build. Either fits the mechanism: the
+        step is almost all Python-level calls and attribute access (`_room_ahead`,
+        `_convey`, `_record`, `_local`), and the calibration's time goes mostly into C
+        builtins (`insort`, `sin`, `hypot`). The annotation's new `python` and `cpu` fields
+        separate the two.
       - The candidate fix, not yet gated: `calibrate_tick` in `tools/bench.py`, a frozen
         miniature of a tick's own operations (200 parts on four belts, methods, `getattr`,
         bisect, tuples; it imports nothing from `src/`, so code changes still move the
         score). It is timed in the same blocks, and the annotation carries `candidate_ms`,
         `candidate_score`, `cpu` and `python`. Whether it carries across CPU types can only
         be seen on more than one runner CPU, so the gate and the baseline are unchanged.
-        *Switch when:* CI runs on at least two runner CPU models put the candidate's score
-        within 10 % of its local value while the current one is not; then
-        `--update` with the candidate as the gate. If neither carries, regenerate the
-        baseline from a CI run's annotation.
+        Candidate scores here: 0.0686 (load-200) and 0.0736 (queue-200), against 0.0264 and
+        0.0270 for the current calibration in the same run.
+      - The Python build alone moves the score. On this CPU, two runs each under uv's CPython
+        3.11.15 (Clang) and the system's 3.12.3 (GCC): the current score moved -7 % (load-200,
+        0.0255/0.0259 to 0.0242/0.0233) and -13 % (queue-200, 0.0270/0.0276 to
+        0.0243/0.0235); the candidate moved -4 % and -11 % (0.0678/0.0711 to 0.0671/0.0658;
+        0.0717/0.0728 to 0.0652/0.0639). So an interpreter change could account for about half
+        of the CI drift, and the candidate tracks it only a little better: not yet a fix. If
+        `python` differs between the next CI runs, pinning the CI interpreter
+        (`python-version` to an exact patch) may matter more than the calibration.
+        *Switch rule, proposed for ruling:* when CI runs on at least two runner CPU models or
+        Python builds put the candidate's score within 10 % of those local values while the
+        current one is not, `--update` with the candidate as the gate. If neither carries,
+        regenerate the baseline from a CI run's annotation.
       **60 fps at 200 parts (ruled 2026-11-04):** measure frame time on the software renderer
       and on the owner's machine through a number in the stats overlay; instance part meshes and
       merge static belt geometry if needed; report before and after.

@@ -24,15 +24,16 @@ readable through the public check-runs API without signing in, unlike the job lo
 CI runner measured can be read back and, if the runner's score differs from this machine's,
 committed as the baseline (PLAN 2.9).
 
-The calibration does not carry across CPU types (PLAN 2.9, "Bench drift", 2026-11-07). Two CI
-runs of the same step code measured the step 0.63 times as long on the second runner, but the
-calibration only 0.76 times, so the score fell 17-19 %; on this machine both move together. The
-step is almost all Python-level calls and attribute access; the calibration's time goes mostly
-into C builtins (``insort``, ``sin``, ``hypot``). A candidate, ``calibrate_tick``, is a frozen
+The calibration did not carry between two CI runs (PLAN 2.9, "Bench drift", 2026-11-07): with
+the same step code the step took 0.63 times as long on the second, but the calibration only
+0.76 times, so the score fell 17-19 %; on one machine both move together. The runs differ in
+runner CPU and possibly in Python build (setup-uv v6 to v7). The step is almost all
+Python-level calls and attribute access; the calibration's time goes mostly into C builtins
+(``insort``, ``sin``, ``hypot``). A candidate, ``calibrate_tick``, is a frozen
 miniature of a tick's own operations (small objects, methods, ``getattr``, bisect, tuples). It
 is timed in the same blocks and reported beside the gate (``candidate_ms``, ``candidate_score``)
 with the CPU model and Python build, but not gated, until CI runs on more than one runner CPU
-show which score holds.
+or Python build show which score holds.
 """
 
 from __future__ import annotations
