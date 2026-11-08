@@ -80,4 +80,5 @@ nav:
       - research/libraries.md
       - research/landscape.md
       - research/jolt-vs-rapier.md
+      - research/flownet-design.md
   - Roadmap: PLAN.md
