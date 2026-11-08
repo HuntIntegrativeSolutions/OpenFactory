@@ -18,7 +18,7 @@ import {
   selectorSwitch,
   stopper,
 } from "./devices";
-import { drain, junction, pipe, supply, tank, valveControl, valveOnoff } from "./process";
+import { drain, junction, pipe, pump, supply, tank, valveControl, valveOnoff } from "./process";
 import type { BuildContext, Builder, ComponentView } from "./types";
 
 export const BUILDERS: Record<string, Builder> = {
@@ -46,6 +46,7 @@ export const BUILDERS: Record<string, Builder> = {
   pipe,
   valve_onoff: valveOnoff,
   valve_control: valveControl,
+  pump,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {

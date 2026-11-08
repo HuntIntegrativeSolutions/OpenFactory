@@ -759,3 +759,38 @@ exercise that needs it must use `float32`.
 
 Faults: `jammed`, `slow`, `drift`, `noisy`.
 A jammed stem sticks; `slow` scales the rate limit; `drift` and `noisy` act on the feedback.
+
+### `pump`
+
+Origin: the pump centre; it is drawn joined to its ends. A centrifugal pump from its suction
+(`from`) to its discharge (`to`). Its head at flow `q` and relative speed `ω` is
+`ω²·h0 − c·ω^(2−n)·qⁿ` (EPANET 2.2's pump curve), fitted to `curve`'s three points or, from the
+design point alone, EPANET's single-point curve: shutoff head 133 % of `design_head_m`, zero head
+at twice `design_flow_m3h`. It delivers where its curve meets the system: the static lift plus
+the losses of the pipes and valves in line. It never runs backwards, and a pump that cannot lift
+against its discharge delivers nothing. While `run` is on its speed ramps to `speed` (unbound:
+100 %) over `ramp_s` from stopped to full, and back down when it is off. `running` follows `run`
+in the same tick (the contactor's auxiliary contact). A pump drawing from a tank that runs dry
+delivers nothing until it refills (`dry` in its state). `openfactory lint` warns (W210) when the
+design head is below the static lift between the tanks or supplies its ends reach.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `from` | required | Suction end, as on `pipe` |
+| `to` | required | Discharge end, as on `pipe` |
+| `design_flow_m3h` | 6 | Design point flow, m³/h |
+| `design_head_m` | 8 | Design point head, m |
+| `curve` | none | Three points `[[m³/h, m], ...]`, the first at zero flow, instead of the single-point curve |
+| `ramp_s` | 1.0 | Time from stopped to full speed, s |
+| `efficiency` | 0.6 | Pump efficiency, for shaft power (a `vfd_motor`'s overload) |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `run` | DO | yes | Run command |
+| `speed` | AO | no | Speed command, 0 to 100 % |
+| `running` | DI | no | Running feedback (auxiliary contact) |
+| `flow` | AI | no | Flow delivered, m³/h, 0 to the curve's zero-head flow |
+
+Faults: `jammed`, `slow`, `stuck_on`, `stuck_off`, `drift`, `noisy`.
+A jammed pump is seized (no flow, `running` honest); `slow` is a worn impeller (head times
+`factor`); stuck faults hold `running`; `drift` and `noisy` act on `flow`.

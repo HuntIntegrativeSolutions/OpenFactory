@@ -44,6 +44,10 @@ centre line, and the plate height after the loader's default.
   any folder above it that names the mesh's path relative to that file. A mesh in a scene is a
   third-party asset until someone says whose it is and under what terms.
 
+- ``W210`` a pump whose design head is below the static lift it faces (PLAN 3.2, ADR-0005
+  decision 9): the head of the node its discharge reaches minus the head of the node its suction
+  reaches, following runs of links joined end to end (junctions with two links), at the initial
+  levels. It cannot deliver its design flow there, and may deliver nothing.
 - ``W211`` a tank whose level would move faster than 10 ticks can follow (PLAN 3.2, ADR-0005
   decision 9): its time constant, area over the slope of its flow against level through the
   resistances (pipes, valves) that join it directly to a node of known head, at its initial
@@ -294,6 +298,19 @@ def _flow_findings(loaded: Any) -> list[Finding]:
             ids = ", ".join(n.id for n in members)
             text = f"flow network part {ids}: no tank, supply or open drain, so its heads are "
             out.append(Finding("error", "E103", text + "undefined and nothing flows"))
+    for comp in loaded.components:
+        if comp.type != "pump":
+            continue
+        up = _reach(net, comp.link, comp.link.start)
+        down = _reach(net, comp.link, comp.link.end)
+        if up is None or down is None:
+            continue
+        lift = net._end_head(down) - net._end_head(up)
+        design = comp.config.design_head_m
+        if design < lift:
+            out.append(Finding("warning", "W210", f"{comp.id}: design head {design:g} m is below "
+                               f"the static lift it faces, {lift:.3g} m ({up[0].id} to "
+                               f"{down[0].id}); it cannot deliver its design flow"))  # fmt: skip
     for tank in net.tanks:
         slope = 0.0
         for lk in net.links:
@@ -312,6 +329,22 @@ def _flow_findings(loaded: Any) -> list[Finding]:
                                    "tick to tick. Make the tank larger or its connection "
                                    "tighter"))  # fmt: skip
     return out
+
+
+def _reach(net: Any, link: Any, end: tuple[Any, str | None]) -> tuple[Any, str | None] | None:
+    """The node of known head reached from ``link``'s ``end`` through junctions joining exactly
+    two links (a run of links end to end), or None."""
+    seen = {id(link)}
+    while not end[0].known_head:
+        attached = [lk for lk in net.links if end[0] in (lk.start[0], lk.end[0])]
+        if len(attached) != 2:
+            return None
+        nxt = next((lk for lk in attached if id(lk) not in seen), None)
+        if nxt is None:
+            return None
+        seen.add(id(nxt))
+        end = nxt.end if nxt.start[0] is end[0] else nxt.start
+    return end
 
 
 def has_license_record(mesh: Path) -> bool:

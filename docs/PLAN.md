@@ -351,7 +351,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `tank` | — | level (AI), hi_sw, lo_sw, temp (AI) | Node of the flow network (ADR-0005): volume from the solved flows, level from volume and footprint; overflows at its height; well mixed. | 3 (3.2) |
 | `valve_onoff` | open | opened, closed | Link of the flow network: opens or closes over `travel_s` (held command, reverses mid-travel); `Q = Kv·x·√Δp`, `cv` or `kv`. | 3 (3.2) |
 | `valve_control` | position (AO) | position_fb (AI) | Link of the flow network: stem with rate limit and first-order lag, linear or equal-percentage characteristic, fail position (float32 only), a hand valve when unbound. | 3 (3.2) |
-| `pump` | run, speed (opt) | running, flow (AI) | Flow = f(speed, head) with a simple curve. | 3 |
+| `pump` | run, speed (opt) | running, flow (AI) | Link of the flow network: EPANET's power curve (single point: 133 % shutoff, twice the design flow), affinity with speed, forward only, starves on a dry tank. | 3 (3.2) |
 | `pipe` | — | — | Link of the flow network: Darcy-Weisbach resistance at a fixed friction factor plus minor losses, the drawn length by default, optional check valve. | 3 (3.2) |
 | `supply` | — | — | Node of known head (ADR-0005): a fixed gauge pressure, never exhausted; delivers at its temperature and ingredient. | 3 (3.2) |
 | `drain` | — | — | Open: a node at atmospheric head taking what arrives. With a demand (and an optional schedule): a junction drawing it pressure-dependently (ADR-0005 decision 4). | 3 (3.2) |
@@ -1868,6 +1868,11 @@ runs the sorting program against it; a box visibly gets pushed.
         acts only under `float32` (int16_scaled clamps at 0), as `docs/components.md` says
         (ruled 2026-11-07); unbound it is a hand valve at `opening`. Faults jammed, slow,
         drift, noisy. `tests/unit/test_valve_control.py` (10).
+      - `pump`: single-point or three-point curve, run and speed with `ramp_s`, `running` the
+        auxiliary contact, `flow` over 0 to the zero-head flow, `dry`, shaft power for the VFD;
+        faults jammed (seized), slow (worn), stuck, drift, noisy. Lint W210 (design head below
+        the static lift its ends reach) lands with it. Viewer: volute and motor, green running.
+        `tests/unit/test_pump.py` (8).
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
       *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
       `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,

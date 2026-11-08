@@ -245,3 +245,36 @@ export const valveControl: Builder = (g) => {
     },
   };
 };
+
+/**
+ * Pump: a volute and its motor at the origin, joined to its ends; the volute is green while the
+ * pump runs, and the coupling turns with its speed.
+ */
+export const pump: Builder = (g) => {
+  const group = new THREE.Group();
+  group.name = g.id;
+  runs(group, linkPoints(g), 0.03);
+  const at = new THREE.Vector3(g.position[0], g.position[1], g.position[2]);
+  const volute = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.1, 24), new THREE.MeshStandardMaterial({ color: ISA101.stopped, roughness: 0.5, metalness: 0.3 }));
+  volute.name = "volute";
+  volute.rotation.x = Math.PI / 2;
+  volute.position.copy(at);
+  const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.26, 20), new THREE.MeshStandardMaterial({ color: NEUTRAL.frame, roughness: 0.6 }));
+  motor.rotation.x = Math.PI / 2;
+  motor.position.copy(at).add(new THREE.Vector3(0, 0, -0.2));
+  const coupling = box([0.16, 0.03, 0.03], NEUTRAL.structure, [at.x, at.y, at.z - 0.06]);
+  coupling.name = "coupling";
+  const base = box([0.3, 0.04, 0.5], NEUTRAL.frame, [at.x, at.y - 0.15, at.z - 0.1]);
+  group.add(volute, motor, coupling, base);
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: at.clone().add(new THREE.Vector3(0, 0.3, 0)),
+    pickable: [],
+    update(state) {
+      setColor(volute, state.running ? ISA101.running : ISA101.stopped);
+      coupling.rotation.z += (Number(state.speed ?? 0) / 100) * 0.6;
+    },
+  };
+};

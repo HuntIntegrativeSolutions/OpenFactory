@@ -832,6 +832,7 @@
               "pick_and_place",
               "pilot_light",
               "pipe",
+              "pump",
               "pushbutton",
               "pusher",
               "roller_conveyor",
@@ -2979,6 +2980,238 @@
       "title": "PlcConfig",
       "type": "object"
     },
+    "Pump": {
+      "additionalProperties": false,
+      "description": "Origin: the pump centre. A centrifugal pump on EPANET's power curve (PLAN 3.2).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "from": {
+          "description": "Upstream end: TANK.nozzle, a supply, drain, junction, or link.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Downstream end, as `from`.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "To",
+          "type": "string"
+        },
+        "type": {
+          "const": "pump",
+          "title": "Type",
+          "type": "string"
+        },
+        "design_flow_m3h": {
+          "default": 6.0,
+          "description": "Design point flow, m³/h.",
+          "exclusiveMinimum": 0,
+          "title": "Design Flow M3H",
+          "type": "number"
+        },
+        "design_head_m": {
+          "default": 8.0,
+          "description": "Design point head, m.",
+          "exclusiveMinimum": 0,
+          "title": "Design Head M",
+          "type": "number"
+        },
+        "curve": {
+          "anyOf": [
+            {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Three points [[m³/h, m], ...], the first at zero flow, instead of the single-point curve (shutoff 133 % of the design head, zero head at twice the design flow).",
+          "title": "Curve"
+        },
+        "ramp_s": {
+          "default": 1.0,
+          "description": "Time from stopped to full speed, s.",
+          "exclusiveMinimum": 0,
+          "title": "Ramp S",
+          "type": "number"
+        },
+        "efficiency": {
+          "default": 0.6,
+          "description": "Pump efficiency, for shaft power (a vfd_motor's overload).",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Efficiency",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/PumpIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "from",
+        "to",
+        "type",
+        "io"
+      ],
+      "title": "Pump",
+      "type": "object"
+    },
+    "PumpIO": {
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Run command",
+          "title": "Run",
+          "x-io-kind": "DO"
+        },
+        "speed": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AoTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Speed command",
+          "title": "Speed",
+          "x-io-kind": "AO",
+          "x-range": [
+            0.0,
+            100.0
+          ],
+          "x-units": "%"
+        },
+        "running": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Running feedback",
+          "title": "Running",
+          "x-io-kind": "DI"
+        },
+        "flow": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flow",
+          "title": "Flow",
+          "x-io-kind": "AI",
+          "x-range-from": "max_flow_m3h",
+          "x-units": "m³/h"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "PumpIO",
+      "type": "object"
+    },
     "Pushbutton": {
       "additionalProperties": false,
       "properties": {
@@ -4813,6 +5046,9 @@
           },
           {
             "$ref": "#/$defs/ValveControl"
+          },
+          {
+            "$ref": "#/$defs/Pump"
           },
           {
             "$ref": "#/$defs/CompositeInstance"

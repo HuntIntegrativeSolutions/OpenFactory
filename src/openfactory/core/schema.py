@@ -1151,12 +1151,63 @@ class ValveControl(_Valve):
     io: ValveControlIO = Field(default_factory=ValveControlIO)
 
 
+class PumpIO(IOModel):
+    run: DoTag = port("DO", "Run command", required=True)
+    speed: AoTag | None = port("AO", "Speed command", range=(0.0, 100.0), units="%")
+    running: DiTag | None = port("DI", "Running feedback")
+    flow: AiTag | None = port("AI", "Flow", units="m³/h", range_from="max_flow_m3h")
+
+
+class Pump(_Link):
+    """Origin: the pump centre. A centrifugal pump on EPANET's power curve (PLAN 3.2)."""
+
+    type: Literal["pump"]
+    design_flow_m3h: PositiveFloat = Field(6.0, description="Design point flow, m³/h.")
+    design_head_m: PositiveFloat = Field(8.0, description="Design point head, m.")
+    curve: list[tuple[Annotated[float, Field(ge=0)], Annotated[float, Field(ge=0)]]] | None = Field(
+        None,
+        description="Three points [[m³/h, m], ...], the first at zero flow, instead of the "
+        "single-point curve (shutoff 133 % of the design head, zero head at twice the "
+        "design flow).",
+    )
+    ramp_s: PositiveFloat = Field(1.0, description="Time from stopped to full speed, s.")
+    efficiency: Annotated[float, Field(gt=0, le=1)] = Field(
+        0.6, description="Pump efficiency, for shaft power (a vfd_motor's overload)."
+    )
+    io: PumpIO
+
+    @model_validator(mode="after")
+    def _curve(self) -> Pump:
+        pts = self.curve
+        if pts is not None and (
+            len(pts) != 3
+            or pts[0][0] != 0
+            or not pts[0][0] < pts[1][0] < pts[2][0]
+            or not pts[0][1] > pts[1][1] > pts[2][1]
+        ):
+            raise ValueError(
+                f"{self.id}: curve needs three points of rising flow and falling head, the "
+                "first at zero flow"
+            )
+        return self
+
+    def points_m3s(self) -> list[tuple[float, float]]:
+        """The curve's points in m³/s and m (one point: the design point)."""
+        pts = self.curve or [(self.design_flow_m3h, self.design_head_m)]
+        return [(q / 3600, h) for q, h in pts]
+
+    @property
+    def max_flow_m3h(self) -> float:
+        """Flow at zero head: the flow port's range."""
+        return self.curve[2][0] if self.curve else 2 * self.design_flow_m3h
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
 PROCESS_TYPES = frozenset(
-    {"tank", "supply", "drain", "junction", "pipe", "valve_onoff", "valve_control"}
+    {"tank", "supply", "drain", "junction", "pipe", "valve_onoff", "valve_control", "pump"}
 )
 #: Process types that are links of the flow network (``from``/``to``).
-LINK_TYPES = frozenset({"pipe", "valve_onoff", "valve_control"})
+LINK_TYPES = frozenset({"pipe", "valve_onoff", "valve_control", "pump"})
 
 
 Component = Annotated[
@@ -1183,7 +1234,8 @@ Component = Annotated[
     | Junction
     | Pipe
     | ValveOnOff
-    | ValveControl,
+    | ValveControl
+    | Pump,
     Field(discriminator="type"),
 ]
 
@@ -1215,6 +1267,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Pipe,
         ValveOnOff,
         ValveControl,
+        Pump,
     )
 }
 
@@ -1376,6 +1429,7 @@ SceneComponent = Annotated[
     | Annotated[Pipe, Tag("pipe")]
     | Annotated[ValveOnOff, Tag("valve_onoff")]
     | Annotated[ValveControl, Tag("valve_control")]
+    | Annotated[Pump, Tag("pump")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]
