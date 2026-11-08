@@ -141,7 +141,7 @@ A powered belt. Origin: centre of the infeed end at belt-top height; flow is loc
 
 | Port | Kind | Required | Meaning |
 |---|---|---|---|
-| `run` | DO | yes | Run command |
+| `run` | DO | yes, unless a `vfd_motor` drives it | Run command |
 | `speed` | AO, 0 to 100 % | no | Speed command; unbound means 100 % |
 | `running` | DI | no | Running feedback; follows `run` in the same tick |
 | `reverse` | DO | with `bidirectional` | Reverse command: with `run`, flow toward the infeed end |
@@ -176,7 +176,7 @@ Driven rollers. Same origin, ports, and speed behavior as `belt_conveyor`.
 
 | Port | Kind | Required | Meaning |
 |---|---|---|---|
-| `run` | DO | yes | Run command |
+| `run` | DO | yes, unless a `vfd_motor` drives it | Run command |
 | `speed` | AO, 0 to 100 % | no | Speed command |
 | `running` | DI | no | Running feedback |
 | `reverse` | DO | with `bidirectional` | Reverse command, as `belt_conveyor` |
@@ -788,7 +788,7 @@ design head is below the static lift between the tanks or supplies its ends reac
 
 | Port | Kind | Required | Meaning |
 |---|---|---|---|
-| `run` | DO | yes | Run command |
+| `run` | DO | yes, unless a `vfd_motor` drives it | Run command |
 | `speed` | AO | no | Speed command, 0 to 100 % |
 | `running` | DI | no | Running feedback (auxiliary contact) |
 | `flow` | AI | no | Flow delivered, m³/h, 0 to the curve's zero-head flow |
@@ -852,3 +852,37 @@ Faults: `drift`, `noisy`, `stuck_on`, `stuck_off`, `signal_fail`.
 loop: `pv` reads the NAMUR NE 43 failure level, 3.6 mA (a 40th of the span below the range) or,
 with `high=1`, 21 mA (1/16 above it). Under `float32` the PLC sees those values; under
 `int16_scaled` the raw count clamps at 0 or 32767, so it sees the bottom or the top of the range.
+
+### `vfd_motor`
+
+Origin: the drive cabinet. A variable-frequency drive and its motor turning one pump or one belt
+or roller conveyor (`drives`) in place of that component's `run` and `speed` ports, which must be
+left unbound: the PLC commands the drive. While `run` is on and the drive is healthy, its output
+ramps to `speed` at 100 % per `accel_s` (and back to 0 when off); `speed_fb` reports the output,
+`running` that the drive runs. The driven component runs while the drive does, at the drive's
+output as its speed command, from its next step.
+
+Overload: the motor's load (a pump's shaft power, `ρ·g·q·H / efficiency`; a conveyor's is not
+modelled) above `rated_kw` for `trip_s` trips the drive: `fault` latches, the output drops to 0
+at once (the motor coasts) and `running` goes false. A rising edge on `reset` clears the fault;
+with `reset` unbound, turning `run` off clears it. The drive runs again on the next `run`.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `drives` | required | The pump, `belt_conveyor` or `roller_conveyor` it drives (one drive each) |
+| `rated_kw` | 2.2 | Motor rating, kW |
+| `trip_s` | 5.0 | Time above rated power before it trips, s |
+| `accel_s` | 3.0 | Ramp from 0 to 100 % speed, s |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `run` | DO | yes | Run command |
+| `speed` | AO | yes | Speed command, 0 to 100 % |
+| `reset` | DO | no | Fault reset (rising edge) |
+| `running` | DI | no | Drive running |
+| `speed_fb` | AI | no | Output speed, 0 to 100 % |
+| `fault` | DI | no | Drive fault (overload trip), latched |
+
+Faults: `jammed`, `drift`.
+A jammed motor stalls and draws twice its rating, so the drive trips after `trip_s`; `drift`
+acts on `speed_fb`.

@@ -18,7 +18,7 @@ import {
   selectorSwitch,
   stopper,
 } from "./devices";
-import { drain, heater, junction, pipe, pump, supply, tank, transmitter, valveControl, valveOnoff } from "./process";
+import { drain, heater, junction, pipe, pump, supply, tank, transmitter, valveControl, valveOnoff, vfdMotor } from "./process";
 import type { BuildContext, Builder, ComponentView } from "./types";
 
 export const BUILDERS: Record<string, Builder> = {
@@ -49,6 +49,7 @@ export const BUILDERS: Record<string, Builder> = {
   pump,
   heater,
   transmitter,
+  vfd_motor: vfdMotor,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {

@@ -308,3 +308,22 @@ export const transmitter: Builder = (g) => {
   group.add(head, neck);
   return { id: g.id, type: g.type, object: group, labelAnchor: new THREE.Vector3(0, 0.2, 0), pickable: [], update() {} };
 };
+
+/** Drive cabinet: origin at the cabinet; its door green while the drive runs, red when tripped. */
+export const vfdMotor: Builder = (g) => {
+  const group = placed(g);
+  const cabinet = box([0.4, 0.8, 0.3], NEUTRAL.frame, [0, 0.4, 0]);
+  const door = box([0.3, 0.5, 0.02], ISA101.stopped, [0, 0.45, 0.16]);
+  door.name = "door";
+  group.add(cabinet, door);
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, 0.95, 0),
+    pickable: [],
+    update(state) {
+      setColor(door, state.fault ? ISA101.alarmHigh : state.running ? ISA101.running : ISA101.stopped);
+    },
+  };
+};

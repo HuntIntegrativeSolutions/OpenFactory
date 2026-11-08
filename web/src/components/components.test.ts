@@ -188,4 +188,13 @@ describe("process components (PLAN 3.2)", () => {
     expect(color(volute)).toBe(ISA101.running);
     expect(volute.position.toArray()).toEqual([1, 0.5, 0]);
   });
+
+  it("colours a drive's door green running and alarm red when tripped", () => {
+    const view = buildComponent(geom("vfd_motor"), ctx);
+    const door = view.object.getObjectByName("door") as THREE.Mesh;
+    view.update({ running: true, fault: false });
+    expect(color(door)).toBe(ISA101.running);
+    view.update({ running: false, fault: true });
+    expect(color(door)).toBe(ISA101.alarmHigh);
+  });
 });

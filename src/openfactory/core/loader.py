@@ -237,6 +237,11 @@ def build(
     if logic is not None:
         logic.prime()
     flownet = build_flownet(components)
+    by_id = {c.id: c for c in components}
+    for comp in components:
+        bind = getattr(comp, "bind", None)
+        if bind is not None:
+            bind(by_id)  # a vfd_motor finds what it drives (a conveyor has no flow network)
     return LoadedScene(
         scene,
         io,

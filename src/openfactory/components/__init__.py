@@ -28,6 +28,7 @@ from openfactory.components import (
     turntable,
     valve_control,
     valve_onoff,
+    vfd_motor,
 )
 
 __all__ = [
@@ -58,4 +59,5 @@ __all__ = [
     "turntable",
     "valve_control",
     "valve_onoff",
+    "vfd_motor",
 ]

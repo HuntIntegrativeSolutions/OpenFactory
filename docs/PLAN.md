@@ -358,7 +358,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `junction` | — | — | Node whose head is solved; its pressure read through a transmitter. | 3 (3.2) |
 | `heater` | on, power (AO) | temp (AI) | Immersion heater in one tank: rated power times the command while covered, less the tank's UA loss; well mixed. | 3 (3.2) |
 | `transmitter` | — | pv (AI) | Level, temperature, fraction, flow or pressure over its range, with lag, seeded noise, and faults including NE 43 `signal_fail`. | 3 (3.2) |
-| `vfd_motor` | run, speed (AO) | running, speed_fb (AI), fault | Drives a conveyor or pump; trip on overload. | 3 |
+| `vfd_motor` | run, speed (AO), reset | running, speed_fb (AI), fault | Drives a pump or a belt/roller conveyor in place of its run and speed; ramps; trips on overload (a pump's shaft power above rating for `trip_s`), reset by edge. | 3 (3.2) |
 
 #### Milestone 1 behavior as built
 
@@ -1826,7 +1826,7 @@ runs the sorting program against it; a box visibly gets pushed.
       3.2 and 3.3 add them. `tools/bench.py` gains `flow-net` (the solver alone on 8 tanks, 24
       links and 8 junctions, 0.5 to 0.85 ms a tick here; baseline score 0.0072, added without
       regenerating the conveyor entries).
-- [ ] 3.2 Components: `tank`, `valve_onoff`, `valve_control`, `pump`, `pipe`, `heater`, `transmitter`,
+- [x] 3.2 Components: `tank`, `valve_onoff`, `valve_control`, `pump`, `pipe`, `heater`, `transmitter`,
       `vfd_motor`
       *Amended 2026-11-07 (ADR-0005):* plus `supply`, `drain` and `junction` (decision 2), with
       the schemas of `docs/research/flownet-design.md` as accepted: link ends may name another
@@ -1882,7 +1882,17 @@ runs the sorting program against it; a box visibly gets pushed.
         per quantity (ports gain `units_from`); `lag_s`, seeded `noise`; faults drift, noisy,
         stuck (top or bottom of range) and the new `signal_fail` (NE 43: 3.6 mA, or 21 mA with
         `high=1`; clamped under int16_scaled). Viewer: a field transmitter head.
-        `tests/unit/test_transmitter.py` (9).
+        `tests/unit/test_transmitter.py` (10).
+      - `vfd_motor`: drives a pump or a belt or roller conveyor through `driven` (the target's
+        `run` and `speed` stay unbound: the scene gives `run` a placeholder while the target
+        validates and removes it, so the pump and belt schemas are unchanged and undriven ones
+        still require `run`); ramp, speed feedback, overload trip on a pump's shaft power,
+        reset by edge or by run off; faults jammed (stall, trips) and drift. Viewer: a
+        cabinet, door green running and red tripped. `tests/unit/test_vfd_motor.py` (9).
+      *Done (2026-11-07):* all eleven types, one commit each, each with its unit tests, a
+      `docs/components.md` section, a viewer builder and web test where it draws state, and
+      a PLAN §5 row; the decision 9 lint (E102, E103, W210, W211) with the first components
+      that needed it. Every existing scene, trace, recording, kit and CONTEXT.md unchanged.
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
       *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
       `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,

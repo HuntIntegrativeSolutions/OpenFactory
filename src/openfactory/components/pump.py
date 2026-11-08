@@ -12,7 +12,8 @@ head delivers nothing (a check valve).
 While ``run`` (DO) is on, its speed ramps to ``speed`` (AO, 0 to 100 %; unbound: 100 %) over
 ``ramp_s`` from stopped to full; off, it ramps down the same way. ``running`` (DI) follows ``run``
 in the same tick, the contactor's auxiliary contact, as on ``belt_conveyor``; ``flow`` (AI, m³/h,
-0 to the curve's zero-head flow) is what it delivers. A pump drawing from a tank that runs dry
+0 to the curve's zero-head flow) is what it delivers. A ``vfd_motor`` may drive it instead of its
+``run`` and ``speed`` ports, which are then left unbound. A pump drawing from a tank that runs dry
 delivers nothing until the tank refills (``dry`` in its state). Shaft power for a
 ``vfd_motor``'s overload: ``ρ·g·q·H / efficiency``.
 
@@ -53,8 +54,6 @@ class Pump(Component):
         )
         self.speed = 0.0  # relative, 0 to 1
         self.run = False
-        #: Set by a vfd_motor driving this pump: (run, speed 0 to 1), in place of the ports.
-        self.drive: tuple[bool, float] | None = None
         self.points: list[list[float]] = []
 
     def flow_links(self) -> list[flownet.Link]:
@@ -64,11 +63,9 @@ class Pump(Component):
         self.points = link_points(by_id, self, [list(self.config.position)])
 
     def step(self, dt: float) -> None:
-        if self.drive is not None:
-            self.run, target = self.drive
-        else:
-            self.run = bool(self.read("run", default=False))
-            target = float(self.read("speed", default=100.0)) / 100 if self.run else 0.0
+        # a vfd_motor drives run and speed through ``driven`` (Component.read)
+        self.run = bool(self.read("run", default=False))
+        target = float(self.read("speed", default=100.0)) / 100 if self.run else 0.0
         target = min(max(target, 0.0), 1.0) if self.run else 0.0
         step = dt / self.config.ramp_s  # type: ignore[attr-defined]
         if self.speed < target:

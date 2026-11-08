@@ -1297,9 +1297,37 @@ class Transmitter(ComponentBase):
         return self.units or MEASURE_UNITS[self.quantity()]
 
 
+class VfdMotorIO(IOModel):
+    run: DoTag = port("DO", "Run command", required=True)
+    speed: AoTag = port("AO", "Speed command", required=True, range=(0.0, 100.0), units="%")
+    reset: DoTag | None = port("DO", "Fault reset (rising edge)")
+    running: DiTag | None = port("DI", "Running feedback")
+    speed_fb: AiTag | None = port("AI", "Speed feedback", range=(0.0, 100.0), units="%")
+    fault: DiTag | None = port("DI", "Drive fault (overload trip)")
+
+
+class VfdMotor(ComponentBase):
+    """Origin: the drive cabinet. A variable-frequency drive and its motor, driving one pump or
+    one belt or roller conveyor in place of its run and speed ports (PLAN 3.2)."""
+
+    type: Literal["vfd_motor"]
+    drives: ComponentId = Field(description="The pump or belt/roller conveyor it drives.")
+    rated_kw: PositiveFloat = Field(2.2, description="Motor rating, kW.")
+    trip_s: PositiveFloat = Field(5.0, description="Time above rated power before it trips, s.")
+    accel_s: PositiveFloat = Field(3.0, description="Ramp from 0 to 100 % speed, s.")
+    io: VfdMotorIO
+
+
+#: Types a vfd_motor can drive.
+VFD_TARGETS = frozenset({"pump", "belt_conveyor", "roller_conveyor"})
+#: Stands in for a VFD-driven component's run binding while it is validated, then is removed.
+VFD_PLACEHOLDER = "VFD_DRIVEN_PLACEHOLDER_DO"
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
 PROCESS_TYPES = frozenset(
     {
+        "vfd_motor",
         "transmitter",
         "tank",
         "supply",
@@ -1343,7 +1371,8 @@ Component = Annotated[
     | ValveControl
     | Pump
     | Heater
-    | Transmitter,
+    | Transmitter
+    | VfdMotor,
     Field(discriminator="type"),
 ]
 
@@ -1378,6 +1407,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Pump,
         Heater,
         Transmitter,
+        VfdMotor,
     )
 }
 
@@ -1542,6 +1572,7 @@ SceneComponent = Annotated[
     | Annotated[Pump, Tag("pump")]
     | Annotated[Heater, Tag("heater")]
     | Annotated[Transmitter, Tag("transmitter")]
+    | Annotated[VfdMotor, Tag("vfd_motor")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]
@@ -1651,6 +1682,37 @@ class Scene(StrictModel):
     #: Part ports driven by a composite's logic: block (PLAN 2.5b).
     _logic: list[Any] = PrivateAttr(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _vfd_targets(cls, data: Any) -> Any:
+        """A component a ``vfd_motor`` drives takes run and speed from the drive, so it binds
+        neither (PLAN 3.2): its required ``run`` gets a placeholder while it is validated, and
+        :meth:`_clear_vfd_placeholders` removes it."""
+        if not isinstance(data, dict) or not isinstance(data.get("components"), list):
+            return data
+        raw = [c for c in data["components"] if isinstance(c, dict)]
+        drives = [c.get("drives") for c in raw if c.get("type") == "vfd_motor"]
+        if not drives:
+            return data
+        out = []
+        for comp in data["components"]:
+            if (
+                isinstance(comp, dict)
+                and comp.get("id") in drives
+                and comp.get("type") in VFD_TARGETS
+            ):
+                io = dict(comp.get("io") or {})
+                bound = [p for p in ("run", "speed") if io.get(p) is not None]
+                if bound:
+                    ports = " and io.".join(bound)
+                    raise ValueError(
+                        f"{comp['id']}: a vfd_motor drives it, so leave io.{ports} unbound "
+                        "(the PLC commands the drive)"
+                    )
+                comp = {**comp, "io": {**io, "run": VFD_PLACEHOLDER}}
+            out.append(comp)
+        return {**data, "components": out}
+
     @model_validator(mode="after")
     def _expand_composites(self, info: ValidationInfo) -> Scene:
         """Runs first: every later check sees only built-in components (PLAN 2.16). Library
@@ -1679,6 +1741,32 @@ class Scene(StrictModel):
                                   replace(t, sources=refs, expr=text),
                                   getattr(binding, "exam", None) == "switch")  # fmt: skip
             self._computed.setdefault(after, []).append(computed)
+        return self
+
+    @model_validator(mode="after")
+    def _clear_vfd_placeholders(self) -> Scene:
+        """Remove the run placeholders :meth:`_vfd_targets` added, and check each drive's target."""
+        by_id = {c.id: c for c in self.components}
+        driven: dict[str, str] = {}
+        for comp in self.components:
+            if comp.type != "vfd_motor":
+                continue
+            target = by_id.get(comp.drives)  # type: ignore[attr-defined]
+            if target is None or target.type not in VFD_TARGETS:
+                what = f"a {target.type}" if target is not None else "no component"
+                raise ValueError(
+                    f"{comp.id}.drives: {comp.drives!r} is {what}; a vfd_motor drives a "  # type: ignore[attr-defined]
+                    f"{', '.join(sorted(VFD_TARGETS))}"
+                )
+            if target.id in driven:
+                raise ValueError(f"{target.id} is driven by both {driven[target.id]} and {comp.id}")
+            driven[target.id] = comp.id
+        for comp in self.components:
+            io = getattr(comp, "io", None)
+            if getattr(io, "run", None) == VFD_PLACEHOLDER:
+                if comp.id not in driven:
+                    raise ValueError(f"{comp.id}: {VFD_PLACEHOLDER} is reserved")
+                object.__setattr__(io, "run", None)
         return self
 
     def library_files(self) -> list[Path]:
