@@ -18,6 +18,7 @@ programs is a safety-rated program.
 | `two-lane-merge` | [Two-lane merge](two-lane-merge.md) | Two lanes merged through a turntable that turns to take side-lane boxes, alternating lanes; spring-raised stoppers | belt conveyors, turntable, stoppers, photo eyes |
 | `palletizer-lite` | [Palletizer lite](palletizer-lite.md) | A gantry forms single layers of four on a layer-forming belt; a nine-step pick sequence and a placement count | belt conveyors, pick and place, stoppers, photo eyes |
 | `tank-level-onoff` | [Tank level, on/off](tank-level-onoff.md) | A pump started at a low level switch and stopped at a high one keeps a head tank filled; water circulates through a hand valve | tanks, pump, pipes, hand valve |
+| `tank-level-pid` | [Tank level, PID](tank-level-pid.md) | A PI loop through OpenPLC's PID block holds a tank's level through a control valve across a load step | supply, control valve, tank, level transmitter, consumer |
 
 Every scene runs the same three ways:
 

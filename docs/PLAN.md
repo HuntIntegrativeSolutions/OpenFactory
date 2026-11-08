@@ -1914,6 +1914,18 @@ runs the sorting program against it; a box visibly gets pushed.
         overflowed or ran dry); a no-seal-in program fails `max_starts` (9 starts in 60 s) and
         a stuck LSH fails `never_overflow` (54 L). Building it found the solver's status
         deadlock (fixed in `fb02691`). Not run under OpenPLC: Docker is down.
+      - `tank-level-pid`: a supply through an equal-percentage control valve into a tank on a
+        stand, a consumer stepping 2 to 4.5 m³/h at 20 s, a level transmitter; the PLC's PI
+        (OpenPLC's PID block: error PV − SP, so KP is negative; LIMIT, an LSH interlock holding
+        it in manual, a 1 s manual startup for a bumpless start) holds 1.0 m. Checks pass at
+        60 s and 300 s (0.989 to 1.009 m in 0.98 to 1.02 after 45 s). As proposed, a P-only
+        loop fails the band (0.956 to 0.966 m). An on/off program on this rate-limited valve
+        passes (0.985 to 1.008 m): the 10 s stroke turns it into integral action, so a level
+        band cannot fail it; noted in the guide, with a valve-wear check as the way to grade
+        it. The repeating demand schedule first proposed could not separate PI from P-only (a
+        PI transient is as large as a P offset), so the scene has one load step and a band from
+        45 s. `TIME_TO_REAL` units in OpenPLC's runtime are marked to verify on the first
+        OpenPLC run.
 - [ ] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
       `/plantpax-*` skills) + Perspective faceplates. AOI parameter names in this repository come
       only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002

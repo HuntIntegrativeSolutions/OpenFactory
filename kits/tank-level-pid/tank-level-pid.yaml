@@ -1,0 +1,80 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 3.3: a level loop closed through the PLC. A supply fills a tank through a control valve, a
+# consumer draws from it and steps its demand from 2 to 4.5 m³/h at 20 s, and the PLC holds the
+# level at 1.0 m with a PI loop: the level transmitter in, the valve position out.
+# Guide: docs/guides/tank-level-pid.md. PLC programs: examples/openplc/tank-level-pid.st
+# (OpenPLC, its PID function block) and examples/pyplc/tank-level-pid.py (stand-in script).
+openfactory: "0.1"
+scene:
+  name: tank-level-pid
+  description: A PI loop in the PLC holds a tank's level through a control valve while the demand steps.
+  author: HIS Controls
+  seed: 11
+  units: meters
+plc:
+  protocol: modbus_tcp
+checks:                            # PLAN 3.3: `openfactory test` grades a program against these
+  duration_s: 60
+  level_within: {TK_01: {band: [0.98, 1.02], after_s: 45}}   # settled after the load step
+  never_overflow: [TK_01]
+components:
+  - id: SUP_01
+    type: supply
+    description: Process Water Supply
+    position: [-1.6, 3.8, 0]
+    pressure_bar: 2.0
+  - id: FV_01
+    type: valve_control
+    description: Tank Inlet Level Control Valve
+    position: [-0.8, 3.8, 0]
+    from: SUP_01
+    to: PIPE_01
+    kv: 6
+    characteristic: equal_percentage
+    stroke_s: 10
+    lag_s: 0.5
+    fail: closed
+    io:
+      position: {tag: FV_01_POS_AO, initial: 66}
+      position_fb: FV_01_ZT_AI
+  - id: PIPE_01
+    type: pipe
+    description: Tank Inlet Line
+    position: [-0.4, 3.8, 0]
+    from: FV_01
+    to: TK_01.top
+    diameter: 0.04
+  - id: TK_01
+    type: tank
+    description: Level Control Tank
+    position: [0, 1.5, 0]
+    diameter: 0.6
+    height: 2.0
+    initial_level: 1.0
+    hi_level: 1.8
+    io:
+      hi_sw: TK_01_LSH_DI
+  - id: LT_01
+    type: transmitter
+    description: Level Control Tank Level Transmitter
+    position: [0.38, 2.5, 0]
+    measures: TK_01.level
+    range: [0, 2.0]
+    lag_s: 1.0
+    noise: 0.002
+    io:
+      pv: TK_01_LT_AI
+  - id: PIPE_02
+    type: pipe
+    description: Tank Outlet Line
+    position: [0.8, 1.5, 0]
+    from: TK_01.bottom
+    to: DR_01
+    diameter: 0.04
+    path: [[1.4, 1.55, 0]]
+  - id: DR_01
+    type: drain
+    description: Process Water Consumer
+    position: [1.4, 0.3, 0]
+    schedule: [[0, 2.0], [20, 4.5]]   # the load step: 2 m³/h, then 4.5 from 20 s on
+    required_head_m: 1.0

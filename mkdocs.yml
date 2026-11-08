@@ -66,6 +66,7 @@ nav:
       - guides/two-lane-merge.md
       - guides/palletizer-lite.md
       - guides/tank-level-onoff.md
+      - guides/tank-level-pid.md
   - Reference:
       - scene-format.md
       # Filled in by tools/mkdocs_hooks.py with one page per registered component type.
