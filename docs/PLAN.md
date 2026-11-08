@@ -1778,7 +1778,7 @@ runs the sorting program against it; a box visibly gets pushed.
       beyond rather than balanced on the seam (the phone-demo fault).
 
 ### Milestone 3 — Process simulation (target 3–4 weeks)
-- [ ] 3.1 Flow network solver (`core/flownet.py`): directed graph of sources, pipes, valves, pumps,
+- [x] 3.1 Flow network solver (`core/flownet.py`): directed graph of sources, pipes, valves, pumps,
       tanks; per-tick mass balance.
       *Amended 2026-11-07 (ADR-0005, decision 1; the "pressure-free model first" is dropped):*
       an incompressible network solved quasi-statically every tick with the Global Gradient
@@ -1792,6 +1792,37 @@ runs the sorting program against it; a box visibly gets pushed.
       *Done when (ruled 2026-11-07):* the tests of the proposal's §8 pass: volume balance every
       tick, two valves in series, a pump against rising head, convergence within the cap on
       every shipped scene, and a `flow-` scene in `tools/bench.py`.
+      *Done (2026-11-07):* `src/openfactory/core/flownet.py`. Tanks, fixed-head nodes (supplies,
+      open drains) and junctions; resistances (`r·q·|q|`, linear below 3.6 L/h), pumps
+      (EPANET's power curve, single-point curves at 133 % shutoff and twice the design flow,
+      forward only) and a demand junction's virtual link (Wagner's pressure-dependent demand).
+      Link ends resolve to a node, a tank nozzle or another link (an implicit junction `A>B`).
+      The Global Gradient solve, status checks (pumps and check valves against reverse flow, a
+      dry nozzle against outflow, reopening when heads drive the allowed way), junctions cut
+      off from every known head idle; forward Euler with the tick split where a level falls to
+      a nozzle it drains through; overflow counted; temperature and ingredient fractions by
+      exact balances, plus heater power. Water at 20 °C from NIST SRD 69 (998.21 kg/m³, Cp
+      4.1841 kJ/(kg·K)). `LoadedScene` gains `flownet`, built from components' `flow_nodes()`
+      and `flow_links()` (none yet: every existing scene has none and is unchanged), solved
+      right after the kinematics.
+      Tests (`tests/unit/test_flownet.py`, 23): a tank draining through a valve follows
+      Torricelli's law within 0.5 % to 95 % of its drain time and stops at empty; a pump into
+      a tank's bottom meets its curve every tick (gain = lift + pipe loss within 2 mm), its
+      flow falls monotonically and stops at the shutoff head; two valves in series pass
+      `sqrt(Δh / (r1 + r2))` and the implicit junction sits at the first valve's drop; parallel
+      pipes split as `sqrt(r2 / r1)`; a pump running its sump dry splits the tick, stops and
+      restarts on refill; a check valve stops reverse flow; a nozzle above the surface passes
+      no outflow and an inlet above it falls freely; a full tank overflows and counts it; a
+      demand drain draws its demand and slows to nothing, never pulling a head below its
+      outlet; the volume balance closes to 1e-9 m³ every tick for 300 s on a six-link plant
+      operated by hand, with junction continuity to 1e-12 m³/s and no cap hit; two runs are
+      identical float for float; every flowing link meets its head equation within 1 mm;
+      mixing and heater power are exact balances; bad networks fail to build with the reason.
+      Removing the tick split or breaking the continuity equation fails them. "Convergence
+      within the cap on every shipped scene" iterates every scene with a network, none until
+      3.2 and 3.3 add them. `tools/bench.py` gains `flow-net` (the solver alone on 8 tanks, 24
+      links and 8 junctions, 0.5 to 0.85 ms a tick here; baseline score 0.0072, added without
+      regenerating the conveyor entries).
 - [ ] 3.2 Components: `tank`, `valve_onoff`, `valve_control`, `pump`, `pipe`, `heater`, `transmitter`,
       `vfd_motor`
       *Amended 2026-11-07 (ADR-0005):* plus `supply`, `drain` and `junction` (decision 2), with

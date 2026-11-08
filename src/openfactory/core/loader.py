@@ -41,6 +41,7 @@ from pathlib import Path
 
 import openfactory.components  # noqa: F401 - registers the built-in types and their defaults
 from openfactory.core.component import REGISTRY, Component, ComponentRegistry
+from openfactory.core.flownet import Network
 from openfactory.core.geometry import to_world
 from openfactory.core.heartbeat import HEARTBEAT_TAG, heartbeat_tag, heartbeat_value
 from openfactory.core.iotable import IOTable, Tag, Writer
@@ -74,6 +75,9 @@ class LoadedScene:
     transforms: TransformStage | None = None
     #: Composite logic: blocks (PLAN 2.5b), evaluated before the components each tick.
     logic: LogicStage | None = None
+    #: The process flow network (PLAN 3.1, ADR-0005), solved right after the kinematics each
+    #: tick; None when no component has flow elements.
+    flownet: Network | None = None
     #: Custom meshes (PLAN 2.15) that resolved to a usable file: component id -> file.
     meshes: dict[str, Path] = field(default_factory=dict)
     #: Exam mode (PLAN 2.11): ``exam: switch`` tag -> the operator switch's position, written
@@ -98,10 +102,12 @@ class LoadedScene:
             self.io.set(tag, on, Writer.SIM)
 
     def step(self, dt: float) -> None:
-        """One tick: move parts, step components in scene order, then write transformed tags.
-        Never reads the clock."""
+        """One tick: move parts, solve the flow network (PLAN 3.1), step components in scene
+        order, then write transformed tags. Never reads the clock."""
         self.world.tick = self.tick + 1  # parts spawned in this tick carry its number
         self.kinematics.step(dt)
+        if self.flownet is not None:
+            self.flownet.step(dt)  # with the actuator states from the end of the last tick
         if self.logic is not None:
             self.logic.step()  # composite logic: values from the end of the last tick
         for comp in self.components:
@@ -230,6 +236,7 @@ def build(
     logic = LogicStage.build(io, components, scene.logic_drives()) if scene.logic_drives() else None
     if logic is not None:
         logic.prime()
+    flownet = build_flownet(components)
     return LoadedScene(
         scene,
         io,
@@ -240,7 +247,18 @@ def build(
         transforms=transforms,
         meshes=meshes,
         logic=logic,
+        flownet=flownet,
     )
+
+
+def build_flownet(components: list[Component]) -> Network | None:
+    """The flow network of the components that have flow elements (``flow_nodes()`` and
+    ``flow_links()``, PLAN 3.2), in scene order; None when none has."""
+    nodes = [n for c in components for n in getattr(c, "flow_nodes", list)()]
+    links = [lk for c in components for lk in getattr(c, "flow_links", list)()]
+    if not nodes and not links:
+        return None
+    return Network.build(nodes, links)
 
 
 def load(path: str | Path, registry: ComponentRegistry | None = None) -> LoadedScene:

@@ -56,6 +56,11 @@ SCENES = {
     "load-200": REPO / "tests" / "scenes" / "load-200.yaml",
     "queue-200": REPO / "tests" / "scenes" / "queue-200.yaml",
 }
+#: Flow network benches (PLAN 3.1): the solver alone, on a network built here (``flow_network``),
+#: measured the same way. ``flow-net``: four process units, each a supply, a control valve, two
+#: tanks, a gravity pipe, a pump feeding a junction that splits to a demand drain and back
+#: through a check valve, and a hand valve to an open drain: 8 tanks, 24 links, 8 junctions.
+FLOWS = ("flow-net",)
 DT = 0.02
 WARM_TICKS = 3000
 BLOCKS = 40
@@ -230,17 +235,67 @@ def machine() -> dict[str, str]:
     return {"cpu": cpu, "python": python}
 
 
-def measure(scene: Path) -> dict[str, float]:
-    """Mean step and calibration times (ms) over interleaved blocks, and their ratio."""
+def flow_network(units: int = 4):  # type: ignore[no-untyped-def]
+    """The ``flow-net`` bench network (see ``FLOWS``), built from the solver's own classes."""
+    from openfactory.core import flownet as fn
+
+    nodes: list = []  # type: ignore[type-arg]
+    links: list = []  # type: ignore[type-arg]
+    shutoff, b, n = fn.pump_curve([(4 / 3600, 6.0)])
+    for u in range(units):
+        s = f"_{u}"
+        nodes += [
+            fn.Tank(f"TK_A{s}", 2.0, 0.5, 2.0, 0.3, {"bottom": 0.0, "top": 2.0}),
+            fn.Tank(f"TK_B{s}", 0.0, 0.8, 2.0, 0.96, {"bottom": 0.0, "top": 2.0}),
+            fn.FixedHead(f"SUP{s}", 0.0, pressure_bar=2.0),
+            fn.FixedHead(f"DR{s}", -1.0),
+            fn.Junction(f"USE{s}", 0.5, demand=1.5 / 3600),
+            fn.Junction(f"J{s}", 0.5),
+        ]
+        links += [
+            fn.Resistance(f"FV{s}", f"SUP{s}", f"TK_A{s}.top", r=fn.valve_resistance(4, 0.5)),
+            fn.Resistance(
+                f"PA{s}", f"TK_A{s}.bottom", f"TK_B{s}.top", r=fn.pipe_resistance(5, 0.03, 0.02, 2)
+            ),
+            fn.Pump(
+                f"P{s}",
+                f"TK_B{s}.bottom",
+                f"J{s}",
+                shutoff=shutoff,
+                coefficient=b,
+                exponent=n,
+                running=True,
+            ),  # fmt: skip
+            fn.Resistance(f"PB{s}", f"J{s}", f"USE{s}", r=fn.pipe_resistance(3, 0.025, 0.02, 1)),
+            fn.Resistance(
+                f"PC{s}",
+                f"J{s}",
+                f"TK_A{s}.top",
+                r=fn.pipe_resistance(6, 0.02, 0.02, 3),
+                check_valve=True,
+            ),  # fmt: skip
+            fn.Resistance(f"HV{s}", f"TK_B{s}.bottom", f"DR{s}", r=fn.valve_resistance(1, 0.3)),
+        ]
+    return fn.Network.build(nodes, links)
+
+
+def measure(scene: Path | str) -> dict[str, float]:
+    """Mean step and calibration times (ms) over interleaved blocks, and their ratio. ``scene``
+    is a scene file, or the name of a flow network bench (``FLOWS``)."""
     from openfactory.core.iotable import Writer
     from openfactory.core.loader import load
 
-    loaded = load(scene)
-    for tag in loaded.io.tags():
-        if tag.kind == "DO":
-            loaded.io.set(tag.name, True, Writer.PLC)
+    if isinstance(scene, str):
+        net = flow_network()
+        step, count = net.step, lambda: len(net.links)
+    else:
+        loaded = load(scene)
+        for tag in loaded.io.tags():
+            if tag.kind == "DO":
+                loaded.io.set(tag.name, True, Writer.PLC)
+        step, count = loaded.step, lambda: len(loaded.world.parts)
     for _ in range(WARM_TICKS):
-        loaded.step(DT)
+        step(DT)
     step_s, cal_s, cand_s = [], [], []
     for _ in range(BLOCKS):
         t0 = time.perf_counter()
@@ -251,7 +306,7 @@ def measure(scene: Path) -> dict[str, float]:
         cand_s.append(time.perf_counter() - t0)
         t0 = time.perf_counter()
         for _ in range(BLOCK_TICKS):
-            loaded.step(DT)
+            step(DT)
         step_s.append((time.perf_counter() - t0) / BLOCK_TICKS)
     step_ms, cal_ms = statistics.fmean(step_s) * 1000, statistics.fmean(cal_s) * 1000
     cand_ms = statistics.fmean(cand_s) * 1000
@@ -259,7 +314,7 @@ def measure(scene: Path) -> dict[str, float]:
         "score": round(step_ms / cal_ms, 4),
         "step_ms": round(step_ms, 3),
         "calibration_ms": round(cal_ms, 3),
-        "parts": len(loaded.world.parts),
+        "parts": count(),  # a flow bench: its links
         "candidate_ms": round(cand_ms, 3),  # not gated (see the module docstring)
         "candidate_score": round(step_ms / cand_ms, 4),
         **machine(),
@@ -285,6 +340,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--update", action="store_true", help=f"rewrite {BASELINE.name}")
     args = parser.parse_args(argv)
     results = {name: measure(path) for name, path in SCENES.items()}
+    results.update({name: measure(name) for name in FLOWS})
     if args.update:
         doc = {
             "comment": "tools/bench.py --update; commit with the change that moves it (PLAN 2.9)",

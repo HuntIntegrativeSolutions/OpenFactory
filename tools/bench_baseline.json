@@ -16,6 +16,12 @@
    "step_ms": 2.822,
    "calibration_ms": 106.76,
    "parts": 200
+  },
+  "flow-net": {
+   "score": 0.0072,
+   "step_ms": 0.498,
+   "calibration_ms": 69.461,
+   "parts": 24
   }
  }
 }
