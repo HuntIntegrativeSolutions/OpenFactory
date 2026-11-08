@@ -30,7 +30,8 @@ the summed flow change is below ``ACCURACY`` of the summed flow and every link's
 below ``HEAD_TOL``, at most ``MAX_ITERATIONS`` times (a solve that reaches the cap is counted in
 :attr:`Network.stats` and its last iterate used). Then the status checks: a pump or a
 ``check_valve`` pipe with reverse flow closes, a link drawing out of a tank through a dry nozzle
-closes, and a closed one reopens when its heads would drive flow the allowed way; the solve
+closes, a link that would draw liquid out of an open drain (``sink_only``) closes, and a closed
+one reopens when its heads would drive flow the allowed way; the solve
 repeats while statuses change, at most ``MAX_STATUS_ROUNDS`` times. Junctions that no open link
 connects to a node of known head carry no flow (their links are idle this solve).
 
@@ -142,6 +143,8 @@ class FixedHead:
     #: Liquid this node has delivered into the network (m³) and taken out of it (m³).
     delivered: float = 0.0
     received: float = 0.0
+    #: An open drain: it takes liquid but never gives any back (a link would draw air).
+    sink_only: bool = False
     known_head = True
 
     @property
@@ -448,8 +451,12 @@ class Network:
         node, nozzle = link.start  # type: ignore[misc]
         if isinstance(node, Tank) and node.dry(nozzle):  # type: ignore[arg-type]
             fwd = False  # forward flow would leave this tank through a dry nozzle
+        if isinstance(node, FixedHead) and node.sink_only:
+            fwd = False  # forward flow would come out of an open drain
         node, nozzle = link.end  # type: ignore[misc]
         if isinstance(node, Tank) and node.dry(nozzle):  # type: ignore[arg-type]
+            rev = False
+        if isinstance(node, FixedHead) and node.sink_only:
             rev = False
         return fwd, rev
 

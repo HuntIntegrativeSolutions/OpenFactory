@@ -1049,8 +1049,48 @@ class Junction(ComponentBase):
     io: JunctionIO = Field(default_factory=JunctionIO)
 
 
+#: A link end (PLAN 3.2): a component id, or a tank's nozzle (``TK_01.bottom``).
+LinkEnd = Annotated[
+    str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]*(\.[a-z][a-z0-9_]*)?$", max_length=80)
+]
+
+
+class _Link(ComponentBase):
+    """A link of the flow network between two ends (ADR-0005): a tank's nozzle, a supply, drain
+    or junction, or another link (joined through an implicit junction; both name each other)."""
+
+    from_: LinkEnd = Field(
+        alias="from", description="Upstream end: TANK.nozzle, a supply, drain, junction, or link."
+    )
+    to: LinkEnd = Field(description="Downstream end, as `from`.")
+
+
+class PipeIO(IOModel):
+    """A pipe has no ports: a transmitter reads its flow (``measures: PIPE_01.flow``)."""
+
+
+class Pipe(_Link):
+    """Origin: anywhere along it (an implicit junction made with it downstream sits here). A run
+    of pipe: a resistance by Darcy-Weisbach with a fixed friction factor (PLAN 3.2)."""
+
+    type: Literal["pipe"]
+    diameter: PositiveFloat = Field(0.05, description="Inside diameter, m.")
+    length: PositiveFloat | None = Field(
+        None, description="Length, m. Default: the drawn length, its ends through `path`."
+    )
+    path: list[Vec3] = Field(
+        default_factory=list, description="Points it runs through, scene coordinates (viewer)."
+    )
+    friction: PositiveFloat = Field(0.02, description="Darcy friction factor.")
+    minor_loss: float = Field(1.5, ge=0, description="Sum of minor-loss coefficients K.")
+    check_valve: bool = Field(False, description="Passes flow only from `from` to `to`.")
+    io: PipeIO = Field(default_factory=PipeIO)
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
-PROCESS_TYPES = frozenset({"tank", "supply", "drain", "junction"})
+PROCESS_TYPES = frozenset({"tank", "supply", "drain", "junction", "pipe"})
+#: Process types that are links of the flow network (``from``/``to``).
+LINK_TYPES = frozenset({"pipe"})
 
 
 Component = Annotated[
@@ -1074,7 +1114,8 @@ Component = Annotated[
     | Tank
     | Supply
     | Drain
-    | Junction,
+    | Junction
+    | Pipe,
     Field(discriminator="type"),
 ]
 
@@ -1103,6 +1144,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Supply,
         Drain,
         Junction,
+        Pipe,
     )
 }
 
@@ -1261,6 +1303,7 @@ SceneComponent = Annotated[
     | Annotated[Supply, Tag("supply")]
     | Annotated[Drain, Tag("drain")]
     | Annotated[Junction, Tag("junction")]
+    | Annotated[Pipe, Tag("pipe")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]
@@ -1495,6 +1538,48 @@ class Scene(StrictModel):
                     f"{where}: initial {binding.initial:g} for {binding.name} is outside the "
                     f"port's range {rng[0]:g} to {rng[1]:g} {binding.port.units or ''}".rstrip()
                 )
+        return self
+
+    @model_validator(mode="after")
+    def _link_ends_resolve(self) -> Scene:
+        """Every process link's ``from`` and ``to`` names a node of the flow network, a tank's
+        nozzle, or another link that names it back (PLAN 3.2, ADR-0005)."""
+        by_id = {c.id: c for c in self.components}
+        for comp in self.components:
+            if comp.type not in LINK_TYPES:
+                continue
+            for side, ref in (("from", comp.from_), ("to", comp.to)):  # type: ignore[attr-defined]
+                where = f"{comp.id}.{side}"
+                name, _, nozzle = ref.partition(".")
+                other = by_id.get(name)
+                if other is None:
+                    raise ValueError(f"{where}: {ref!r} names no component")
+                if other is comp:
+                    raise ValueError(f"{where}: a link cannot end on itself")
+                if other.type == "tank":
+                    nozzles = other.all_nozzles()  # type: ignore[attr-defined]
+                    if not nozzle:
+                        listed = ", ".join(f"{name}.{n}" for n in nozzles)
+                        raise ValueError(f"{where}: {name} is a tank; name a nozzle ({listed})")
+                    if nozzle not in nozzles:
+                        raise ValueError(
+                            f"{where}: {name} has no nozzle {nozzle!r} ({', '.join(nozzles)})"
+                        )
+                    continue
+                if nozzle:
+                    raise ValueError(f"{where}: {name} is a {other.type}, not a tank: no nozzles")
+                if other.type not in PROCESS_TYPES or other.type in ("heater", "transmitter"):
+                    raise ValueError(
+                        f"{where}: {name} is a {other.type}, not part of the flow network"
+                    )
+                if other.type in LINK_TYPES:
+                    back = other.from_ if side == "to" else other.to  # type: ignore[attr-defined]
+                    if back != comp.id:
+                        other_side = "from" if side == "to" else "to"
+                        raise ValueError(
+                            f"{where} names the link {name}, so {name}.{other_side} must name "
+                            f"{comp.id} (it names {back!r})"
+                        )
         return self
 
     def tag_bindings(self) -> list[TagBinding]:

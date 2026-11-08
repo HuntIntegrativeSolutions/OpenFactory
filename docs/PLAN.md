@@ -352,7 +352,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `valve_onoff` | open | opened, closed | Travel time; flow coefficient Cv passes to connected pipe. | 3 |
 | `valve_control` | position (AO) | position_fb (AI) | First-order lag, stroke time. | 3 |
 | `pump` | run, speed (opt) | running, flow (AI) | Flow = f(speed, head) with a simple curve. | 3 |
-| `pipe` | — | — | Topology only; connects sources and sinks for mass balance. | 3 |
+| `pipe` | — | — | Link of the flow network: Darcy-Weisbach resistance at a fixed friction factor plus minor losses, the drawn length by default, optional check valve. | 3 (3.2) |
 | `supply` | — | — | Node of known head (ADR-0005): a fixed gauge pressure, never exhausted; delivers at its temperature and ingredient. | 3 (3.2) |
 | `drain` | — | — | Open: a node at atmospheric head taking what arrives. With a demand (and an optional schedule): a junction drawing it pressure-dependently (ADR-0005 decision 4). | 3 (3.2) |
 | `junction` | — | — | Node whose head is solved; its pressure read through a transmitter. | 3 (3.2) |
@@ -1852,6 +1852,13 @@ runs the sorting program against it; a box visibly gets pushed.
         Viewer: a stub under a funnel. `tests/unit/test_drain.py` (8).
       - `junction`: a node whose head is solved, its gauge pressure in its state; one no link
         reaches fails to load. Viewer: a small fitting. `tests/unit/test_junction.py` (2).
+      - `pipe`, the first link: `from`/`to` ends checked at load (a node, `TANK.nozzle`, or a
+        link naming this one back), the drawn length through `path` by default, check valve;
+        open drains never give liquid back (a link that would draw from one closes). Lint, as
+        decision 9 rules, with the first link: E102 (a declared nozzle no link uses), E103 (a
+        network part with no tank, supply or open drain), W211 (a tank's level time constant
+        under 10 ticks). Viewer: segments through the core's points. `tests/unit/test_pipe.py`
+        (16).
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
       *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
       `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,

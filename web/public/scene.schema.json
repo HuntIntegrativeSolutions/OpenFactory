@@ -831,6 +831,7 @@
               "photo_eye",
               "pick_and_place",
               "pilot_light",
+              "pipe",
               "pushbutton",
               "pusher",
               "roller_conveyor",
@@ -2744,6 +2745,160 @@
       "title": "PilotLightIO",
       "type": "object"
     },
+    "Pipe": {
+      "additionalProperties": false,
+      "description": "Origin: anywhere along it (an implicit junction made with it downstream sits here). A run\nof pipe: a resistance by Darcy-Weisbach with a fixed friction factor (PLAN 3.2).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "from": {
+          "description": "Upstream end: TANK.nozzle, a supply, drain, junction, or link.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Downstream end, as `from`.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "To",
+          "type": "string"
+        },
+        "type": {
+          "const": "pipe",
+          "title": "Type",
+          "type": "string"
+        },
+        "diameter": {
+          "default": 0.05,
+          "description": "Inside diameter, m.",
+          "exclusiveMinimum": 0,
+          "title": "Diameter",
+          "type": "number"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length, m. Default: the drawn length, its ends through `path`.",
+          "title": "Length"
+        },
+        "path": {
+          "description": "Points it runs through, scene coordinates (viewer).",
+          "items": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Path",
+          "type": "array"
+        },
+        "friction": {
+          "default": 0.02,
+          "description": "Darcy friction factor.",
+          "exclusiveMinimum": 0,
+          "title": "Friction",
+          "type": "number"
+        },
+        "minor_loss": {
+          "default": 1.5,
+          "description": "Sum of minor-loss coefficients K.",
+          "minimum": 0,
+          "title": "Minor Loss",
+          "type": "number"
+        },
+        "check_valve": {
+          "default": false,
+          "description": "Passes flow only from `from` to `to`.",
+          "title": "Check Valve",
+          "type": "boolean"
+        },
+        "io": {
+          "$ref": "#/$defs/PipeIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "from",
+        "to",
+        "type"
+      ],
+      "title": "Pipe",
+      "type": "object"
+    },
+    "PipeIO": {
+      "additionalProperties": false,
+      "description": "A pipe has no ports: a transmitter reads its flow (``measures: PIPE_01.flow``).",
+      "properties": {},
+      "title": "PipeIO",
+      "type": "object"
+    },
     "PlcConfig": {
       "additionalProperties": false,
       "properties": {
@@ -4245,6 +4400,9 @@
           },
           {
             "$ref": "#/$defs/Junction"
+          },
+          {
+            "$ref": "#/$defs/Pipe"
           },
           {
             "$ref": "#/$defs/CompositeInstance"

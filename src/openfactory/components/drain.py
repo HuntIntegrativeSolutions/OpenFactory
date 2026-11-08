@@ -3,7 +3,8 @@
 Behavior spec
 -------------
 Where liquid leaves the plant. With no ``demand_m3h`` and no ``schedule`` it is an **open drain**:
-a node of known head at the origin's height (atmospheric) that takes whatever arrives. With a
+a node of known head at the origin's height (atmospheric) that takes whatever arrives and never
+gives any back (a link that would draw from it closes). With a
 demand it is a **consumer**: a junction of the flow network that draws its demand,
 pressure-dependently (EPANET's Wagner model): the full demand while its pressure head is at or
 above ``required_head_m``, none at or below ``minimum_head_m``, and the square root of the
@@ -43,7 +44,7 @@ class Drain(Component):
                 minimum_head=cfg.minimum_head_m,  # type: ignore[attr-defined]
             )
         else:
-            self.node = flownet.FixedHead(self.id, cfg.position[1])
+            self.node = flownet.FixedHead(self.id, cfg.position[1], sink_only=True)
         self.time = 0.0
         self._taken = 0.0
         self.flow_m3h = 0.0

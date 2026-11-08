@@ -258,7 +258,13 @@ def build_flownet(components: list[Component]) -> Network | None:
     links = [lk for c in components for lk in getattr(c, "flow_links", list)()]
     if not nodes and not links:
         return None
-    return Network.build(nodes, links)
+    net = Network.build(nodes, links)
+    by_id = {c.id: c for c in components}
+    for comp in components:
+        built = getattr(comp, "flow_built", None)
+        if built is not None:
+            built(by_id)  # a pipe sizes itself from where its ends are
+    return net
 
 
 def load(path: str | Path, registry: ComponentRegistry | None = None) -> LoadedScene:

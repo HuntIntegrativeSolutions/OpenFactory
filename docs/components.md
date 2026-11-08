@@ -663,3 +663,34 @@ No parameters beyond the common fields.
 No ports.
 
 Faults: none.
+
+### `pipe`
+
+Origin: anywhere along it; an implicit junction made with another link downstream of it sits
+there. A run of pipe from `from` to `to`: its head loss is `r·q·|q|`, with `r` from Darcy-Weisbach
+at a fixed friction factor plus minor losses, `(f·L/D + ΣK) / (2·g·A²)`. Without a `length` it is
+as long as it is drawn: from its `from` end through each `path` point to its `to` end, where a
+tank nozzle's end is on the tank wall facing the pipe (a `top` nozzle: the top's centre) and any
+other end is that component's origin. A `transmitter` reads its flow (`measures: PIPE_01.flow`).
+
+Link ends are checked when the scene loads: each names a component of the flow network (a tank's
+nozzle as `TK_01.bottom`, a supply, a drain, a junction, or another link that names this one
+back). An open drain never gives liquid back: a link that would draw from it closes. `openfactory
+lint` adds three flow network checks: E102, a tank nozzle declared in `nozzles` that no link
+uses; E103, a part of the network with no tank, supply or open drain; W211, a tank whose level
+time constant through its direct connections is under 10 ticks.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `from` | required | Upstream end: `TANK.nozzle`, a supply, drain, junction, or another link |
+| `to` | required | Downstream end, as `from` |
+| `diameter` | 0.05 | Inside diameter, m |
+| `length` | the drawn length | Length, m |
+| `path` | none | Points it runs through, `[[x, y, z], ...]`, scene coordinates |
+| `friction` | 0.02 | Darcy friction factor |
+| `minor_loss` | 1.5 | Sum of minor-loss coefficients K (entry, bends, exit) |
+| `check_valve` | false | Passes flow only from `from` to `to` |
+
+No ports.
+
+Faults: none.

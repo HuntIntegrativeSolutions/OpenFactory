@@ -26,6 +26,7 @@ Geometry: origin at the centre of the tank bottom.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from openfactory.core import flownet
@@ -61,6 +62,21 @@ class Tank(Component):
 
     def flow_nodes(self) -> list[flownet.Tank]:
         return [self.node]
+
+    def nozzle_point(self, nozzle: str, toward: tuple[float, float, float]) -> list[float]:
+        """Where a pipe meets ``nozzle`` (for the viewer): the top's centre, or the wall facing
+        ``toward`` at the nozzle's height (a bottom nozzle 0.05 m up, clear of the floor)."""
+        x, y, z = self.config.position
+        height = self.node.nozzles[nozzle]
+        if height >= self.node.height - 1e-9:
+            return [x, y + height, z]
+        dx, dz = toward[0] - x, toward[2] - z
+        dist = math.hypot(dx, dz)
+        cfg = self.config
+        box = cfg.shape == "box"  # type: ignore[attr-defined]
+        reach = min(cfg.length, cfg.width) / 2 if box else cfg.diameter / 2  # type: ignore[attr-defined,type-var]
+        ux, uz = (dx / dist, dz / dist) if dist > 1e-9 else (1.0, 0.0)
+        return [x + ux * reach, y + max(height, 0.05), z + uz * reach]
 
     def step(self, dt: float) -> None:
         level = self.node.level

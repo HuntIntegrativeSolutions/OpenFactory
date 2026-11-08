@@ -9,6 +9,10 @@ Errors (``openfactory lint`` exits 1):
 - ``E100`` the scene does not load. That covers YAML, schema, and component build errors, and an
   unbound required port, which the schema reports as ``Field required`` with the port's path.
 - ``E101`` a Modbus address lockfile conflicts with the scene (ADR-0004).
+- ``E102`` a tank nozzle declared in ``nozzles:`` that no link uses (PLAN 3.2, ADR-0005 decision
+  9; the default ``bottom`` and ``top`` may stay unused).
+- ``E103`` a part of the flow network with no node of known head (no tank, supply or open drain):
+  its heads are undefined and nothing can flow in it.
 
 Warnings (exit 0 unless there are errors):
 
@@ -40,6 +44,12 @@ centre line, and the plate height after the loader's default.
   any folder above it that names the mesh's path relative to that file. A mesh in a scene is a
   third-party asset until someone says whose it is and under what terms.
 
+- ``W211`` a tank whose level would move faster than 10 ticks can follow (PLAN 3.2, ADR-0005
+  decision 9): its time constant, area over the slope of its flow against level through the
+  resistances (pipes, valves) that join it directly to a node of known head, at its initial
+  level, is under 10 ticks of 50 Hz. The explicit level update stays stable, but the level jumps
+  tick to tick; make the tank larger or its connection tighter.
+
 - ``W208`` a composite type (PLAN 2.16) that exposes no I/O: its ``io:`` block is empty, so no
   PLC can command or read any instance of it.
 
@@ -53,7 +63,7 @@ import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import get_args
+from typing import Any, get_args
 
 from pydantic import ValidationError
 
@@ -233,6 +243,7 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                         "empty): no PLC can command or read an instance of it; add io entries "
                         "such as `run: {to: belt.run}`")
             )  # fmt: skip
+    findings += _flow_findings(loaded)
     for comp in (c for c in scene.components if c.mesh is not None):
         mesh = scene_dir / comp.mesh.file
         if not has_license_record(mesh):
@@ -242,6 +253,65 @@ def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
                         "the source) or list it in THIRD_PARTY.md")
             )  # fmt: skip
     return findings
+
+
+#: Ticks a tank's time constant must span (W211), at the default 50 Hz.
+MIN_TANK_TICKS = 10
+DEFAULT_DT = 0.02
+
+
+def _flow_findings(loaded: Any) -> list[Finding]:
+    """E102, E103 and W211 on the scene's flow network (PLAN 3.2, ADR-0005 decision 9)."""
+    from openfactory.core import flownet as fn
+
+    net = loaded.flownet
+    if net is None:
+        return []
+    out: list[Finding] = []
+    used = {(id(e[0]), e[1]) for lk in net.links for e in (lk.start, lk.end)}
+    for comp in loaded.components:
+        if comp.type == "tank":
+            for name in comp.config.nozzles:
+                if (id(comp.node), name) not in used:
+                    out.append(Finding("error", "E102", f"{comp.id}: nozzle {name!r} is declared "
+                                       "but no link uses it; connect it or remove it"))  # fmt: skip
+    # parts of the network (nodes joined by any link, open or shut) with no node of known head
+    parent = {id(n): id(n) for n in net.nodes}
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for lk in net.links:
+        parent[find(id(lk.start[0]))] = find(id(lk.end[0]))
+    groups: dict[int, list[Any]] = {}
+    for node in net.nodes:
+        groups.setdefault(find(id(node)), []).append(node)
+    for members in groups.values():
+        if not any(node.known_head for node in members):
+            ids = ", ".join(n.id for n in members)
+            text = f"flow network part {ids}: no tank, supply or open drain, so its heads are "
+            out.append(Finding("error", "E103", text + "undefined and nothing flows"))
+    for tank in net.tanks:
+        slope = 0.0
+        for lk in net.links:
+            if not isinstance(lk, fn.Resistance) or not math.isfinite(lk.r) or lk.r <= 0:
+                continue
+            for mine, other in ((lk.start, lk.end), (lk.end, lk.start)):
+                if mine[0] is tank and other[0].known_head:
+                    drop = abs(tank.nozzle_head(mine[1]) - net._end_head(other))
+                    if drop > 0:
+                        slope += 1 / (2 * math.sqrt(lk.r * drop))
+        if slope > 0:
+            tau = tank.area / slope
+            if tau < MIN_TANK_TICKS * DEFAULT_DT:
+                out.append(Finding("warning", "W211", f"{tank.id}: level time constant "
+                                   f"{tau:.3g} s is under {MIN_TANK_TICKS} ticks; the level jumps "
+                                   "tick to tick. Make the tank larger or its connection "
+                                   "tighter"))  # fmt: skip
+    return out
 
 
 def has_license_record(mesh: Path) -> bool:

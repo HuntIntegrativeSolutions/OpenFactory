@@ -93,13 +93,13 @@ export const tank: Builder = (g, ctx) => {
   };
 };
 
-/** A short flanged stub on its connection point, the shape shared by supplies and drains. */
+/** A short flanged stub hanging below its connection point (the flange), for supplies and drains. */
 function stub(color: number): THREE.Group {
   const g = new THREE.Group();
   const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.3, 20), new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.3 }));
-  pipe.position.y = 0.15;
+  pipe.position.y = -0.15;
   const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 24), new THREE.MeshStandardMaterial({ color: NEUTRAL.frame, roughness: 0.6 }));
-  flange.position.y = 0.3;
+  flange.position.y = 0;
   g.add(pipe, flange);
   return g;
 }
@@ -113,7 +113,7 @@ export const supply: Builder = (g) => {
     id: g.id,
     type: g.type,
     object: group,
-    labelAnchor: new THREE.Vector3(0, 0.45, 0),
+    labelAnchor: new THREE.Vector3(0, 0.15, 0),
     pickable: [],
     update(state) {
       setColor(body.children[0], Number(state.flow_m3h ?? 0) > 1e-6 ? ISA101.running : NEUTRAL.structure);
@@ -126,13 +126,13 @@ export const drain: Builder = (g) => {
   const group = placed(g);
   const body = stub(NEUTRAL.structure);
   const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.05, 0.14, 24, 1, true), new THREE.MeshStandardMaterial({ color: NEUTRAL.frame, side: THREE.DoubleSide, roughness: 0.6 }));
-  funnel.position.y = 0.37;
+  funnel.position.y = 0.07;
   group.add(body, funnel);
   return {
     id: g.id,
     type: g.type,
     object: group,
-    labelAnchor: new THREE.Vector3(0, 0.55, 0),
+    labelAnchor: new THREE.Vector3(0, 0.25, 0),
     pickable: [],
     update(state) {
       setColor(body.children[0], Number(state.flow_m3h ?? 0) > 1e-6 ? ISA101.running : NEUTRAL.structure);
@@ -146,4 +146,35 @@ export const junction: Builder = (g) => {
   const fitting = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), new THREE.MeshStandardMaterial({ color: NEUTRAL.structure, roughness: 0.5, metalness: 0.3 }));
   group.add(fitting);
   return { id: g.id, type: g.type, object: group, labelAnchor: new THREE.Vector3(0, 0.15, 0), pickable: [], update() {} };
+};
+
+/**
+ * Pipe: drawn through the core's `points` (scene coordinates, its ends on the components it
+ * joins), one cylinder per segment with a fitting at each bend. Neutral grey: a pipe carries
+ * no status of its own.
+ */
+export const pipe: Builder = (g) => {
+  const group = new THREE.Group();
+  group.name = g.id;
+  const raw = Array.isArray(g.points) ? (g.points as number[][]) : [];
+  const points = (raw.length >= 2 ? raw : [g.position, [g.position[0] + 1, g.position[1], g.position[2]]]).map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+  const radius = Math.max(num(g, "diameter", 0.05) / 2, 0.015);
+  const material = new THREE.MeshStandardMaterial({ color: NEUTRAL.structure, roughness: 0.5, metalness: 0.3 });
+  for (let i = 0; i + 1 < points.length; i++) {
+    const a = points[i], b = points[i + 1];
+    const length = a.distanceTo(b);
+    if (length < 1e-6) continue;
+    const segment = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 16), material);
+    segment.name = `segment${i}`;
+    segment.position.copy(a).add(b).multiplyScalar(0.5);
+    segment.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    group.add(segment);
+    if (i > 0) {
+      const bend = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.05, 12, 8), material);
+      bend.position.copy(a);
+      group.add(bend);
+    }
+  }
+  const mid = points[Math.floor(points.length / 2)];
+  return { id: g.id, type: g.type, object: group, labelAnchor: mid.clone().add(new THREE.Vector3(0, 0.12, 0)), pickable: [], update() {} };
 };

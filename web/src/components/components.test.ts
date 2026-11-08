@@ -18,6 +18,7 @@ function color(object: THREE.Object3D | undefined): number {
 describe("component mesh builders", () => {
   it("cover every Milestone 1 type and place them at the scene origin and rotation", () => {
     for (const type of Object.keys(BUILDERS)) {
+      if (type === "pipe") continue; // drawn through its points in scene coordinates (below)
       const view = buildComponent(geom(type, { length: 2, width: 0.5, beam_length: 0.6, stroke: 0.5, size: [0.3, 1, 1] }), ctx);
       expect(view.type).toBe(type);
       expect(view.object.position.toArray()).toEqual([1, 0.2, -0.3]);
@@ -145,5 +146,17 @@ describe("process components (PLAN 3.2)", () => {
     const legs = (v: ReturnType<typeof buildComponent>) => v.object.children.filter((o) => o.position.y < 0).length;
     expect(legs(buildComponent(high, { floorY: 0 }))).toBe(4);
     expect(legs(buildComponent(low, { floorY: 0 }))).toBe(0);
+  });
+
+  it("draws a pipe through the core's points, one segment per run", () => {
+    const view = buildComponent(geom("pipe", { points: [[0, 0, 0], [0, 2, 0], [3, 2, 0]], diameter: 0.05 }), ctx);
+    const first = view.object.getObjectByName("segment0") as THREE.Mesh;
+    const second = view.object.getObjectByName("segment1") as THREE.Mesh;
+    view.object.updateMatrixWorld(true);
+    const a = new THREE.Box3().setFromObject(first), b = new THREE.Box3().setFromObject(second);
+    expect(a.min.y).toBeCloseTo(0, 5);
+    expect(a.max.y).toBeCloseTo(2, 5);
+    expect(b.max.x - b.min.x).toBeCloseTo(3, 5);
+    expect(view.object.position.toArray()).toEqual([0, 0, 0]); // points are scene coordinates
   });
 });
