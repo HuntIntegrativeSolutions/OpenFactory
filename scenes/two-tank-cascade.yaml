@@ -1,0 +1,109 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 3.3: two tanks in series and a cascade loop. A supply fills the upper tank through a
+# control valve; the upper tank drains by gravity into the top of the lower one (non-interacting
+# tanks); a consumer draws from the lower tank and steps its demand from 2 to 3 m³/h at 10 s.
+# The PLC holds the lower tank at 0.8 m: an outer PI on its level sets the upper tank's level
+# setpoint, and an inner PI on the upper level positions the valve.
+# Guide: docs/guides/two-tank-cascade.md. PLC programs: examples/openplc/two-tank-cascade.st
+# (OpenPLC, two PID function blocks) and examples/pyplc/two-tank-cascade.py (stand-in script).
+openfactory: "0.1"
+scene:
+  name: two-tank-cascade
+  description: A cascade of two PI loops holds the lower of two tanks in series through the upper one.
+  author: HIS Controls
+  seed: 13
+  units: meters
+plc:
+  protocol: modbus_tcp
+checks:                            # PLAN 3.3: `openfactory test` grades a program against these
+  duration_s: 60
+  level_within: {TK_02: {band: [0.78, 0.82], after_s: 40}}   # settled after the load step
+  never_overflow: [TK_01, TK_02]
+components:
+  - id: SUP_01
+    type: supply
+    description: Process Water Supply
+    position: [-1.4, 4.8, 0]
+    pressure_bar: 2.0
+  - id: FV_01
+    type: valve_control
+    description: Upper Tank Inlet Control Valve
+    position: [-0.7, 4.8, 0]
+    from: SUP_01
+    to: PIPE_01
+    kv: 6
+    characteristic: equal_percentage
+    stroke_s: 10
+    lag_s: 0.5
+    io:
+      position: {tag: FV_01_POS_AO, initial: 63}
+      position_fb: FV_01_ZT_AI
+  - id: PIPE_01
+    type: pipe
+    description: Upper Tank Inlet Line
+    position: [-0.3, 4.8, 0]
+    from: FV_01
+    to: TK_01.top
+    diameter: 0.04
+  - id: TK_01
+    type: tank
+    description: Upper Tank
+    position: [0, 2.4, 0]
+    diameter: 0.35
+    height: 2.0
+    initial_level: 0.165
+    hi_level: 1.8
+    io:
+      hi_sw: TK_01_LSH_DI
+  - id: LT_01
+    type: transmitter
+    description: Upper Tank Level Transmitter
+    position: [0.32, 3.4, 0]
+    measures: TK_01.level
+    range: [0, 2.0]
+    lag_s: 1.0
+    noise: 0.002
+    io:
+      pv: TK_01_LT_AI
+  - id: PIPE_12
+    type: pipe
+    description: Upper to Lower Tank Gravity Line
+    position: [0.6, 2.4, 0]
+    from: TK_01.bottom
+    to: TK_02.top
+    diameter: 0.025
+    path: [[1.4, 2.45, 0]]
+  - id: TK_02
+    type: tank
+    description: Lower Tank
+    position: [1.4, 0.9, 0]
+    diameter: 0.4
+    height: 1.5
+    initial_level: 0.8
+    hi_level: 1.35
+    io:
+      hi_sw: TK_02_LSH_DI
+  - id: LT_02
+    type: transmitter
+    description: Lower Tank Level Transmitter
+    position: [1.75, 1.5, 0]
+    measures: TK_02.level
+    range: [0, 1.5]
+    lag_s: 1.0
+    noise: 0.002
+    io:
+      pv: TK_02_LT_AI
+  - id: PIPE_02
+    type: pipe
+    description: Lower Tank Outlet Line
+    position: [2.2, 0.9, 0]
+    from: TK_02.bottom
+    to: DR_01
+    diameter: 0.04
+    path: [[2.6, 0.95, 0]]
+  - id: DR_01
+    type: drain
+    description: Process Water Consumer
+    position: [2.6, 0.0, 0]
+    schedule: [[0, 2.0], [10, 3.0]]   # the load step: 2 m³/h, then 3 from 10 s on
+    required_head_m: 0.5

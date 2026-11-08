@@ -1926,6 +1926,18 @@ runs the sorting program against it; a box visibly gets pushed.
         PI transient is as large as a P offset), so the scene has one load step and a band from
         45 s. `TIME_TO_REAL` units in OpenPLC's runtime are marked to verify on the first
         OpenPLC run.
+      - `two-tank-cascade`: a supply and control valve into an upper tank that drains by gravity
+        into the top of a lower one (non-interacting), a consumer stepping 2 to 3 m³/h at
+        10 s; cascade control with two OpenPLC PID blocks (outer on the lower level sets the
+        upper setpoint, limited 0.05 to 1.6 m; inner positions the valve), the same interlock
+        and bumpless start, the outer manual value tracking the upper level. Checks pass at
+        60 s and 300 s (0.788 to 0.809 m in 0.78 to 0.82 after 40 s; never overflowed). A
+        single PI loop fails the band with every tuning tried (KP −50 to −600 %/m, TR 10 to
+        60 s); a too-fast outer loop passes 60 s and rings over 300 s (0.59 to 0.88 m). The
+        plant was resized to settle within the minute the 60 s checks allow: a 0.35 m upper
+        tank, a 25 mm gravity line, a 0.4 m lower tank, a 1 m³/h step at 10 s.
+      The first three scenes are done; the box stays open for `batch-mix-heat`, which follows
+      (amended 2026-11-07).
 - [ ] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
       `/plantpax-*` skills) + Perspective faceplates. AOI parameter names in this repository come
       only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002

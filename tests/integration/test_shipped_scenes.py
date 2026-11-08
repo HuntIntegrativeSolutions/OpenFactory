@@ -30,6 +30,7 @@ EXPECTED: dict[str, dict[str, dict[str, int]]] = {
     "sorting-by-color": {"REM_MAIN": {"blue_box": 5}, "REM_RED": {"red_box": 8}},
     "tank-level-onoff": {},  # a process scene: no parts; its checks: are the result (PLAN 3.3)
     "tank-level-pid": {},
+    "two-tank-cascade": {},
 }
 #: The sorter's guide is the OpenPLC quickstart (PLAN 1.14).
 GUIDES = {"sorting-by-height": "openplc-quickstart.md"}

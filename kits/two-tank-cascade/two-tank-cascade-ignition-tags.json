@@ -1,0 +1,243 @@
+{
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "OF_Tank",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "High level switch (on at hi_level)",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "HiSw",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_HiSw}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_Transmitter",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Pv": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "Process value",
+              "enabled": true,
+              "historyEnabled": true,
+              "name": "Pv",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Pv}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_ValveControl",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Position": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_PositionFb": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Float4",
+              "documentation": "Position command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Position",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Position}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "Position feedback",
+              "enabled": true,
+              "historyEnabled": true,
+              "name": "PositionFb",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_PositionFb}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TWO_TANK_CASCADE",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "Upper Tank Inlet Control Valve",
+          "name": "FV_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "FV_01"
+            },
+            "Tag_Position": {
+              "dataType": "String",
+              "value": "FV_01_POS_AO"
+            },
+            "Tag_PositionFb": {
+              "dataType": "String",
+              "value": "FV_01_ZT_AI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 100.0,
+              "engLow": 0.0,
+              "engUnit": "%",
+              "name": "Position"
+            },
+            {
+              "engHigh": 100.0,
+              "engLow": 0.0,
+              "engUnit": "%",
+              "name": "PositionFb"
+            }
+          ],
+          "typeId": "OF_ValveControl"
+        },
+        {
+          "documentation": "Upper Tank",
+          "name": "TK_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "TK_01"
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": "TK_01_LSH_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Tank"
+        },
+        {
+          "documentation": "Upper Tank Level Transmitter",
+          "name": "LT_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "LT_01"
+            },
+            "Tag_Pv": {
+              "dataType": "String",
+              "value": "TK_01_LT_AI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 2.0,
+              "engLow": 0.0,
+              "engUnit": "m",
+              "name": "Pv"
+            }
+          ],
+          "typeId": "OF_Transmitter"
+        },
+        {
+          "documentation": "Lower Tank",
+          "name": "TK_02",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "TK_02"
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": "TK_02_LSH_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Tank"
+        },
+        {
+          "documentation": "Lower Tank Level Transmitter",
+          "name": "LT_02",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "LT_02"
+            },
+            "Tag_Pv": {
+              "dataType": "String",
+              "value": "TK_02_LT_AI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 1.5,
+              "engLow": 0.0,
+              "engUnit": "m",
+              "name": "Pv"
+            }
+          ],
+          "typeId": "OF_Transmitter"
+        },
+        {
+          "accessRights": "Read_Only",
+          "dataType": "Boolean",
+          "documentation": "OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",
+          "enabled": true,
+          "historyEnabled": false,
+          "name": "SIM_HEARTBEAT",
+          "opcItemPath": "nsu=urn:openfactory:sim;s=SIM_HEARTBEAT_DI",
+          "opcServer": "OpenFactory",
+          "tagType": "AtomicTag",
+          "valueSource": "opc"
+        }
+      ]
+    }
+  ],
+  "version": "8.3.0"
+}
