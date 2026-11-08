@@ -357,7 +357,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `drain` | — | — | Open: a node at atmospheric head taking what arrives. With a demand (and an optional schedule): a junction drawing it pressure-dependently (ADR-0005 decision 4). | 3 (3.2) |
 | `junction` | — | — | Node whose head is solved; its pressure read through a transmitter. | 3 (3.2) |
 | `heater` | on, power (AO) | temp (AI) | Immersion heater in one tank: rated power times the command while covered, less the tank's UA loss; well mixed. | 3 (3.2) |
-| `transmitter` | — | pv (AI) | Generic 4–20 mA style scaling of any process variable with noise and fault injection. | 3 |
+| `transmitter` | — | pv (AI) | Level, temperature, fraction, flow or pressure over its range, with lag, seeded noise, and faults including NE 43 `signal_fail`. | 3 (3.2) |
 | `vfd_motor` | run, speed (AO) | running, speed_fb (AI), fault | Drives a conveyor or pump; trip on overload. | 3 |
 
 #### Milestone 1 behavior as built
@@ -1877,6 +1877,12 @@ runs the sorting program against it; a box visibly gets pushed.
         UA loss to ambient; several heaters on one tank add (`Tank.heat_sources`); `temp` reads
         the tank. Faults stuck_off, drift, noisy. Viewer: a coiled element, green while heating
         (ISA-101: red is for alarms). `tests/unit/test_heater.py` (6).
+      - `transmitter`: `measures` a tank's level, temperature or fraction, a link's flow, or a
+        junction's or consumer drain's pressure, checked at load; `pv` over `range` with units
+        per quantity (ports gain `units_from`); `lag_s`, seeded `noise`; faults drift, noisy,
+        stuck (top or bottom of range) and the new `signal_fail` (NE 43: 3.6 mA, or 21 mA with
+        `high=1`; clamped under int16_scaled). Viewer: a field transmitter head.
+        `tests/unit/test_transmitter.py` (9).
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
       *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
       `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,

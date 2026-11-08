@@ -42,6 +42,9 @@ injecting replaces the current one. The kinds (:data:`FAULT_KINDS`) and their pa
   the scene's other random draws are not shifted.
 - ``drift``: an AI reads ``rate`` units per second (default 0.01) more for every second since the
   fault was injected, in simulated time.
+- ``signal_fail``: a 4-20 mA transmitter's loop fails (PLAN 3.2, ADR-0005 decision 7): it reads
+  the NAMUR NE 43 failure level, 3.6 mA (below its range) or with ``high: 1`` 21 mA (above it).
+  The type applies it (``transmitter``).
 
 Faults on DI/AI outputs are applied in :meth:`Component.write`, before the raw value is kept;
 ``jammed`` and ``slow`` reach the type's motion through :attr:`Component.speed_factor`. The fault's
@@ -67,7 +70,9 @@ from openfactory.core.schema import (
 )
 from openfactory.core.world import World
 
-FAULT_KINDS = ("stuck_on", "stuck_off", "jammed", "slow", "misaligned", "noisy", "drift")
+FAULT_KINDS = (
+    "stuck_on", "stuck_off", "jammed", "slow", "misaligned", "noisy", "drift", "signal_fail"
+)  # fmt: skip
 #: Parameters each fault kind accepts, with their defaults.
 FAULT_PARAMS: dict[str, dict[str, Any]] = {
     "stuck_on": {"port": None},
@@ -77,6 +82,7 @@ FAULT_PARAMS: dict[str, dict[str, Any]] = {
     "misaligned": {"offset_m": 0.05},
     "noisy": {"rate": 0.5, "duration_s": 0.2},
     "drift": {"rate": 0.01},
+    "signal_fail": {"high": 0},
 }
 
 

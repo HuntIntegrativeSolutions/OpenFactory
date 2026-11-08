@@ -297,3 +297,14 @@ export const heater: Builder = (g) => {
     },
   };
 };
+
+/** Transmitter: origin where it is drawn; a round head on a short neck, the usual field device. */
+export const transmitter: Builder = (g) => {
+  const group = placed(g);
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.05, 20), new THREE.MeshStandardMaterial({ color: NEUTRAL.structure, roughness: 0.5, metalness: 0.3 }));
+  head.rotation.x = Math.PI / 2;
+  head.position.y = 0.08;
+  const neck = box([0.03, 0.08, 0.03], NEUTRAL.frame, [0, 0.02, 0]);
+  group.add(head, neck);
+  return { id: g.id, type: g.type, object: group, labelAnchor: new THREE.Vector3(0, 0.2, 0), pickable: [], update() {} };
+};

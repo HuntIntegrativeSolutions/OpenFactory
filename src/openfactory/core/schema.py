@@ -301,6 +301,7 @@ def port(
     units: str | None = None,
     alias: str | None = None,
     range_from: str | None = None,
+    units_from: str | None = None,
 ) -> Any:
     """Declare an I/O port field. ``kind`` must agree with the field's tag annotation. ``alias``
     is the port's name in scene files when it is a Python keyword (``stopper.io.raise``).
@@ -320,6 +321,8 @@ def port(
         extra["x-range-from"] = range_from
     if range is not None or range_from is not None:
         extra["x-units"] = units or ""
+    if units_from is not None:
+        extra["x-units-from"] = units_from
     default: Any = ... if required else None
     return Field(default, alias=alias, description=description, json_schema_extra=extra)
 
@@ -342,6 +345,8 @@ class PortSpec:
     attr: str = ""
     #: Component parameter giving the range per instance, 0 to its value (:func:`instance_ports`).
     range_from: str | None = None
+    #: Component parameter giving the units per instance (:func:`instance_ports`).
+    units_from: str | None = None
 
     def value(self, io_model: Any) -> Any:
         """The port's binding on a validated ``io`` model, or None when unbound."""
@@ -365,6 +370,7 @@ def port_specs(io_model: type[IOModel]) -> dict[str, PortSpec]:
             units=str(extra["x-units"]) if "x-units" in extra else None,
             attr=name,
             range_from=extra.get("x-range-from"),  # type: ignore[arg-type]
+            units_from=extra.get("x-units-from"),  # type: ignore[arg-type]
         )
     return specs
 
@@ -378,6 +384,8 @@ def instance_ports(component: Any) -> dict[str, PortSpec]:
             span = (float(value[0]), float(value[1])) if isinstance(value, tuple | list) else (
                 0.0, float(value))  # fmt: skip
             specs[name] = replace(spec, range=span)
+        if spec.units_from is not None:
+            specs[name] = replace(specs[name], units=str(getattr(component, spec.units_from)))
     return specs
 
 
@@ -1222,9 +1230,77 @@ class Heater(ComponentBase):
     io: HeaterIO
 
 
+#: What a transmitter can measure, and its default units (PLAN 3.2).
+MEASURE_UNITS = {
+    "level": "m",
+    "temperature": "°C",
+    "fraction": "%",
+    "flow": "m³/h",
+    "pressure": "bar",
+}
+#: Which component types offer each quantity.
+MEASURE_ON = {
+    "level": {"tank"},
+    "temperature": {"tank"},
+    "fraction": {"tank"},
+    "flow": {"pipe", "valve_onoff", "valve_control", "pump"},
+    "pressure": {"junction", "drain"},
+}
+
+
+class TransmitterIO(IOModel):
+    pv: AiTag = port(
+        "AI",
+        "Process value",
+        required=True,
+        units="",
+        range_from="range",
+        units_from="units_text",
+    )
+
+
+class Transmitter(ComponentBase):
+    """Origin: where it is drawn. A 4-20 mA-style transmitter of one process value (PLAN 3.2)."""
+
+    type: Literal["transmitter"]
+    measures: Annotated[
+        str,
+        StringConstraints(
+            pattern=r"^[A-Z][A-Z0-9_]*\.(level|temperature|flow|pressure|fraction\.[a-z][a-z0-9_]*)$"
+        ),
+    ] = Field(
+        description="What it reads: TANK.level, TANK.temperature, TANK.fraction.<ingredient>, "
+        "LINK.flow, or JUNCTION.pressure (a consumer drain's too)."
+    )
+    range: tuple[float, float] = Field(description="[lo, hi]: the span of pv (4 to 20 mA).")
+    units: Annotated[str, StringConstraints(min_length=1, max_length=16)] | None = Field(
+        None, description="Engineering units of pv. Default: m, °C, %, m³/h or bar by quantity."
+    )
+    lag_s: float = Field(0.0, ge=0, description="First-order filter time constant, s.")
+    noise: float = Field(
+        0.0, ge=0, description="Standard deviation of random noise, fraction of the span."
+    )
+    io: TransmitterIO
+
+    @model_validator(mode="after")
+    def _span(self) -> Transmitter:
+        if not self.range[0] < self.range[1]:
+            raise ValueError(f"{self.id}: range [lo, hi] needs lo < hi")
+        return self
+
+    def quantity(self) -> str:
+        """``level``, ``temperature``, ``fraction``, ``flow`` or ``pressure``."""
+        return self.measures.split(".")[1]
+
+    @property
+    def units_text(self) -> str:
+        return self.units or MEASURE_UNITS[self.quantity()]
+
+
 #: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
 PROCESS_TYPES = frozenset(
     {
+        "transmitter",
         "tank",
         "supply",
         "drain",
@@ -1266,7 +1342,8 @@ Component = Annotated[
     | ValveOnOff
     | ValveControl
     | Pump
-    | Heater,
+    | Heater
+    | Transmitter,
     Field(discriminator="type"),
 ]
 
@@ -1300,6 +1377,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         ValveControl,
         Pump,
         Heater,
+        Transmitter,
     )
 }
 
@@ -1463,6 +1541,7 @@ SceneComponent = Annotated[
     | Annotated[ValveControl, Tag("valve_control")]
     | Annotated[Pump, Tag("pump")]
     | Annotated[Heater, Tag("heater")]
+    | Annotated[Transmitter, Tag("transmitter")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]
@@ -1705,6 +1784,21 @@ class Scene(StrictModel):
         nozzle, or another link that names it back (PLAN 3.2, ADR-0005)."""
         by_id = {c.id: c for c in self.components}
         for comp in self.components:
+            if comp.type == "transmitter":
+                name = comp.measures.split(".")[0]  # type: ignore[attr-defined]
+                target, quantity = by_id.get(name), comp.quantity()  # type: ignore[attr-defined]
+                if target is None or target.type not in MEASURE_ON[quantity]:
+                    what = f"a {target.type}" if target is not None else "no component"
+                    offered = ", ".join(sorted(MEASURE_ON[quantity]))
+                    raise ValueError(
+                        f"{comp.id}.measures: {name} is {what}; {quantity} is measured on a "
+                        f"{offered}"
+                    )
+                if quantity == "pressure" and target.type == "drain" and not target.has_demand():  # type: ignore[attr-defined]
+                    raise ValueError(
+                        f"{comp.id}.measures: {name} is an open drain, always at atmospheric "
+                        "pressure; measure a junction or a consumer drain"
+                    )
             if comp.type == "heater":
                 tank = by_id.get(comp.tank)  # type: ignore[attr-defined]
                 if tank is None or tank.type != "tank":

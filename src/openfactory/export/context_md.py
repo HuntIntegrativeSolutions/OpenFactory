@@ -48,7 +48,25 @@ FAULT_HELP = {
     "misaligned": "the sensor sees `offset_m` late (positive) or early",
     "noisy": "random dropouts, `rate` per second (0.5), each `duration_s` long (0.2)",
     "drift": "an AI reads `rate` units per second more since the fault (default 0.01)",
+    "signal_fail": "a transmitter reads its NE 43 failure level, 3.6 mA, or 21 mA with `high=1`",
 }
+#: Kinds every legend lists (PLAN 2.6); a later kind is listed only in a scene with a component
+#: that supports it, so adding one leaves every other scene's CONTEXT.md as it was.
+BASE_FAULTS = ("stuck_on", "stuck_off", "jammed", "slow", "misaligned", "noisy", "drift")
+
+
+def _fault_kinds(scene: Scene) -> set[str]:
+    from openfactory.core.component import REGISTRY
+
+    used = {
+        k
+        for c in scene.components
+        if c.type in REGISTRY.types()
+        for k in REGISTRY.resolve(c.type).FAULTS
+    }
+    return set(BASE_FAULTS) | used
+
+
 TABLE_NAME = {
     "DI": "discrete input",
     "DO": "coil",
@@ -255,7 +273,7 @@ def context_md(scene: Scene, scene_path: str | Path) -> str:
     lines += _tags(scene, scene_path)
     lines += _components(scene)
     lines += ["## Fault kinds", ""]
-    lines += [f"- `{k}`: {v}" for k, v in FAULT_HELP.items()]
+    lines += [f"- `{k}`: {v}" for k, v in FAULT_HELP.items() if k in _fault_kinds(scene)]
     lines += [
         "- Inject one with `--fault ID=KIND[:key=value,...] --fault-at SECONDS` on `run` or",
         "  `test`, or from the viewer's context menu. `--fault comms=drop` and",

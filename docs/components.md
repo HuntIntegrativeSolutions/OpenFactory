@@ -77,6 +77,8 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
     enough for 100 ms PLC polling to see; a DI drops to false, an AI reads the top of its range.
     Seeded per component, so a run replays and other random draws are not shifted.
   - `drift` (`rate` units per second, default 0.01): an analog reading grows with simulated time.
+  - `signal_fail` (`high`, default 0): a transmitter's 4-20 mA loop fails and it reads the NAMUR
+    NE 43 failure level: 3.6 mA, below its range, or with `high=1` 21 mA, above it (PLAN 3.2).
 - **Custom mesh (PLAN 2.15).** Any component may add `mesh: {file, scale, offset, rotation_deg}`
   to draw its own `.glb` model in place of its fixed housing; `docs/scene-format.md` has the
   fields. The mesh is visual only. What it replaces, per type: the cylinder body (`pusher`), the
@@ -821,3 +823,32 @@ reads the tank's temperature. The power set in a tick heats from the next, like 
 Faults: `stuck_off`, `drift`, `noisy`.
 An open element (`stuck_off`) adds no heat whatever the command; `drift` and `noisy` act on
 `temp`.
+
+### `transmitter`
+
+Origin: where it is drawn. A generic 4-20 mA-style transmitter of one process value: `measures`
+names a tank's `level` (m), `temperature` (°C) or `fraction.<ingredient>` (%), a link's `flow`
+(m³/h, positive from its `from` to its `to`: a pipe, valve or pump), or a junction's or consumer
+drain's `pressure` (bar, gauge; an open drain is always at 0). `pv` reads it over `range` in
+`units` (default by quantity), so under `int16_scaled` raw 0 to 32767 spans the range as 4 to
+20 mA does. `lag_s` filters it; `noise` adds Gaussian noise of that fraction of the span, drawn
+from the transmitter's own seeded generator, so a run replays. Tag it by ISA-5.1 function, as the
+shipped scenes do: `TK_01_LT_AI` (level), `TK_01_TT_AI`, `PIPE_01_FT_AI`, `J_01_PT_AI`.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `measures` | required | `TANK.level`, `TANK.temperature`, `TANK.fraction.<ingredient>`, `LINK.flow`, or `JUNCTION.pressure` |
+| `range` | required | `[lo, hi]`: the span of `pv` (4 to 20 mA) |
+| `units` | m, °C, %, m³/h or bar | Engineering units of `pv` |
+| `lag_s` | 0 | First-order filter time constant, s |
+| `noise` | 0 | Standard deviation of noise, fraction of the span |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `pv` | AI | yes | Process value over `range`, in `units` |
+
+Faults: `drift`, `noisy`, `stuck_on`, `stuck_off`, `signal_fail`.
+`stuck_on` and `stuck_off` hold `pv` at the top or bottom of its range. `signal_fail` is a failed
+loop: `pv` reads the NAMUR NE 43 failure level, 3.6 mA (a 40th of the span below the range) or,
+with `high=1`, 21 mA (1/16 above it). Under `float32` the PLC sees those values; under
+`int16_scaled` the raw count clamps at 0 or 32767, so it sees the bottom or the top of the range.

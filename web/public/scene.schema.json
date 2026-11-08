@@ -841,6 +841,7 @@
               "stopper",
               "supply",
               "tank",
+              "transmitter",
               "turntable",
               "valve_control",
               "valve_onoff"
@@ -4506,6 +4507,156 @@
       "title": "TankIO",
       "type": "object"
     },
+    "Transmitter": {
+      "additionalProperties": false,
+      "description": "Origin: where it is drawn. A 4-20 mA-style transmitter of one process value (PLAN 3.2).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "type": {
+          "const": "transmitter",
+          "title": "Type",
+          "type": "string"
+        },
+        "measures": {
+          "description": "What it reads: TANK.level, TANK.temperature, TANK.fraction.<ingredient>, LINK.flow, or JUNCTION.pressure (a consumer drain's too).",
+          "pattern": "^[A-Z][A-Z0-9_]*\\.(level|temperature|flow|pressure|fraction\\.[a-z][a-z0-9_]*)$",
+          "title": "Measures",
+          "type": "string"
+        },
+        "range": {
+          "description": "[lo, hi]: the span of pv (4 to 20 mA).",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Range",
+          "type": "array"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Engineering units of pv. Default: m, °C, %, m³/h or bar by quantity.",
+          "title": "Units"
+        },
+        "lag_s": {
+          "default": 0.0,
+          "description": "First-order filter time constant, s.",
+          "minimum": 0,
+          "title": "Lag S",
+          "type": "number"
+        },
+        "noise": {
+          "default": 0.0,
+          "description": "Standard deviation of random noise, fraction of the span.",
+          "minimum": 0,
+          "title": "Noise",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/TransmitterIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type",
+        "measures",
+        "range",
+        "io"
+      ],
+      "title": "Transmitter",
+      "type": "object"
+    },
+    "TransmitterIO": {
+      "additionalProperties": false,
+      "properties": {
+        "pv": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            }
+          ],
+          "description": "Process value",
+          "title": "Pv",
+          "x-io-kind": "AI",
+          "x-range-from": "range",
+          "x-units": "",
+          "x-units-from": "units_text"
+        }
+      },
+      "required": [
+        "pv"
+      ],
+      "title": "TransmitterIO",
+      "type": "object"
+    },
     "Turntable": {
       "additionalProperties": false,
       "description": "Origin: deck centre (the pivot), at deck-belt top height. At 0 degrees the deck flows along\nlocal +x; it turns about +y by ``turn_deg`` (90: counter-clockwise seen from above).",
@@ -5231,6 +5382,9 @@
           },
           {
             "$ref": "#/$defs/Heater"
+          },
+          {
+            "$ref": "#/$defs/Transmitter"
           },
           {
             "$ref": "#/$defs/CompositeInstance"
