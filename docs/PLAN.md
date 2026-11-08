@@ -1823,6 +1823,25 @@ runs the sorting program against it; a box visibly gets pushed.
 - [ ] 4.12 Instructor view (deferred from 2.11, ruled 2026-10-30): a separate URL that takes the
       fault token, shows fault markers even in exam mode, and shows the exam switches read-only,
       so an instructor watches what the trainees cannot see without touching their inputs.
+- [x] 4.13 Viewer framing (found during 4.2, added 2026-11-07): a scene of only operator devices
+      must frame them. *Done when:* a screenshot of a scene with one pushbutton and one pilot
+      light shows both.
+      *Cause:* with no conveyor, `floorFor` guesses the floor 0.75 m below the lowest device,
+      and the viewer added that floor point to the bounds it frames. A panel at 1.2 m became a
+      box 2 m tall and 0.2 m wide; at 2.1 times its radius both devices sat 27 degrees above
+      the view axis, past the 22.5 degree half field of view, and nothing was drawn.
+      *Done (2026-11-07):* `web/src/framing.ts` frames the components' own bounds (conveyor
+      legs and pedestals already reach the floor in all 25 scenes under `scenes/` and
+      `tests/scenes/`, so the floor point changed none of them) and moves the camera back
+      along the same direction until every corner of the bounds is within 85 % of the half
+      field of view above and below the centre, never closer than the old 2.1 radii. At
+      1280 x 720 every one of those 25 scenes keeps its camera exactly. Only the vertical field
+      of view is fitted: fitting across too would pull every conveyor scene back about three
+      times on a portrait phone, where the line is cut off at the sides today (left for a task
+      of its own). `tests/scenes/operator-devices-only.yaml`: both devices and both labels in
+      view, 20.8 % non-background (`tools/screenshot.py`, looked at).
+      `web/src/framing.test.ts` fails on the old framing (26.6 degrees) and with the floor
+      point put back (the camera 3 m off).
 
 ---
 

@@ -33,6 +33,7 @@ import { FaultMenu } from "./faultmenu";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
+import { framedBounds, framePose } from "./framing";
 
 window.__openfactory = {
   ready: false,
@@ -110,12 +111,11 @@ function label(text: string): CSS2DObject {
   return new CSS2DObject(el);
 }
 
+/** Point the camera at the components' bounds (web/src/framing.ts). */
 function frameCamera(bounds: THREE.Box3): void {
-  const center = bounds.getCenter(new THREE.Vector3());
-  const radius = bounds.getSize(new THREE.Vector3()).length() / 2;
-  const direction = new THREE.Vector3(0.25, 0.75, 1.0).normalize();
-  camera.position.copy(center).addScaledVector(direction, radius * 2.1);
-  controls.target.copy(center);
+  const pose = framePose(bounds, camera.fov);
+  camera.position.copy(pose.position);
+  controls.target.copy(pose.target);
   controls.update();
 }
 
@@ -152,7 +152,6 @@ function clearScene(): void {
 
 function buildScene(doc: SceneDocument): void {
   const floorY = floorFor(doc.components);
-  const bounds = new THREE.Box3();
   views = doc.components.map((g) => buildComponent(g, { floorY }));
   for (const view of views) {
     scene.add(view.object);
@@ -160,8 +159,6 @@ function buildScene(doc: SceneDocument): void {
     tag.position.copy(view.labelAnchor);
     view.object.add(tag);
     labelsById.set(view.id, { label: tag, fault: null });
-    view.object.updateMatrixWorld(true);
-    bounds.expandByObject(view.object);
   }
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(40, 40),
@@ -173,8 +170,7 @@ function buildScene(doc: SceneDocument): void {
   grid.position.y = floorY;
   scene.add(floor, grid);
   plant = [...views.map((v) => v.object), floor, grid];
-  bounds.expandByPoint(new THREE.Vector3(bounds.min.x, floorY, bounds.min.z));
-  frameCamera(bounds);
+  frameCamera(framedBounds(views.map((v) => v.object)));
 }
 
 /** Next selector position on a click: a -> b -> a, or a -> center -> b -> a with 3 positions. */

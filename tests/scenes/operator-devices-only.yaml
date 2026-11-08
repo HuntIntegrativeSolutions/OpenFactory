@@ -1,0 +1,24 @@
+# Viewer framing test scene (tests only, not shipped): one pushbutton and one pilot light at panel
+# height and nothing else, so no conveyor sets the floor. The viewer must frame both devices
+# (web/src/framing.ts; the floor guessed 0.75 m below them once pushed them off the screen).
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: operator-devices-only
+  description: One pushbutton and one pilot light on their own, to check the viewer frames them.
+  author: HIS Controls
+plc:
+  protocol: none
+components:
+  - id: PB_01
+    type: pushbutton
+    description: Framing Test Start Pushbutton
+    position: [0, 1.2, 0]
+    color: green
+    io: {pressed: PB_01_DI}
+  - id: PL_01
+    type: pilot_light
+    description: Framing Test Running Pilot Light
+    position: [0.12, 1.2, 0]
+    color: amber
+    io: {"on": PL_01_DO}
