@@ -121,3 +121,29 @@ describe("component mesh builders", () => {
     expect(buildComponent(geom("belt_conveyor", { length: 4, width: 0.5 }), ctx).object.getObjectByName("direction")).toBeUndefined();
   });
 });
+
+describe("process components (PLAN 3.2)", () => {
+  it("draws a tank's liquid at the core's level, in alarm yellow while overflowing", () => {
+    const view = buildComponent(geom("tank", { height: 2, diameter: 1, shape: "vertical_cylinder" }), ctx);
+    const liquid = view.object.getObjectByName("liquid") as THREE.Mesh;
+    view.update({ level_m: 0.8, overflowing: false });
+    view.object.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(liquid);
+    expect(bounds.max.y - bounds.min.y).toBeCloseTo(0.8, 5);
+    expect(bounds.min.y).toBeCloseTo(0.2, 5); // on the tank bottom, at the origin's height
+    expect(color(liquid)).not.toBe(ISA101.alarmMedium);
+    view.update({ level_m: 2, overflowing: true });
+    expect(color(liquid)).toBe(ISA101.alarmMedium);
+    view.update({ level_m: 0 });
+    expect(liquid.visible).toBe(false);
+  });
+
+  it("stands tanks on the floor when a scene has no conveyor, and a raised tank on legs", () => {
+    const low = geom("tank", { position: [0, 0, 0] });
+    const high = geom("tank", { id: "TK_02", position: [2, 1.5, 0] });
+    expect(floorFor([low, high])).toBe(0);
+    const legs = (v: ReturnType<typeof buildComponent>) => v.object.children.filter((o) => o.position.y < 0).length;
+    expect(legs(buildComponent(high, { floorY: 0 }))).toBe(4);
+    expect(legs(buildComponent(low, { floorY: 0 }))).toBe(0);
+  });
+});

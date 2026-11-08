@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import math
 import re
 import sys
 from dataclasses import dataclass, replace
@@ -891,6 +892,81 @@ class SelectorSwitch(ComponentBase):
         return self
 
 
+# --- Process components (PLAN 3.2, ADR-0005) ---------------------------------------------------
+
+#: A tank nozzle's name: lowercase, as `TK_01.<name>` in a link end.
+NozzleName = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
+
+
+class TankIO(IOModel):
+    level: AiTag | None = port("AI", "Level", units="m", range_from="height")
+    hi_sw: DiTag | None = port("DI", "High level switch (on at hi_level)")
+    lo_sw: DiTag | None = port("DI", "Low level switch (on at lo_level)")
+    temp: AiTag | None = port("AI", "Liquid temperature", range=(0.0, 100.0), units="°C")
+
+
+class Tank(ComponentBase):
+    """Origin: the centre of the tank bottom, which stands at the origin's height. An open tank of
+    constant cross-section in the flow network (PLAN 3.1)."""
+
+    type: Literal["tank"]
+    shape: Literal["vertical_cylinder", "box"] = Field(
+        "vertical_cylinder", description="A vertical cylinder (diameter) or a box (length, width)."
+    )
+    diameter: PositiveFloat = Field(1.0, description="Cylinder diameter, m.")
+    length: PositiveFloat | None = Field(None, description="Box length along local x, m.")
+    width: PositiveFloat | None = Field(None, description="Box width along local z, m.")
+    height: PositiveFloat = Field(2.0, description="Height, m; the tank overflows at this level.")
+    initial_level: float = Field(0.5, ge=0, description="Level at start, m.")
+    initial_temperature_c: float = Field(20.0, description="Liquid temperature at start, °C.")
+    nozzles: dict[NozzleName, float] = Field(
+        default_factory=dict,
+        description="More nozzles: name -> height above the bottom, m. `bottom` (0) and `top` "
+        "(the height) always exist.",
+    )
+    hi_level: PositiveFloat | None = Field(
+        None,
+        description="Level where hi_sw turns on, m (off 0.02 m lower). Default 90 % of height.",
+    )
+    lo_level: float | None = Field(
+        None, ge=0, description="Level where lo_sw turns on, m (off 0.02 m higher). Default 10 %."
+    )
+    io: TankIO = Field(default_factory=TankIO)
+
+    @model_validator(mode="after")
+    def _fits(self) -> Tank:
+        if self.shape == "box" and (self.length is None or self.width is None):
+            raise ValueError(f"{self.id}: a box tank needs length and width")
+        if self.shape == "vertical_cylinder" and (self.length or self.width):
+            raise ValueError(f"{self.id}: a vertical_cylinder takes diameter, not length or width")
+        if self.initial_level > self.height:
+            raise ValueError(f"{self.id}: initial_level {self.initial_level:g} m is above height")
+        for name, z in self.nozzles.items():
+            if not 0 <= z <= self.height:
+                raise ValueError(f"{self.id}: nozzle {name} at {z:g} m is outside 0 to height")
+        if not 0 <= self.low() < self.high() <= self.height:
+            raise ValueError(f"{self.id}: needs 0 <= lo_level < hi_level <= height")
+        return self
+
+    def high(self) -> float:
+        return self.hi_level if self.hi_level is not None else 0.9 * self.height
+
+    def low(self) -> float:
+        return self.lo_level if self.lo_level is not None else 0.1 * self.height
+
+    def area(self) -> float:
+        if self.shape == "box":
+            return self.length * self.width  # type: ignore[operator]
+        return math.pi * self.diameter**2 / 4
+
+    def all_nozzles(self) -> dict[str, float]:
+        return {"bottom": 0.0, "top": self.height, **self.nozzles}
+
+
+#: Process component types (PLAN 3.2): they live in the flow network, not on conveyors.
+PROCESS_TYPES = frozenset({"tank"})
+
+
 Component = Annotated[
     BeltConveyor
     | RollerConveyor
@@ -908,7 +984,8 @@ Component = Annotated[
     | Pushbutton
     | PilotLight
     | CounterDisplay
-    | SelectorSwitch,
+    | SelectorSwitch
+    | Tank,
     Field(discriminator="type"),
 ]
 
@@ -933,6 +1010,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         PilotLight,
         CounterDisplay,
         SelectorSwitch,
+        Tank,
     )
 }
 
@@ -1087,6 +1165,7 @@ SceneComponent = Annotated[
     | Annotated[PilotLight, Tag("pilot_light")]
     | Annotated[CounterDisplay, Tag("counter_display")]
     | Annotated[SelectorSwitch, Tag("selector_switch")]
+    | Annotated[Tank, Tag("tank")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]

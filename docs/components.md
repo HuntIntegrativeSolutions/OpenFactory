@@ -557,3 +557,52 @@ Origin: the switch face. A viewer click turns it to the next position.
 | `pos_b` | DI | no | In position B |
 
 Faults: `stuck_on`, `stuck_off`.
+
+## Process
+
+Process components (PLAN 3.2) live in the flow network, not on the conveyors: an incompressible
+liquid network solved once per tick (`core/flownet.py`, ADR-0005, with the design and sources in
+[the flow network design](research/flownet-design.md)). **Nodes** are tanks, supplies and open
+drains, whose head is known while the network is solved, and junctions, whose head is solved.
+**Links** (pipes, valves, pumps) join two nodes, named by `from` and `to`: a node's id, a tank's
+nozzle (`TK_01.bottom`), or another link's id, which joins the two links through a junction at
+the second one's position (both must name each other). The solve runs right after the conveyors
+move, with the valve openings and pump speeds of the end of the last tick, so the PLC sees the
+process one tick behind its commands, as it sees a pusher. The liquid is water at 20 °C with
+constant properties; each tank is well mixed (one temperature, one set of ingredient fractions).
+Levels are in m, flows in m³/h, pressures in bar (gauge), temperatures in °C.
+
+### `tank`
+
+Origin: the centre of the tank bottom, which stands at the origin's height. An open tank of
+constant cross-section. Links connect to its nozzles: `bottom` (height 0), `top` (the tank's
+height), and any named in `nozzles`. A nozzle at or above the surface passes no outflow, and
+liquid entering through it falls freely (its head is the nozzle's, whatever the level). At its
+height the tank overflows: the level holds and the excess is counted. Level switches turn on at
+their level and off 0.02 m back, so a level hovering at a switch point does not chatter. Tag the
+switches and the level by ISA-5.1 function, as the shipped scenes do: `TK_02_LSH_DI`,
+`TK_02_LSL_DI`, `TK_01_LT_AI`.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `shape` | `vertical_cylinder` | `vertical_cylinder` (with `diameter`) or `box` (with `length` and `width`) |
+| `diameter` | 1.0 | Cylinder diameter, m |
+| `length` | none | Box length along local x, m (box only) |
+| `width` | none | Box width along local z, m (box only) |
+| `height` | 2.0 | Height, m; the tank overflows at this level |
+| `initial_level` | 0.5 | Level at start, m |
+| `initial_temperature_c` | 20 | Liquid temperature at start, °C |
+| `nozzles` | none | More nozzles, `name: height above the bottom` (m); `bottom` and `top` always exist |
+| `hi_level` | 90 % of `height` | Level where `hi_sw` turns on, m |
+| `lo_level` | 10 % of `height` | Level where `lo_sw` turns on, m |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `level` | AI | no | Level, m, 0 to `height` |
+| `hi_sw` | DI | no | High level switch (LSH): on at `hi_level` |
+| `lo_sw` | DI | no | Low level switch (LSL): on at `lo_level` |
+| `temp` | AI | no | Liquid temperature, °C, 0 to 100 |
+
+Faults: `stuck_on`, `stuck_off`, `drift`, `noisy`, `misaligned`. Stuck faults hold the
+switches; `drift` and `noisy` act on the analog inputs; `misaligned` makes the level read
+`offset_m` high, switches included.

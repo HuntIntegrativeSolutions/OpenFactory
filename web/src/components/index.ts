@@ -18,6 +18,7 @@ import {
   selectorSwitch,
   stopper,
 } from "./devices";
+import { tank } from "./process";
 import type { BuildContext, Builder, ComponentView } from "./types";
 
 export const BUILDERS: Record<string, Builder> = {
@@ -38,17 +39,24 @@ export const BUILDERS: Record<string, Builder> = {
   distance_sensor: distanceSensor,
   color_sensor: colorSensor,
   counter_display: counterDisplay,
+  tank,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {
   return (BUILDERS[g.type] ?? fallback)(g, ctx);
 }
 
-/** Floor height for a scene: 0.75 m below its lowest conveyor top (or component origin). */
+/**
+ * Floor height for a scene: 0.75 m below its lowest conveyor top (or component origin), or the
+ * lowest tank bottom if that is lower: tanks stand on the floor (PLAN 3.2), a raised one on legs.
+ */
 export function floorFor(components: ComponentGeometry[]): number {
   const tops = components.filter((c) => BELT_TYPES.has(c.type) || c.type === "turntable" || c.type === "lift").map((c) => c.position[1]);
+  const tanks = components.filter((c) => c.type === "tank").map((c) => c.position[1]);
+  if (tanks.length && !tops.length) return Math.min(...tanks);
   const ys = tops.length ? tops : components.map((c) => c.position[1]);
-  return Math.min(0, ...ys) - 0.75;
+  const floor = Math.min(0, ...ys) - 0.75;
+  return tanks.length ? Math.min(floor, ...tanks) : floor;
 }
 
 export type { BuildContext, ComponentView } from "./types";

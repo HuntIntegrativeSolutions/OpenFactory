@@ -348,7 +348,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `distance_sensor` | — | distance (AI), switching (AI) | Range to the nearest part or belt along its beam, metres 0 to `beam_length`. | 2 |
 | `color_sensor` | — | match, detect | Diffuse sensor taught one part `color`; `match` while the nearest part in range has it; `debounce_ms` (default 0, 2.5b). | 2 (2.7) |
 | `counter_display` | value (AO) | — | Seven-segment readout on a panel, `digits` 1-6 (default 4), `decimals`; dashes when the value does not fit. | 2 (2.5b) |
-| `tank` | — | level (AI), hi_sw, lo_sw | Mass balance: Σ inflows − Σ outflows. Height from volume and footprint. | 3 |
+| `tank` | — | level (AI), hi_sw, lo_sw, temp (AI) | Node of the flow network (ADR-0005): volume from the solved flows, level from volume and footprint; overflows at its height; well mixed. | 3 (3.2) |
 | `valve_onoff` | open | opened, closed | Travel time; flow coefficient Cv passes to connected pipe. | 3 |
 | `valve_control` | position (AO) | position_fb (AI) | First-order lag, stroke time. | 3 |
 | `pump` | run, speed (opt) | running, flow (AI) | Flow = f(speed, head) with a simple curve. | 3 |
@@ -1833,6 +1833,14 @@ runs the sorting program against it; a box visibly gets pushed.
       which `docs/components.md` says (decision 6). One commit per type, each with a unit test
       and a `docs/components.md` section; the decision 9 lint checks land with the first
       component that needs each.
+      *Progress (2026-11-07), one commit per type:*
+      - `tank`: `src/openfactory/components/tank.py`; a cylinder or box, nozzles (`bottom`,
+        `top`, named), `level`/`temp` AIs and LSH/LSL switches with a 0.02 m deadband,
+        `overflowing` state; faults stuck, drift, noisy, misaligned. Viewer
+        (`web/src/components/process.ts`): an outlined translucent shell with the liquid at
+        `level_m` (alarm yellow while overflowing), legs to the floor when raised; tanks stand
+        on the floor in a scene without conveyors. `tests/unit/test_tank.py` (12), two web
+        tests; screenshot of a cylinder and a raised box tank looked at.
 - [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
       *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
       `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,

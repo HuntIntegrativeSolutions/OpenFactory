@@ -834,6 +834,7 @@
               "roller_conveyor",
               "selector_switch",
               "stopper",
+              "tank",
               "turntable"
             ]
           },
@@ -3357,6 +3358,271 @@
       "title": "StopperIO",
       "type": "object"
     },
+    "Tank": {
+      "additionalProperties": false,
+      "description": "Origin: the centre of the tank bottom, which stands at the origin's height. An open tank of\nconstant cross-section in the flow network (PLAN 3.1).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "type": {
+          "const": "tank",
+          "title": "Type",
+          "type": "string"
+        },
+        "shape": {
+          "default": "vertical_cylinder",
+          "description": "A vertical cylinder (diameter) or a box (length, width).",
+          "enum": [
+            "vertical_cylinder",
+            "box"
+          ],
+          "title": "Shape",
+          "type": "string"
+        },
+        "diameter": {
+          "default": 1.0,
+          "description": "Cylinder diameter, m.",
+          "exclusiveMinimum": 0,
+          "title": "Diameter",
+          "type": "number"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Box length along local x, m.",
+          "title": "Length"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Box width along local z, m.",
+          "title": "Width"
+        },
+        "height": {
+          "default": 2.0,
+          "description": "Height, m; the tank overflows at this level.",
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "initial_level": {
+          "default": 0.5,
+          "description": "Level at start, m.",
+          "minimum": 0,
+          "title": "Initial Level",
+          "type": "number"
+        },
+        "initial_temperature_c": {
+          "default": 20.0,
+          "description": "Liquid temperature at start, °C.",
+          "title": "Initial Temperature C",
+          "type": "number"
+        },
+        "nozzles": {
+          "description": "More nozzles: name -> height above the bottom, m. `bottom` (0) and `top` (the height) always exist.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "type": "number"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 32
+          },
+          "title": "Nozzles",
+          "type": "object"
+        },
+        "hi_level": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Level where hi_sw turns on, m (off 0.02 m lower). Default 90 % of height.",
+          "title": "Hi Level"
+        },
+        "lo_level": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Level where lo_sw turns on, m (off 0.02 m higher). Default 10 %.",
+          "title": "Lo Level"
+        },
+        "io": {
+          "$ref": "#/$defs/TankIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type"
+      ],
+      "title": "Tank",
+      "type": "object"
+    },
+    "TankIO": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Level",
+          "title": "Level",
+          "x-io-kind": "AI",
+          "x-range-from": "height",
+          "x-units": "m"
+        },
+        "hi_sw": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "High level switch (on at hi_level)",
+          "title": "Hi Sw",
+          "x-io-kind": "DI"
+        },
+        "lo_sw": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Low level switch (on at lo_level)",
+          "title": "Lo Sw",
+          "x-io-kind": "DI"
+        },
+        "temp": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Liquid temperature",
+          "title": "Temp",
+          "x-io-kind": "AI",
+          "x-range": [
+            0.0,
+            100.0
+          ],
+          "x-units": "°C"
+        }
+      },
+      "title": "TankIO",
+      "type": "object"
+    },
     "Turntable": {
       "additionalProperties": false,
       "description": "Origin: deck centre (the pivot), at deck-belt top height. At 0 degrees the deck flows along\nlocal +x; it turns about +y by ``turn_deg`` (90: counter-clockwise seen from above).",
@@ -3653,6 +3919,9 @@
           },
           {
             "$ref": "#/$defs/SelectorSwitch"
+          },
+          {
+            "$ref": "#/$defs/Tank"
           },
           {
             "$ref": "#/$defs/CompositeInstance"
