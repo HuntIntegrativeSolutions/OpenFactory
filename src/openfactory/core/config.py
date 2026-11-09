@@ -52,10 +52,22 @@ class ServerSettings(_Strict):
     fault_token: str | None = Field(default=None, min_length=1)
 
 
+class SparkplugSettings(_Strict):
+    """The MQTT broker a Sparkplug B edge node publishes to (PLAN 3.5, ``run --sparkplug``): a
+    connection, not a listen address, so a broker on another machine goes in the git-ignored
+    ``openfactory.local.toml``. ``node`` defaults to the scene's name."""
+
+    broker: str = "127.0.0.1"
+    port: int = Field(1883, ge=1, le=65535)
+    group: str = "OpenFactory"
+    node: str | None = None
+
+
 class Settings(_Strict):
     modbus: Endpoint = Endpoint(port=5020)
     opcua: Endpoint = Endpoint(port=4840)
     web: Endpoint = Endpoint(port=8000)
+    sparkplug: SparkplugSettings = SparkplugSettings()
     server: ServerSettings = ServerSettings()
     connections: dict[str, Connection] = {}
 

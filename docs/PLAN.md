@@ -1997,6 +1997,32 @@ runs the sorting program against it; a box visibly gets pushed.
       (Library of Process Objects, 4.x objects) and PROCES-RM200 (5.x), cited by publication
       number and revision.
 - [ ] 3.5 MQTT Sparkplug B publisher (`protocols/sparkplug.py`) tested against Ignition 8.3 MQTT Engine
+      *Ruled 2026-11-08:* the publisher with a unit test against a local broker in CI, and a
+      documented Ignition test deferred to Docker.
+      *Progress (2026-11-08), not done (the MQTT Engine test is the Done-when):*
+      `src/openfactory/protocols/sparkplug.py`, one Sparkplug B 3.0 edge node per run
+      (`run --sparkplug`; broker, group and node in `openfactory.toml [sparkplug]`, default
+      `127.0.0.1:1883`, group `OpenFactory`, node the scene's name): CONNECT with the NDEATH
+      Will (QoS 1, bdSeq Int64, +1 per CONNECT, wrapping at 255), SUBSCRIBE to NCMD before
+      NBIRTH (seq 0, every tag by name and alias, Boolean or Float, bdSeq, Node
+      Control/Rebirth), NDATA of changed metrics by alias every 0.5 s (seq +1, wrapping 255 to
+      0), a rebirth on request, NDEATH at QoS 1 on a clean stop, a retry every 2 s. Read-only:
+      any NCMD but Rebirth is logged and ignored. No new dependency: the payload's protobuf
+      encoding is written from the field numbers of `sparkplug_b.proto` (EPL-2.0, not copied)
+      and the public wire format, and the MQTT 3.1.1 client from the OASIS standard. The first
+      plan, paho-mqtt (its BSD-3 option) with amqtt as the test broker, stopped: running amqtt
+      through `uvx` was refused by the session's permission classifier, so no third-party
+      package was added or run. Tests: `tests/unit/test_sparkplug.py` (10: payload,
+      `bdSeq`, CONNECT, SUBSCRIBE and PUBLISH bytes worked out by hand from the specifications,
+      seq wrapping, the birth's metrics, bad ids); `tests/integration/test_sparkplug_broker.py`
+      (3) against `tests/integration/mqtt_test_broker.py`, a broker written separately from
+      the publisher that parses every packet itself: the session order and flags (0x0E), the
+      Will, NBIRTH and NDATA, a rebirth, a command ignored, the Will on a dropped link and
+      bdSeq 1 on the reconnect, NDEATH at QoS 1 and DISCONNECT on a clean stop, a broker that is
+      down, and `run --sparkplug` end to end. Writing them found one client bug (the CONNACK
+      type read from the whole first byte). *Not done:* interop with a third-party broker and
+      with MQTT Engine; the procedure is in `docs/ignition.md`, "Test with Ignition", with the
+      Engine's tag path marked `[TBD]`.
 - [x] 3.6 Trend endpoint `/api/history?tag=` ring buffer so the viewer can show a 10-minute trend
       *Done (2026-11-08; ruled: a ring buffer and a 10-minute trend panel for any AI tag, shown
       on the PID scene):* `src/openfactory/core/history.py`, `TagHistory`: one ring buffer per

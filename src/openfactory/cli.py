@@ -311,6 +311,15 @@ def run(
     opcua_port: Annotated[
         int | None, typer.Option(help="OPC UA port with --opcua (default 4840).")
     ] = None,
+    sparkplug: Annotated[
+        bool,
+        typer.Option(
+            "--sparkplug",
+            help="Also publish the I/O table as a Sparkplug B edge node to the MQTT broker in "
+            "openfactory.toml [sparkplug] (PLAN 3.5; read-only telemetry, e.g. for Ignition's "
+            "MQTT Engine).",
+        ),
+    ] = False,
     force: Annotated[
         list[str] | None,
         typer.Option(help="TAG=VALUE: set a DO/AO tag at startup as if the PLC wrote it."),
@@ -399,6 +408,7 @@ def run(
         fault_token=fault_token,
         serve_opcua=opcua,
         opcua_port=opcua_port,
+        sparkplug=sparkplug,
         faults=faults,
         record=record,
     )
@@ -517,6 +527,7 @@ def _simulate(
     serve_modbus: bool = True,
     serve_opcua: bool = False,
     opcua_port: int | None = None,
+    sparkplug: bool = False,
     faults: list[tuple[float, str, str, dict[str, Any]]] | None = None,
     record: Path | None = None,
 ):  # -> tuple[Runtime, float]; Runtime is imported lazily with the web stack
@@ -560,6 +571,21 @@ def _simulate(
             "plc.protocol %s is not implemented yet; running without a PLC server",
             parsed.plc.protocol,
         )
+    publisher = None
+    if sparkplug:
+        from openfactory.protocols.sparkplug import SparkplugEndpoint, SparkplugPublisher
+
+        cfg = settings.sparkplug
+        try:
+            publisher = SparkplugPublisher(
+                loaded.io,
+                SparkplugEndpoint(cfg.broker, cfg.port, cfg.group),
+                cfg.node or parsed.scene.name,
+            )
+        except ValueError as exc:
+            typer.echo(f"error: --sparkplug: {exc}", err=True)
+            raise typer.Exit(1) from None
+        log.info("sparkplug: %s on %s:%d", publisher.topic("NBIRTH"), cfg.broker, cfg.port)
     controller = None
     if script is not None:
         from openfactory.pyplc import ScriptPlc
@@ -611,7 +637,7 @@ def _simulate(
         log.info("recording to %s", record)
     wall = time.perf_counter()
     try:
-        servers = [s for s in (modbus, opcua) if s is not None]
+        servers = [s for s in (modbus, opcua, publisher) if s is not None]
         asyncio.run(_serve(runtime, servers, web, duration))
     finally:
         if runtime.recorder is not None:  # Ctrl+C or a script fault still leaves a whole file

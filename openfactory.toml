@@ -25,6 +25,14 @@ port = 4840
 bind = "127.0.0.1"   # viewer and WebSocket server
 port = 8000
 
+# Sparkplug B edge node (PLAN 3.5, `openfactory run --sparkplug`): the MQTT broker it publishes
+# the I/O table to, for Ignition's MQTT Engine. A broker on another machine is a connection: put
+# its address in openfactory.local.toml. The edge node id defaults to the scene's name.
+[sparkplug]
+broker = "127.0.0.1"
+port = 1883
+group = "OpenFactory"
+
 # Fault injection (PLAN 2.6, §6.4). On loopback /api/fault is open. With the viewer bound beyond
 # loopback (--bind 0.0.0.0), every /api/fault request needs this token in the
 # X-OpenFactory-Fault-Token header (the viewer's fault menu asks for it once); without a token the

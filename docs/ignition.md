@@ -68,3 +68,58 @@ No alarms are generated: a scene has no rationalized alarm setpoints (ISA-18.2).
 
 Not yet verified against a running gateway: the import itself, Good quality on every tag, and a
 Perspective view writing a run bit (PLAN 2.4, "Not done").
+
+## Sparkplug B to MQTT Engine (PLAN 3.5)
+
+`run --sparkplug` publishes the scene's I/O table as one Sparkplug B 3.0 edge node to an MQTT
+broker, for Ignition's MQTT Engine module (Cirrus Link) or any Sparkplug host:
+
+```bash
+uv run openfactory run scenes/tank-level-pid.yaml --script examples/pyplc/tank-level-pid.py --sparkplug
+```
+
+The broker is `[sparkplug]` in `openfactory.toml` (`broker`, `port`, `group`; default
+`127.0.0.1:1883`, group `OpenFactory`); the edge node id is the scene's name unless `node` sets
+one. A broker on another machine is a connection: put it in `openfactory.local.toml`. Nothing to
+install: the MQTT client and the payload encoding are part of OpenFactory
+(`src/openfactory/protocols/sparkplug.py`).
+
+What it sends (Sparkplug 3.0 chapters 4 to 6):
+
+- CONNECT with an NDEATH Will (QoS 1, not retained) carrying `bdSeq`, which counts connections;
+  SUBSCRIBE to `spBv1.0/<group>/NCMD/<node>`; then NBIRTH with every tag as a metric (name,
+  alias, datatype: Boolean for a BOOL tag, Float for a float32 tag), `bdSeq` and
+  `Node Control/Rebirth`.
+- NDATA twice a second with the metrics that changed, by alias.
+- A rebirth when the host asks (writing `Node Control/Rebirth` true). Any other NCMD is ignored
+  and logged: the node is **read-only telemetry**. The PLC controls the plant over Modbus TCP or
+  OPC UA; a host cannot write a DO or AO through Sparkplug.
+- NDEATH on a clean stop; the broker sends the Will if the run dies.
+
+A broker that is down does not stop the run: the node retries every 2 s and is born when the
+broker comes up.
+
+### Test with Ignition (deferred: Docker is down)
+
+The automated tests run the node against a small MQTT 3.1.1 broker written for the tests
+(`tests/integration/mqtt_test_broker.py`), in CI and on any machine. They have not yet run it
+against a third-party broker or against MQTT Engine. The procedure, for the first run with
+Docker up:
+
+1. Start a broker on the host, for example Mosquitto 2.x with a listener on 1883
+   (`listener 1883` and `allow_anonymous true` in a lab-only config).
+2. In the Ignition 8.3 container (the existing `ign-sim`), install the MQTT Engine module and
+   start its trial (the 2-hour trial resets from the gateway). Under MQTT Engine → Settings →
+   Servers, add the broker by the host's address as the container sees it. Leave the primary host
+   settings at their defaults; the node does not wait for a primary host.
+3. Run the scene with `--sparkplug` as above.
+4. Check, and note each result in PLAN 3.5:
+   - the edge node appears under the MQTT Engine tag provider,
+     `[MQTT Engine]Edge Nodes/OpenFactory/tank-level-pid/...`
+     `[TBD: verify the path on the first Ignition 8.3 run]`, with every tag of the scene;
+   - `TK_01_LT_AI` updates twice a second and its quality is Good;
+   - writing the node's `Node Control/Rebirth` tag produces a new NBIRTH (the run's log shows no
+     warning; the Engine's Node Info shows a new birth);
+   - stopping the run with Ctrl+C marks the node offline at once (NDEATH); killing it (`kill
+     -9`) marks it offline when the broker's keep-alive expires (the Will);
+   - writing any other node tag from Ignition changes nothing in the simulation (read-only).
