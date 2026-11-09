@@ -266,6 +266,9 @@ class ReplayRuntime:
     def statistics(self) -> dict[str, Any]:
         return dict((self.recording.end or {}).get("statistics", {}))
 
+    def history(self, tag: str, seconds: float | None = None) -> dict[str, Any]:
+        raise KeyError("replay: a recording has no tag history (PLAN 3.6); run the scene for a trend")
+
     def parity(self) -> dict[str, Any]:
         return {"core": [], "viewer": []}
 

@@ -1042,6 +1042,15 @@ runs the sorting program against it; a box visibly gets pushed.
       endings); `build_kit.py --check` fails when the program's hash differs, naming the scene
       and the command that prints the new hash (`grafcet_from_st.py --hash SCENE`) to store after
       the sequence is re-read. Tested both ways in `test_grafcet_from_st.py`.
+      *Process kits (ruled 2026-11-08):* charts for the four process scenes through the
+      generator, with their sequences and stored hashes. `tank-level-onoff`: not filling and
+      filling (the FILL seal-in), with the return at LSH. `tank-level-pid` and
+      `two-tank-cascade` are continuous loops, so their charts are the operating modes the
+      program moves through, not an invented sequence: startup in manual (1 s), automatic
+      with the PID block's equation as the action, and the high-level interlock (valve shut,
+      controller held in manual), returning to automatic when the switch clears.
+      `batch-mix-heat`: idle, fill water, fill syrup, heat, hold (no return: the batch is
+      held). Ten kits now carry a chart; PE review of all ten is still not done.
 - [ ] 2.9 Performance: 200 parts at 60 fps in the viewer on integrated graphics; profile and fix.
       **First, before any other 2.9 work (ruled 2026-10-30): the real-time tick loop falls
       seconds behind when a viewer is connected.** Seen during 2.11 with a software-rendered

@@ -51,6 +51,9 @@ With a ``controller`` (:class:`~openfactory.pyplc.ScriptPlc`, PLAN 2.10) the run
 the simulated time before every tick, under the same lock. An exception from the script is kept
 in :attr:`Runtime.fault` and stops the run.
 
+Every tick also samples the AI tags into :attr:`Runtime.tag_history` (PLAN 3.6), ten minutes at
+2 Hz of simulated time each, which :meth:`Runtime.history` serves to ``GET /api/history``.
+
 For the live parity check (``tools/parity_trace.py --live``), the runtime also records the core's
 own raw photo-eye beam edges, ``{"id", "blocked", "tick"}`` after the tick that changed them, in
 :attr:`Runtime.sensor_edges` (the last 1000). These are the undebounced beam states the parity
@@ -67,6 +70,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from openfactory.core.history import TagHistory
 from openfactory.core.loader import LoadedScene
 from openfactory.core.scheduler import DEFAULT_RATE_HZ, RunStats, Scheduler
 from openfactory.core.stats import SceneStats
@@ -124,6 +128,8 @@ class Runtime:
         self._eyes = [c for c in loaded.components if c.type == "photo_eye"]
         self._beam = {c.id: bool(getattr(c, "blocked", False)) for c in self._eyes}
         self.sensor_edges: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
+        #: Ten minutes of every AI tag at 2 Hz of simulated time, for the trend panel (PLAN 3.6).
+        self.tag_history = TagHistory(loaded.io)
 
     # -- simulation thread -----------------------------------------------------------------------
 
@@ -156,6 +162,7 @@ class Runtime:
                     return
             self.loaded.step(dt)
             self.scene_stats.observe()
+            self.tag_history.observe(self.loaded.time)
             for eye in self._eyes:
                 blocked = bool(eye.blocked)  # type: ignore[attr-defined]
                 if blocked != self._beam[eye.id]:
@@ -443,6 +450,12 @@ class Runtime:
         """The run's statistics so far (PLAN 2.11), as ``GET /api/stats`` serves them."""
         with self.lock:
             return self.scene_stats.report()
+
+    def history(self, tag: str, seconds: float | None = None) -> dict[str, Any]:
+        """One AI tag's recent history (PLAN 3.6, :mod:`openfactory.core.history`); KeyError for
+        a tag that is not an AI tag of this scene."""
+        with self.lock:
+            return self.tag_history.series(tag, seconds)
 
     def parity(self) -> dict[str, Any]:
         """Core beam edges and browser sensor events, for ``tools/parity_trace.py --live``."""

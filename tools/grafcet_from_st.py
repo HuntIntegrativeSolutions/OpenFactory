@@ -931,6 +931,256 @@ SCENES["palletizer-lite"] = dict(
 )
 
 
+# --- Process scenes (PLAN 3.3). Two are continuous loops: their charts are the operating modes
+# the program moves through (startup in manual, automatic, the high-level interlock), not an
+# invented sequence; the PID block's equation is the action of the automatic step.
+
+SCENES["tank-level-onoff"] = dict(
+    program="tank_onoff",
+    st_sha256="1df732e335422e57cddddaf9b96c30617ee9c39a485fc910fa52105be2c1ee3f",  # the program this sequence was read from
+    seq="Tank_OnOff",
+    process="Head tank level, pump on/off between two switches",
+    graphs=[
+        Graph(
+            "G1 — Head tank fill (FILL seal-in)",
+            [
+                Step(
+                    0,
+                    "Not filling",
+                    [
+                        "P_01_RUN_DO := FALSE   (FILL)",
+                        "the hand valve drains the head tank to the sump",
+                        "# ST: FILL := (LSL OR FILL) AND NOT LSH",
+                    ],
+                    initial=True,
+                ),
+                Trans(
+                    "T1",
+                    ["TK_02_LSL_DI AND NOT TK_02_LSH_DI"],
+                    note="the level fell to the low switch, 0.25 m",
+                ),
+                Step(
+                    10,
+                    "Filling",
+                    [
+                        "P_01_RUN_DO := TRUE   (FILL, sealed in)",
+                        "runs on after LSL clears: the switches",
+                        "  are the deadband",
+                        "# ST: FILL := (LSL OR FILL) AND NOT LSH",
+                    ],
+                    kind="running",
+                ),
+                Trans(
+                    "T2",
+                    ["TK_02_LSH_DI"],
+                    note="high switch, 0.75 m (or both switches on: a fault)",
+                    target=0,
+                ),
+            ],
+        )
+    ],
+)
+
+SCENES["tank-level-pid"] = dict(
+    program="tank_pid",
+    st_sha256="f7768a12fba7d20f775ea270a8496db70cf1f463a435bd7f182ba214adc8508e",  # the program this sequence was read from
+    seq="Tank_PID",
+    process="Tank level PI loop through OpenPLC's PID block",
+    graphs=[
+        Graph(
+            "G1 — Level controller LIC modes",
+            [
+                Step(
+                    0,
+                    "Startup, manual",
+                    [
+                        "STARTUP_TMR: TON, PT 1 s (STARTUP_DELAY)",
+                        "LIC AUTO := FALSE, X0 := START_PCT / KP",
+                        "  so XOUT = 66 %, the valve's start",
+                        "FV_01_POS_AO := LIMIT(0, LIC.XOUT, 100)",
+                        "  (0 while TK_01_LSH_DI)",
+                        "# ST sections 1, 5, 3",
+                    ],
+                    initial=True,
+                ),
+                Trans(
+                    "T1",
+                    ["STARTUP_TMR.Q"],
+                    note="the level reading is live (it reads 0 until its first poll)",
+                ),
+                Step(
+                    10,
+                    "Automatic, PI on the level",
+                    [
+                        "LEVEL_M := TK_01_LT_AI scaled, 0 to 2 m",
+                        "LIC AUTO := TRUE, SP 1.0 m, KP -400 %/m,",
+                        "  TR 6 s, TD 0, CYCLE T#20ms",
+                        "XOUT := KP * (PV - SP + ITERM / TR)",
+                        "FV_01_POS_AO := LIMIT(0, LIC.XOUT, 100)",
+                        "# ST sections 1-3",
+                    ],
+                    kind="running",
+                ),
+                Trans("T2", ["TK_01_LSH_DI"], note="high level switch, 1.8 m"),
+                Step(
+                    20,
+                    "High level interlock",
+                    [
+                        "LIC AUTO := FALSE, X0 := 0   (no windup)",
+                        "FV_01_POS_AO := 0   (valve closed)",
+                        "# ST section 4",
+                    ],
+                    kind="warning",
+                ),
+                Trans(
+                    "T3",
+                    ["NOT TK_01_LSH_DI"],
+                    note="switch cleared: back to automatic from 0 %, bumpless",
+                    target=10,
+                ),
+            ],
+        )
+    ],
+)
+
+SCENES["two-tank-cascade"] = dict(
+    program="tank_cascade",
+    st_sha256="47a1df59458723379f196689f0bf295a7b1654fc4ca64e281bb24e56888e0296",  # the program this sequence was read from
+    seq="Tank_Cascade",
+    process="Cascade level control of two tanks in series",
+    graphs=[
+        Graph(
+            "G1 — Cascade LIC_02 (outer) / LIC_01 (inner) modes",
+            [
+                Step(
+                    0,
+                    "Startup, both manual",
+                    [
+                        "STARTUP_TMR: TON, PT 1 s (STARTUP_DELAY)",
+                        "LIC_02 manual at START_UPPER, 0.165 m",
+                        "LIC_01 manual at START_PCT, 63 %",
+                        "FV_01_POS_AO := LIMIT(0, LIC_01.XOUT, 100)",
+                        "  (0 while HIGH)",
+                        "# ST sections 1, 5, 3",
+                    ],
+                    initial=True,
+                ),
+                Trans(
+                    "T1",
+                    ["STARTUP_TMR.Q AND NOT HIGH"],
+                    note="HIGH := TK_01_LSH_DI OR TK_02_LSH_DI",
+                ),
+                Step(
+                    10,
+                    "Cascade, both automatic",
+                    [
+                        "LIC_02: PV lower level, SP 0.8 m, KP -4, TR 8 s",
+                        "UPPER_SP := LIMIT(0.05, LIC_02.XOUT, 1.6)",
+                        "LIC_01: PV upper level, SP UPPER_SP,",
+                        "  KP -400 %/m, TR 3 s",
+                        "FV_01_POS_AO := LIMIT(0, LIC_01.XOUT, 100)",
+                        "# ST sections 1-3",
+                    ],
+                    kind="running",
+                ),
+                Trans("T2", ["HIGH"], note="either tank's high level switch"),
+                Step(
+                    20,
+                    "High level interlock",
+                    [
+                        "LIC_02 manual, tracking the upper level",
+                        "  (X0 := UPPER_M / KP_OUTER)",
+                        "LIC_01 manual at 0 %   (no windup)",
+                        "FV_01_POS_AO := 0   (valve closed)",
+                        "# ST sections 4, 5",
+                    ],
+                    kind="warning",
+                ),
+                Trans(
+                    "T3",
+                    ["NOT HIGH"],
+                    note="both switches clear: back to cascade, bumpless",
+                    target=10,
+                ),
+            ],
+        )
+    ],
+)
+
+SCENES["batch-mix-heat"] = dict(
+    program="batch_mix_heat",
+    st_sha256="10a510b1a3d140d989d0f74a07e2e35c54f5112e09c6962d825309d16d4b0077",  # the program this sequence was read from
+    seq="Batch_Mix_Heat",
+    process="Batch recipe: fill water, fill syrup, heat, hold",
+    graphs=[
+        Graph(
+            "G1 — Batch sequence (STEP)",
+            [
+                Step(
+                    0,
+                    "Idle",
+                    [
+                        "XV_01_OPEN_DO, XV_02_OPEN_DO := FALSE",
+                        "HTR_01_ON_DO := FALSE, PL_READY_DO := FALSE",
+                        "STARTUP_TMR: TON, PT 1 s (STARTUP_DELAY)",
+                        "# ST: CASE STEP OF 0",
+                    ],
+                    initial=True,
+                ),
+                Trans(
+                    "T1",
+                    ["STARTUP_TMR.Q AND LEVEL_M < EMPTY_LVL"],
+                    note="readings live; the tank empty, below 0.02 m",
+                ),
+                Step(
+                    10,
+                    "Fill water",
+                    [
+                        "XV_01_OPEN_DO := NOT TK_01_LSH_DI",
+                        "HTR_01_ON_DO := FALSE",
+                        "# ST: CASE STEP OF 10; actions",
+                    ],
+                ),
+                Trans("T2", ["LEVEL_M >= WATER_SP"], note="0.10 m of water"),
+                Step(
+                    20,
+                    "Fill syrup",
+                    [
+                        "XV_02_OPEN_DO := NOT TK_01_LSH_DI",
+                        "HTR_01_ON_DO := FALSE",
+                        "# ST: CASE STEP OF 20; actions",
+                    ],
+                ),
+                Trans("T3", ["LEVEL_M >= BATCH_SP"], note="0.16 m: 37.5 % syrup by volume"),
+                Step(
+                    30,
+                    "Heat",
+                    [
+                        "HEAT := TRUE",
+                        "HTR_01_ON_DO := HEAT AND LEVEL_M >= COVER_LVL",
+                        "  (the heater only covered, 0.10 m)",
+                        "# ST: CASE STEP OF 30; actions",
+                    ],
+                ),
+                Trans("T4", ["TEMP_C >= TEMP_SP"], note="50 C"),
+                Step(
+                    40,
+                    "Hold, batch ready",
+                    [
+                        "PL_READY_DO := TRUE",
+                        "HEAT := FALSE at TEMP_SP,",
+                        "  TRUE below TEMP_SP - HOLD_DB (49.5 C)",
+                        "HTR_01_ON_DO := HEAT AND LEVEL_M >= COVER_LVL",
+                        "# ST: actions; held, no further step",
+                    ],
+                    kind="running",
+                ),
+            ],
+        )
+    ],
+)
+
+
 def st_hash(scene: str) -> str:
     """SHA-256 of ``examples/openplc/<scene>.st``, line endings normalized to LF."""
     st = REPO / "examples" / "openplc" / f"{scene}.st"

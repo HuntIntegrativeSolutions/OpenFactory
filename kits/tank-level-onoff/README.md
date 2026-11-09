@@ -17,6 +17,7 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `tank-level-onoff-io-int16.csv` | I/O list, int16_scaled Modbus addresses (OpenPLC) |
 | `tank-level-onoff-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |
 | `tank-level-onoff-ignition-tags.json` | Ignition 8.3 tags, a UDT instance per component (PLAN 2.4) |
+| `tank-level-onoff-grafcet.html` | GRAFCET of the OpenPLC program, pending PE review (PLAN 2.8) |
 | `tank-level-onoff.ofrec` | a 60 s recording under the stand-in script (PLAN 2.12) |
 | `README.md` | this index |
 

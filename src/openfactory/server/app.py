@@ -29,6 +29,10 @@ Behavior spec
   fault markers.
 - ``GET /api/stats``: the run's statistics so far (PLAN 2.11, :mod:`openfactory.core.stats`):
   throughput per remover, conveyor utilization, actuator cycles, part dwell, and losses.
+- ``GET /api/history?tag=TAG[&seconds=S]``: one AI tag's history for the trend panel (PLAN 3.6,
+  :mod:`openfactory.core.history`): the last ten minutes (or ``S`` seconds) sampled at 2 Hz of
+  simulated time, ``{tag, units, range, period_s, window_s, t: [s], v: [value]}``. 404 for a tag
+  that is not an AI tag of the scene (with the reason) and in a replay; 400 for ``seconds`` <= 0.
 - ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
   sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
 - ``WS /ws/state``: sends the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines,
@@ -233,6 +237,16 @@ def create_app(
     @app.get("/api/stats")
     def stats() -> dict[str, Any]:
         return runtime.statistics()
+
+    @app.get("/api/history")
+    def history(tag: str, seconds: float | None = None) -> dict[str, Any]:
+        """One AI tag's last ten minutes at 2 Hz of simulated time (PLAN 3.6)."""
+        if seconds is not None and seconds <= 0:
+            raise HTTPException(400, "seconds must be positive")
+        try:
+            return runtime.history(tag, seconds)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc.args[0])) from None
 
     @app.get("/api/parity")
     def parity() -> dict[str, Any]:
