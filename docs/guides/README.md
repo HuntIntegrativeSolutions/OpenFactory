@@ -71,6 +71,15 @@ uv run openfactory run <scene>.ofz                      # a PLC drives it; the s
 The bundled script is Python: `--bundled-script` runs it, so give that flag only to a bundle you
 trust. `bundle --no-script` leaves the script out. Details: `docs/scene-format.md`, "Bundles".
 
+## Trend an analog input
+
+In a scene with AI tags the viewer shows a **Trend** button at the bottom right (PLAN 3.6): it
+draws one AI tag's last ten minutes, sampled at 2 Hz of simulated time, from
+`GET /api/history?tag=TAG`. `?trend=TAG` in the address opens it on that tag, for example
+`http://127.0.0.1:8000/?trend=TK_01_LT_AI` on `tank-level-pid`. The y axis fits the samples (the
+tag's range is in the caption), so a 2 cm dip reads on a 2 m transmitter. A replay has no
+history.
+
 ## Record a run, replay it anywhere
 
 `--record` on `run` or `test` writes the whole run, scene included, to one file; anyone can replay

@@ -57,8 +57,11 @@ class TagHistory:
         of it (all it holds when None)."""
         if tag not in self.values:
             kind = next((t.kind for t in self.io.tags() if t.name == tag), None)
-            why = f"{tag!r} is a {kind} tag; only AI tags have a history" if kind else (
-                f"no tag {tag!r} in this scene"
+            why = (
+                f"{tag!r} is {'an' if kind[0] in 'AEIOU' else 'a'} {kind} tag; only AI tags have "
+                "a history"
+                if kind
+                else (f"no tag {tag!r} in this scene")
             )
             raise KeyError(why)
         t, v = list(self.t), list(self.values[tag])

@@ -30,6 +30,7 @@ import { attachHousings } from "./housings";
 import { attachMeshes } from "./meshes";
 import { cssColor, ISA101 } from "./isa101";
 import { ExamPanel } from "./exampanel";
+import { TrendPanel } from "./trend";
 import { FaultMenu } from "./faultmenu";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
@@ -474,7 +475,13 @@ async function start(): Promise<void> {
       window.__openfactory.exam = on;
     });
   await refreshExam();
+  // trend panel (PLAN 3.6): any AI tag's last ten minutes; ?trend=TAG opens it on that tag
+  const trend = new TrendPanel();
+  if (doc) trend.setScene(doc);
+  const wanted = new URLSearchParams(window.location.search).get("trend");
+  if (wanted) trend.open(wanted);
   Object.assign(window, {
+    __openfactoryTrend: trend,
     __openfactoryFaultMenu: menu,
     __openfactoryScreenOf: screenOf,
     __openfactoryPartTargets: () => parts.targets(),
@@ -487,7 +494,7 @@ async function start(): Promise<void> {
     window.__openfactory.physics = `off: ${String(err)}`; // parts follow the core positions instead
   }
   streamState(onFrame, () => {
-    loadScene().then(refreshExam).catch((err: unknown) => {
+    loadScene().then(refreshExam).then(() => doc && trend.setScene(doc)).catch((err: unknown) => {
       window.__openfactory.error = String(err);
       hud.textContent = `OpenFactory: ${String(err)}`;
     });

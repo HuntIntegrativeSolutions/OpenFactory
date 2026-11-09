@@ -55,6 +55,11 @@ uv run openfactory run scenes/tank-level-pid.yaml --script examples/pyplc/tank-l
 uv run openfactory test scenes/tank-level-pid.yaml --script examples/pyplc/tank-level-pid.py
 ```
 
+To watch the loop, open the viewer at `http://127.0.0.1:8000/?trend=TK_01_LT_AI`: the trend
+panel (PLAN 3.6) draws the level the PLC reads, the last ten minutes at 2 Hz, and shows the dip
+after the load step at 20 s and the recovery. The **Trend** button at the bottom right opens it on
+any AI tag of the scene (`FV_01_ZT_AI`, the valve's position, shows what the controller did).
+
 With OpenPLC, follow [the quickstart](openplc-quickstart.md) for the container, then export
 `scenes/tank-level-pid.yaml` with `--analog-encoding int16_scaled`, configure with
 `examples/openplc/tank-level-pid.st`, and run with `--bind 0.0.0.0 --analog-encoding

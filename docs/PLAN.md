@@ -1997,7 +1997,25 @@ runs the sorting program against it; a box visibly gets pushed.
       (Library of Process Objects, 4.x objects) and PROCES-RM200 (5.x), cited by publication
       number and revision.
 - [ ] 3.5 MQTT Sparkplug B publisher (`protocols/sparkplug.py`) tested against Ignition 8.3 MQTT Engine
-- [ ] 3.6 Trend endpoint `/api/history?tag=` ring buffer so the viewer can show a 10-minute trend
+- [x] 3.6 Trend endpoint `/api/history?tag=` ring buffer so the viewer can show a 10-minute trend
+      *Done (2026-11-08; ruled: a ring buffer and a 10-minute trend panel for any AI tag, shown
+      on the PID scene):* `src/openfactory/core/history.py`, `TagHistory`: one ring buffer per
+      AI tag (1201 samples, ten minutes at 2 Hz of simulated time, so memory is fixed by the
+      tag count and the rate does not follow the tick rate or run speed), fed after every tick
+      by the runtime. `GET /api/history?tag=TAG[&seconds=S]` returns `{tag, units, range,
+      period_s, window_s, t, v}`; 404 with the reason for a DI, DO, AO or unknown tag and in a
+      replay, 400 for `seconds` <= 0. Viewer (`web/src/trend.ts`): a **Trend** button in any
+      scene with AI tags opens a panel with the scene's AI tags, polling once a second and
+      drawing an SVG line in ISA-101 highlight blue, the x axis the history held up to ten
+      minutes, the y axis fitted to the samples (a floor of 1 % of the tag's range, so a steady
+      reading is flat and a 2 cm dip reads on a 2 m level); `?trend=TAG` opens it on a tag.
+      Shown on `tank-level-pid` (screenshot at 65 s: the dip to about 0.98 m after the 20 s load step
+      and the recovery); the PID guide and the guides index say how to open it.
+      Tests: `tests/unit/test_history.py` (8: the 2 Hz grid at 50 Hz and at 10 Hz ticks, the
+      ring dropping the oldest past ten minutes, the endpoint serving the level the PLC reads
+      with the load-step dip, five bad requests); `web/src/trend.test.ts` (4);
+      `tests/integration/test_trend_panel.py` (the panel opened by `?trend=` on a live run,
+      only AI tags offered, the line drawn from the endpoint, the button closing it).
 - [x] 3.7 Per-tag `range` and `units` override in the binding form (closes the §8 analog-range risk)
       before any 3.2 component lands.
       *Done (2026-11-07):* an AI or AO binding may carry `range: [lo, hi]`, the tag's
