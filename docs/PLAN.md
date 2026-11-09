@@ -1171,8 +1171,10 @@ runs the sorting program against it; a box visibly gets pushed.
       - First CI run after the pin, 42561175436 (be6a06a, 2026-11-08): AMD EPYC 7763, CPython
         3.11.15 (Clang 22.1.3), the local build; the current score -7.6 % (load-200, 0.0232)
         and -11.7 % (queue-200, 0.0233); the candidate 0.0695 and 0.0697, +1.3 % and -5.3 % of
-        local. The first run toward the switch rule; the second must come from a different
-        runner CPU (both runs so far had the same EPYC 7763 model).
+        local. The first run toward the switch rule, which asks for two runs "on different
+        runners" (ruled 2026-11-07). Both runs so far reported the same CPU model, AMD EPYC
+        7763; the annotation cannot tell whether they were different machines. Whether the
+        second run must show a different CPU model is for the owner to rule.
       - *Process scene in the gate (ruled 2026-11-08):* `tank-level-pid` under its stand-in
         script for the fixed 5000 ticks replaces `flow-net` (`PROCESS` in `tools/bench.py`):
         0.18 to 0.26 ms a tick here, the script's scan included, score 0.0023 to 0.0024 over
