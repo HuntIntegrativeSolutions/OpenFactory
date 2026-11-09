@@ -26,10 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up uv and Python 3.11
+      - name: Set up uv and Python 3.11.15
         uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.11"
+          # the exact CPython ci.yml and .python-version pin (PLAN 2.9, ruled 2026-11-08)
+          python-version: "3.11.15"
 
       - name: Install Python dependencies (the hook reads the component registry)
         run: uv sync --frozen --all-extras
