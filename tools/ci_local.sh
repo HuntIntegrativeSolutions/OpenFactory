@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # OpenFactory CI steps (PLAN 1.15). GitHub Actions (.github/workflows/ci.yml) runs this same script
-# after installing Python, Node, and Playwright's Chromium, so CI and a local run cannot drift.
+# after installing Python, Node, Playwright's Chromium and Mosquitto (the Sparkplug tests' broker,
+# PLAN 3.5), so CI and a local run cannot drift. Locally, install Mosquitto first
+# (`sudo apt-get install mosquitto`): under CI=true its tests fail instead of skipping.
 #
 # Run locally in a fresh shell, from the repository root:
 #   env -i HOME="$HOME" PATH="$PATH" bash tools/ci_local.sh

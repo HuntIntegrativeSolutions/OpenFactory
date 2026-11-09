@@ -35,6 +35,7 @@ dev = [
     "pip-licenses~=5.5.5",
     "jsonschema~=4.26.0",
     "mkdocs-material~=9.8.0",  # docs site (PLAN 4.4)
+    "paho-mqtt==2.1.0",
 ]
 
 [build-system]

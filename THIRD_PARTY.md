@@ -17,6 +17,12 @@ file before relying on an entry for a distribution decision.
   the viewer.
 - `@types/three` depends on its own `@dimforge/rapier3d-compat` 0.12.x for type
   definitions only. It is not bundled; the viewer uses 0.21.0.
+- **paho-mqtt (EPL-2.0 OR BSD-3-Clause)** is a development dependency only (the dev group),
+  used by the Sparkplug tests as an independent MQTT client (PLAN 3.5, ruled 2026-11-09). It is
+  used under its **Eclipse Distribution License 1.0, which is BSD-3-Clause**, the alternative the
+  dual license offers; nothing from it is distributed. The Sparkplug publisher itself needs no
+  MQTT package. The tests' broker, Mosquitto, is installed by CI with `apt-get` and is not a
+  dependency either.
 - **OpenPLC Runtime (GPL-3.0)** is not a dependency. It runs as a separate process and
   talks to OpenFactory over Modbus TCP only.
 - Dev and build tools are listed for completeness; they are not distributed.
@@ -90,6 +96,7 @@ file before relying on an entry for a distribution decision.
 | mkdocs-material-extensions | 1.3.1 | MIT | https://github.com/facelessuser/mkdocs-material-extensions |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
 | paginate | 0.5.7 | MIT License | https://github.com/Signum/paginate |
+| paho-mqtt | 2.1.0 | EPL-2.0 OR BSD-3-Clause (used under BSD-3-Clause, EDL-1.0) | http://eclipse.org/paho |
 | pathspec | 1.1.1 | Mozilla Public License 2.0 (MPL 2.0) | https://python-path-specification.readthedocs.io/en/latest/index.html |
 | platformdirs | 4.14.5 | MIT | https://github.com/tox-dev/platformdirs |
 | playwright | 1.64.1 | Apache-2.0 | https://github.com/Microsoft/playwright-python |

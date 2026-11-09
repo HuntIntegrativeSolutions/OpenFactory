@@ -102,8 +102,9 @@ broker comes up.
 ### Test with Ignition (deferred: Docker is down)
 
 The automated tests run the node against a small MQTT 3.1.1 broker written for the tests
-(`tests/integration/mqtt_test_broker.py`), in CI and on any machine. They have not yet run it
-against a third-party broker or against MQTT Engine. The procedure, for the first run with
+(`tests/integration/mqtt_test_broker.py`), and in CI against Mosquitto with paho-mqtt as an
+independent client (`tests/integration/test_sparkplug_mosquitto.py`). They have not run it
+against MQTT Engine. The procedure, for the first run with
 Docker up:
 
 1. Start a broker on the host, for example Mosquitto 2.x with a listener on 1883

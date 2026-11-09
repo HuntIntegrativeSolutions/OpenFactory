@@ -2095,6 +2095,17 @@ runs the sorting program against it; a box visibly gets pushed.
       type read from the whole first byte). *Not done:* interop with a third-party broker and
       with MQTT Engine; the procedure is in `docs/ignition.md`, "Test with Ignition", with the
       Engine's tag path marked `[TBD]`.
+      *Outside check (ruled 2026-11-09):* paho-mqtt 2.1.0 is a dev-group dependency, used under
+      its EDL-1.0 (BSD-3-Clause) option and recorded in THIRD_PARTY.md; CI installs Mosquitto
+      with `apt-get`. `tests/integration/test_sparkplug_mosquitto.py`: our node publishes
+      through Mosquitto and paho receives, each payload decoded by OpenFactory's decoder and by
+      the hand-written broker test's independent parser (NBIRTH not retained, NDATA by alias,
+      the Will on an aborted link, bdSeq 1 on the reconnect, the clean stop's NDEATH); paho
+      publishes a rebirth request the node acts on and a payload a bare OpenFactory client
+      decodes. The hand-written broker test stays. Mosquitto is not installed in this
+      workspace, so these two tests skip here and first run in CI (both pass here with paho
+      against the hand-written broker in place of Mosquitto); a local `ci_local.sh` now needs
+      Mosquitto installed.
 - [x] 3.6 Trend endpoint `/api/history?tag=` ring buffer so the viewer can show a 10-minute trend
       *Done (2026-11-08; ruled: a ring buffer and a 10-minute trend panel for any AI tag, shown
       on the PID scene):* `src/openfactory/core/history.py`, `TagHistory`: one ring buffer per
