@@ -7,8 +7,11 @@ Built only when a scene's ``checks:`` names a process check, and then observed a
 level from ``after_s`` on, and whether the run got there; for each pump, how many times it
 started (``run`` turning on, from the drive's or the PLC's command) and how many ticks it ran
 while its suction tank was dry; for each ``max_reversals`` valve or pump, how many times its
-command turned back (:class:`Reversals`). ``never_overflow`` reads the tank's overflow count at
-the end.
+command turned back (:class:`Reversals`); for each ``fractions_within`` and ``temperature_within``
+tank, the lowest and highest share of each named ingredient (%) and temperature (°C) from its
+``after_s`` on, and the first time from then on it was empty (level at or below
+:data:`EMPTY_LEVEL_M`: an empty tank holds no recipe, and its temperature is no batch's).
+``never_overflow`` reads the tank's overflow count at the end.
 """
 
 from __future__ import annotations
@@ -24,6 +27,8 @@ TIME_EPS = 0.01
 #: back 7812 times in 300 s at 1 %, 1324 at 5 %, 123 at 8 % and 12 at 10 %; an on/off program on
 #: the same valve 3390 times at every deadband from 0 to 10 %.
 REVERSAL_DEADBAND_PCT = 10.0
+#: A tank at or below this level is empty for the recipe checks (1 mm).
+EMPTY_LEVEL_M = 0.001
 
 
 @dataclass
@@ -31,6 +36,20 @@ class Band:
     lo: float = float("inf")
     hi: float = float("-inf")
     reached: bool = False
+
+    def add(self, value: float) -> None:
+        self.lo, self.hi, self.reached = min(self.lo, value), max(self.hi, value), True
+
+
+@dataclass
+class Recipe:
+    """What a recipe check saw of one tank from its ``after_s``: a band per watched quantity
+    (an ingredient's share in %, or ``temperature`` in °C) and when it was first empty."""
+
+    after_s: float
+    bands: dict[str, Band]
+    reached: bool = False
+    empty_at: float | None = None
 
 
 @dataclass
@@ -77,6 +96,8 @@ class ProcessWatch:
     dry_ticks: dict[str, int] = field(default_factory=dict)
     commanded: dict[str, Any] = field(default_factory=dict)
     reversals: dict[str, Reversals] = field(default_factory=dict)
+    fractions: dict[str, Recipe] = field(default_factory=dict)
+    temperatures: dict[str, Recipe] = field(default_factory=dict)
     _was_on: dict[str, bool] = field(default_factory=dict)
 
     @classmethod
@@ -94,14 +115,32 @@ class ProcessWatch:
         by_id = {c.id: c for c in components}
         watch.commanded = {cid: by_id[cid] for cid in checks.max_reversals}
         watch.reversals = {cid: Reversals() for cid in checks.max_reversals}
+        watch.fractions = {
+            tid: Recipe(spec.after_s, {name: Band() for name in spec.fractions})
+            for tid, spec in checks.fractions_within.items()
+        }
+        watch.temperatures = {
+            tid: Recipe(spec.after_s, {"temperature": Band()})
+            for tid, spec in checks.temperature_within.items()
+        }
         return watch
 
     def record(self, time: float) -> None:
         for tid, after_s in self.after.items():
             if time + TIME_EPS >= after_s:
-                level = self.tanks[tid].node.level
-                band = self.bands[tid]
-                band.lo, band.hi, band.reached = min(band.lo, level), max(band.hi, level), True
+                self.bands[tid].add(self.tanks[tid].node.level)
+        for watched, read in ((self.fractions, _shares), (self.temperatures, _temperature)):
+            for tid, recipe in watched.items():
+                if time + TIME_EPS < recipe.after_s:
+                    continue
+                node = self.tanks[tid].node
+                recipe.reached = True
+                if node.level <= EMPTY_LEVEL_M:
+                    if recipe.empty_at is None:
+                        recipe.empty_at = time
+                    continue
+                for name, value in read(node, recipe.bands).items():
+                    recipe.bands[name].add(value)
         for pid, pump in self.pumps.items():
             on = bool(pump.run)
             if on and not self._was_on[pid]:
@@ -111,3 +150,11 @@ class ProcessWatch:
                 self.dry_ticks[pid] += 1
         for cid, comp in self.commanded.items():
             self.reversals[cid].record(comp.command)  # each type's command, 0 to 100 %
+
+
+def _shares(node: Any, bands: dict[str, Band]) -> dict[str, float]:
+    return {name: node.fractions.get(name, 0.0) * 100 for name in bands}
+
+
+def _temperature(node: Any, bands: dict[str, Band]) -> dict[str, float]:
+    return {"temperature": node.temperature}

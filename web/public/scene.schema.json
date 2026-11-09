@@ -592,6 +592,32 @@
           },
           "title": "Max Reversals",
           "type": "object"
+        },
+        "fractions_within": {
+          "description": "Tank -> {fractions: {ingredient: [lo, hi] %}, after_s}: from after_s to the end, each ingredient's share of the tank's volume stays in its band and the tank is never empty, and the run reaches after_s (PLAN 3.3).",
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]*$": {
+              "$ref": "#/$defs/FractionBands"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 40
+          },
+          "title": "Fractions Within",
+          "type": "object"
+        },
+        "temperature_within": {
+          "description": "Tank -> {band: [lo, hi] °C, after_s}: from after_s to the end the tank's temperature stays in the band and the tank is never empty, and the run reaches after_s (PLAN 3.3).",
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]*$": {
+              "$ref": "#/$defs/TemperatureBand"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 40
+          },
+          "title": "Temperature Within",
+          "type": "object"
         }
       },
       "title": "Checks",
@@ -1775,6 +1801,45 @@
       "description": "A drain has no ports.",
       "properties": {},
       "title": "DrainIO",
+      "type": "object"
+    },
+    "FractionBands": {
+      "additionalProperties": false,
+      "description": "A recipe a tank must hold (PLAN 3.3): each ingredient's share of its volume, in %.",
+      "properties": {
+        "fractions": {
+          "description": "Ingredient -> [lo, hi], % of the tank's volume.",
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "title": "Fractions",
+          "type": "object"
+        },
+        "after_s": {
+          "default": 0.0,
+          "description": "From this simulated time to the end of the run.",
+          "minimum": 0,
+          "title": "After S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "fractions"
+      ],
+      "title": "FractionBands",
       "type": "object"
     },
     "Heater": {
@@ -4600,6 +4665,39 @@
         }
       },
       "title": "TankIO",
+      "type": "object"
+    },
+    "TemperatureBand": {
+      "additionalProperties": false,
+      "description": "A temperature band a tank must hold (PLAN 3.3).",
+      "properties": {
+        "band": {
+          "description": "[lo, hi], °C.",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Band",
+          "type": "array"
+        },
+        "after_s": {
+          "default": 0.0,
+          "description": "From this simulated time to the end of the run.",
+          "minimum": 0,
+          "title": "After S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "band"
+      ],
+      "title": "TemperatureBand",
       "type": "object"
     },
     "Transmitter": {

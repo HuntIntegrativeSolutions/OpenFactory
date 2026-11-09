@@ -26,6 +26,12 @@ Process checks (PLAN 3.3, ADR-0005 decision 10), from the run's
   valve's open command or a pump's speed setpoint while it runs, each as 0 to 100 %) turned back
   at most N times, counting only turns back by more than 10 % of the span
   (:data:`~openfactory.core.process_watch.REVERSAL_DEADBAND_PCT`), and it moved at least once.
+- ``fractions_within: {TANK: {fractions: {INGREDIENT: [lo, hi]}, after_s: T}}``: from T to the
+  end, each ingredient's share of the tank's volume (%) stays in its band, the tank is never
+  empty, and the run reached T. An ingredient no inflow brought is 0 %.
+- ``temperature_within: {TANK: {band: [lo, hi], after_s: T}}``: from T to the end the tank's
+  temperature (°C) stays in the band, the tank is never empty, and the run reached T. An empty
+  tank fails both: it holds no batch to grade.
 
 ``duration_s`` is not a check; it is how long ``openfactory test`` runs.
 """
@@ -130,7 +136,32 @@ def _process(checks: Checks, loaded: Any) -> list[CheckResult]:
         )
         passed = rev.moved and rev.count <= limit
         out.append(CheckResult(f"max_reversals {cid}: {limit}", passed, detail))
+    for tid, fspec in checks.fractions_within.items():
+        recipe = watch.fractions[tid]
+        wanted = ", ".join(f"{n} {lo:g} to {hi:g} %" for n, (lo, hi) in fspec.fractions.items())
+        name = f"fractions_within {tid}: {wanted} after {fspec.after_s:g} s"
+        out.append(_recipe(name, recipe, fspec.fractions, "%"))
+    for tid, tspec in checks.temperature_within.items():
+        name = f"temperature_within {tid}: {tspec.band[0]:g} to {tspec.band[1]:g} °C after "
+        name += f"{tspec.after_s:g} s"
+        out.append(_recipe(name, watch.temperatures[tid], {"temperature": tspec.band}, "°C"))
     return out
+
+
+def _recipe(
+    name: str, recipe: Any, bands: dict[str, tuple[float, float]], unit: str
+) -> CheckResult:
+    if not recipe.reached:
+        return CheckResult(name, False, f"the run ended before {recipe.after_s:g} s")
+    if recipe.empty_at is not None:
+        return CheckResult(name, False, f"the tank was empty at {recipe.empty_at:.2f} s")
+    parts, passed = [], True
+    for key, (lo, hi) in bands.items():
+        seen = recipe.bands[key]
+        passed &= lo - 1e-9 <= seen.lo and seen.hi <= hi + 1e-9
+        label = "" if key == "temperature" else f"{key} "
+        parts.append(f"{label}{seen.lo:.2f} to {seen.hi:.2f} {unit}")
+    return CheckResult(name, passed, "; ".join(parts))
 
 
 def format_results(results: list[CheckResult]) -> str:

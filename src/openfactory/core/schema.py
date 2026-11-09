@@ -1652,6 +1652,35 @@ class LevelBand(StrictModel):
         return self
 
 
+class FractionBands(StrictModel):
+    """A recipe a tank must hold (PLAN 3.3): each ingredient's share of its volume, in %."""
+
+    fractions: dict[
+        Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")], tuple[float, float]
+    ] = Field(min_length=1, description="Ingredient -> [lo, hi], % of the tank's volume.")
+    after_s: float = Field(0.0, ge=0, description="From this simulated time to the end of the run.")
+
+    @model_validator(mode="after")
+    def _ordered(self) -> FractionBands:
+        for name, (lo, hi) in self.fractions.items():
+            if not lo < hi:
+                raise ValueError(f"fractions.{name}: band [lo, hi] needs lo < hi")
+        return self
+
+
+class TemperatureBand(StrictModel):
+    """A temperature band a tank must hold (PLAN 3.3)."""
+
+    band: tuple[float, float] = Field(description="[lo, hi], °C.")
+    after_s: float = Field(0.0, ge=0, description="From this simulated time to the end of the run.")
+
+    @model_validator(mode="after")
+    def _ordered(self) -> TemperatureBand:
+        if not self.band[0] < self.band[1]:
+            raise ValueError("band [lo, hi] needs lo < hi")
+        return self
+
+
 class Checks(StrictModel):
     """Exercise checks (PLAN 2.11), evaluated by ``openfactory test`` at the end of a run."""
 
@@ -1692,6 +1721,19 @@ class Checks(StrictModel):
         "move at least once (PLAN 3.3).",
     )
 
+    fractions_within: dict[ComponentId, FractionBands] = Field(
+        default_factory=dict,
+        description="Tank -> {fractions: {ingredient: [lo, hi] %}, after_s}: from after_s to the "
+        "end, each ingredient's share of the tank's volume stays in its band and the tank is "
+        "never empty, and the run reaches after_s (PLAN 3.3).",
+    )
+    temperature_within: dict[ComponentId, TemperatureBand] = Field(
+        default_factory=dict,
+        description="Tank -> {band: [lo, hi] °C, after_s}: from after_s to the end the tank's "
+        "temperature stays in the band and the tank is never empty, and the run reaches after_s "
+        "(PLAN 3.3).",
+    )
+
     def watches_process(self) -> bool:
         return bool(
             self.level_within
@@ -1699,6 +1741,8 @@ class Checks(StrictModel):
             or self.never_dry
             or self.max_starts
             or self.max_reversals
+            or self.fractions_within
+            or self.temperature_within
         )
 
     def reached(self) -> dict[str, list[str]]:
@@ -2038,12 +2082,28 @@ class Scene(StrictModel):
             ("never_overflow", self.checks.never_overflow, "tank"),
             ("never_dry", self.checks.never_dry, "pump"),
             ("max_starts", list(self.checks.max_starts), "pump"),
+            ("fractions_within", list(self.checks.fractions_within), "tank"),
+            ("temperature_within", list(self.checks.temperature_within), "tank"),
         )
         for key, ids, kind in process:
             for cid in ids:
                 if types.get(cid) != kind:
                     found = f"a {types[cid]}" if cid in types else "not in the scene"
                     raise ValueError(f"checks.{key}: {cid!r} is {found}, not a {kind}")
+        # an ingredient a recipe names must be one the scene can put in a tank: water (what
+        # tanks start with) or what a supply delivers, so a typo fails at load
+        ingredients = {"water"} | {
+            c.ingredient  # type: ignore[attr-defined]
+            for c in self.components
+            if c.type == "supply"
+        }
+        for tid, spec in self.checks.fractions_within.items():
+            for name in spec.fractions:
+                if name not in ingredients:
+                    raise ValueError(
+                        f"checks.fractions_within.{tid}: no supply delivers {name!r} (the "
+                        f"scene's ingredients: {', '.join(sorted(ingredients))})"
+                    )
         commanded = ("valve_control", "valve_onoff", "pump")
         for cid in self.checks.max_reversals:
             if types.get(cid) not in commanded:

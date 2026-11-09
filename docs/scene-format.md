@@ -74,6 +74,8 @@ Every key is optional. `--duration` on `test` overrides `duration_s`.
 | `never_dry` | `[PUMP, ...]`: the pump never runs while its suction tank is dry. |
 | `max_starts` | `{PUMP: N}`: the pump starts at most `N` times in the run, **and** at least once. |
 | `max_reversals` | `{VALVE_OR_PUMP: N}`: its command turns back at most `N` times in the run (wear), **and** it moves at least once. The command is a `valve_control`'s position, a `valve_onoff`'s open command (0 or 100 %) or a running `pump`'s speed setpoint (0 while stopped), on its 0 to 100 % span. A reversal is a turn back by **more than 10 %** of the span from the furthest point the command reached in its last direction; the first move sets a direction and is not one. |
+| `fractions_within` | `{TANK: {fractions: {INGREDIENT: [lo, hi]}, after_s: T}}`: from `T` to the end of the run each named ingredient's share of the tank's volume, in %, stays in its band, the tank is **never empty**, **and** the run reaches `T`. An ingredient is `water` (what a tank starts with) or one a `supply` in the scene delivers, checked at load. |
+| `temperature_within` | `{TANK: {band: [lo, hi], after_s: T}}`: from `T` to the end of the run the tank's temperature, in °C, stays in the band, the tank is **never empty**, **and** the run reaches `T`. |
 
 Two failure rules close the easy passes:
 
@@ -88,6 +90,11 @@ Two failure rules close the easy passes:
   does nothing does not pass a process scene. Process checks name tanks and pumps, checked at
   load. Set `max_starts` from a 300 s run, which starts a cycling pump about five times as
   often as a 60 s one.
+- **An empty tank holds no batch.** `fractions_within` and `temperature_within` fail a tank
+  that is empty (level at or below 1 mm) at any tick from `after_s`, so a program that drains
+  the batch away, or never makes one, does not pass on the fractions and temperature an empty
+  tank keeps. An ingredient no inflow brought is 0 %, so filling with one ingredient fails a
+  recipe that names the other.
 - **A level band cannot tell control from on/off; `max_reversals` can.** On a slow valve an
   on/off program holds a level band as well as a PI loop does (the stroke rate turns it into
   integral action), so `tank-level-pid` also limits how often the valve reverses. The 10 %
