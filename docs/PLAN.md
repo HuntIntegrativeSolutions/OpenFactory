@@ -1182,6 +1182,15 @@ runs the sorting program against it; a box visibly gets pushed.
         decimals, not four: at 0.0024 one rounding step was about 4 % of the score, the size of
         the +4.2 % the fresh-clone runs showed for `tank-level-pid`; it is now 0.04 %. The
         script's scan inside the PID bench is accepted as part of the score.
+      - Second CI run toward the switch rule, 42589758590 (f029e6f, 2026-11-09): **Intel Xeon
+        Platinum 8573C**, CPython 3.11.15 (Clang 22.1.3), a different CPU model from
+        42561175436's AMD EPYC 7763, so it counts under the ruled definition. Candidate scores
+        0.067581 (load-200) and 0.071225 (queue-200), -1.5 % and -3.2 % of local (0.0686,
+        0.0736); 42561175436's were +1.3 % and -5.3 %. **The switch rule's condition is met:**
+        two runs on different runners within 10 % of local. The current calibration drifted
+        again on this CPU (load-200 0.027518, +9.6 %; queue-200 0.028650, +8.5 %; tank-level-pid
+        0.002426, +0.2 %). The switch itself (`--update` of every entry with the candidate as the
+        gate; the conveyor entries carry no candidate fields yet) waits for the owner's go.
       - *Process scene in the gate (ruled 2026-11-08):* `tank-level-pid` under its stand-in
         script for the fixed 5000 ticks replaces `flow-net` (`PROCESS` in `tools/bench.py`):
         0.18 to 0.26 ms a tick here, the script's scan included, score 0.0023 to 0.0024 over
