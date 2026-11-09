@@ -17,7 +17,13 @@ from openfactory.pyplc import ScriptPlc
 
 REPO = Path(__file__).resolve().parents[2]
 DT = 0.02
-PROCESS = ["tank-level-onoff", "tank-level-pid", "two-tank-cascade", "batch-mix-heat"]
+PROCESS = [
+    "tank-level-onoff",
+    "tank-level-pid",
+    "two-tank-cascade",
+    "batch-mix-heat",
+    "plantpax-tank-level",
+]
 
 
 def run(scene: str, script: Path, seconds: float) -> tuple[dict[str, tuple[bool, str]], object]:

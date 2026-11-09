@@ -1181,6 +1181,49 @@ SCENES["batch-mix-heat"] = dict(
 )
 
 
+SCENES["plantpax-tank-level"] = dict(
+    program="plantpax_tank",
+    st_sha256="cd1c806dba78d41096524d5389e4aedeb964f43d77b4408ceccd01f043e17a53",  # the program this sequence was read from
+    seq="PlantPAx_Tank",
+    process="PlantPAx demo plant: level PI loop and transfer pump (OpenPLC version)",
+    graphs=[
+        SCENES["tank-level-pid"]["graphs"][0],
+        Graph(
+            "G2 — Transfer pump P_01 (the load step)",
+            [
+                Step(
+                    100,
+                    "Pump stopped",
+                    [
+                        "P_01_RUN_DO := FALSE",
+                        "LOAD_TMR: TON, PT 20 s (LOAD_DELAY), IN TRUE",
+                        "# ST section 6",
+                    ],
+                    initial=True,
+                ),
+                Trans(
+                    "T11",
+                    ["LOAD_TMR.Q AND NOT TK_01_LSL_DI"],
+                    note="20 s after power-up; low level switch (0.3 m) off",
+                ),
+                Step(
+                    110,
+                    "Pump running",
+                    ["P_01_RUN_DO := TRUE", "# ST section 6"],
+                    kind="running",
+                ),
+                Trans(
+                    "T12",
+                    ["TK_01_LSL_DI"],
+                    note="low level interlock: no running the tank dry",
+                    target=100,
+                ),
+            ],
+        ),
+    ],
+)
+
+
 def st_hash(scene: str) -> str:
     """SHA-256 of ``examples/openplc/<scene>.st``, line endings normalized to LF."""
     st = REPO / "examples" / "openplc" / f"{scene}.st"

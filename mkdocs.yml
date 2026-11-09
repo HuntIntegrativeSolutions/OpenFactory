@@ -69,11 +69,13 @@ nav:
       - guides/tank-level-pid.md
       - guides/two-tank-cascade.md
       - guides/batch-mix-heat.md
+      - guides/plantpax-tank-level.md
   - Reference:
       - scene-format.md
       # Filled in by tools/mkdocs_hooks.py with one page per registered component type.
       - Component types: []
       - ignition.md
+      - plantpax.md
       - versioning.md
       - what-openfactory-is-not.md
   - Decisions:

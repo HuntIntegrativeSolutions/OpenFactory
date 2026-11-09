@@ -1,0 +1,110 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 3.4: the PlantPAx demo plant. tank-level-pid's level loop plus an outlet transfer pump, so
+# each of the four PlantPAx objects has a component: P_AIn on the level transmitter, P_PIDE as the
+# level controller, P_ValveC on the control valve, P_Motor on the pump. A consumer draws 2 m³/h; the
+# program starts the transfer pump at 20 s (the load step), and the loop holds the level at 1.0 m.
+# Guide: docs/guides/plantpax-tank-level.md. PLC programs: examples/openplc/plantpax-tank-level.st
+# (OpenPLC) and examples/pyplc/plantpax-tank-level.py (stand-in script); the PlantPAx L5X comes
+# from `openfactory export scenes/plantpax-tank-level.yaml --format plantpax` (docs/plantpax.md).
+openfactory: "0.1"
+scene:
+  name: plantpax-tank-level
+  description: The PlantPAx demo plant, a level loop through a control valve with an outlet transfer pump.
+  author: HIS Controls
+  seed: 17
+  units: meters
+plc:
+  protocol: modbus_tcp
+checks:                            # PLAN 3.3: `openfactory test` grades a program against these
+  duration_s: 60
+  level_within: {TK_01: {band: [0.98, 1.02], after_s: 45}}   # settled after the load step
+  never_overflow: [TK_01]
+  max_reversals: {FV_01: 18}        # the PI: 1 reversal in 60 s, 14 in 300 s
+  never_dry: [P_01]
+  max_starts: {P_01: 2}             # started once, at 20 s
+components:
+  - id: SUP_01
+    type: supply
+    description: Process Water Supply
+    position: [-1.6, 3.8, 0]
+    pressure_bar: 2.0
+  - id: FV_01
+    type: valve_control
+    description: Tank Inlet Level Control Valve
+    position: [-0.8, 3.8, 0]
+    from: SUP_01
+    to: PIPE_01
+    kv: 6
+    characteristic: equal_percentage
+    stroke_s: 10
+    lag_s: 0.5
+    fail: closed
+    io:
+      position: {tag: FV_01_POS_AO, initial: 66}
+      position_fb: FV_01_ZT_AI
+  - id: PIPE_01
+    type: pipe
+    description: Tank Inlet Line
+    position: [-0.4, 3.8, 0]
+    from: FV_01
+    to: TK_01.top
+    diameter: 0.04
+  - id: TK_01
+    type: tank
+    description: Level Control Tank
+    position: [0, 1.5, 0]
+    diameter: 0.6
+    height: 2.0
+    initial_level: 1.0
+    hi_level: 1.8
+    lo_level: 0.3
+    io:
+      hi_sw: TK_01_LSH_DI
+      lo_sw: TK_01_LSL_DI
+  - id: LT_01
+    type: transmitter
+    description: Level Control Tank Level Transmitter
+    position: [0.38, 2.5, 0]
+    measures: TK_01.level
+    range: [0, 2.0]
+    lag_s: 1.0
+    noise: 0.002
+    io:
+      pv: TK_01_LT_AI
+  - id: PIPE_02
+    type: pipe
+    description: Tank Outlet Line
+    position: [0.8, 1.5, 0]
+    from: TK_01.bottom
+    to: DR_01
+    diameter: 0.04
+    path: [[1.4, 1.55, 0]]
+  - id: DR_01
+    type: drain
+    description: Process Water Consumer
+    position: [1.4, 0.3, 0]
+    demand_m3h: 2.0
+    required_head_m: 1.0
+  - id: P_01
+    type: pump
+    description: Level Control Tank Transfer Pump
+    position: [-0.8, 0.3, 0.6]
+    from: TK_01.bottom
+    to: PIPE_03
+    design_flow_m3h: 1.5
+    design_head_m: 3.0
+    io:
+      run: P_01_RUN_DO
+      running: P_01_RUN_DI
+  - id: PIPE_03
+    type: pipe
+    description: Transfer Pump Discharge Line
+    position: [-1.4, 0.3, 0.6]
+    from: P_01
+    to: DR_02
+    diameter: 0.032
+    path: [[-1.4, 3.0, 0.6]]
+  - id: DR_02
+    type: drain
+    description: Transfer Header
+    position: [-1.4, 3.0, 0.6]

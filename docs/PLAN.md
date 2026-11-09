@@ -2004,7 +2004,7 @@ runs the sorting program against it; a box visibly gets pushed.
       `tank-level-onoff`'s `max_starts` while its level stays in band; in `batch-mix-heat`,
       water alone (0 % syrup) and both valves at once (50 %) fail `fractions_within`, and no
       heat (38 °C) and a heater left on (53 to 61 °C) fail `temperature_within`.
-- [ ] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
+- [x] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
       `/plantpax-*` skills) + Perspective faceplates. AOI parameter names in this repository come
       only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002
       (Library of Process Objects, 4.x objects) and PROCES-RM200 (5.x), cited by publication
@@ -2037,6 +2037,37 @@ runs the sorting program against it; a box visibly gets pushed.
       script, OpenPLC program, both lockfiles and a guide; `export --format plantpax` with its
       source table and tests; a docs page listing what the owner verifies on import. Ticked
       with a note that the live run waits on 2.1/2.2.
+      *Done (2026-11-09); the live run waits on 2.1 and 2.2 (Logix connectivity), and the owner
+      verifies every parameter name against the official manuals in Studio 5000 on import:*
+      - `scenes/plantpax-tank-level.yaml`: `tank-level-pid`'s plant plus a transfer pump
+        (`P_01`, 1.5 m³/h at 3 m design, about 2.75 m³/h up to a header) started by the program
+        at 20 s as the load step, interlocked by a low level switch at 0.3 m; a consumer draws
+        2 m³/h. Checks at 60 s and 300 s: level 0.987 to 1.009 m in 0.98 to 1.02 after 45 s;
+        never overflowed or ran dry; 1 pump start (limit 2); 1 and 14 valve reversals (limit
+        18, +29 %). Stand-in script, OpenPLC program (the PI with OpenPLC's PID block plus the
+        pump), both lockfiles, CONTEXT.md, guide `docs/guides/plantpax-tank-level.md` (two fault
+        exercises checked by running them), and a kit `kits/plantpax-tank-level` (every shipped
+        scene has one) with a GRAFCET of the OpenPLC program: the loop's modes and the pump as
+        two partial GRAFCETs. Lint clean. Not run under OpenPLC (Docker).
+      - `openfactory export SCENE --format plantpax` (`src/openfactory/export/plantpax.py`): the
+        scene's I/O tags as `--format l5x` writes them, the four instance tags (`DEMO_LT_101`
+        `P_AIn`, `DEMO_LIC_101` `P_PIDE`, `DEMO_LV_101` `P_ValveC`, `DEMO_P_101` `P_Motor`)
+        with no `<Data>`, three support tags for the load step, and program `PlantPAx_Demo`:
+        `MainRoutine` (`Init` on `S:FS` only, `Control` every scan), `Init` (ranges, the PI
+        tuning carried over as gain 8 %/% and 10 repeats/min, setpoint, interlock CVs,
+        program ownership, automatic) and `Control` (signal order, each object called once).
+        Maps for `plantpax-tank-level` and `tank-level-pid` (for 3.8). Interlocks use the
+        cited `Inp_IntlkOK` and `Cfg_IntlkCV` on `P_PIDE` and `P_ValveC` (resolving the
+        proposal's open question) and `Inp_IntlkOK` on `P_Motor`. `CITED`, the source table:
+        47 members, each with "PROCES-RM013I-EN-P, April 2023 (library 4.10.06)", its workbook
+        and sheet; names only. Marked `[TBD]`: each call's operand count, the sense of
+        `Cfg_Depend` and `Cfg_CtrlAction`, the import of instances without `<Data>`.
+      - `docs/plantpax.md`: what the file does and does not contain, the eleven import checks,
+        and the source table (generated from the code). `tests/unit/test_plantpax.py`: the
+        file well-formed with the I/O tags and the instances (no `<Data>`), every rung
+        commented and balanced and naming only declared tags, each object called once, the
+        source table exactly the members the rungs name, the page carrying the table as the
+        code has it, a scene with no map refused, a deterministic export.
 - [ ] 3.5 MQTT Sparkplug B publisher (`protocols/sparkplug.py`) tested against Ignition 8.3 MQTT Engine
       *Ruled 2026-11-08:* the publisher with a unit test against a local broker in CI, and a
       documented Ignition test deferred to Docker.

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="OpenFactory" TargetType="Controller" ContainsContext="true" Owner="OpenFactory">
+<Controller Use="Context" Name="OpenFactory">
+<Tags>
+<Tag Name="P_01_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Level Control Tank Transfer Pump — Running feedback]]></Description>
+</Tag>
+<Tag Name="TK_01_LSH_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Level Control Tank — High level switch (on at hi_level)]]></Description>
+</Tag>
+<Tag Name="TK_01_LSL_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Level Control Tank — Low level switch (on at lo_level)]]></Description>
+</Tag>
+<Tag Name="SIM_HEARTBEAT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops]]></Description>
+</Tag>
+<Tag Name="P_01_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Level Control Tank Transfer Pump — Run command]]></Description>
+</Tag>
+<Tag Name="FV_01_ZT_AI" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Tank Inlet Level Control Valve — Position feedback [0 to 100 %]]]></Description>
+</Tag>
+<Tag Name="TK_01_LT_AI" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Level Control Tank Level Transmitter — Process value [0 to 2 m]]]></Description>
+</Tag>
+<Tag Name="FV_01_POS_AO" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Tank Inlet Level Control Valve — Position command [0 to 100 %]]]></Description>
+</Tag>
+</Tags>
+</Controller>
+</RSLogix5000Content>
