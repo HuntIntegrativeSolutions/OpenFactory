@@ -37,6 +37,12 @@ def faults(port: int) -> dict:
         return json.load(res)
 
 
+def answered(response, method: str, path: str) -> bool:
+    """The server's answer to the menu's request (the URL's path, not a prefix: GET /api/fault
+    is also /api/fault)."""
+    return response.request.method == method and response.url.split("?")[0].endswith(path)
+
+
 def test_the_comms_menu_drops_and_clears_both_protocol_servers(tmp_path):
     from playwright.sync_api import sync_playwright
 
@@ -52,7 +58,8 @@ def test_the_comms_menu_drops_and_clears_both_protocol_servers(tmp_path):
         cmd, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
     try:
-        screenshot.wait_for_api(web_port, proc)
+        # a hang guard, not a speed check: under load asyncua took over 20 s to listen (69920d0)
+        screenshot.wait_for_api(web_port, proc, timeout=60)
         assert faults(web_port)["protocols"] == ["Modbus TCP", "OPC UA"]
         with sync_playwright() as pw:
             browser = pw.chromium.launch(args=screenshot.CHROMIUM_ARGS)
@@ -68,15 +75,15 @@ def test_the_comms_menu_drops_and_clears_both_protocol_servers(tmp_path):
                 "Delay every reply 250 ms", "Delay every reply 1000 ms",
             ]  # fmt: skip
             page.screenshot(path=str(tmp_path / "comms-menu.png"))
-            menu.get_by_text("Drop every request").click()
-            page.wait_for_function(
-                "() => document.getElementById('fault-menu').style.display === 'none'"
-            )
+            # the menu closes before its request is answered: wait for the answer itself, not
+            # for the menu, and not for a fixed time (both raced the server under load)
+            with page.expect_response(lambda r: answered(r, "POST", "/api/fault")):
+                menu.get_by_text("Drop every request").click()
             assert faults(web_port)["comms"] == {"drop": True, "latency_ms": 0.0}
             page.evaluate("() => window.__openfactoryFaultMenu.openAt(8, 712)")
             assert "● Drop every request" in menu.inner_text()
-            menu.get_by_text("Clear comms fault (drop)").click()
-            page.wait_for_timeout(300)
+            with page.expect_response(lambda r: answered(r, "DELETE", "/api/fault/comms")):
+                menu.get_by_text("Clear comms fault (drop)").click()
             assert faults(web_port)["comms"] == {"drop": False, "latency_ms": 0.0}
             browser.close()
     finally:
