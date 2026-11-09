@@ -289,6 +289,13 @@ def create_app(
             viewers.pop(ws, None)
 
     async def broadcast() -> None:
+        try:
+            await _broadcast()
+        except Exception:  # never silently: viewers would freeze; the next connection restarts it
+            log.exception("state broadcaster failed; it restarts with the next viewer to connect")
+            raise
+
+    async def _broadcast() -> None:
         loop = asyncio.get_running_loop()
         period = 1.0 / STATE_RATE_HZ
         deadline = loop.time()
@@ -311,7 +318,8 @@ def create_app(
     async def ws_state(ws: WebSocket) -> None:
         await ws.accept()
         viewers[ws] = None
-        if broadcaster["task"] is None:
+        task = broadcaster["task"]
+        if task is None or task.done():  # none yet, or it ended (or failed): start one
             broadcaster["task"] = asyncio.create_task(broadcast())
         try:
             while True:  # the viewer sends nothing here; this notices it leaving

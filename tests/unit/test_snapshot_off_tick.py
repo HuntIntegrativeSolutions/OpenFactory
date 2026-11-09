@@ -80,3 +80,26 @@ def test_an_exam_switch_rebuilds_the_snapshot_between_ticks():
     assert runtime.snapshot["io"]["PE_01_DI"] is False
     runtime.set_exam_switch("PE_01_DI", True)
     assert runtime.snapshot["io"]["PE_01_DI"] is True  # no tick needed
+
+
+def test_a_failed_broadcaster_restarts_with_the_next_viewer(caplog):
+    """PLAN 4.3: if serializing a frame fails, the broadcaster logs it and the next viewer to
+    connect starts a new one, instead of every viewer freezing on a dead task."""
+
+    class Flaky(Runtime):
+        failures = 1
+
+        @property
+        def snapshot(self):  # noqa: ANN201
+            if Flaky.failures:
+                Flaky.failures -= 1
+                raise RuntimeError("a frame that will not serialize")
+            return super().snapshot
+
+    runtime = Flaky(load(SORTER), realtime=False)
+    client = TestClient(create_app(runtime, web_dist=None))
+    with client.websocket_connect("/ws/state") as first:
+        first.send_text("")  # let the broadcaster run (and fail) before this viewer leaves
+    assert "state broadcaster failed" in caplog.text
+    with client.websocket_connect("/ws/state") as second:
+        assert '"tick"' in second.receive_text()  # a new broadcaster serves the next viewer
