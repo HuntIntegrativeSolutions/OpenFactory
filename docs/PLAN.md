@@ -2006,6 +2006,26 @@ runs the sorting program against it; a box visibly gets pushed.
       checked by the owner against the official copy), what the L5X will and will not contain
       (no AOI definitions, no instance `<Data>`, a first-scan `Init`), the owner's import
       checks, and seven decisions. Waits for the ruling.
+      *Amended (ruled 2026-11-09, all seven decisions as recommended):*
+      - Sources: parameter names come from PROCES-RM013 (Logic Instructions, 4.x objects; rev I,
+        April 2023, library 4.10.06) and PROCES-RM215 (PlantPAx Process Control Instructions,
+        5.x), cited by publication number and revision, names only (no tables). RM002 has no
+        parameter tables and RM200 is not the 5.x instruction manual. The owner verifies every
+        name against the official manuals in Studio 5000 on import.
+      - 4.x `P_` AOIs first, library 4.10.03 or later; 5.x later, as its own task.
+      - No `/plantpax-*` skills (they call an MCP server this repository bars): a generator in
+        this repository, `openfactory export SCENE --format plantpax`, with a source table
+        citing each name.
+      - Instance tags carry no `<Data>`; configuration is set by a first-scan `Init` routine.
+      - The Perspective faceplates move to 3.8.
+      - The live run waits on 2.1 and 2.2 (Logix connectivity); the L5X is generated and
+        reviewed now.
+      - A new scene, `plantpax-tank-level`: `tank-level-pid`'s plant plus an outlet pump, so
+        `P_Motor` has a motor.
+      *Done when (ruled 2026-11-09):* the `plantpax-tank-level` scene with checks, stand-in
+      script, OpenPLC program, both lockfiles and a guide; `export --format plantpax` with its
+      source table and tests; a docs page listing what the owner verifies on import. Ticked
+      with a note that the live run waits on 2.1/2.2.
 - [ ] 3.5 MQTT Sparkplug B publisher (`protocols/sparkplug.py`) tested against Ignition 8.3 MQTT Engine
       *Ruled 2026-11-08:* the publisher with a unit test against a local broker in CI, and a
       documented Ignition test deferred to Docker.
@@ -2075,6 +2095,9 @@ runs the sorting program against it; a box visibly gets pushed.
       L5X description keep `m`.
 - [ ] 3.8 Process demo kit (`kits/tank-level-pid/`) built with 2.14, including PlantPAx L5X and
       Perspective faceplates from 3.4.
+      *Amended (ruled 2026-11-09):* the Perspective faceplates move here from 3.4. *Done when:*
+      the kit for `tank-level-pid` with Ignition UDTs and Perspective faceplates whose members
+      use the cited names, GRAFCET, CONTEXT.md, and `build_kit --check` passing.
 
 ### Milestone 4 — Editor, assets, community (ongoing)
 - [ ] 4.1 In-browser scene editor: drag components, edit properties with schema-driven forms, export YAML.
