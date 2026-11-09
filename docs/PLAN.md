@@ -1175,6 +1175,13 @@ runs the sorting program against it; a box visibly gets pushed.
         runners" (ruled 2026-11-07). Both runs so far reported the same CPU model, AMD EPYC
         7763; the annotation cannot tell whether they were different machines. Whether the
         second run must show a different CPU model is for the owner to rule.
+        *Ruled 2026-11-09:* "different runners" means a different CPU model or a different
+        Python build in the annotation. Two runs on the same EPYC 7763 and the same build count
+        once; the rule waits for a run on a distinct one.
+      - *Six digits (ruled 2026-11-09, done):* scores and candidate scores are rounded to six
+        decimals, not four: at 0.0024 one rounding step was about 4 % of the score, the size of
+        the +4.2 % the fresh-clone runs showed for `tank-level-pid`; it is now 0.04 %. The
+        script's scan inside the PID bench is accepted as part of the score.
       - *Process scene in the gate (ruled 2026-11-08):* `tank-level-pid` under its stand-in
         script for the fixed 5000 ticks replaces `flow-net` (`PROCESS` in `tools/bench.py`):
         0.18 to 0.26 ms a tick here, the script's scan included, score 0.0023 to 0.0024 over

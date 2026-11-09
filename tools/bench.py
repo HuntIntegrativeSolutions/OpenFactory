@@ -283,12 +283,12 @@ def measure(scene: Path, script: Path | None = None) -> dict[str, float]:
     step_ms, cal_ms = statistics.fmean(step_s) * 1000, statistics.fmean(cal_s) * 1000
     cand_ms = statistics.fmean(cand_s) * 1000
     return {
-        "score": round(step_ms / cal_ms, 4),
+        "score": round(step_ms / cal_ms, 6),  # one rounding step on 0.0024 is 0.04 %, not 4 %
         "step_ms": round(step_ms, 3),
         "calibration_ms": round(cal_ms, 3),
         "parts": count(),  # a process scene: its network's links
         "candidate_ms": round(cand_ms, 3),  # not gated (see the module docstring)
-        "candidate_score": round(step_ms / cand_ms, 4),
+        "candidate_score": round(step_ms / cand_ms, 6),
         **machine(),
     }
 
@@ -297,14 +297,14 @@ def compare(name: str, got: dict[str, float], base: dict[str, float] | None) -> 
     """(passed, report line) for one scene's measurement against its baseline entry."""
     line = (
         f"{name}: step {got['step_ms']:.3f} ms, calibration {got['calibration_ms']:.3f} ms, "
-        f"score {got['score']:.4f}"
+        f"score {got['score']:.6f}"
     )
     if base is None:
         return False, f"{line}; no baseline (run tools/bench.py --update and commit it)"
     change = got["score"] / base["score"] - 1
     ok = got["score"] <= base["score"] * LIMIT
     verdict = "ok" if ok else f"FAIL: more than {LIMIT - 1:.0%} slower"
-    return ok, f"{line}; baseline {base['score']:.4f} ({change:+.1%}), {verdict}"
+    return ok, f"{line}; baseline {base['score']:.6f} ({change:+.1%}), {verdict}"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -333,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
         }
         BASELINE.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
         got = results[args.only]
-        print(f"{args.only}: score {got['score']:.4f} (step {got['step_ms']:.3f} ms)")
+        print(f"{args.only}: score {got['score']:.6f} (step {got['step_ms']:.3f} ms)")
         print(f"wrote {BASELINE.relative_to(REPO)} ({args.only} only)")
         return 0
     if args.update:
@@ -347,7 +347,7 @@ def main(argv: list[str] | None = None) -> int:
         }
         BASELINE.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
         for name, got in results.items():
-            print(f"{name}: score {got['score']:.4f} (step {got['step_ms']:.3f} ms)")
+            print(f"{name}: score {got['score']:.6f} (step {got['step_ms']:.3f} ms)")
         print(f"wrote {BASELINE.relative_to(REPO)}")
         return 0
     if not BASELINE.is_file():
