@@ -94,7 +94,8 @@ def test_state_websocket_streams_at_least_15_frames_per_second(served):
     assert rate >= 15
     assert ticks == sorted(ticks) and ticks[-1] > ticks[0]  # live simulation, in order
     last = frames[-1]
-    assert set(last) == {"t", "tick", "components", "parts", "io"}
+    assert set(last) == {"t", "tick", "components", "parts", "io", "viewers"}
+    assert last["viewers"] == 1  # PLAN 4.3: the frame says how many viewers are connected
     assert last["components"]["CONV_01"]["running"] is True
     assert last["parts"], "the enabled emitter has spawned parts"
     part = last["parts"][0]

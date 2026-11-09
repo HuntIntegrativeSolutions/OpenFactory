@@ -67,6 +67,8 @@ export interface StateFrame {
   components: Record<string, Record<string, unknown>>;
   parts: PartState[];
   io: Record<string, boolean | number>;
+  /** Viewers connected to this core when the frame was sent (PLAN 4.3); absent in a recording. */
+  viewers?: number;
 }
 
 /** Viewer status read by tools/screenshot.py (PLAN 1.13) through `window.__openfactory`. */

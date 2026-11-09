@@ -72,6 +72,15 @@ uv run openfactory run <scene>.ofz                      # a PLC drives it; the s
 The bundled script is Python: `--bundled-script` runs it, so give that flag only to a bundle you
 trust. `bundle --no-script` leaves the script out. Details: `docs/scene-format.md`, "Bundles".
 
+## A classroom on one simulator
+
+Any number of browsers can open the same run (PLAN 4.3): bind the viewer beyond loopback
+(`--bind 0.0.0.0`, and a fault token for the instructor, PLAN §6.4) and each trainee opens
+`http://<host>:8000/`. Each browser has its own camera; the plant, its faults and the exam
+switches are the simulator's, so all of them see the same ones, and every HUD shows how many
+viewers are connected. One frame is serialized per 20 Hz broadcast whatever the number of
+viewers; ten viewers on one machine left the simulation's 50 Hz untouched in the tests.
+
 ## Trend an analog input
 
 In a scene with AI tags the viewer shows a **Trend** button at the bottom right (PLAN 3.6): it

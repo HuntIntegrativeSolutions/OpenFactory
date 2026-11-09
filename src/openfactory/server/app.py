@@ -8,7 +8,10 @@ Behavior spec
   static geometry (``Component.geometry()``: id, type, position, rotation and type-specific
   dimensions) plus its description, the connections, the tag list, and loader warnings.
 - ``GET /api/state``: the latest state snapshot (same shape as a ``/ws/state`` frame).
-- ``GET /api/status``: sim time and tick, part counts, and viewer events received by type and id.
+- ``GET /api/status``: sim time and tick, part counts, viewer events received by type and id,
+  and the classroom figures (PLAN 4.3): ``viewers`` (state sockets connected),
+  ``frames_serialized``, ``frames_sent`` and ``frames_skipped`` (a slow viewer's skipped frames)
+  since the server started, and the core's ``dropped_ticks`` this run.
 - ``GET /api/events``: the most recent viewer events with the core time they arrived.
 - ``GET /api/fault``: active faults (``{id, type, kind, params, tick}``) and each component's
   supported kinds (PLAN 2.6). ``POST /api/fault`` with ``{"id", "kind", "params"}`` injects one,
@@ -35,10 +38,13 @@ Behavior spec
   that is not an AI tag of the scene (with the reason) and in a replay; 400 for ``seconds`` <= 0.
 - ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
   sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
-- ``WS /ws/state``: sends the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines,
-  so slow sends do not lower the rate. The simulation runs at its own 50 Hz; a frame is whatever
-  snapshot is current when it is sent, so the viewer interpolates. A snapshot is serialized once
-  and the same text goes to every connected viewer (PLAN 2.9).
+- ``WS /ws/state``: the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines, plus
+  ``viewers``, how many viewers are connected. The simulation runs at its own 50 Hz; a frame is
+  whatever snapshot is current when it is sent, so the viewer interpolates. One broadcaster serves
+  every viewer (PLAN 4.3): each frame is serialized once and the same text goes to all of them,
+  each send its own task, so a slow viewer skips frames (counted) instead of delaying the others.
+  Each browser keeps its own camera; faults and exam switches are the core's, so every viewer
+  sees the same ones.
 - ``WS /ws/events``: receives viewer events as JSON objects (see
   :meth:`Runtime.apply_event`). An invalid event is answered with ``{"error": "..."}`` and the
   socket stays open.
@@ -193,7 +199,15 @@ def create_app(
 
     @app.get("/api/status")
     def status() -> dict[str, Any]:
-        return runtime.status()
+        scheduler = getattr(runtime, "scheduler", None)  # a replay has none
+        return {
+            **runtime.status(),
+            "viewers": len(viewers),
+            "frames_serialized": frames["serialized"],
+            "frames_sent": frames["sent"],
+            "frames_skipped": frames["skipped"],
+            "dropped_ticks": scheduler.stats.dropped if scheduler is not None else 0,
+        }
 
     @app.get("/api/events")
     def events(limit: int = 100) -> list[dict[str, Any]]:
@@ -252,34 +266,62 @@ def create_app(
     def parity() -> dict[str, Any]:
         return runtime.parity()
 
-    frame_cache: dict[str, Any] = {"snapshot": None, "text": ""}
+    # One broadcaster for every viewer (PLAN 4.3, the classroom): each 20 Hz frame is serialized
+    # once and the same text is sent to every connected viewer; a viewer still sending its last
+    # frame skips this one instead of holding the others back.
+    viewers: dict[WebSocket, asyncio.Task[None] | None] = {}
+    frames = {"serialized": 0, "sent": 0, "skipped": 0}
+    broadcaster: dict[str, asyncio.Task[None] | None] = {"task": None}
+    app.state.viewers = viewers
+    app.state.frames = frames
 
     def frame_text() -> str:
-        """The current snapshot as JSON, serialized once for every viewer. All WebSocket
-        handlers run on this event loop's thread, so the cache needs no lock."""
-        snap = runtime.snapshot
-        if frame_cache["snapshot"] is not snap:  # identity: a snapshot is never mutated
-            frame_cache["text"] = json.dumps(snap, separators=(",", ":"))
-            frame_cache["snapshot"] = snap
-        return frame_cache["text"]
+        """The current snapshot and the viewer count as JSON, serialized once per frame for
+        every viewer. All WebSocket handlers run on this event loop's thread: no lock."""
+        frames["serialized"] += 1
+        return json.dumps({**runtime.snapshot, "viewers": len(viewers)}, separators=(",", ":"))
+
+    async def send(ws: WebSocket, text: str) -> None:
+        try:
+            await ws.send_text(text)
+            frames["sent"] += 1
+        except (WebSocketDisconnect, RuntimeError):
+            viewers.pop(ws, None)
+
+    async def broadcast() -> None:
+        loop = asyncio.get_running_loop()
+        period = 1.0 / STATE_RATE_HZ
+        deadline = loop.time()
+        while viewers:
+            text = frame_text()
+            for ws, pending in list(viewers.items()):
+                if pending is not None and not pending.done():
+                    frames["skipped"] += 1  # a slow viewer: it gets the next frame instead
+                    continue
+                viewers[ws] = asyncio.create_task(send(ws, text))
+            deadline += period
+            delay = deadline - loop.time()
+            if delay < -period:  # fell behind: restart the schedule
+                deadline = loop.time()
+                delay = 0.0
+            await asyncio.sleep(max(delay, 0.0))
+        broadcaster["task"] = None
 
     @app.websocket("/ws/state")
     async def ws_state(ws: WebSocket) -> None:
         await ws.accept()
-        loop = asyncio.get_running_loop()
-        period = 1.0 / STATE_RATE_HZ
-        deadline = loop.time()
+        viewers[ws] = None
+        if broadcaster["task"] is None:
+            broadcaster["task"] = asyncio.create_task(broadcast())
         try:
-            while True:
-                await ws.send_text(frame_text())
-                deadline += period
-                delay = deadline - loop.time()
-                if delay < -period:  # fell behind (slow client): restart the schedule
-                    deadline = loop.time()
-                    delay = 0.0
-                await asyncio.sleep(max(delay, 0.0))
+            while True:  # the viewer sends nothing here; this notices it leaving
+                await ws.receive_text()
         except (WebSocketDisconnect, RuntimeError):
-            pass  # client went away
+            pass
+        finally:
+            pending = viewers.pop(ws, None)
+            if pending is not None:
+                pending.cancel()
 
     @app.websocket("/ws/events")
     async def ws_events(ws: WebSocket) -> None:

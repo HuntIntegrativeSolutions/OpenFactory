@@ -2261,7 +2261,28 @@ runs the sorting program against it; a box visibly gets pushed.
       5-23 KB each, 109 KB in all, every one ours and generated; the sorter screenshot shows
       the conveyor, eye and pusher models (CI step 7 requires them), lint clean, parity
       traces unchanged. Not shipped yet: it waits with 4.4 for the Pages source.
-- [ ] 4.3 Multi-viewer: one core, many browsers (classroom)
+- [x] 4.3 Multi-viewer: one core, many browsers (classroom)
+      *Ruled 2026-11-09:* one core, many browsers, each with its own camera, shared faults and
+      exam switches, a viewer count in the HUD, tested with ten Playwright pages on one server.
+      *Done when:* ten viewers, zero dropped ticks, state frames serialized once.
+      *Done (2026-11-09):* `/ws/state` is served by one broadcaster (`server/app.py`): each
+      20 Hz frame is serialized once, with `viewers` (the connected count), and the same text is
+      sent to every viewer, each send its own task, so a slow viewer skips frames (counted)
+      instead of delaying the others (before, each connection serialized whenever its own loop
+      found a new snapshot, so ten viewers serialized up to ten times per tick). `GET
+      /api/status` adds `viewers`, `frames_serialized`, `frames_sent`, `frames_skipped` and the
+      core's live `dropped_ticks` (the scheduler keeps its run's stats as it goes). Viewer: the
+      HUD's second line ends `viewers N`; the exam panel follows each frame's I/O, so a switch
+      one viewer turns shows on every panel; each browser keeps its own camera (it always did;
+      `window.__openfactoryCamera()` reads it). Faults were already the core's.
+      `tests/integration/test_multi_viewer.py`: ten Playwright pages on one server running the
+      sorter in exam mode under its script: every HUD says `viewers 10`; over 5 s 100 frames
+      serialized and 1000 sent, 0 skipped; orbiting one page's camera leaves another's where it
+      was; a fault injected through the API is the active fault in all ten browsers' fault menus
+      (exam mode hides the 3D fault labels from trainees, by design); a switch turned on one
+      page shows ON on all ten; the core dropped 0 ticks and each page's physics dropped 0;
+      the count returns to 0 when the browser closes. `test_snapshot_off_tick` and
+      `test_server` updated for the broadcaster and the `viewers` key.
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from
       `docs/components.md` and the registry; guides and ADRs included; built in CI and deployed

@@ -74,6 +74,9 @@ class Scheduler:
         self._clock = clock
         self._sleep = sleep
         self._stop = threading.Event()
+        #: The current (or last) run's stats, updated as it goes, so a server can report dropped
+        #: ticks while the run is live (PLAN 4.3).
+        self.stats = RunStats()
 
     def stop(self) -> None:
         """Ask a running :meth:`run` to return after its current tick. Thread-safe."""
@@ -82,7 +85,7 @@ class Scheduler:
     def run(self, duration_s: float | None = None) -> RunStats:
         self._stop.clear()
         limit = None if duration_s is None else round(duration_s / self.dt)
-        stats = RunStats()
+        stats = self.stats = RunStats()
         wall_start = self._clock()
         if self.realtime:
             self._run_realtime(limit, stats, wall_start)

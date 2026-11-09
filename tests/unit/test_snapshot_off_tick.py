@@ -55,22 +55,21 @@ def test_a_recorded_run_still_builds_every_tick():
     assert seen == [1, 2, 3, 4, 5]
 
 
-def test_every_viewer_gets_the_same_text_serialized_once(monkeypatch):
-    import openfactory.server.app as app_module
-
+def test_every_viewer_gets_the_same_text_serialized_once():
+    """PLAN 4.3: one broadcaster serializes each frame once and sends that text to every viewer."""
     runtime = Runtime(load(SORTER), realtime=False)
-    dumps = [0]
-    real = app_module.json.dumps
-
-    def counting_dumps(*args, **kwargs):
-        dumps[0] += 1
-        return real(*args, **kwargs)
-
-    monkeypatch.setattr(app_module.json, "dumps", counting_dumps)
-    client = TestClient(create_app(runtime, web_dist=None))
+    app = create_app(runtime, web_dist=None)
+    client = TestClient(app)
     with client.websocket_connect("/ws/state") as a, client.websocket_connect("/ws/state") as b:
-        assert a.receive_text() == b.receive_text()
-    assert dumps[0] == 1  # one snapshot, two viewers, one serialization
+        # frames sent before the second viewer joined say "viewers": 1; read to the first that
+        # both received, the broadcast both were in
+        first_a = next(t for t in iter(a.receive_text, None) if '"viewers":2' in t)
+        first_b = next(t for t in iter(b.receive_text, None) if '"viewers":2' in t)
+        assert first_a == first_b
+        serialized, sent = app.state.frames["serialized"], app.state.frames["sent"]
+        assert a.receive_text() == b.receive_text()  # the next broadcast too: the same text
+    assert serialized <= sent  # never more serializations than frames sent
+    assert app.state.frames["serialized"] < app.state.frames["sent"]  # shared, not per viewer
 
 
 def test_an_exam_switch_rebuilds_the_snapshot_between_ticks():

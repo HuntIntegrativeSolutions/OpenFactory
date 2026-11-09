@@ -62,6 +62,14 @@ export class ExamPanel {
     return true;
   }
 
+  /** Follow the core's state frame (PLAN 4.3): a switch another viewer turned shows here too. */
+  sync(io: Record<string, boolean | number>): void {
+    for (const [tag, button] of this.buttons) {
+      const on = Boolean(io[tag]);
+      if (button.dataset.on !== String(on)) this.show(tag, on);
+    }
+  }
+
   private show(tag: string, on: boolean): void {
     const button = this.buttons.get(tag);
     if (!button) return;

@@ -61,6 +61,7 @@ window.__openfactory = {
   firstTick: null,
   reloads: 0,
   exam: false,
+  viewers: 0,
   meshes: { loaded: 0, failed: 0 },
   housings: { loaded: 0, failed: 0, types: [] as string[] },
 };
@@ -366,11 +367,14 @@ function onFrame(frame: StateFrame): void {
   status.tick = frame.tick;
   status.firstTick ??= frame.tick;
   status.parts = parts.count;
+  status.viewers = frame.viewers ?? 1;
+  examPanel?.sync(frame.io); // switches are the core's: another viewer's turn shows here (PLAN 4.3)
   status.ready = true;
   const running = views.filter((v) => (BELT_TYPES.has(v.type) || v.type === "turntable" || v.type === "lift") && frame.components[v.id]?.running);
   hud.textContent =
     `OpenFactory · ${doc.scene.name}${doc.mode === "replay" ? "   REPLAY" : ""}\n` +
-    `t = ${frame.t.toFixed(2)} s   tick ${frame.tick}   parts ${frame.parts.length}\n` +
+    `t = ${frame.t.toFixed(2)} s   tick ${frame.tick}   parts ${frame.parts.length}` +
+    `${frame.viewers === undefined ? "" : `   viewers ${frame.viewers}`}\n` +
     `running: ${running.map((v) => v.id).join(", ") || "none"}\n` +
     frameLine();
   stateCost.frame(start, performance.now() - start);
@@ -378,6 +382,7 @@ function onFrame(frame: StateFrame): void {
 }
 
 const stateCost = new FrameStats(40);
+let examPanel: ExamPanel | null = null; // set in start(); synced from every state frame
 
 const frameStats = new FrameStats();
 
@@ -470,6 +475,7 @@ async function start(): Promise<void> {
   wireClicks();
   const menu = new FaultMenu({ target: renderer.domElement, pick: pickComponent });
   const exam = new ExamPanel();
+  examPanel = exam;
   const refreshExam = () =>
     exam.refresh().then((on) => {
       window.__openfactory.exam = on;
@@ -482,6 +488,8 @@ async function start(): Promise<void> {
   if (wanted) trend.open(wanted);
   Object.assign(window, {
     __openfactoryTrend: trend,
+    // this browser's own camera (PLAN 4.3: each viewer orbits independently)
+    __openfactoryCamera: () => camera.position.toArray(),
     __openfactoryFaultMenu: menu,
     __openfactoryScreenOf: screenOf,
     __openfactoryPartTargets: () => parts.targets(),
