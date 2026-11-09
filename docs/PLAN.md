@@ -1159,6 +1159,16 @@ runs the sorting program against it; a box visibly gets pushed.
         `python-version` name 3.11.15, the build the local venv and the baseline use, so the
         score stops following interpreter builds. Runs after the pin count toward the switch
         rule; 42445724369 ran 3.11.18 and does not.
+      - First CI run after the pin, 42561175436 (be6a06a, 2026-11-08): AMD EPYC 7763, CPython
+        3.11.15 (Clang 22.1.3), the local build; the current score -7.6 % (load-200, 0.0232)
+        and -11.7 % (queue-200, 0.0233); the candidate 0.0695 and 0.0697, +1.3 % and -5.3 % of
+        local. The first run toward the switch rule; the second must come from a different
+        runner CPU (both runs so far had the same EPYC 7763 model).
+      - *Process scene in the gate (ruled 2026-11-08):* `tank-level-pid` under its stand-in
+        script for the fixed 5000 ticks replaces `flow-net` (`PROCESS` in `tools/bench.py`):
+        0.18 to 0.26 ms a tick here, the script's scan included, score 0.0023 to 0.0024 over
+        four runs. Its entry was measured with the new `--update --only tank-level-pid`, so the
+        conveyor entries (and the switch rule's local values) are unchanged.
       **60 fps at 200 parts (ruled 2026-11-04):** measure frame time on the software renderer
       and on the owner's machine through a number in the stats overlay; instance part meshes and
       merge static belt geometry if needed; report before and after.
@@ -1826,7 +1836,9 @@ runs the sorting program against it; a box visibly gets pushed.
       within the cap on every shipped scene" iterates every scene with a network, none until
       3.2 and 3.3 add them. `tools/bench.py` gains `flow-net` (the solver alone on 8 tanks, 24
       links and 8 junctions, 0.5 to 0.85 ms a tick here; baseline score 0.0072, added without
-      regenerating the conveyor entries).
+      regenerating the conveyor entries). *Amended (ruled 2026-11-08):* `flow-net` is replaced
+      by `tank-level-pid` run under its stand-in script for a fixed tick count, so the gate
+      covers a real process scene (PLAN 2.9).
 - [x] 3.2 Components: `tank`, `valve_onoff`, `valve_control`, `pump`, `pipe`, `heater`, `transmitter`,
       `vfd_motor`
       *Amended 2026-11-07 (ADR-0005):* plus `supply`, `drain` and `junction` (decision 2), with

@@ -30,9 +30,10 @@ def test_a_scene_without_a_baseline_fails_and_says_how_to_make_one():
     assert not ok and "tools/bench.py --update" in line
 
 
-def test_the_committed_baseline_covers_every_scene_at_the_200_part_cap_and_the_flow_bench():
+def test_the_committed_baseline_covers_every_scene_at_the_200_part_cap_and_the_process_scene():
     doc = json.loads(bench.BASELINE.read_text(encoding="utf-8"))
-    assert set(doc["scenes"]) == set(bench.SCENES) | set(bench.FLOWS)
+    assert set(doc["scenes"]) == set(bench.SCENES) | set(bench.PROCESS)
+    assert all(path.is_file() for pair in bench.PROCESS.values() for path in pair)
     assert all(path.is_file() for path in bench.SCENES.values())
     assert all(doc["scenes"][name]["parts"] >= 190 for name in bench.SCENES)
     assert all(s["score"] > 0 for s in doc["scenes"].values())
@@ -48,12 +49,12 @@ def test_the_calibration_is_deterministic():
 def test_on_github_actions_each_result_is_also_an_annotation(monkeypatch, capsys):
     """The score a CI runner measured is readable from the public check-runs API (PLAN 2.9)."""
     base = json.loads(bench.BASELINE.read_text(encoding="utf-8"))["scenes"]
-    monkeypatch.setattr(bench, "measure", lambda path: got(base["load-200"]["score"] * 1.3))
+    monkeypatch.setattr(bench, "measure", lambda *paths: got(base["load-200"]["score"] * 1.3))
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     assert bench.main([]) == 1
     lines = capsys.readouterr().out.splitlines()
     notes = [line for line in lines if line.startswith("::")]
-    assert len(notes) == len(bench.SCENES) + len(bench.FLOWS)
+    assert len(notes) == len(bench.SCENES) + len(bench.PROCESS)
     load = next(n for n in notes if "tick-cost gate load-200::" in n)
     assert load.startswith("::error title=tick-cost gate load-200::load-200: step 2.500 ms")
     assert json.loads(load[load.index("{") :]) == got(base["load-200"]["score"] * 1.3)
@@ -69,10 +70,35 @@ def test_the_candidate_calibration_is_deterministic_and_the_machine_is_named():
     assert named["cpu"] and named["python"].startswith(("CPython", "PyPy"))
 
 
-def test_the_flow_bench_network_runs_without_hitting_the_solver_caps():
-    """PLAN 3.1: the flow- bench is a live network (flowing, converging), not an idle one."""
-    net = bench.flow_network()
-    for _ in range(500):
-        net.step(bench.DT)
-    assert all(lk.flow != 0 for lk in net.links if not lk.id.startswith("PC"))
-    assert net.stats.cap_hits == 0 and net.stats.max_iterations <= 10
+def test_the_process_bench_runs_the_pid_scene_under_its_script_inside_the_solver_caps():
+    """Ruled 2026-11-08: the gate covers a real process scene, tank-level-pid under its stand-in
+    script for the fixed tick count, its loop live (the valve moving) and the solver converging."""
+    from openfactory.core.loader import load
+    from openfactory.pyplc import ScriptPlc
+
+    scene, script = bench.PROCESS["tank-level-pid"]
+    loaded = load(scene)
+    plc = ScriptPlc(script, loaded.io)
+    seen = set()
+    for _ in range(bench.WARM_TICKS + bench.BLOCKS * bench.BLOCK_TICKS):
+        plc.scan(loaded.time)
+        loaded.step(bench.DT)
+        seen.add(round(loaded.io.get("FV_01_POS_AO")))
+    stats = loaded.flownet.stats
+    assert stats.cap_hits == 0 and stats.split_cap_hits == 0 and stats.max_iterations <= 20
+    assert len(seen) > 10  # the PI moves the valve: a live loop, not a forced one
+    assert 0.95 < loaded.component("TK_01").node.level < 1.05
+
+
+def test_update_only_rewrites_one_entry_and_keeps_the_others(monkeypatch, tmp_path):
+    baseline = tmp_path / "bench_baseline.json"
+    baseline.write_text(bench.BASELINE.read_text(encoding="utf-8"), encoding="utf-8")
+    before = json.loads(baseline.read_text(encoding="utf-8"))
+    monkeypatch.setattr(bench, "BASELINE", baseline)
+    monkeypatch.setattr(bench, "REPO", tmp_path)
+    monkeypatch.setattr(bench, "measure", lambda *paths: got(0.5))
+    assert bench.main(["--update", "--only", "tank-level-pid"]) == 0
+    after = json.loads(baseline.read_text(encoding="utf-8"))
+    assert after["scenes"]["tank-level-pid"]["score"] == 0.5
+    assert after["scenes"]["load-200"] == before["scenes"]["load-200"]
+    assert list(after["scenes"]) == [*bench.SCENES, *bench.PROCESS]

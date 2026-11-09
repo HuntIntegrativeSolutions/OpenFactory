@@ -4,15 +4,17 @@ Usage::
 
     uv run python tools/bench.py             # measure, compare, exit 1 on a regression over 25 %
     uv run python tools/bench.py --update    # measure and rewrite tools/bench_baseline.json
+    uv run python tools/bench.py --update --only tank-level-pid   # one entry, the rest kept
 
-Each scene in ``SCENES`` is loaded with every PLC output forced on, run ``WARM_TICKS`` ticks to its
-steady state (200 parts), then measured for ``BLOCKS`` blocks of ``BLOCK_TICKS`` ticks. Before each
+Each scene in ``SCENES`` is loaded with every PLC output forced on, and each in ``PROCESS`` under
+its stand-in script; each is run ``WARM_TICKS`` ticks to its steady state (200 parts, or a process
+loop past its load step), then measured for ``BLOCKS`` blocks of ``BLOCK_TICKS`` ticks. Before each
 block the process runs a fixed pure-Python calibration workload (``calibrate``), and the score is
-the scene's mean step time divided by the calibration's mean time over the same blocks. A slower
-or faster machine, or the same machine on a slower day (about 30 % apart on the development
-machine, PLAN 2.9), scales both, so the score moves with the code, not the CPU; raw milliseconds
-are printed but not compared. Interleaving the two block by block keeps drift during the run out
-of the score as well.
+the scene's mean step time divided by the calibration's mean time over the same blocks. A slower or
+faster machine, or the same machine on a slower day (about 30 % apart on the development machine,
+PLAN 2.9), scales both, so the score moves with the code, not the CPU; raw milliseconds are printed
+but not compared. Interleaving the two block by block keeps drift during the run out of the score as
+well.
 
 The gate fails when a scene's score is more than ``LIMIT`` times its baseline score. The baseline
 is regenerated with ``--update`` and committed with the change that moves it (ruled 2026-11-04),
@@ -56,11 +58,18 @@ SCENES = {
     "load-200": REPO / "tests" / "scenes" / "load-200.yaml",
     "queue-200": REPO / "tests" / "scenes" / "queue-200.yaml",
 }
-#: Flow network benches (PLAN 3.1): the solver alone, on a network built here (``flow_network``),
-#: measured the same way. ``flow-net``: four process units, each a supply, a control valve, two
-#: tanks, a gravity pipe, a pump feeding a junction that splits to a demand drain and back
-#: through a check valve, and a hand valve to an open drain: 8 tanks, 24 links, 8 junctions.
-FLOWS = ("flow-net",)
+#: Process scenes (PLAN 3.1, 3.3), each run under its stand-in script for the same fixed tick
+#: count (``WARM_TICKS`` then ``BLOCKS`` x ``BLOCK_TICKS``, 5000 ticks = 100 s), so the gate covers
+#: a real process scene: the flow network solve, the process components, the I/O table and the
+#: script's scan (ruled 2026-11-08; it replaces ``flow-net``, a network built in code).
+#: ``tank-level-pid``: the load step at 20 s falls inside the warm-up, so the measured blocks are
+#: the loop holding its level after it.
+PROCESS = {
+    "tank-level-pid": (
+        REPO / "scenes" / "tank-level-pid.yaml",
+        REPO / "examples" / "pyplc" / "tank-level-pid.py",
+    ),
+}
 DT = 0.02
 WARM_TICKS = 3000
 BLOCKS = 40
@@ -235,65 +244,28 @@ def machine() -> dict[str, str]:
     return {"cpu": cpu, "python": python}
 
 
-def flow_network(units: int = 4):  # type: ignore[no-untyped-def]
-    """The ``flow-net`` bench network (see ``FLOWS``), built from the solver's own classes."""
-    from openfactory.core import flownet as fn
-
-    nodes: list = []  # type: ignore[type-arg]
-    links: list = []  # type: ignore[type-arg]
-    shutoff, b, n = fn.pump_curve([(4 / 3600, 6.0)])
-    for u in range(units):
-        s = f"_{u}"
-        nodes += [
-            fn.Tank(f"TK_A{s}", 2.0, 0.5, 2.0, 0.3, {"bottom": 0.0, "top": 2.0}),
-            fn.Tank(f"TK_B{s}", 0.0, 0.8, 2.0, 0.96, {"bottom": 0.0, "top": 2.0}),
-            fn.FixedHead(f"SUP{s}", 0.0, pressure_bar=2.0),
-            fn.FixedHead(f"DR{s}", -1.0),
-            fn.Junction(f"USE{s}", 0.5, demand=1.5 / 3600),
-            fn.Junction(f"J{s}", 0.5),
-        ]
-        links += [
-            fn.Resistance(f"FV{s}", f"SUP{s}", f"TK_A{s}.top", r=fn.valve_resistance(4, 0.5)),
-            fn.Resistance(
-                f"PA{s}", f"TK_A{s}.bottom", f"TK_B{s}.top", r=fn.pipe_resistance(5, 0.03, 0.02, 2)
-            ),
-            fn.Pump(
-                f"P{s}",
-                f"TK_B{s}.bottom",
-                f"J{s}",
-                shutoff=shutoff,
-                coefficient=b,
-                exponent=n,
-                running=True,
-            ),  # fmt: skip
-            fn.Resistance(f"PB{s}", f"J{s}", f"USE{s}", r=fn.pipe_resistance(3, 0.025, 0.02, 1)),
-            fn.Resistance(
-                f"PC{s}",
-                f"J{s}",
-                f"TK_A{s}.top",
-                r=fn.pipe_resistance(6, 0.02, 0.02, 3),
-                check_valve=True,
-            ),  # fmt: skip
-            fn.Resistance(f"HV{s}", f"TK_B{s}.bottom", f"DR{s}", r=fn.valve_resistance(1, 0.3)),
-        ]
-    return fn.Network.build(nodes, links)
-
-
-def measure(scene: Path | str) -> dict[str, float]:
-    """Mean step and calibration times (ms) over interleaved blocks, and their ratio. ``scene``
-    is a scene file, or the name of a flow network bench (``FLOWS``)."""
+def measure(scene: Path, script: Path | None = None) -> dict[str, float]:
+    """Mean step and calibration times (ms) over interleaved blocks, and their ratio. A conveyor
+    scene runs with every PLC output forced on; a process scene (``script``) runs under its
+    stand-in script, scanned before each step as ``openfactory run --script`` does."""
     from openfactory.core.iotable import Writer
     from openfactory.core.loader import load
+    from openfactory.pyplc import ScriptPlc
 
-    if isinstance(scene, str):
-        net = flow_network()
-        step, count = net.step, lambda: len(net.links)
-    else:
-        loaded = load(scene)
+    loaded = load(scene)
+    if script is None:
         for tag in loaded.io.tags():
             if tag.kind == "DO":
                 loaded.io.set(tag.name, True, Writer.PLC)
         step, count = loaded.step, lambda: len(loaded.world.parts)
+    else:
+        plc = ScriptPlc(script, loaded.io)
+
+        def step(dt: float) -> None:
+            plc.scan(loaded.time)
+            loaded.step(dt)
+
+        count = lambda: len(loaded.flownet.links)  # type: ignore[attr-defined]  # noqa: E731
     for _ in range(WARM_TICKS):
         step(DT)
     step_s, cal_s, cand_s = [], [], []
@@ -314,7 +286,7 @@ def measure(scene: Path | str) -> dict[str, float]:
         "score": round(step_ms / cal_ms, 4),
         "step_ms": round(step_ms, 3),
         "calibration_ms": round(cal_ms, 3),
-        "parts": count(),  # a flow bench: its links
+        "parts": count(),  # a process scene: its network's links
         "candidate_ms": round(cand_ms, 3),  # not gated (see the module docstring)
         "candidate_score": round(step_ms / cand_ms, 4),
         **machine(),
@@ -338,9 +310,32 @@ def compare(name: str, got: dict[str, float], base: dict[str, float] | None) -> 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Tick-cost gate against a committed baseline.")
     parser.add_argument("--update", action="store_true", help=f"rewrite {BASELINE.name}")
+    parser.add_argument(
+        "--only",
+        metavar="NAME",
+        help="measure one scene only; with --update, rewrite its entry and keep the others",
+    )
     args = parser.parse_args(argv)
-    results = {name: measure(path) for name, path in SCENES.items()}
-    results.update({name: measure(name) for name in FLOWS})
+    names = [*SCENES, *PROCESS]
+    if args.only is not None and args.only not in names:
+        parser.error(f"--only {args.only}: not a bench scene ({', '.join(names)})")
+    wanted = [args.only] if args.only else names
+    results = {
+        name: measure(SCENES[name]) if name in SCENES else measure(*PROCESS[name])
+        for name in wanted
+    }
+    if args.update and args.only:
+        doc = json.loads(BASELINE.read_text(encoding="utf-8"))
+        doc["scenes"] = {
+            n: (results[n] if n == args.only else doc["scenes"][n])
+            for n in names
+            if n in doc["scenes"] or n == args.only
+        }
+        BASELINE.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
+        got = results[args.only]
+        print(f"{args.only}: score {got['score']:.4f} (step {got['step_ms']:.3f} ms)")
+        print(f"wrote {BASELINE.relative_to(REPO)} ({args.only} only)")
+        return 0
     if args.update:
         doc = {
             "comment": "tools/bench.py --update; commit with the change that moves it (PLAN 2.9)",

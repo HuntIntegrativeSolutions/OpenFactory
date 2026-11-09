@@ -17,11 +17,15 @@
    "calibration_ms": 106.76,
    "parts": 200
   },
-  "flow-net": {
-   "score": 0.0072,
-   "step_ms": 0.498,
-   "calibration_ms": 69.461,
-   "parts": 24
+  "tank-level-pid": {
+   "score": 0.0024,
+   "step_ms": 0.18,
+   "calibration_ms": 75.173,
+   "parts": 3,
+   "candidate_ms": 28.13,
+   "candidate_score": 0.0064,
+   "cpu": "12th Gen Intel(R) Core(TM) i7-1260P",
+   "python": "CPython 3.11.15 (Clang 22.1.3 )"
   }
  }
 }
