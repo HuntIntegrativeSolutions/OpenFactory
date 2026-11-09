@@ -26,7 +26,9 @@ program.
 | `PL_01` | pilot_light | Batch ready |
 
 The tank is small and the heater large so a whole batch fits in the minute the checks run: 20 L
-heated by 14 K in 25 s. The tank is well mixed (one temperature, one set of fractions), with no
+heated by 14 K in 25 s. A real 45 kW immersion heater would serve a vessel many times this size;
+the sizing is chosen for the 60 s check rule (PLAN §9 rule 10), not for realism, and is accepted
+as such (ruled 2026-11-09). The tank is well mixed (one temperature, one set of fractions), with no
 agitator to run.
 
 ## I/O

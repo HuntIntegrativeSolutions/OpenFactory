@@ -104,7 +104,9 @@ Two failure rules close the easy passes:
   pass. Set the limit from a 300 s run, like `max_starts`, about 25 to 30 % above the count.
   A count over the run grows with its length, so an on/off program with enough hysteresis can
   stay under a 300 s limit for 60 s (on `tank-level-pid`, ±10 mm turns the valve 6 times in
-  60 s and 29 in 300 s, against a limit of 15): the 300 s run is what grades it.
+  60 s and 29 in 300 s, against a limit of 15): the 300 s run is what grades it. That is
+  ruled (2026-11-09): the 300 s run is the grading run for `max_reversals`, as PLAN §9 rule 10
+  makes it for every check; the 10 % deadband stays fixed, and there is no per-minute limit.
 
 What the scene names is checked when it loads, so a typo fails loudly instead of grading wrong:
 a `parts_reached` key must be a `part_remover` in the scene, each part name must be one some

@@ -1992,6 +1992,10 @@ runs the sorting program against it; a box visibly gets pushed.
       both lockfiles, checks passing at 60 s and 300 s, a guide and a kit; seven check kinds
       added (`level_within`, `never_overflow`, `never_dry`, `max_starts`, `max_reversals`,
       `fractions_within`, `temperature_within`). None has run under OpenPLC yet (Docker down).
+      *Follow-up, optional (ruled 2026-11-09, not now):* grade `batch-mix-heat`'s hold. At the
+      tank's 15 W/K loss a program that heats once and switches off stays inside the
+      temperature band for 300 s, so the hold step is not graded. The heater's size (45 kW for
+      20 L) is accepted for the 60 s rule, and the guide says so.
       *Easy-pass tests (recorded 2026-11-08, `tests/integration/test_process_scenes.py`):* each
       shipped program passes its checks for 300 s inside the solver's caps; a P-only loop fails
       `tank-level-pid`'s band; an on/off program holds that band at 60 s and 300 s and fails
@@ -2100,6 +2104,15 @@ runs the sorting program against it; a box visibly gets pushed.
       nothing to refuse). `docs/scene-format.md` says so. Tests: a `units: mH2O` label on a
       level in m shows in the CSV and CONTEXT.md, while the tag, the Ignition `engUnit` and the
       L5X description keep `m`.
+- **Docker items** (waiting for Docker; collected 2026-11-09):
+  - Each process scene under OpenPLC for 60 s and 300 s (`tank-level-onoff`, `tank-level-pid`,
+    `two-tank-cascade`, `batch-mix-heat`, and `plantpax-tank-level`'s OpenPLC program), with
+    `TIME_TO_REAL`'s unit checked on the first run (the PID gains assume seconds).
+  - A CI step that compiles every `examples/openplc/*.st` with OpenPLC's compiler (matiec,
+    `iec2c`) in its container, so a program that does not compile fails CI (ruled 2026-11-09;
+    it would have caught `batch-mix-heat`'s `STEP`, an IEC 61131-3 keyword).
+  - The Ignition 8.3 MQTT Engine test of 3.5 (`docs/ignition.md`, "Test with Ignition").
+  - The OPC UA and Ignition checks of 2.4 against a running gateway.
 - [ ] 3.8 Process demo kit (`kits/tank-level-pid/`) built with 2.14, including PlantPAx L5X and
       Perspective faceplates from 3.4.
       *Amended (ruled 2026-11-09):* the Perspective faceplates move here from 3.4. *Done when:*
