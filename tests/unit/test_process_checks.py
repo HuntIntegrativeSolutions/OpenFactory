@@ -1,5 +1,6 @@
-"""The process checks (PLAN 3.3, ADR-0005 decision 10): level_within, never_overflow, never_dry
-and max_starts, each passing and failing, with their easy passes closed."""
+"""The process checks (PLAN 3.3, ADR-0005 decision 10): level_within, never_overflow, never_dry,
+max_starts and max_reversals (ruled 2026-11-08), each passing and failing, with their easy passes
+closed."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ from pydantic import ValidationError
 from openfactory.checks import evaluate
 from openfactory.core.iotable import Writer
 from openfactory.core.loader import build
+from openfactory.core.process_watch import Reversals
 from openfactory.core.schema import Scene
 
 SUMP = {"id": "TK_01", "type": "tank", "description": "Sump", "position": [0, 0, 0],
@@ -71,6 +73,34 @@ def test_max_starts_counts_run_turning_on_and_needs_at_least_one():
     assert run({"max_starts": {"P_01": 2}}, {}, 5.0)["max_starts P_01"] == (False, "never started")
 
 
+def test_a_reversal_is_a_turn_back_by_more_than_the_deadband():
+    rev = Reversals()
+    for command in (50, 55, 59, 52, 58, 45, 30, 35, 41, 100, 0):  # starts at 50
+        rev.record(command)
+    # up past 60? no: 59 is within 10 of 50, so no direction yet; 45 is not; 30 sets "down";
+    # 41 is 11 back up from 30 (one); 100 continues up; 0 is 100 back down (two)
+    assert (rev.moved, rev.count) == (True, 2)
+    still = Reversals()
+    for command in (50, 58, 42, 55):  # noise inside the deadband never sets a direction
+        still.record(command)
+    assert (still.moved, still.count) == (False, 0)
+
+
+def test_max_reversals_counts_a_pump_command_turning_back_and_needs_it_to_move():
+    # running from the first tick, the command starts at 100 %; the first stop sets a direction,
+    # and each later change turns it back: 100, 0, 100, 0 is two reversals
+    plan = {0.0: True, 1.0: False, 2.0: True, 3.0: False}
+    assert run({"max_reversals": {"P_01": 2}}, plan, 5.0)["max_reversals P_01"] == (
+        True,
+        "2 reversals; limit 2",
+    )
+    assert run({"max_reversals": {"P_01": 1}}, plan, 5.0)["max_reversals P_01"][0] is False
+    assert run({"max_reversals": {"P_01": 2}}, {}, 5.0)["max_reversals P_01"] == (
+        False,
+        "the command never moved",
+    )
+
+
 @pytest.mark.parametrize(
     ("checks", "message"),
     [
@@ -82,6 +112,11 @@ def test_max_starts_counts_run_turning_on_and_needs_at_least_one():
         ({"never_dry": ["TK_01"]}, "checks.never_dry: 'TK_01' is a tank, not a pump"),
         ({"max_starts": {"P_01": 0}}, "greater than or equal to 1"),
         ({"level_within": {"TK_02": {"band": [1, 0]}}}, "band \\[lo, hi\\] needs lo < hi"),
+        (
+            {"max_reversals": {"TK_01": 5}},
+            "checks.max_reversals: 'TK_01' is a tank, not a valve_control, valve_onoff or pump",
+        ),
+        ({"max_reversals": {"P_01": 0}}, "greater than or equal to 1"),
     ],
 )
 def test_checks_name_real_tanks_and_pumps(checks, message):

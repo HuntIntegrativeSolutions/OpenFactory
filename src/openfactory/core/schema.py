@@ -1670,9 +1670,21 @@ class Checks(StrictModel):
         description="Pump -> starts allowed in the run (short-cycling); it must start at least "
         "once (PLAN 3.3).",
     )
+    max_reversals: dict[ComponentId, Annotated[int, Field(ge=1)]] = Field(
+        default_factory=dict,
+        description="Valve or pump -> direction changes of its command allowed in the run (wear); "
+        "a reversal is a turn back by more than 10 % of the command's span, and the command must "
+        "move at least once (PLAN 3.3).",
+    )
 
     def watches_process(self) -> bool:
-        return bool(self.level_within or self.never_overflow or self.never_dry or self.max_starts)
+        return bool(
+            self.level_within
+            or self.never_overflow
+            or self.never_dry
+            or self.max_starts
+            or self.max_reversals
+        )
 
     def reached(self) -> dict[str, list[str]]:
         return {r: [n] if isinstance(n, str) else list(n) for r, n in self.parts_reached.items()}
@@ -2025,6 +2037,20 @@ class Scene(StrictModel):
                 if types.get(cid) != kind:
                     found = f"a {types[cid]}" if cid in types else "not in the scene"
                     raise ValueError(f"checks.{key}: {cid!r} is {found}, not a {kind}")
+        commanded = ("valve_control", "valve_onoff", "pump")
+        for cid in self.checks.max_reversals:
+            if types.get(cid) not in commanded:
+                found = f"a {types[cid]}" if cid in types else "not in the scene"
+                raise ValueError(
+                    f"checks.max_reversals: {cid!r} is {found}, not a valve_control, "
+                    "valve_onoff or pump"
+                )
+            comp = next(c for c in self.components if c.id == cid)
+            if types[cid] == "valve_control" and comp.io.position is None:  # type: ignore[attr-defined]
+                raise ValueError(
+                    f"checks.max_reversals: {cid!r} has no position bound: a hand valve has no "
+                    "command to reverse"
+                )
         return self
 
 

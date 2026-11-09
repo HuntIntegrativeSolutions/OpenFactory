@@ -157,3 +157,4 @@ Faults: none
 - `none_lost`: false
 - `level_within`: {"TK_01": {"band": [0.98, 1.02], "after_s": 45.0}}
 - `never_overflow`: ["TK_01"]
+- `max_reversals`: {"FV_01": 15}

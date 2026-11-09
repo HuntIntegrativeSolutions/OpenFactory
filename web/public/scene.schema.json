@@ -578,6 +578,20 @@
           },
           "title": "Max Starts",
           "type": "object"
+        },
+        "max_reversals": {
+          "description": "Valve or pump -> direction changes of its command allowed in the run (wear); a reversal is a turn back by more than 10 % of the command's span, and the command must move at least once (PLAN 3.3).",
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]*$": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 40
+          },
+          "title": "Max Reversals",
+          "type": "object"
         }
       },
       "title": "Checks",

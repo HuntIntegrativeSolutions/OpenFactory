@@ -53,6 +53,7 @@ class Pump(Component):
             running=False,
         )
         self.speed = 0.0  # relative, 0 to 1
+        self.command = 0.0  # % of speed while run (checks.max_reversals)
         self.run = False
         self.points: list[list[float]] = []
 
@@ -67,6 +68,7 @@ class Pump(Component):
         self.run = bool(self.read("run", default=False))
         target = float(self.read("speed", default=100.0)) / 100 if self.run else 0.0
         target = min(max(target, 0.0), 1.0) if self.run else 0.0
+        self.command = target * 100  # % (checks.max_reversals)
         step = dt / self.config.ramp_s  # type: ignore[attr-defined]
         if self.speed < target:
             self.speed = min(target, self.speed + step)

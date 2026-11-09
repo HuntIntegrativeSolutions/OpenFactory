@@ -17,6 +17,7 @@ checks:                            # PLAN 3.3: `openfactory test` grades a progr
   duration_s: 60
   level_within: {TK_01: {band: [0.98, 1.02], after_s: 45}}   # settled after the load step
   never_overflow: [TK_01]
+  max_reversals: {FV_01: 15}        # PI: 12 turns back in 300 s, 1 in 60 s; an on/off program 3390
 components:
   - id: SUP_01
     type: supply

@@ -22,6 +22,10 @@ Process checks (PLAN 3.3, ADR-0005 decision 10), from the run's
 - ``never_dry: [PUMP, ...]``: the pump never ran while its suction tank was dry.
 - ``max_starts: {PUMP: N}``: the pump started at most N times, and at least once (a pump that
   never ran fails: the easy pass is closed, as for ``parts_reached``).
+- ``max_reversals: {VALVE_OR_PUMP: N}``: its command (a control valve's position, an on/off
+  valve's open command or a pump's speed setpoint while it runs, each as 0 to 100 %) turned back
+  at most N times, counting only turns back by more than 10 % of the span
+  (:data:`~openfactory.core.process_watch.REVERSAL_DEADBAND_PCT`), and it moved at least once.
 
 ``duration_s`` is not a check; it is how long ``openfactory test`` runs.
 """
@@ -117,6 +121,15 @@ def _process(checks: Checks, loaded: Any) -> list[CheckResult]:
             else ("never started")
         )
         out.append(CheckResult(f"max_starts {pid}: {limit}", 1 <= starts <= limit, detail))
+    for cid, limit in checks.max_reversals.items():
+        rev = watch.reversals[cid]
+        detail = (
+            f"{rev.count} reversal{'s' if rev.count != 1 else ''}; limit {limit}"
+            if rev.moved
+            else "the command never moved"
+        )
+        passed = rev.moved and rev.count <= limit
+        out.append(CheckResult(f"max_reversals {cid}: {limit}", passed, detail))
     return out
 
 

@@ -49,6 +49,7 @@ Every key is optional. `--duration` on `test` overrides `duration_s`.
 | `never_overflow` | `[TANK, ...]`: the tank never overflows. |
 | `never_dry` | `[PUMP, ...]`: the pump never runs while its suction tank is dry. |
 | `max_starts` | `{PUMP: N}`: the pump starts at most `N` times in the run, **and** at least once. |
+| `max_reversals` | `{VALVE_OR_PUMP: N}`: its command turns back at most `N` times in the run (wear), **and** it moves at least once. The command is a `valve_control`'s position, a `valve_onoff`'s open command (0 or 100 %) or a running `pump`'s speed setpoint (0 while stopped), on its 0 to 100 % span. A reversal is a turn back by **more than 10 %** of the span from the furthest point the command reached in its last direction; the first move sets a direction and is not one. |
 
 Two failure rules close the easy passes:
 
@@ -63,6 +64,16 @@ Two failure rules close the easy passes:
   does nothing does not pass a process scene. Process checks name tanks and pumps, checked at
   load. Set `max_starts` from a 300 s run, which starts a cycling pump about five times as
   often as a 60 s one.
+- **A level band cannot tell control from on/off; `max_reversals` can.** On a slow valve an
+  on/off program holds a level band as well as a PI loop does (the stroke rate turns it into
+  integral action), so `tank-level-pid` also limits how often the valve reverses. The 10 %
+  deadband is fixed: a controller passes transmitter noise times its gain to the valve (on
+  `tank-level-pid` its PI's command turns back 7812 times in 300 s counting 1 % turns, 12
+  counting 10 % ones), and a count of every wiggle would fail the loop the check exists to
+  pass. Set the limit from a 300 s run, like `max_starts`, about 25 to 30 % above the count.
+  A count over the run grows with its length, so an on/off program with enough hysteresis can
+  stay under a 300 s limit for 60 s (on `tank-level-pid`, ±10 mm turns the valve 6 times in
+  60 s and 29 in 300 s, against a limit of 15): the 300 s run is what grades it.
 
 What the scene names is checked when it loads, so a typo fails loudly instead of grading wrong:
 a `parts_reached` key must be a `part_remover` in the scene, each part name must be one some

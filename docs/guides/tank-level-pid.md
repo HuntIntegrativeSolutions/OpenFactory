@@ -72,14 +72,17 @@ at 83.8 % passing 4.5 m³/h. The scene's checks:
 |---|---|---|
 | `level_within TK_01: 0.98 to 1.02 m after 45 s` | 0.989 to 1.008 m | 0.989 to 1.009 m |
 | `never_overflow TK_01` | PASS | PASS |
+| `max_reversals FV_01: 15` | 1 reversal | 12 reversals |
 
 The band starts at 45 s, once the step has settled: it grades where the loop ends up. A P-only
 loop at the same gain (no integral) settles below the setpoint and fails it (0.956 to 0.966 m
 over 300 s): the integral is what removes the offset. A program that drives the valve fully open
-below the setpoint and shut above it passes (0.985 to 1.008 m). The valve's 10 s stroke turns
-that on/off output into a steady ramp, which acts like integral control on a tank. A real on/off
-level loop would use an on/off valve, as `tank-level-onoff` does. Grading the valve's wear would
-need a check this scene does not have.
+below the setpoint and shut above it holds the band too (0.985 to 1.008 m): the valve's 10 s
+stroke turns that on/off output into a steady ramp, which acts like integral control on a tank.
+It fails `max_reversals` instead: its command turns back 1151 times in 60 s, and a control
+valve driven like that wears out its packing and actuator. The check counts only turns back by
+more than 10 % of the span, so the PI's own small trims, the level noise times its gain, are
+not counted. A real on/off level loop would use an on/off valve, as `tank-level-onoff` does.
 
 ## Try this
 

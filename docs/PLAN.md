@@ -1921,8 +1921,13 @@ runs the sorting program against it; a box visibly gets pushed.
         60 s and 300 s (0.989 to 1.009 m in 0.98 to 1.02 after 45 s). As proposed, a P-only
         loop fails the band (0.956 to 0.966 m). An on/off program on this rate-limited valve
         passes (0.985 to 1.008 m): the 10 s stroke turns it into integral action, so a level
-        band cannot fail it; noted in the guide, with a valve-wear check as the way to grade
-        it. The repeating demand schedule first proposed could not separate PI from P-only (a
+        band cannot fail it. *Ruled 2026-11-08:* accepted, with a fifth check kind,
+        `max_reversals: {VALVE_OR_PUMP: N}`, counting direction changes of a valve's or pump's
+        command (0 to 100 %) by more than a fixed 10 % of the span, and requiring the command to
+        move; set on `tank-level-pid` at 15 (the PI turns back 12 times in 300 s, 1 in 60 s: 25 %
+        margin), which the on/off program fails (1151 in 60 s, 3390 in 300 s). An on/off program
+        with ±10 mm hysteresis stays under the limit for 60 s (6) and fails at 300 s (29). The
+        repeating demand schedule first proposed could not separate PI from P-only (a
         PI transient is as large as a P offset), so the scene has one load step and a band from
         45 s. `TIME_TO_REAL` units in OpenPLC's runtime are marked to verify on the first
         OpenPLC run.
@@ -1938,6 +1943,12 @@ runs the sorting program against it; a box visibly gets pushed.
         tank, a 25 mm gravity line, a 0.4 m lower tank, a 1 m³/h step at 10 s.
       The first three scenes are done; the box stays open for `batch-mix-heat`, which follows
       (amended 2026-11-07).
+      *Easy-pass tests (recorded 2026-11-08, `tests/integration/test_process_scenes.py`):* each
+      shipped program passes its checks for 300 s inside the solver's caps; a P-only loop fails
+      `tank-level-pid`'s band; an on/off program holds that band at 60 s and 300 s and fails
+      `max_reversals`; one with hysteresis passes `max_reversals` at 60 s and fails it at 300 s;
+      a single PI loop fails `two-tank-cascade`'s band; a pump with no seal-in fails
+      `tank-level-onoff`'s `max_starts` while its level stays in band.
 - [ ] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
       `/plantpax-*` skills) + Perspective faceplates. AOI parameter names in this repository come
       only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002

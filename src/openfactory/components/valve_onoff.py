@@ -35,6 +35,7 @@ class ValveOnOff(Component):
         cfg = self.config
         self.kv = cfg.kv_value()  # type: ignore[attr-defined]
         self.opening = 0.0
+        self.command = 0.0  # % (checks.max_reversals)
         self.link = flownet.Resistance(
             self.id,
             cfg.from_,  # type: ignore[attr-defined]
@@ -52,6 +53,7 @@ class ValveOnOff(Component):
 
     def step(self, dt: float) -> None:
         target = 1.0 if self.read("open", default=False) else 0.0
+        self.command = target * 100  # % (checks.max_reversals)
         rate = self.speed_factor / self.config.travel_s  # type: ignore[attr-defined]
         if self.opening < target:
             self.opening = min(target, self.opening + rate * dt)
