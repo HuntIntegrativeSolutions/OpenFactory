@@ -86,3 +86,13 @@ def test_the_birth_names_every_tag_with_alias_datatype_and_value():
 def test_ids_that_would_break_the_topic_fail(bad):
     with pytest.raises(ValueError, match="needs a name without"):
         sp.SparkplugPublisher(table(), sp.SparkplugEndpoint(), bad)
+
+
+def test_each_node_has_its_own_short_alphanumeric_client_id():
+    """Two nodes in one group must not share an MQTT client id: the broker would drop one each
+    time the other connects (MQTT 3.1.1 §3.1.4)."""
+    ids = {sp.client_id("OpenFactory", n) for n in ("tank-level-pid", "tank-level-onoff")}
+    ids |= {sp.client_id("Lab", "tank-level-pid")}
+    assert len(ids) == 3
+    assert all(len(i) == 23 and i.isalnum() and i.isascii() for i in ids)
+    assert sp.client_id("Lab", "x") == sp.client_id("Lab", "x")  # stable from run to run

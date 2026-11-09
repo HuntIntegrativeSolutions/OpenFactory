@@ -9,7 +9,8 @@ simulator over Modbus TCP or OPC UA, and an NCMD writes nothing (see below).
 
 Session, as Sparkplug 3.0 chapters 4 and 5 require:
 
-1. CONNECT with clean session, keep-alive 30 s, and an MQTT Will: NDEATH on
+1. CONNECT with clean session, keep-alive 30 s, a client id of its own (:func:`client_id`: two
+   nodes on one broker must not share one), and an MQTT Will: NDEATH on
    ``spBv1.0/<group>/NDEATH/<node>`` at QoS 1, not retained, whose payload holds one metric,
    ``bdSeq`` (Int64). ``bdSeq`` starts at 0 and goes up by one on every new CONNECT, wrapping 255
    to 0.
@@ -46,6 +47,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import logging
 import struct
 import time
@@ -346,6 +348,15 @@ class SparkplugEndpoint:
     group: str = "OpenFactory"
 
 
+def client_id(group: str, node: str) -> str:
+    """The MQTT client id for one edge node: ``of`` and 21 hex digits of a SHA-256 of
+    ``group/node``. A broker drops the older of two connections with the same id (MQTT 3.1.1
+    §3.1.4), so every node needs its own; a server need only accept 1 to 23 characters of
+    ``0-9a-zA-Z`` (§3.1.3.1), so the id is 23 alphanumerics, the same for the same node on every
+    run."""
+    return "of" + hashlib.sha256(f"{group}/{node}".encode()).hexdigest()[:21]
+
+
 def _valid_id(text: str, what: str) -> str:
     if not text or any(c in text for c in "+#/"):
         raise ValueError(f"Sparkplug {what} {text!r}: needs a name without '+', '#' or '/'")
@@ -456,23 +467,31 @@ class SparkplugPublisher:
         await client.connect(
             self.endpoint.host,
             self.endpoint.port,
-            f"openfactory-{self.group}-{self.node}"[:23],
+            client_id(self.group, self.node),
             self.topic("NDEATH"),
             self.death_payload(),
         )
         self.client = client
-        await client.subscribe(self.topic("NCMD"))
-        client.publish(self.topic("NBIRTH"), self.birth_payload())
-        self.connected = True
-        self._ready.set()
-        log.info(
-            "sparkplug: edge node %s/%s born on %s:%d (bdSeq %d)",
-            self.group,
-            self.node,
-            self.endpoint.host,
-            self.endpoint.port,
-            self.bdseq,
-        )
+        try:
+            await client.subscribe(self.topic("NCMD"))
+            client.publish(self.topic("NBIRTH"), self.birth_payload())
+            self.connected = True
+            self._ready.set()
+            log.info(
+                "sparkplug: edge node %s/%s born on %s:%d (bdSeq %d)",
+                self.group,
+                self.node,
+                self.endpoint.host,
+                self.endpoint.port,
+                self.bdseq,
+            )
+            await self._publish_until_closed(client)
+        finally:
+            self.connected = False
+            if not self._stop.is_set():  # the link dropped or the birth failed: free the socket
+                await client.close(clean=False)
+
+    async def _publish_until_closed(self, client: MqttClient) -> None:
         while not self._stop.is_set() and not client.closed.is_set():
             with contextlib.suppress(asyncio.TimeoutError):
                 await asyncio.wait_for(self._rebirth.wait(), self.period_s)
@@ -484,7 +503,6 @@ class SparkplugPublisher:
             payload = self.data_payload()
             if payload is not None:
                 client.publish(self.topic("NDATA"), payload)
-        self.connected = False
 
     async def serve_forever(self) -> None:
         while not self._stop.is_set():
