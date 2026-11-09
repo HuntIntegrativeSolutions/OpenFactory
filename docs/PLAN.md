@@ -1996,6 +1996,14 @@ runs the sorting program against it; a box visibly gets pushed.
       only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002
       (Library of Process Objects, 4.x objects) and PROCES-RM200 (5.x), cited by publication
       number and revision.
+      *Proposal for ruling (2026-11-08, asked for: design only, no code):*
+      `docs/research/plantpax-demo-design.md`: the object-to-component map (`P_AIn` on the
+      level transmitter, `P_PIDE` the level controller, `P_ValveC` the control valve, `P_Motor`
+      an added outlet pump), the parameter sources (RM002 has no parameter tables: they are in
+      PROCES-RM013I, April 2023, as embedded workbooks labelled 4.1; names only, each cited and
+      checked by the owner against the official copy), what the L5X will and will not contain
+      (no AOI definitions, no instance `<Data>`, a first-scan `Init`), the owner's import
+      checks, and seven decisions. Waits for the ruling.
 - [ ] 3.5 MQTT Sparkplug B publisher (`protocols/sparkplug.py`) tested against Ignition 8.3 MQTT Engine
       *Ruled 2026-11-08:* the publisher with a unit test against a local broker in CI, and a
       documented Ignition test deferred to Docker.
