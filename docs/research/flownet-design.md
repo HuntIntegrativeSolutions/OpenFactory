@@ -681,3 +681,38 @@ All public:
   ([PDF](https://www.energy.gov/sites/prod/files/2014/05/f16/pump.pdf)). It is background for
   scaling the pump curve by `ω` (EPANET's equation 12.2 already uses relative speed). Its text
   was not read beyond the contents; read it before 3.2's `vfd_motor` power model.
+
+## Departures (accepted 2026-11-08)
+
+The proposal above is kept as it was accepted. The shipped scenes depart from it where building
+them showed it could not work as written; the owner accepted each departure on 2026-11-08.
+Current values are in the scene files and PLAN 3.3.
+
+**Every shipped scene's checks run in 60 s and pass at 300 s.** The proposal gave the process
+scenes runs of 300 to 600 s (`duration_s: 300`, `480`, `600`). The 60 s CI run that grades
+every shipped scene (PLAN §9 rule 10, `test_shipped_scenes.py`) also has to grade these, and the
+300 s run catches a loop that drifts after the first minute. So each plant was resized to
+settle within the minute, and each band starts once its loop has settled:
+
+| Scene | Proposed | Shipped |
+|---|---|---|
+| `tank-level-onoff` | sump and process tank 2 m each, switches at 1.6 and 0.6 m, band 0.5 to 1.7 m after 60 s, `max_starts` 6 | 1 m sump, 0.3 m head tank 1 m tall on a stand, switches at 0.75 and 0.25 m, band 0.2 to 0.8 m from 0 s, `max_starts` 8 (6 starts in 300 s) |
+| `tank-level-pid` | Cv 10, demand 2 to 4 m³/h at 180 s and back at 360 s, band ±0.05 m after 120 s over 480 s | Kv 6, one load step from 2 to 4.5 m³/h at 20 s, band ±0.02 m after 45 s, `max_reversals` 15 |
+| `two-tank-cascade` | TK_02 held at 1.0 m, a demand step at 240 s over 600 s, band ±0.05 m after 200 s | 0.35 m upper tank, 25 mm gravity line, 0.4 m lower tank held at 0.8 m, a step from 2 to 3 m³/h at 10 s, band ±0.02 m after 40 s |
+
+**One load step, not a repeating demand.** The proposal's demand stepped up and back. With the
+steps inside a minute, the transient a PI loop shows after each step was as large as the
+offset a P-only loop holds, so no band separated them. One step and a band that starts once the
+loop has recovered grades what the integral does: a P-only loop fails it (0.956 to 0.966 m
+against 0.98 to 1.02).
+
+**A fifth check kind, `max_reversals`.** The proposal expected the PID band to fail an on/off
+program. On the rate-limited control valve it does not: the 10 s stroke makes on/off act as
+integral control and it holds 0.985 to 1.008 m. The owner accepted that and added
+`max_reversals: {VALVE_OR_PUMP: N}`, which counts turns back of the command by more than 10 % of
+its span; `tank-level-pid` limits `FV_01` to 15 (the PI: 12 in 300 s), and the on/off program
+turns it back 1151 times in 60 s.
+
+**Bench.** 3.1's Done-when asked for a `flow-` scene in `tools/bench.py`; the first bench was a
+network built in code. It is replaced by `tank-level-pid` run for a fixed tick count, so the gate
+covers a real process scene (ruled 2026-11-08).

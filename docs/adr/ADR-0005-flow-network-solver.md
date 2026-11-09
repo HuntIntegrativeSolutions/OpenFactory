@@ -5,7 +5,9 @@ additions).
 **Deciders:** HIS Controls (T. Hunt), Claude Opus 5.5
 **Appendix:** [Flow network solver design](../research/flownet-design.md), the proposal these
 decisions were taken from. It carries the reasoning, the equations, the component schemas and
-the scene checks in full; this record lists what was decided.
+the scene checks in full; this record lists what was decided. The shipped scenes depart from
+the proposal in sizes, durations and one added check kind; the appendix's "Departures" section
+lists each, accepted 2026-11-08.
 **Applies to:** PLAN Milestone 3: 3.1 (`core/flownet.py`), 3.2 (the process components), 3.3
 (the process scenes), and 3.7 (per-binding range and units, which lands first).
 

@@ -1943,6 +1943,10 @@ runs the sorting program against it; a box visibly gets pushed.
         tank, a 25 mm gravity line, a 0.4 m lower tank, a 1 m³/h step at 10 s.
       The first three scenes are done; the box stays open for `batch-mix-heat`, which follows
       (amended 2026-11-07).
+      *Scene redesign accepted (2026-11-08):* one load step instead of a repeating demand,
+      bands set for the 60 s run that hold at 300 s, and the resized tanks, as each scene's
+      bullet says; recorded as departures in the ADR-0005 appendix
+      (`docs/research/flownet-design.md`, "Departures").
       *Easy-pass tests (recorded 2026-11-08, `tests/integration/test_process_scenes.py`):* each
       shipped program passes its checks for 300 s inside the solver's caps; a P-only loop fails
       `tank-level-pid`'s band; an on/off program holds that band at 60 s and 300 s and fails
