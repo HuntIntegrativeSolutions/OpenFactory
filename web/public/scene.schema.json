@@ -39,7 +39,7 @@
             }
           ],
           "default": null,
-          "description": "Engineering units of a port that declares none (PLAN 3.7).",
+          "description": "A units label for the I/O list CSV and CONTEXT.md only; it converts nothing (PLAN 3.7, ruled 2026-11-08).",
           "title": "Units"
         },
         "tag": {
@@ -132,7 +132,7 @@
             }
           ],
           "default": null,
-          "description": "Engineering units of a port that declares none (PLAN 3.7).",
+          "description": "A units label for the I/O list CSV and CONTEXT.md only; it converts nothing (PLAN 3.7, ruled 2026-11-08).",
           "title": "Units"
         },
         "tag": {

@@ -262,7 +262,8 @@ Rules:
   optional. DI bindings may also carry signal transforms, `invert`, `on_delay_s`, `off_delay_s`,
   and `combine: or|and` with `from: [A.port, B.port]`; DO bindings may carry `invert`; an AI port
   may bind a `_DI` tag with `window: [lo, hi]` (PLAN 2.17). AI and AO bindings may set the tag's
-  own `range: [lo, hi]` (in the port's units) and, on a port without units, `units` (PLAN 3.7).
+  own `range: [lo, hi]` (in the port's units) and a `units` label for the I/O list CSV and
+  CONTEXT.md only (PLAN 3.7; label only, ruled 2026-11-08).
   `address` pins the tag's Modbus address (§6.1, ADR-0004). `initial`, on DO and AO tags
   only, seeds the I/O table at startup before any PLC write: `true`/`false` for a DO, an
   engineering value inside the port's range for an AO (a value outside it fails at load). The
@@ -1974,6 +1975,13 @@ runs the sorting program against it; a box visibly gets pushed.
       raw 32767 decodes to 50 % and the belt runs 0.25 m/s; 0.25 m encodes to 16384; the CSV
       and CONTEXT.md rows show `0 to 50` and `0 to 0.5`; the lockfile records both, and a
       changed range fails it. Every shipped scene's CSV, lockfiles and CONTEXT.md unchanged.
+      *Amended (ruled 2026-11-08): `units` is a label only.* It overrides the units column of
+      the I/O list CSV and CONTEXT.md and nothing else (`TagBinding.units_label`): the tag, the
+      Ignition export, the L5X stub and the component keep the port's units, and the load error
+      for units that differ from the port's is gone (a label converts nothing, so there is
+      nothing to refuse). `docs/scene-format.md` says so. Tests: a `units: mH2O` label on a
+      level in m shows in the CSV and CONTEXT.md, while the tag, the Ignition `engUnit` and the
+      L5X description keep `m`.
 - [ ] 3.8 Process demo kit (`kits/tank-level-pid/`) built with 2.14, including PlantPAx L5X and
       Perspective faceplates from 3.4.
 

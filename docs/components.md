@@ -23,8 +23,8 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
   is scaled against that range under `int16_scaled` (raw 0 to 32767). An AI or AO binding may give
   the tag its own: `{tag: TK_01_LT_AI, range: [0, 2.0]}`, in the port's units. The component still
   works in the port's physical units, so `speed: {tag: CONV_01_SPD_AO, range: [0, 50]}` makes a
-  PLC's full scale 50 % speed. `units` names the units of a port that declares none; it cannot
-  convert a port's own units. The lockfile records the range each tag is scaled against, so a
+  PLC's full scale 50 % speed. `units` is a label for the I/O list CSV and CONTEXT.md only
+  (ruled 2026-11-08; `docs/scene-format.md`): it converts nothing. The lockfile records the range each tag is scaled against, so a
   changed range fails the lockfile check until its line is deleted.
 - **Limit switches.** Actuators report their ends the same way: a limit DI is true only at its
   end of travel, and false while moving. Commands are held, not pulsed: while the command is true

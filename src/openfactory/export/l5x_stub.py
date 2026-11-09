@@ -37,6 +37,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from xml.sax.saxutils import quoteattr
 
+from openfactory.core.loader import build_iotable
 from openfactory.core.schema import Scene
 from openfactory.export.io_list_csv import io_list_rows
 from openfactory.protocols.modbus import Encoding
@@ -55,10 +56,12 @@ def _cdata(text: str) -> str:
     return "<![CDATA[" + text.replace("]]>", "]]]]><![CDATA[>") + "]]>"
 
 
-def _description(row: dict[str, str]) -> str:
+def _description(row: dict[str, str], units: str | None) -> str:
+    """The row's description with its span, in the tag's own units: a binding's `units` label
+    shows only in the CSV and CONTEXT.md (ruled 2026-11-08), not here."""
     text = row["description"]
     if row["io_type"] in ("AI", "AO") and row["range_min"] and row["range_max"]:
-        units = f" {row['units']}" if row["units"] else ""
+        units = f" {units}" if units else ""
         text += f" [{row['range_min']} to {row['range_max']}{units}]"
     return text
 
@@ -81,6 +84,7 @@ def l5x_stub(
     if not CONTROLLER_NAME.match(controller):
         raise ValueError(f"controller name {controller!r} is not a valid Logix name")
     rows = io_list_rows(scene, encoding, scene_path=scene_path, write_lock=write_lock)
+    table = build_iotable(scene)
     seen: set[str] = set()
     lines = [
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
@@ -98,7 +102,8 @@ def l5x_stub(
             raise ValueError(f"{name}: duplicate tag")
         seen.add(name)
         data_type, radix = DATA_TYPE[row["dtype"]]
-        description = f"{area} — {_description(row)}" if area else _description(row)
+        text = _description(row, table.tag(row["tag"]).units)
+        description = f"{area} — {text}" if area else text
         lines += [
             f'<Tag Name="{name}" TagType="Base" DataType="{data_type}" Radix="{radix}"'
             ' Constant="false" ExternalAccess="Read/Write">',

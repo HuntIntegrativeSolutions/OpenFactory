@@ -1,6 +1,7 @@
 """PLAN 3.7: per-tag ``range`` and ``units`` on analog bindings. The tag's span (int16_scaled
 scaling, lockfile, I/O list, CONTEXT.md) comes from the binding; the component keeps its port's
-physical range, so a speed tag scaled 0 to 50 % runs the belt at half speed at full scale."""
+physical range, so a speed tag scaled 0 to 50 % runs the belt at half speed at full scale.
+``units`` is a label for the I/O list CSV and CONTEXT.md only (ruled 2026-11-08)."""
 
 from __future__ import annotations
 
@@ -16,7 +17,9 @@ from openfactory.core.iotable import Writer
 from openfactory.core.loader import build
 from openfactory.core.schema import Scene, load_scene
 from openfactory.export.context_md import context_md
+from openfactory.export.ignition_tags import ignition_tags_json
 from openfactory.export.io_list_csv import io_list_csv
+from openfactory.export.l5x_stub import l5x_stub
 from openfactory.protocols.modbus import AddressError, decode, encode, scene_register_map
 
 REPO = Path(__file__).resolve().parents[2]
@@ -94,12 +97,6 @@ def test_the_int16_lockfile_records_the_binding_range_and_a_changed_one_fails(tm
         ("CONV_01", "speed", {"tag": "CONV_01_SPD_AO", "range": [50, 50]}, "needs lo < hi"),
         ("CONV_01", "speed", {"tag": "CONV_01_SPD_AO", "range": [60, 10]}, "needs lo < hi"),
         (
-            "CONV_01",
-            "speed",
-            {"tag": "CONV_01_SPD_AO", "units": "rpm"},
-            "CONV_01.speed is in %, and a binding cannot convert units",
-        ),
-        (
             "DS_01",
             "distance",
             {"tag": "DS_01_NEAR_DI", "window": [0.1, 0.3], "range": [0, 0.5]},
@@ -118,7 +115,23 @@ def test_bad_overrides_fail_at_load_and_say_why(component, port, binding, messag
         Scene.model_validate(with_io(component, port, binding))
 
 
-def test_the_same_units_may_be_restated():
+def test_a_units_label_shows_in_the_csv_and_context_md_and_nowhere_else(tmp_path):
+    data = with_io("DS_01", "distance", {"tag": "DS_01_DIST_AI", "units": "mH2O"})
+    scene = Scene.model_validate(data)
+    tag = build(scene).io.tag("DS_01_DIST_AI")
+    assert (tag.units, tag.range) == ("m", (0.0, 0.8))  # the label converts nothing
+    rows = {r["tag"]: r for r in csv.DictReader(io.StringIO(io_list_csv(scene)))}
+    assert (rows["DS_01_DIST_AI"]["units"], rows["DS_01_DIST_AI"]["range_max"]) == ("mH2O", "0.8")
+    text = context_md(scene, tmp_path / "range-override.yaml")
+    row = next(line for line in text.splitlines() if line.startswith("| `DS_01_DIST_AI`"))
+    assert "mH2O 0 to 0.8" in row
+    assert '"engUnit": "m"' in ignition_tags_json(scene)
+    assert '"engUnit": "mH2O"' not in ignition_tags_json(scene)
+    stub = l5x_stub(scene)
+    assert "[0 to 0.8 m]" in stub and "mH2O" not in stub
+
+
+def test_a_label_may_restate_the_ports_units():
     data = with_io("CONV_01", "speed", {"tag": "CONV_01_SPD_AO", "range": [0, 50], "units": "%"})
     assert build(Scene.model_validate(data)).io.tag("CONV_01_SPD_AO").units == "%"
 

@@ -179,7 +179,8 @@ def _tags(scene: Scene, scene_path: Path) -> list[str]:
         transform = binding.transform.describe(binding.port.units) if binding else ""
         span = ""
         if tag.kind in ("AI", "AO") and tag.range:
-            span = f"{tag.units or ''} {tag.range[0]:g} to {tag.range[1]:g}".strip()
+            units = binding.shown_units if binding else tag.units  # the label (2026-11-08)
+            span = f"{units or ''} {tag.range[0]:g} to {tag.range[1]:g}".strip()
         cells = [f"`{name}`", tag.kind, where, _cell(tag.description), _cell(transform), span]
         cells += [labels[e].get(name, "") for e in encodings]
         lines.append("| " + " | ".join(cells) + " |")

@@ -22,8 +22,8 @@ simulator's ``SIM_HEARTBEAT_DI`` (blank ``component``; PLAN §6.1), in Modbus re
   because the CSV is what a PLC program is written against.
 - ``modbus_encoding``: ``bit``, ``float32 high word first``, or ``int16_scaled 0-32767``
   (ADR-0003).
-- ``units``, ``range_min``, ``range_max``: engineering units and the values at raw 0 and raw 32767
-  (analog tags only).
+- ``units``, ``range_min``, ``range_max``: engineering units (a binding's ``units`` label in
+  place of the port's, PLAN 3.7) and the values at raw 0 and raw 32767 (analog tags only).
 - ``transform``: the binding's signal conditioning (PLAN 2.17), for example
   ``or(PE_01.detect, PE_02.detect); NC (inverted); on-delay 0.2 s``; empty when there is none.
 
@@ -80,7 +80,10 @@ def io_list_rows(
     table = build_iotable(scene)
     rows = []
     register_map = scene_register_map(scene, enc, scene_path=scene_path, write=write_lock)
-    transforms = {b.name: b.transform.describe(b.port.units) for b in scene.tag_bindings()}
+    bindings = scene.tag_bindings()
+    transforms = {b.name: b.transform.describe(b.port.units) for b in bindings}
+    #: a binding's `units` label replaces the units column, and only it (ruled 2026-11-08)
+    shown = {b.name: b.shown_units for b in bindings}
     for a in register_map.assignments:
         tag = table.tag(a.tag)
         analog = tag.kind in ("AI", "AO")
@@ -95,7 +98,7 @@ def io_list_rows(
                 "address": "",
                 "modbus_address": a.label,
                 "modbus_encoding": ENCODING_LABEL[enc] if analog else "bit",
-                "units": (tag.units or "") if analog else "",
+                "units": (shown.get(tag.name, tag.units) or "") if analog else "",
                 "range_min": _number(lo) if analog and lo is not None else "",
                 "range_max": _number(hi) if analog and hi is not None else "",
                 "transform": transforms.get(tag.name, ""),

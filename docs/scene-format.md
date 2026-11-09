@@ -17,6 +17,30 @@ rewrites older scenes (PLAN 4.7). A scene using a key or component type added in
 needs that release; an older one rejects the scene and names the key. The whole policy is in
 [the versioning policy](versioning.md).
 
+## `range:` and `units:` on an analog binding (PLAN 3.7)
+
+An AI or AO binding may give its tag a span of its own:
+
+```yaml
+io:
+  speed: {tag: CONV_01_SPD_AO, range: [0, 50]}           # PLC full scale is 50 % speed
+  pv: {tag: TK_01_LT_AI, range: [0, 2.0], units: mH2O}   # a label for the I/O list
+```
+
+- **`range: [lo, hi]`** is the tag's engineering span, in the port's units: `int16_scaled`
+  scales raw 0 to 32767 across it (ADR-0003), and the lockfile, the I/O list CSV, CONTEXT.md and
+  the Ignition and L5X exports show it. The component still works in the port's physical units,
+  so a speed tag ranged 0 to 50 runs the belt at half speed at full scale. The lockfile records
+  the range, so a changed range fails the lockfile check until its line is deleted.
+- **`units:`** is a label only (ruled 2026-11-08). It replaces the `units` column of the I/O list
+  CSV and the units in CONTEXT.md's tag table, **and nothing else**: it converts no value, and
+  the I/O table, the Ignition export's engineering units, the L5X stub's descriptions, the
+  OPC UA server and the component all keep the port's own units. Use it to match the units a
+  site's I/O list uses for the same quantity (`mH2O` for a level in m, `pct` for %); a value
+  in other units needs a different `range`, not a label.
+- Not with `window:`, which makes the binding a DI. An `initial` outside the binding's range
+  fails at load.
+
 ## `checks:`: exercise checks (PLAN 2.11)
 
 A scene may declare what a correct control program achieves. `openfactory test` runs the scene,

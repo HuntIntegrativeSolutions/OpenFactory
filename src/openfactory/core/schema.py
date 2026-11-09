@@ -143,8 +143,10 @@ class AnalogRange(StrictModel):
     engineering span, which ``int16_scaled`` scales raw 0 to 32767 across (ADR-0003) and the
     lockfile, I/O list, CONTEXT.md and Ignition export carry, in place of the port's own range.
     It is in the port's units: the component still reads and writes the port's physical value,
-    so ``speed: {tag: X_AO, range: [0, 50]}`` makes full scale 50 %. ``units`` names the units
-    of a port that declares none of its own; it cannot convert a port's units."""
+    so ``speed: {tag: X_AO, range: [0, 50]}`` makes full scale 50 %. ``units`` is a label only
+    (ruled 2026-11-08): it replaces the units column of the I/O list CSV and CONTEXT.md and
+    nothing else. It converts nothing, and the tag, the Ignition export, the L5X stub and the
+    component keep the port's own units."""
 
     range: tuple[float, float] | None = Field(
         None,
@@ -152,7 +154,9 @@ class AnalogRange(StrictModel):
         "port's own (PLAN 3.7).",
     )
     units: Annotated[str, StringConstraints(min_length=1, max_length=16)] | None = Field(
-        None, description="Engineering units of a port that declares none (PLAN 3.7)."
+        None,
+        description="A units label for the I/O list CSV and CONTEXT.md only; it converts "
+        "nothing (PLAN 3.7, ruled 2026-11-08).",
     )
 
     @model_validator(mode="after")
@@ -223,16 +227,19 @@ def binding_initial(value: str | TagSpec) -> bool | float | None:
 
 
 def binding_port(spec: PortSpec, value: str | TagSpec) -> PortSpec:
-    """The port as its tag sees it: the binding's ``range`` and ``units`` (PLAN 3.7) in place of
-    the port's own. Components keep the port's own (:func:`instance_ports`)."""
-    rng, units = getattr(value, "range", None), getattr(value, "units", None)
-    if rng is None and units is None:
+    """The port as its tag sees it: the binding's ``range`` (PLAN 3.7) in place of the port's
+    own. Components keep the port's own (:func:`instance_ports`). The binding's ``units`` is a
+    label only (:func:`binding_units_label`), so the port keeps its units here."""
+    rng = getattr(value, "range", None)
+    if rng is None:
         return spec
-    return replace(
-        spec,
-        range=(float(rng[0]), float(rng[1])) if rng is not None else spec.range,
-        units=units if units is not None else spec.units,
-    )
+    return replace(spec, range=(float(rng[0]), float(rng[1])))
+
+
+def binding_units_label(value: str | TagSpec) -> str | None:
+    """The binding's ``units``: the label the I/O list CSV and CONTEXT.md show in place of the
+    port's units (ruled 2026-11-08). Nothing else reads it."""
+    return getattr(value, "units", None)
 
 
 @dataclass(frozen=True)
@@ -1618,6 +1625,14 @@ class TagBinding:
     #: The tag's whole description when it is not "<component> — <port>": a composite's
     #: command, described by its instance (PLAN 2.5b).
     tag_description: str | None = None
+    #: The binding's ``units`` label, shown in place of the port's units by the I/O list CSV and
+    #: CONTEXT.md only (PLAN 3.7, ruled 2026-11-08).
+    units_label: str | None = None
+
+    @property
+    def shown_units(self) -> str | None:
+        """Units as the I/O list CSV and CONTEXT.md show them: the label, else the port's."""
+        return self.units_label if self.units_label is not None else self.port.units
 
     @property
     def description(self) -> str:
@@ -1891,15 +1906,6 @@ class Scene(StrictModel):
                             f"{where}: `from` entry {ref!r} is not a DI port of {cid} "
                             f"(DI ports: {di_ports})"
                         )
-            comp = next(c for c in self.components if c.id == binding.component_id)
-            own_spec = instance_ports(comp).get(binding.port.name)
-            own = own_spec.units if own_spec else None
-            units = getattr(own_spec.value(comp.io), "units", None) if own_spec else None  # type: ignore[attr-defined]
-            if units is not None and own and units != own:
-                raise ValueError(
-                    f"{where}: units {units!r}: {binding.component_id}.{binding.port.name} is in "
-                    f"{own}, and a binding cannot convert units (give range in {own})"
-                )
             rng = binding.port.range
             if (
                 isinstance(binding.initial, float)
@@ -1995,6 +2001,7 @@ class Scene(StrictModel):
                             binding_initial(value),
                             transform,
                             getattr(value, "exam", None) == "switch",
+                            units_label=binding_units_label(value),
                         )
                     )
             out += self._computed.get(comp.id, [])  # a composite's computed DIs (PLAN 2.16)
