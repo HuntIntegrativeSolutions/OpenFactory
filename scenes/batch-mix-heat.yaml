@@ -1,0 +1,117 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 3.3: a batch recipe in the PLC. Water and a warm syrup fill a mixing tank to a level each,
+# an immersion heater brings the batch to 50 °C, and the PLC holds it there: a sequence of
+# fill, fill, heat and hold, graded on what is in the tank and how warm it is.
+# Guide: docs/guides/batch-mix-heat.md. PLC programs: examples/openplc/batch-mix-heat.st
+# (OpenPLC) and examples/pyplc/batch-mix-heat.py (stand-in script).
+openfactory: "0.1"
+scene:
+  name: batch-mix-heat
+  description: A PLC sequence fills water and syrup to a recipe, heats the batch to 50 °C and holds it.
+  author: HIS Controls
+  seed: 13
+  units: meters
+plc:
+  protocol: modbus_tcp
+checks:                            # PLAN 3.3: `openfactory test` grades a program against these
+  duration_s: 60
+  fractions_within: {TK_01: {fractions: {syrup: [32, 39]}, after_s: 20}}
+  temperature_within: {TK_01: {band: [48, 52], after_s: 45}}
+  level_within: {TK_01: {band: [0.15, 0.19], after_s: 20}}
+  never_overflow: [TK_01]
+components:
+  - id: SUP_01
+    type: supply
+    description: Process Water Supply
+    position: [-1.4, 1.4, -0.3]
+    pressure_bar: 2.0
+    temperature_c: 15
+    ingredient: water
+  - id: XV_01
+    type: valve_onoff
+    description: Mixing Tank Water Inlet Valve
+    position: [-0.8, 1.4, -0.3]
+    from: SUP_01
+    to: PIPE_01
+    kv: 4
+    travel_s: 1.0
+    io:
+      open: XV_01_OPEN_DO
+      closed: XV_01_ZSC_DI
+  - id: PIPE_01
+    type: pipe
+    description: Mixing Tank Water Inlet Line
+    position: [-0.5, 1.4, -0.3]
+    from: XV_01
+    to: TK_01.top
+    diameter: 0.025
+  - id: SUP_02
+    type: supply
+    description: Warm Syrup Supply
+    position: [-1.4, 1.4, 0.3]
+    pressure_bar: 2.0
+    temperature_c: 80
+    ingredient: syrup
+  - id: XV_02
+    type: valve_onoff
+    description: Mixing Tank Syrup Inlet Valve
+    position: [-0.8, 1.4, 0.3]
+    from: SUP_02
+    to: PIPE_02
+    kv: 4
+    travel_s: 1.0
+    io:
+      open: XV_02_OPEN_DO
+      closed: XV_02_ZSC_DI
+  - id: PIPE_02
+    type: pipe
+    description: Mixing Tank Syrup Inlet Line
+    position: [-0.5, 1.4, 0.3]
+    from: XV_02
+    to: TK_01.top
+    diameter: 0.025
+  - id: TK_01
+    type: tank
+    description: Batch Mixing Tank
+    position: [0, 0.6, 0]
+    diameter: 0.4
+    height: 0.6
+    initial_level: 0.0
+    hi_level: 0.5
+    io:
+      hi_sw: TK_01_LSH_DI
+  - id: LT_01
+    type: transmitter
+    description: Batch Mixing Tank Level Transmitter
+    position: [0.25, 1.0, 0]
+    measures: TK_01.level
+    range: [0, 0.6]
+    lag_s: 0.2
+    io:
+      pv: TK_01_LT_AI
+  - id: TT_01
+    type: transmitter
+    description: Batch Mixing Tank Temperature Transmitter
+    position: [0.25, 0.8, 0.15]
+    measures: TK_01.temperature
+    range: [0, 100]
+    lag_s: 1.0
+    io:
+      pv: TK_01_TT_AI
+  - id: HTR_01
+    type: heater
+    description: Batch Mixing Tank Immersion Heater
+    position: [0, 0.65, 0]
+    tank: TK_01
+    rated_kw: 45
+    min_level: 0.08
+    ua_w_per_k: 15
+    io:
+      on: HTR_01_ON_DO
+  - id: PL_01
+    type: pilot_light
+    description: Batch Ready Pilot Light
+    position: [0.6, 1.2, 0]
+    color: green
+    io:
+      on: PL_READY_DO

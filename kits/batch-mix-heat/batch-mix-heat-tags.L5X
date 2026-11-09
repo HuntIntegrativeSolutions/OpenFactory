@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="OpenFactory" TargetType="Controller" ContainsContext="true" Owner="OpenFactory">
+<Controller Use="Context" Name="OpenFactory">
+<Tags>
+<Tag Name="TK_01_LSH_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Batch Mixing Tank — High level switch (on at hi_level)]]></Description>
+</Tag>
+<Tag Name="XV_01_ZSC_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Mixing Tank Water Inlet Valve — Closed limit switch]]></Description>
+</Tag>
+<Tag Name="XV_02_ZSC_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Mixing Tank Syrup Inlet Valve — Closed limit switch]]></Description>
+</Tag>
+<Tag Name="SIM_HEARTBEAT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops]]></Description>
+</Tag>
+<Tag Name="HTR_01_ON_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Batch Mixing Tank Immersion Heater — Heater on command]]></Description>
+</Tag>
+<Tag Name="PL_READY_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Batch Ready Pilot Light — Light on command]]></Description>
+</Tag>
+<Tag Name="XV_01_OPEN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Mixing Tank Water Inlet Valve — Open command]]></Description>
+</Tag>
+<Tag Name="XV_02_OPEN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Mixing Tank Syrup Inlet Valve — Open command]]></Description>
+</Tag>
+<Tag Name="TK_01_LT_AI" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Batch Mixing Tank Level Transmitter — Process value [0 to 0.6 m]]]></Description>
+</Tag>
+<Tag Name="TK_01_TT_AI" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Batch Mixing Tank Temperature Transmitter — Process value [0 to 100 °C]]]></Description>
+</Tag>
+</Tags>
+</Controller>
+</RSLogix5000Content>

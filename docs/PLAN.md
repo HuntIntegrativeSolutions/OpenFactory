@@ -1906,7 +1906,7 @@ runs the sorting program against it; a box visibly gets pushed.
       `docs/components.md` section, a viewer builder and web test where it draws state, and
       a PLAN §5 row; the decision 9 lint (E102, E103, W210, W211) with the first components
       that needed it. Every existing scene, trace, recording, kit and CONTEXT.md unchanged.
-- [ ] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
+- [x] 3.3 Scenes: `tank-level-onoff`, `tank-level-pid`, `two-tank-cascade`, `batch-mix-heat`
       *Amended 2026-11-07 (ADR-0005, decision 10):* `checks:` gains `level_within`,
       `never_overflow`, `never_dry` and `max_starts`. The first three scenes as in the proposal,
       each with a stand-in script, an OpenPLC ST program (the PID scene uses OpenPLC's PID
@@ -1960,12 +1960,28 @@ runs the sorting program against it; a box visibly gets pushed.
       bands set for the 60 s run that hold at 300 s, and the resized tanks, as each scene's
       bullet says; recorded as departures in the ADR-0005 appendix
       (`docs/research/flownet-design.md`, "Departures").
+      - `batch-mix-heat` (ruled 2026-11-08: with its recipe checks `fractions_within` and
+        `temperature_within`, which land first in their own commit): water (15 °C) and a warm
+        syrup (80 °C) through on/off valves into an empty 0.4 m mixing tank, a 45 kW heater,
+        level and temperature transmitters, a batch-ready lamp. The PLC's sequence: idle, fill
+        water to 0.10 m, fill syrup to 0.16 m, heat to 50 °C, hold (on below 49.5 °C); LSH
+        closes both valves, the heater needs 0.10 m. Sized so a batch fits the 60 s checks
+        (20 L heated 14 K in 25 s). Stand-in script, OpenPLC program (a CASE step chain),
+        both lockfiles, guide, kit. Checks pass at 60 s and 300 s: level 0.169 m in 0.15 to
+        0.19; syrup 35.54 % in 32 to 39; 50.40 to 50.48 °C (300 s: 49.49 to 50.48) in 48 to
+        52 after 45 s; never overflowed. Not run under OpenPLC: Docker is down.
+      *Done (2026-11-08):* the four scenes, each with a stand-in script, an OpenPLC program,
+      both lockfiles, checks passing at 60 s and 300 s, a guide and a kit; seven check kinds
+      added (`level_within`, `never_overflow`, `never_dry`, `max_starts`, `max_reversals`,
+      `fractions_within`, `temperature_within`). None has run under OpenPLC yet (Docker down).
       *Easy-pass tests (recorded 2026-11-08, `tests/integration/test_process_scenes.py`):* each
       shipped program passes its checks for 300 s inside the solver's caps; a P-only loop fails
       `tank-level-pid`'s band; an on/off program holds that band at 60 s and 300 s and fails
       `max_reversals`; one with hysteresis passes `max_reversals` at 60 s and fails it at 300 s;
       a single PI loop fails `two-tank-cascade`'s band; a pump with no seal-in fails
-      `tank-level-onoff`'s `max_starts` while its level stays in band.
+      `tank-level-onoff`'s `max_starts` while its level stays in band; in `batch-mix-heat`,
+      water alone (0 % syrup) and both valves at once (50 %) fail `fractions_within`, and no
+      heat (38 °C) and a heater left on (53 to 61 °C) fail `temperature_within`.
 - [ ] 3.4 PlantPAx demo: scene + L5X with `P_AIn`, `P_PIDE`, `P_ValveC`, `P_Motor` instances (via
       `/plantpax-*` skills) + Perspective faceplates. AOI parameter names in this repository come
       only from Rockwell's public PlantPAx library reference manuals: publication PROCES-RM002

@@ -31,6 +31,7 @@ EXPECTED: dict[str, dict[str, dict[str, int]]] = {
     "tank-level-onoff": {},  # a process scene: no parts; its checks: are the result (PLAN 3.3)
     "tank-level-pid": {},
     "two-tank-cascade": {},
+    "batch-mix-heat": {},
 }
 #: The sorter's guide is the OpenPLC quickstart (PLAN 1.14).
 GUIDES = {"sorting-by-height": "openplc-quickstart.md"}

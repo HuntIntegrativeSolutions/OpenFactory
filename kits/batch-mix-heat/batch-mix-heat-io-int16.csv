@@ -1,0 +1,11 @@
+tag,io_type,dtype,description,component,address,modbus_address,modbus_encoding,units,range_min,range_max,transform
+TK_01_LSH_DI,DI,bool,Batch Mixing Tank — High level switch (on at hi_level),TK_01,,DI:0,bit,,,,
+XV_01_ZSC_DI,DI,bool,Mixing Tank Water Inlet Valve — Closed limit switch,XV_01,,DI:1,bit,,,,
+XV_02_ZSC_DI,DI,bool,Mixing Tank Syrup Inlet Valve — Closed limit switch,XV_02,,DI:2,bit,,,,
+SIM_HEARTBEAT_DI,DI,bool,"OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",,,DI:3,bit,,,,
+HTR_01_ON_DO,DO,bool,Batch Mixing Tank Immersion Heater — Heater on command,HTR_01,,CO:0,bit,,,,
+PL_READY_DO,DO,bool,Batch Ready Pilot Light — Light on command,PL_01,,CO:1,bit,,,,
+XV_01_OPEN_DO,DO,bool,Mixing Tank Water Inlet Valve — Open command,XV_01,,CO:2,bit,,,,
+XV_02_OPEN_DO,DO,bool,Mixing Tank Syrup Inlet Valve — Open command,XV_02,,CO:3,bit,,,,
+TK_01_LT_AI,AI,float32,Batch Mixing Tank Level Transmitter — Process value,LT_01,,IR:0,int16_scaled 0-32767,m,0,0.6,
+TK_01_TT_AI,AI,float32,Batch Mixing Tank Temperature Transmitter — Process value,TT_01,,IR:1,int16_scaled 0-32767,°C,0,100,

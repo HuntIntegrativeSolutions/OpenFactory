@@ -20,6 +20,7 @@ programs is a safety-rated program.
 | `tank-level-onoff` | [Tank level, on/off](tank-level-onoff.md) | A pump started at a low level switch and stopped at a high one keeps a head tank filled; water circulates through a hand valve | tanks, pump, pipes, hand valve |
 | `tank-level-pid` | [Tank level, PID](tank-level-pid.md) | A PI loop through OpenPLC's PID block holds a tank's level through a control valve across a load step | supply, control valve, tank, level transmitter, consumer |
 | `two-tank-cascade` | [Two tanks in series, cascade](two-tank-cascade.md) | Cascade level control: an outer PI on the lower tank sets an inner PI on the upper tank, across a load step | supply, control valve, two tanks, gravity line, transmitters, consumer |
+| `batch-mix-heat` | [Batch mix and heat](batch-mix-heat.md) | A batch sequence: water and a warm syrup filled to a level each, heated to 50 °C and held, graded on the recipe and the temperature | two supplies, on/off valves, tank, level and temperature transmitters, heater, pilot light |
 
 Every scene runs the same three ways:
 
@@ -40,7 +41,8 @@ uv run openfactory export scenes/<scene>.yaml -o <scene>.csv
 Each scene also declares `checks:` (PLAN 2.11). In the conveyor scenes, every part reaches its
 remover, none is lost, and none takes longer than the scene's `max_cycle_s` from spawn to
 remover. In the process scenes (PLAN 3.3) a tank's level stays in its band once the loop has
-settled, no tank overflows, no pump runs dry, and a pump does not short-cycle. `openfactory test`
+settled, no tank overflows, no pump runs dry, a pump does not short-cycle, a control valve does
+not hunt, and a batch holds its recipe and temperature. `openfactory test`
 grades a program against them and exits 1 on a failure:
 
 ```bash

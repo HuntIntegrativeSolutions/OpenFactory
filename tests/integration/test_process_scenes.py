@@ -2,7 +2,8 @@
 test_shipped_scenes.py), with the solver inside its caps; and each scene's checks closing the easy
 pass the guides describe: a P-only loop fails tank-level-pid's band and an on/off program its
 max_reversals (ruled 2026-11-08), a single PI loop fails two-tank-cascade, and a pump with no
-seal-in fails tank-level-onoff."""
+seal-in fails tank-level-onoff; in batch-mix-heat, one ingredient, both at once, no heat and a
+heater left on each fail the recipe."""
 
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ from openfactory.pyplc import ScriptPlc
 
 REPO = Path(__file__).resolve().parents[2]
 DT = 0.02
-PROCESS = ["tank-level-onoff", "tank-level-pid", "two-tank-cascade"]
+PROCESS = ["tank-level-onoff", "tank-level-pid", "two-tank-cascade", "batch-mix-heat"]
 
 
 def run(scene: str, script: Path, seconds: float) -> tuple[dict[str, tuple[bool, str]], object]:
@@ -117,3 +118,38 @@ def test_a_pump_without_a_seal_in_fails_max_starts(tmp_path):
     results = run("tank-level-onoff", no_seal, 60.0)[0]
     assert not results["max_starts P_01"][0], results["max_starts P_01"][1]
     assert results["level_within TK_02"][0]  # the level itself stays in its band
+
+
+#: batch-mix-heat programs, each the shipped sequence with one thing wrong
+BATCH = (
+    "state = {{'step': 0}}\n"
+    "def step(io, t):\n"
+    "    level, temp = io['TK_01_LT_AI'], io['TK_01_TT_AI']\n"
+    "    s = state['step']\n"
+    "    if s == 0 and t >= 1.0:\n"
+    "        s = 10\n"
+    "    elif s == 10 and level >= {water}:\n"
+    "        s = 20\n"
+    "    elif s == 20 and level >= 0.16:\n"
+    "        s = 30\n"
+    "    state['step'] = s\n"
+    "    io['XV_01_OPEN_DO'] = s == 10 or ({both} and s == 20)\n"
+    "    io['XV_02_OPEN_DO'] = s == 20 or ({both} and s == 10)\n"
+    "    io['HTR_01_ON_DO'] = s == 30 and {heat}\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("case", "params", "fails"),
+    [
+        ("water only", {"water": 0.16, "both": False, "heat": "temp < 50"}, "fractions_within"),
+        ("both at once", {"water": 0.10, "both": True, "heat": "temp < 50"}, "fractions_within"),
+        ("no heat", {"water": 0.10, "both": False, "heat": "False"}, "temperature_within"),
+        ("heater left on", {"water": 0.10, "both": False, "heat": "True"}, "temperature_within"),
+    ],
+)
+def test_batch_programs_with_one_thing_wrong_fail_the_recipe(tmp_path, case, params, fails):
+    body = BATCH.format(**params)
+    results = run("batch-mix-heat", script(tmp_path, case.replace(" ", "_"), body), 60.0)[0]
+    failed = {name for name, (ok, _) in results.items() if not ok}
+    assert fails + " TK_01" in failed, (case, results)

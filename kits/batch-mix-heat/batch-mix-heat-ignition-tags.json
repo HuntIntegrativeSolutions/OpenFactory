@@ -1,0 +1,321 @@
+{
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "OF_Heater",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_On": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Heater on command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "On",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_On}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_PilotLight",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_On": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Light on command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "On",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_On}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_Tank",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "High level switch (on at hi_level)",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "HiSw",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_HiSw}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_Transmitter",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Pv": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "Process value",
+              "enabled": true,
+              "historyEnabled": true,
+              "name": "Pv",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Pv}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_ValveOnoff",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Closed": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Open": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Open command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Open",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Open}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Closed limit switch",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Closed",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Closed}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BATCH_MIX_HEAT",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "Mixing Tank Water Inlet Valve",
+          "name": "XV_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "XV_01"
+            },
+            "Tag_Closed": {
+              "dataType": "String",
+              "value": "XV_01_ZSC_DI"
+            },
+            "Tag_Open": {
+              "dataType": "String",
+              "value": "XV_01_OPEN_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_ValveOnoff"
+        },
+        {
+          "documentation": "Mixing Tank Syrup Inlet Valve",
+          "name": "XV_02",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "XV_02"
+            },
+            "Tag_Closed": {
+              "dataType": "String",
+              "value": "XV_02_ZSC_DI"
+            },
+            "Tag_Open": {
+              "dataType": "String",
+              "value": "XV_02_OPEN_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_ValveOnoff"
+        },
+        {
+          "documentation": "Batch Mixing Tank",
+          "name": "TK_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "TK_01"
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": "TK_01_LSH_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Tank"
+        },
+        {
+          "documentation": "Batch Mixing Tank Level Transmitter",
+          "name": "LT_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "LT_01"
+            },
+            "Tag_Pv": {
+              "dataType": "String",
+              "value": "TK_01_LT_AI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 0.6,
+              "engLow": 0.0,
+              "engUnit": "m",
+              "name": "Pv"
+            }
+          ],
+          "typeId": "OF_Transmitter"
+        },
+        {
+          "documentation": "Batch Mixing Tank Temperature Transmitter",
+          "name": "TT_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "TT_01"
+            },
+            "Tag_Pv": {
+              "dataType": "String",
+              "value": "TK_01_TT_AI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 100.0,
+              "engLow": 0.0,
+              "engUnit": "°C",
+              "name": "Pv"
+            }
+          ],
+          "typeId": "OF_Transmitter"
+        },
+        {
+          "documentation": "Batch Mixing Tank Immersion Heater",
+          "name": "HTR_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "HTR_01"
+            },
+            "Tag_On": {
+              "dataType": "String",
+              "value": "HTR_01_ON_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_Heater"
+        },
+        {
+          "documentation": "Batch Ready Pilot Light",
+          "name": "PL_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "PL_01"
+            },
+            "Tag_On": {
+              "dataType": "String",
+              "value": "PL_READY_DO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_PilotLight"
+        },
+        {
+          "accessRights": "Read_Only",
+          "dataType": "Boolean",
+          "documentation": "OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",
+          "enabled": true,
+          "historyEnabled": false,
+          "name": "SIM_HEARTBEAT",
+          "opcItemPath": "nsu=urn:openfactory:sim;s=SIM_HEARTBEAT_DI",
+          "opcServer": "OpenFactory",
+          "tagType": "AtomicTag",
+          "valueSource": "opc"
+        }
+      ]
+    }
+  ],
+  "version": "8.3.0"
+}
