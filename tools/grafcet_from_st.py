@@ -1109,12 +1109,12 @@ SCENES["two-tank-cascade"] = dict(
 
 SCENES["batch-mix-heat"] = dict(
     program="batch_mix_heat",
-    st_sha256="10a510b1a3d140d989d0f74a07e2e35c54f5112e09c6962d825309d16d4b0077",  # the program this sequence was read from
+    st_sha256="a6667191ddd3a34232bcd26771040892b7f556de49463f827953b3e246fb68b5",  # the program this sequence was read from
     seq="Batch_Mix_Heat",
     process="Batch recipe: fill water, fill syrup, heat, hold",
     graphs=[
         Graph(
-            "G1 — Batch sequence (STEP)",
+            "G1 — Batch sequence (BATCH_STEP)",
             [
                 Step(
                     0,
@@ -1123,7 +1123,7 @@ SCENES["batch-mix-heat"] = dict(
                         "XV_01_OPEN_DO, XV_02_OPEN_DO := FALSE",
                         "HTR_01_ON_DO := FALSE, PL_READY_DO := FALSE",
                         "STARTUP_TMR: TON, PT 1 s (STARTUP_DELAY)",
-                        "# ST: CASE STEP OF 0",
+                        "# ST: CASE BATCH_STEP OF 0",
                     ],
                     initial=True,
                 ),
@@ -1138,7 +1138,7 @@ SCENES["batch-mix-heat"] = dict(
                     [
                         "XV_01_OPEN_DO := NOT TK_01_LSH_DI",
                         "HTR_01_ON_DO := FALSE",
-                        "# ST: CASE STEP OF 10; actions",
+                        "# ST: CASE BATCH_STEP OF 10; actions",
                     ],
                 ),
                 Trans("T2", ["LEVEL_M >= WATER_SP"], note="0.10 m of water"),
@@ -1148,7 +1148,7 @@ SCENES["batch-mix-heat"] = dict(
                     [
                         "XV_02_OPEN_DO := NOT TK_01_LSH_DI",
                         "HTR_01_ON_DO := FALSE",
-                        "# ST: CASE STEP OF 20; actions",
+                        "# ST: CASE BATCH_STEP OF 20; actions",
                     ],
                 ),
                 Trans("T3", ["LEVEL_M >= BATCH_SP"], note="0.16 m: 37.5 % syrup by volume"),
@@ -1159,7 +1159,7 @@ SCENES["batch-mix-heat"] = dict(
                         "HEAT := TRUE",
                         "HTR_01_ON_DO := HEAT AND LEVEL_M >= COVER_LVL",
                         "  (the heater only covered, 0.10 m)",
-                        "# ST: CASE STEP OF 30; actions",
+                        "# ST: CASE BATCH_STEP OF 30; actions",
                     ],
                 ),
                 Trans("T4", ["TEMP_C >= TEMP_SP"], note="50 C"),

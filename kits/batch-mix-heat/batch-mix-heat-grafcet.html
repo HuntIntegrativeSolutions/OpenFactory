@@ -51,7 +51,7 @@
 <rect x="0" y="0" width="900" height="1430" fill="white"/>
 <rect x="0" y="0" width="900" height="40" fill="#f0f4fb"/>
 <text x="450" y="26" font-size="14" font-weight="600" fill="#1a2a4a" text-anchor="middle">Main sequence (partial GRAFCETs run concurrently; every initial step is active at start)</text>
-<text x="20" y="88" font-size="13" font-weight="700" fill="#1a2a4a">G1 — Batch sequence (STEP)</text>
+<text x="20" y="88" font-size="13" font-weight="700" fill="#1a2a4a">G1 — Batch sequence (BATCH_STEP)</text>
 <line x1="20" y1="96" x2="880" y2="96" stroke="#c5cae9" stroke-width="0.8"/>
 <rect x="88" y="120" width="280" height="180" rx="8" fill="#dbeafe" stroke="#1d6fb8" stroke-width="4"/>
 <rect x="96" y="128" width="264" height="164" rx="6" fill="none" stroke="#1d6fb8" stroke-width="1.5"/>
@@ -65,7 +65,7 @@
 <text x="392" y="160" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">XV_01_OPEN_DO, XV_02_OPEN_DO := FALSE</text>
 <text x="392" y="178" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">HTR_01_ON_DO := FALSE, PL_READY_DO := FALSE</text>
 <text x="392" y="196" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">STARTUP_TMR: TON, PT 1 s (STARTUP_DELAY)</text>
-<text x="392" y="214" font-size="10" fill="#5a6478" font-style="italic">ST: CASE STEP OF 0</text>
+<text x="392" y="214" font-size="10" fill="#5a6478" font-style="italic">ST: CASE BATCH_STEP OF 0</text>
 <line x1="228" y1="300" x2="228" y2="349" stroke="#2d3748" stroke-width="1.5"/>
 <line x1="88" y1="352" x2="368" y2="352" stroke="#2d3748" stroke-width="6"/>
 <text x="80" y="356" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T1</text>
@@ -82,7 +82,7 @@
 <text x="392" y="404" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
 <text x="392" y="422" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">XV_01_OPEN_DO := NOT TK_01_LSH_DI</text>
 <text x="392" y="440" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">HTR_01_ON_DO := FALSE</text>
-<text x="392" y="458" font-size="10" fill="#5a6478" font-style="italic">ST: CASE STEP OF 10; actions</text>
+<text x="392" y="458" font-size="10" fill="#5a6478" font-style="italic">ST: CASE BATCH_STEP OF 10; actions</text>
 <line x1="228" y1="552" x2="228" y2="601" stroke="#2d3748" stroke-width="1.5"/>
 <line x1="88" y1="604" x2="368" y2="604" stroke="#2d3748" stroke-width="6"/>
 <text x="80" y="608" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T2</text>
@@ -99,7 +99,7 @@
 <text x="392" y="656" font-size="12" font-weight="600" fill="#1a2a4a">Actions while active</text>
 <text x="392" y="674" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">XV_02_OPEN_DO := NOT TK_01_LSH_DI</text>
 <text x="392" y="692" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">HTR_01_ON_DO := FALSE</text>
-<text x="392" y="710" font-size="10" fill="#5a6478" font-style="italic">ST: CASE STEP OF 20; actions</text>
+<text x="392" y="710" font-size="10" fill="#5a6478" font-style="italic">ST: CASE BATCH_STEP OF 20; actions</text>
 <line x1="228" y1="804" x2="228" y2="853" stroke="#2d3748" stroke-width="1.5"/>
 <line x1="88" y1="856" x2="368" y2="856" stroke="#2d3748" stroke-width="6"/>
 <text x="80" y="860" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T3</text>
@@ -117,7 +117,7 @@
 <text x="392" y="926" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">HEAT := TRUE</text>
 <text x="392" y="944" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">HTR_01_ON_DO := HEAT AND LEVEL_M &gt;= COVER_LVL</text>
 <text x="392" y="962" font-family="Consolas, Menlo, monospace" font-size="11" fill="#1a2a4a" xml:space="preserve">  (the heater only covered, 0.10 m)</text>
-<text x="392" y="980" font-size="10" fill="#5a6478" font-style="italic">ST: CASE STEP OF 30; actions</text>
+<text x="392" y="980" font-size="10" fill="#5a6478" font-style="italic">ST: CASE BATCH_STEP OF 30; actions</text>
 <line x1="228" y1="1056" x2="228" y2="1105" stroke="#2d3748" stroke-width="1.5"/>
 <line x1="88" y1="1108" x2="368" y2="1108" stroke="#2d3748" stroke-width="6"/>
 <text x="80" y="1112" font-size="10" font-weight="700" fill="#2d3748" text-anchor="end">T4</text>

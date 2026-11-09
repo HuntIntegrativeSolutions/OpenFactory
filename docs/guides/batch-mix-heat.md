@@ -49,7 +49,7 @@ Under `int16_scaled` the level reads 0 to 32767 for 0 to 0.6 m and the temperatu
 
 ## Sequence
 
-The program keeps the active step in `STEP`; the kit's GRAFCET
+The program keeps the active step in `BATCH_STEP` (not `STEP`, an IEC 61131-3 keyword); the kit's GRAFCET
 (`kits/batch-mix-heat/batch-mix-heat-grafcet.html`, generated, pending PE review) draws it.
 
 | Step | Actions | Next when |

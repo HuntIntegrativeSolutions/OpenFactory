@@ -7,7 +7,7 @@
 
   Training and demo use only. Not a safety-rated program and not a safety-rated simulation.
 
-  Sequence of operations (one batch, then held); STEP holds the active step
+  Sequence of operations (one batch, then held); BATCH_STEP holds the active step
     0.  Idle: wait 1 s after power-up for the transmitters' first readings, then start a batch
         if the mixing tank is empty (level below 0.02 m).
     10. Fill water: open XV_01 until the level reaches 0.10 m.
@@ -49,7 +49,7 @@ PROGRAM batch_mix_heat
     COVER_LVL : REAL := 0.10;           (* heater low-level permissive, m *)
     STARTUP_DELAY : TIME := T#1s;       (* until the transmitters' first readings *)
     STARTUP_TMR : TON;
-    STEP : INT := 0;                    (* the active step: 0, 10, 20, 30, 40 *)
+    BATCH_STEP : INT := 0;              (* the active step: 0, 10, 20, 30, 40; not STEP, an IEC 61131-3 keyword *)
     HEAT : BOOL := FALSE;               (* heater demand before the permissive *)
     LEVEL_M : REAL;
     TEMP_C : REAL;
@@ -60,17 +60,17 @@ PROGRAM batch_mix_heat
   STARTUP_TMR(IN := TRUE, PT := STARTUP_DELAY);
 
   (* Transitions, one per scan *)
-  CASE STEP OF
-    0:  IF STARTUP_TMR.Q AND LEVEL_M < EMPTY_LVL THEN STEP := 10; END_IF;
-    10: IF LEVEL_M >= WATER_SP THEN STEP := 20; END_IF;
-    20: IF LEVEL_M >= BATCH_SP THEN STEP := 30; END_IF;
-    30: IF TEMP_C >= TEMP_SP THEN STEP := 40; END_IF;
+  CASE BATCH_STEP OF
+    0:  IF STARTUP_TMR.Q AND LEVEL_M < EMPTY_LVL THEN BATCH_STEP := 10; END_IF;
+    10: IF LEVEL_M >= WATER_SP THEN BATCH_STEP := 20; END_IF;
+    20: IF LEVEL_M >= BATCH_SP THEN BATCH_STEP := 30; END_IF;
+    30: IF TEMP_C >= TEMP_SP THEN BATCH_STEP := 40; END_IF;
   END_CASE;
 
   (* Actions; the hold is a thermostat with a deadband *)
-  IF STEP = 30 THEN
+  IF BATCH_STEP = 30 THEN
     HEAT := TRUE;
-  ELSIF STEP = 40 THEN
+  ELSIF BATCH_STEP = 40 THEN
     IF TEMP_C >= TEMP_SP THEN
       HEAT := FALSE;
     ELSIF TEMP_C < TEMP_SP - HOLD_DB THEN
@@ -79,10 +79,10 @@ PROGRAM batch_mix_heat
   ELSE
     HEAT := FALSE;
   END_IF;
-  XV_01_OPEN_DO := STEP = 10 AND NOT TK_01_LSH_DI;
-  XV_02_OPEN_DO := STEP = 20 AND NOT TK_01_LSH_DI;
+  XV_01_OPEN_DO := (BATCH_STEP = 10) AND NOT TK_01_LSH_DI;
+  XV_02_OPEN_DO := (BATCH_STEP = 20) AND NOT TK_01_LSH_DI;
   HTR_01_ON_DO := HEAT AND LEVEL_M >= COVER_LVL;
-  PL_READY_DO := STEP = 40;
+  PL_READY_DO := (BATCH_STEP = 40);
 END_PROGRAM
 
 
