@@ -1,14 +1,17 @@
-# OpenFactory docs site (PLAN 4.4): MkDocs Material built from docs/ and deployed to GitHub Pages
-# on every push to main. CI (tools/ci_local.sh step 13) builds the same site with --strict on every
-# run; this workflow only publishes it. Needs the repository's Pages source set to "GitHub Actions".
+# OpenFactory docs site (PLAN 4.4): MkDocs Material built from docs/ and deployed to GitHub Pages.
+# CI (tools/ci_local.sh step 13) builds the same site with --strict on every run; this workflow
+# only publishes it. It needs the repository's Pages source set to "GitHub Actions"; until then a
+# run on every push would fail at the deploy, so it runs only when started by hand (Actions ->
+# Docs -> Run workflow). Once Settings -> Pages -> Source is "GitHub Actions", add
+#   push:
+#     branches: [main]
+# under `on:` so every push to main publishes the site (ruled 2026-11-09).
 # Actions are on their first major that runs on Node 24 (GitHub's Node 20 deprecation, as in
 # ci.yml): checkout v5, setup-uv v7, upload-pages-artifact v5 (wraps upload-artifact v7, node24;
 # leaves hidden files out, and the built site has none) and deploy-pages v5.
 name: Docs
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

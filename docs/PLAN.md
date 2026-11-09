@@ -2211,6 +2211,10 @@ runs the sorting program against it; a box visibly gets pushed.
       upload-artifact v4). v5 leaves hidden files out of the artifact; the built site has none.
       The workflow cannot run until the Pages source is set, so this is checked by reading the
       action manifests only.
+      *Trigger (ruled 2026-11-09, unblocking the hold):* `docs.yml` runs on `workflow_dispatch`
+      only, so the push of the held stack does not fail at a deploy the Pages source cannot
+      take yet. Its header says to add `push: branches: [main]` once Settings → Pages → Source
+      is "GitHub Actions". 4.4 stays open until the site has deployed.
 - [ ] 4.5 Public GitHub release, issue templates, Discussions, first good-first-issues.
       *Release step (ruled 2026-11-06):* every version bump rebuilds all six demo kits
       (`tools/build_kit.py`), because each kit's recording carries the package version in its
