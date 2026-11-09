@@ -66,6 +66,31 @@ The owner verifies, in order, before the demo is shown (ruled 2026-11-09):
 11. **The live run** (after PLAN 2.2): the level holds 1.0 m across the pump's start as the
     stand-in script does, within the scene's checks (`openfactory test --plc`).
 
+## Ignition UDTs and Perspective faceplates (PLAN 3.8)
+
+```bash
+uv run openfactory export scenes/tank-level-pid.yaml --format plantpax-udts --device Bench_L83 -o udts.json
+uv run openfactory export scenes/tank-level-pid.yaml --format plantpax-faceplates -o faceplates.json
+```
+
+Both are in the `tank-level-pid` and `plantpax-tank-level` kits.
+
+- **UDTs** (Ignition 8.3 tag JSON): one `<AOI>_UDT` per object type, whose members are **exactly
+  the cited names below** for that object, read-only, reading
+  `ns=1;s=[{Device}]{InstanceName}.<Member>` through Ignition's Logix driver. `Device` is a UDT
+  parameter (`--device`, default `PlantPAxDemo`): the gateway's device alias, never an address.
+  History on `P_AIn.Val` only. One instance per object in folder `DEMO` (`LT_101` with
+  `InstanceName` `DEMO_LT_101`, ...). No alarms.
+- **Faceplates** (one Perspective view per object type, `PlantPAx/<AOI>_Faceplate`, in one JSON
+  document): header, the object's readouts bound through the `tagPath` parameter (`{Root}/...`,
+  so one view serves every instance), an alarm line and a breadcrumb, in the ISA-101 palette.
+  **Display only:** operator commands and setpoints go through each object's `OCmd_`/`OSet_`
+  members, local tags whose names were not in the extracted lists; they are left out until you
+  verify them in Studio 5000. Not yet loaded into a Designer.
+
+Verify in the gateway: the UDT import, Good quality on every member once the controller runs the
+L5X, and each faceplate opened with `tagPath` `[default]DEMO/<instance>`.
+
 ## The source table
 
 Every member a rung names, and where Rockwell's public manual lists it. Names only: no

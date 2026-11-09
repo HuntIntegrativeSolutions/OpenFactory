@@ -115,7 +115,7 @@ AnalogEncoding = Annotated[
     ),
 ]
 
-EXPORT_FORMATS = ("csv", "l5x", "ignition", "plantpax")
+EXPORT_FORMATS = ("csv", "l5x", "ignition", "plantpax", "plantpax-udts", "plantpax-faceplates")
 ExportFormat = str
 
 _TRUE = {"1", "true", "on", "yes"}
@@ -960,7 +960,9 @@ def export(
             help="csv: the I/O list with Modbus addresses. l5x: Studio 5000 controller tag "
             "stubs, one per I/O list row (PLAN 2.3). ignition: Ignition 8.3 tag JSON, a UDT "
             "instance per component (PLAN 2.4). plantpax: the PlantPAx demo L5X for a scene with a "
-            "PlantPAx map (PLAN 3.4; docs/plantpax.md lists what to verify on import).",
+            "PlantPAx map (PLAN 3.4; docs/plantpax.md lists what to verify on import). "
+            "plantpax-udts, plantpax-faceplates: its Ignition UDTs and Perspective faceplates "
+            "(PLAN 3.8; --device names the gateway's Logix device).",
         ),
     ] = "csv",
     controller: Annotated[
@@ -998,6 +1000,7 @@ def export(
     from openfactory.export.io_list_csv import io_list_csv
     from openfactory.export.l5x_stub import l5x_stub
     from openfactory.export.plantpax import plantpax_l5x
+    from openfactory.export.plantpax_hmi import as_json, plantpax_faceplates, plantpax_udts
 
     if format_ not in EXPORT_FORMATS:
         raise typer.BadParameter(
@@ -1012,6 +1015,13 @@ def export(
             )
         elif format_ == "plantpax":
             text = plantpax_l5x(parsed, encoding, scene_path=scene, controller=controller)
+        elif format_ == "plantpax-udts":
+            scene_register_map(parsed, encoding, scene_path=scene)  # lockfile, as for csv
+            udts = plantpax_udts(parsed, device=device) if device else plantpax_udts(parsed)
+            text = as_json(udts)
+        elif format_ == "plantpax-faceplates":
+            scene_register_map(parsed, encoding, scene_path=scene)
+            text = as_json(plantpax_faceplates(parsed))
         elif format_ == "ignition":
             scene_register_map(parsed, encoding, scene_path=scene)  # lockfile, as for csv
             text = ignition_tags_json(parsed, area=area, opc_server=opc_server, device=device)

@@ -1,0 +1,713 @@
+{
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "P_AIn: the members the PlantPAx demo uses; generated, pending PE review",
+          "name": "P_AIn_UDT",
+          "parameters": {
+            "Device": {
+              "dataType": "String",
+              "value": "PlantPAxDemo"
+            },
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_AIn.Cfg_InpRawMax (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_InpRawMax",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_InpRawMax",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_AIn.Cfg_InpRawMin (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_InpRawMin",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_InpRawMin",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_AIn.Cfg_PVEUMax (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_PVEUMax",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_PVEUMax",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_AIn.Cfg_PVEUMin (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_PVEUMin",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_PVEUMin",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_AIn.Inp_PV (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Inp_PV",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Inp_PV",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_AIn.Sts_PVBad (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Sts_PVBad",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Sts_PVBad",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_AIn.Val (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": true,
+              "name": "Val",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Val",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "documentation": "P_Motor: the members the PlantPAx demo uses; generated, pending PE review",
+          "name": "P_Motor_UDT",
+          "parameters": {
+            "Device": {
+              "dataType": "String",
+              "value": "PlantPAxDemo"
+            },
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_Motor.Cfg_FailToStartT (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_FailToStartT",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_FailToStartT",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_Motor.Cfg_HasRunFdbk (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_HasRunFdbk",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_HasRunFdbk",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_Motor.Cfg_UseRunFdbk (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_UseRunFdbk",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_UseRunFdbk",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_Motor.Inp_IntlkOK (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Inp_IntlkOK",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Inp_IntlkOK",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_Motor.Inp_RunFdbk (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Inp_RunFdbk",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Inp_RunFdbk",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_Motor.Out_Run (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Out_Run",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Out_Run",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_Motor.PCmd_Prog (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "PCmd_Prog",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.PCmd_Prog",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_Motor.PCmd_Start (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "PCmd_Start",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.PCmd_Start",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "documentation": "P_PIDE: the members the PlantPAx demo uses; generated, pending PE review",
+          "name": "P_PIDE_UDT",
+          "parameters": {
+            "Device": {
+              "dataType": "String",
+              "value": "PlantPAxDemo"
+            },
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_CVEUMax (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_CVEUMax",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_CVEUMax",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_CVEUMin (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_CVEUMin",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_CVEUMin",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_PIDE.Cfg_CtrlAction (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_CtrlAction",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_CtrlAction",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_DGain (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_DGain",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_DGain",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_PIDE.Cfg_Depend (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_Depend",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_Depend",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_IGain (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_IGain",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_IGain",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_IntlkCV (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_IntlkCV",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_IntlkCV",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_MaxCV (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_MaxCV",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_MaxCV",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_MinCV (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_MinCV",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_MinCV",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_PGain (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_PGain",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_PGain",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_PVEUMax (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_PVEUMax",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_PVEUMax",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Cfg_PVEUMin (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_PVEUMin",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_PVEUMin",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_PIDE.Inp_IntlkOK (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Inp_IntlkOK",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Inp_IntlkOK",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Inp_PV (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Inp_PV",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Inp_PV",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_PIDE.Inp_PVBad (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Inp_PVBad",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Inp_PVBad",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Out_CV (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Out_CV",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Out_CV",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_PIDE.PCmd_Auto (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "PCmd_Auto",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.PCmd_Auto",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_PIDE.PCmd_Prog (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "PCmd_Prog",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.PCmd_Prog",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.PSet_SP (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "PSet_SP",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.PSet_SP",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "documentation": "P_ValveC: the members the PlantPAx demo uses; generated, pending PE review",
+          "name": "P_ValveC_UDT",
+          "parameters": {
+            "Device": {
+              "dataType": "String",
+              "value": "PlantPAxDemo"
+            },
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.Cfg_CVEUMax (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_CVEUMax",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_CVEUMax",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.Cfg_CVEUMin (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_CVEUMin",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_CVEUMin",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.Cfg_CVRawMax (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_CVRawMax",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_CVRawMax",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.Cfg_CVRawMin (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_CVRawMin",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_CVRawMin",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.Cfg_FdbkRawMax (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_FdbkRawMax",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_FdbkRawMax",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.Cfg_FdbkRawMin (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_FdbkRawMin",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_FdbkRawMin",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_ValveC.Cfg_HasPosFdbk (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_HasPosFdbk",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_HasPosFdbk",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.Cfg_IntlkCV (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Cfg_IntlkCV",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Cfg_IntlkCV",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_ValveC.Inp_IntlkOK (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Inp_IntlkOK",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Inp_IntlkOK",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.Inp_PosFdbk (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Inp_PosFdbk",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Inp_PosFdbk",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.Out_CV (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Out_CV",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Out_CV",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "P_ValveC.PCmd_Prog (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "PCmd_Prog",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.PCmd_Prog",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_ValveC.PSet_CV (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "PSet_CV",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.PSet_CV",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DEMO",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "Level Control Tank Level Transmitter LT-101",
+          "name": "LT_101",
+          "parameters": {
+            "Device": {
+              "dataType": "String",
+              "value": "PlantPAxDemo"
+            },
+            "InstanceName": {
+              "dataType": "String",
+              "value": "DEMO_LT_101"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "P_AIn_UDT"
+        },
+        {
+          "documentation": "Level Control Tank Level Controller LIC-101",
+          "name": "LIC_101",
+          "parameters": {
+            "Device": {
+              "dataType": "String",
+              "value": "PlantPAxDemo"
+            },
+            "InstanceName": {
+              "dataType": "String",
+              "value": "DEMO_LIC_101"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "P_PIDE_UDT"
+        },
+        {
+          "documentation": "Tank Inlet Level Control Valve LV-101",
+          "name": "LV_101",
+          "parameters": {
+            "Device": {
+              "dataType": "String",
+              "value": "PlantPAxDemo"
+            },
+            "InstanceName": {
+              "dataType": "String",
+              "value": "DEMO_LV_101"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "P_ValveC_UDT"
+        },
+        {
+          "documentation": "Level Control Tank Transfer Pump P-101",
+          "name": "P_101",
+          "parameters": {
+            "Device": {
+              "dataType": "String",
+              "value": "PlantPAxDemo"
+            },
+            "InstanceName": {
+              "dataType": "String",
+              "value": "DEMO_P_101"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "P_Motor_UDT"
+        }
+      ]
+    }
+  ],
+  "version": "8.3.0"
+}

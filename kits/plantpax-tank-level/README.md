@@ -18,6 +18,9 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `plantpax-tank-level-tags.L5X` | Studio 5000 controller tag stubs (PLAN 2.3) |
 | `plantpax-tank-level-ignition-tags.json` | Ignition 8.3 tags, a UDT instance per component (PLAN 2.4) |
 | `plantpax-tank-level-grafcet.html` | GRAFCET of the OpenPLC program, pending PE review (PLAN 2.8) |
+| `plantpax-tank-level-plantpax.L5X` | PlantPAx demo L5X: P_ objects wired to the scene, pending PE review; verify on import as docs/plantpax.md lists (PLAN 3.4) |
+| `plantpax-tank-level-plantpax-udts.json` | Ignition 8.3 UDTs for those P_ objects, members the cited names only (PLAN 3.8) |
+| `plantpax-tank-level-plantpax-faceplates.json` | Perspective faceplates for them, display only, pending PE review (PLAN 3.8) |
 | `plantpax-tank-level.ofrec` | a 60 s recording under the stand-in script (PLAN 2.12) |
 | `README.md` | this index |
 

@@ -1,0 +1,1345 @@
+{
+  "generated": "generated, pending PE review",
+  "note": "One Perspective view per PlantPAx object; open each with tagPath [default]DEMO/<instance> (for example [default]DEMO/LT_101) and equipmentName. Display only; not loaded into a Designer yet; training and demo use, not safety-rated.",
+  "views": {
+    "PlantPAx/P_AIn_Faceplate": {
+      "custom": {
+        "Inp_PV": 0.0,
+        "Sts_PVBad": false,
+        "Val": 0.0,
+        "generated": "generated, pending PE review",
+        "members_from": "PROCES-RM013I-EN-P, April 2023 (library 4.10.06); names only, verify in Studio 5000",
+        "object": "P_AIn"
+      },
+      "params": {
+        "equipmentName": "",
+        "tagPath": "[default]DEMO/"
+      },
+      "propConfig": {
+        "custom.Inp_PV": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Inp_PV"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_PVBad": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_PVBad"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Val": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Val"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "params.equipmentName": {
+          "paramDirection": "input",
+          "persistent": true
+        },
+        "params.tagPath": {
+          "paramDirection": "input",
+          "persistent": true
+        }
+      },
+      "props": {
+        "defaultSize": {
+          "height": 420,
+          "width": 360
+        }
+      },
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "TagName"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "{view.params.equipmentName}"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "16px",
+                    "fontWeight": "bold"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Description"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "fallbackDelay": 2.5,
+                        "mode": "indirect",
+                        "references": {
+                          "Root": "{view.params.tagPath}"
+                        },
+                        "tagPath": "{Root}.Documentation"
+                      },
+                      "type": "tag"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "12px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Mode"
+                },
+                "props": {
+                  "style": {
+                    "color": "#60A5FA",
+                    "fontSize": "12px"
+                  },
+                  "text": "Mode: not shown (no mode member cited yet)"
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Header"
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "padding": "8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          },
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "ValLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"PV: \" + numberFormat({view.custom.Val}, \"#,##0.00\") + \" m\""
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Inp_PVLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"Input: \" + numberFormat({view.custom.Inp_PV}, \"#,##0.00\") + \" m\""
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Sts_PVBadLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Sts_PVBad}, \"PV bad: yes\", \"PV bad: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Main"
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "padding": "8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          },
+          {
+            "meta": {
+              "name": "Commands"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "12px",
+                "padding": "8px"
+              },
+              "text": "Display only: operator commands and setpoints use the object's OCmd_/OSet_ members, not yet verified in Studio 5000 (docs/plantpax.md)."
+            },
+            "type": "ia.display.label",
+            "version": 0
+          },
+          {
+            "meta": {
+              "name": "AlarmSummary"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "12px",
+                "padding": "8px"
+              },
+              "text": "Alarms: none configured (not rationalized, ISA-18.2)."
+            },
+            "type": "ia.display.label",
+            "version": 0
+          },
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "Breadcrumb"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"DEMO / \" + {view.params.equipmentName}"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "11px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Footer"
+            },
+            "props": {
+              "direction": "row",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "padding": "4px 8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          }
+        ],
+        "meta": {
+          "name": "root"
+        },
+        "props": {
+          "direction": "column",
+          "style": {
+            "backgroundColor": "#1F2A36"
+          }
+        },
+        "type": "ia.container.flex",
+        "version": 0
+      }
+    },
+    "PlantPAx/P_Motor_Faceplate": {
+      "custom": {
+        "Inp_IntlkOK": false,
+        "Inp_RunFdbk": false,
+        "Out_Run": false,
+        "generated": "generated, pending PE review",
+        "members_from": "PROCES-RM013I-EN-P, April 2023 (library 4.10.06); names only, verify in Studio 5000",
+        "object": "P_Motor"
+      },
+      "params": {
+        "equipmentName": "",
+        "tagPath": "[default]DEMO/"
+      },
+      "propConfig": {
+        "custom.Inp_IntlkOK": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Inp_IntlkOK"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Inp_RunFdbk": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Inp_RunFdbk"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Out_Run": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Out_Run"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "params.equipmentName": {
+          "paramDirection": "input",
+          "persistent": true
+        },
+        "params.tagPath": {
+          "paramDirection": "input",
+          "persistent": true
+        }
+      },
+      "props": {
+        "defaultSize": {
+          "height": 420,
+          "width": 360
+        }
+      },
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "TagName"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "{view.params.equipmentName}"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "16px",
+                    "fontWeight": "bold"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Description"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "fallbackDelay": 2.5,
+                        "mode": "indirect",
+                        "references": {
+                          "Root": "{view.params.tagPath}"
+                        },
+                        "tagPath": "{Root}.Documentation"
+                      },
+                      "type": "tag"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "12px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Mode"
+                },
+                "props": {
+                  "style": {
+                    "color": "#60A5FA",
+                    "fontSize": "12px"
+                  },
+                  "text": "Mode: not shown (no mode member cited yet)"
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Header"
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "padding": "8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          },
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "Out_RunLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Out_Run}, \"Run command: yes\", \"Run command: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Inp_RunFdbkLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Inp_RunFdbk}, \"Running: yes\", \"Running: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Inp_IntlkOKLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Inp_IntlkOK}, \"Interlock OK: yes\", \"Interlock OK: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Main"
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "padding": "8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          },
+          {
+            "meta": {
+              "name": "Commands"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "12px",
+                "padding": "8px"
+              },
+              "text": "Display only: operator commands and setpoints use the object's OCmd_/OSet_ members, not yet verified in Studio 5000 (docs/plantpax.md)."
+            },
+            "type": "ia.display.label",
+            "version": 0
+          },
+          {
+            "meta": {
+              "name": "AlarmSummary"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "12px",
+                "padding": "8px"
+              },
+              "text": "Alarms: none configured (not rationalized, ISA-18.2)."
+            },
+            "type": "ia.display.label",
+            "version": 0
+          },
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "Breadcrumb"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"DEMO / \" + {view.params.equipmentName}"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "11px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Footer"
+            },
+            "props": {
+              "direction": "row",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "padding": "4px 8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          }
+        ],
+        "meta": {
+          "name": "root"
+        },
+        "props": {
+          "direction": "column",
+          "style": {
+            "backgroundColor": "#1F2A36"
+          }
+        },
+        "type": "ia.container.flex",
+        "version": 0
+      }
+    },
+    "PlantPAx/P_PIDE_Faceplate": {
+      "custom": {
+        "Inp_IntlkOK": false,
+        "Inp_PV": 0.0,
+        "Out_CV": 0.0,
+        "PSet_SP": 0.0,
+        "generated": "generated, pending PE review",
+        "members_from": "PROCES-RM013I-EN-P, April 2023 (library 4.10.06); names only, verify in Studio 5000",
+        "object": "P_PIDE"
+      },
+      "params": {
+        "equipmentName": "",
+        "tagPath": "[default]DEMO/"
+      },
+      "propConfig": {
+        "custom.Inp_IntlkOK": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Inp_IntlkOK"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Inp_PV": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Inp_PV"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Out_CV": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Out_CV"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.PSet_SP": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/PSet_SP"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "params.equipmentName": {
+          "paramDirection": "input",
+          "persistent": true
+        },
+        "params.tagPath": {
+          "paramDirection": "input",
+          "persistent": true
+        }
+      },
+      "props": {
+        "defaultSize": {
+          "height": 420,
+          "width": 360
+        }
+      },
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "TagName"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "{view.params.equipmentName}"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "16px",
+                    "fontWeight": "bold"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Description"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "fallbackDelay": 2.5,
+                        "mode": "indirect",
+                        "references": {
+                          "Root": "{view.params.tagPath}"
+                        },
+                        "tagPath": "{Root}.Documentation"
+                      },
+                      "type": "tag"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "12px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Mode"
+                },
+                "props": {
+                  "style": {
+                    "color": "#60A5FA",
+                    "fontSize": "12px"
+                  },
+                  "text": "Mode: not shown (no mode member cited yet)"
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Header"
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "padding": "8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          },
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "Inp_PVLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"PV: \" + numberFormat({view.custom.Inp_PV}, \"#,##0.00\") + \" m\""
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "PSet_SPLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"SP: \" + numberFormat({view.custom.PSet_SP}, \"#,##0.00\") + \" m\""
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Out_CVLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"CV: \" + numberFormat({view.custom.Out_CV}, \"#,##0.00\") + \" %\""
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Inp_IntlkOKLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Inp_IntlkOK}, \"Interlock OK: yes\", \"Interlock OK: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Main"
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "padding": "8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          },
+          {
+            "meta": {
+              "name": "Commands"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "12px",
+                "padding": "8px"
+              },
+              "text": "Display only: operator commands and setpoints use the object's OCmd_/OSet_ members, not yet verified in Studio 5000 (docs/plantpax.md)."
+            },
+            "type": "ia.display.label",
+            "version": 0
+          },
+          {
+            "meta": {
+              "name": "AlarmSummary"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "12px",
+                "padding": "8px"
+              },
+              "text": "Alarms: none configured (not rationalized, ISA-18.2)."
+            },
+            "type": "ia.display.label",
+            "version": 0
+          },
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "Breadcrumb"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"DEMO / \" + {view.params.equipmentName}"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "11px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Footer"
+            },
+            "props": {
+              "direction": "row",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "padding": "4px 8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          }
+        ],
+        "meta": {
+          "name": "root"
+        },
+        "props": {
+          "direction": "column",
+          "style": {
+            "backgroundColor": "#1F2A36"
+          }
+        },
+        "type": "ia.container.flex",
+        "version": 0
+      }
+    },
+    "PlantPAx/P_ValveC_Faceplate": {
+      "custom": {
+        "Inp_IntlkOK": false,
+        "Inp_PosFdbk": 0.0,
+        "Out_CV": 0.0,
+        "generated": "generated, pending PE review",
+        "members_from": "PROCES-RM013I-EN-P, April 2023 (library 4.10.06); names only, verify in Studio 5000",
+        "object": "P_ValveC"
+      },
+      "params": {
+        "equipmentName": "",
+        "tagPath": "[default]DEMO/"
+      },
+      "propConfig": {
+        "custom.Inp_IntlkOK": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Inp_IntlkOK"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Inp_PosFdbk": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Inp_PosFdbk"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Out_CV": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Out_CV"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "params.equipmentName": {
+          "paramDirection": "input",
+          "persistent": true
+        },
+        "params.tagPath": {
+          "paramDirection": "input",
+          "persistent": true
+        }
+      },
+      "props": {
+        "defaultSize": {
+          "height": 420,
+          "width": 360
+        }
+      },
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "TagName"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "{view.params.equipmentName}"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "16px",
+                    "fontWeight": "bold"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Description"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "fallbackDelay": 2.5,
+                        "mode": "indirect",
+                        "references": {
+                          "Root": "{view.params.tagPath}"
+                        },
+                        "tagPath": "{Root}.Documentation"
+                      },
+                      "type": "tag"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "12px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Mode"
+                },
+                "props": {
+                  "style": {
+                    "color": "#60A5FA",
+                    "fontSize": "12px"
+                  },
+                  "text": "Mode: not shown (no mode member cited yet)"
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Header"
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "padding": "8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          },
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "Out_CVLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"CV: \" + numberFormat({view.custom.Out_CV}, \"#,##0.00\") + \" %\""
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Inp_PosFdbkLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"Position: \" + numberFormat({view.custom.Inp_PosFdbk}, \"#,##0.00\") + \" %\""
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Inp_IntlkOKLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Inp_IntlkOK}, \"Interlock OK: yes\", \"Interlock OK: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Main"
+            },
+            "props": {
+              "direction": "column",
+              "style": {
+                "padding": "8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          },
+          {
+            "meta": {
+              "name": "Commands"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "12px",
+                "padding": "8px"
+              },
+              "text": "Display only: operator commands and setpoints use the object's OCmd_/OSet_ members, not yet verified in Studio 5000 (docs/plantpax.md)."
+            },
+            "type": "ia.display.label",
+            "version": 0
+          },
+          {
+            "meta": {
+              "name": "AlarmSummary"
+            },
+            "props": {
+              "style": {
+                "color": "#9CA3AF",
+                "fontSize": "12px",
+                "padding": "8px"
+              },
+              "text": "Alarms: none configured (not rationalized, ISA-18.2)."
+            },
+            "type": "ia.display.label",
+            "version": 0
+          },
+          {
+            "children": [
+              {
+                "meta": {
+                  "name": "Breadcrumb"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"DEMO / \" + {view.params.equipmentName}"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "11px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              }
+            ],
+            "meta": {
+              "name": "Footer"
+            },
+            "props": {
+              "direction": "row",
+              "style": {
+                "backgroundColor": "#0F172A",
+                "padding": "4px 8px"
+              }
+            },
+            "type": "ia.container.flex",
+            "version": 0
+          }
+        ],
+        "meta": {
+          "name": "root"
+        },
+        "props": {
+          "direction": "column",
+          "style": {
+            "backgroundColor": "#1F2A36"
+          }
+        },
+        "type": "ia.container.flex",
+        "version": 0
+      }
+    }
+  }
+}

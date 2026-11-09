@@ -2144,11 +2144,25 @@ runs the sorting program against it; a box visibly gets pushed.
     it would have caught `batch-mix-heat`'s `STEP`, an IEC 61131-3 keyword).
   - The Ignition 8.3 MQTT Engine test of 3.5 (`docs/ignition.md`, "Test with Ignition").
   - The OPC UA and Ignition checks of 2.4 against a running gateway.
-- [ ] 3.8 Process demo kit (`kits/tank-level-pid/`) built with 2.14, including PlantPAx L5X and
+- [x] 3.8 Process demo kit (`kits/tank-level-pid/`) built with 2.14, including PlantPAx L5X and
       Perspective faceplates from 3.4.
       *Amended (ruled 2026-11-09):* the Perspective faceplates move here from 3.4. *Done when:*
       the kit for `tank-level-pid` with Ignition UDTs and Perspective faceplates whose members
       use the cited names, GRAFCET, CONTEXT.md, and `build_kit --check` passing.
+      *Done (2026-11-09):* `src/openfactory/export/plantpax_hmi.py`, `export --format
+      plantpax-udts` (Ignition 8.3: `<AOI>_UDT` per object, members exactly the cited names,
+      read-only, `ns=1;s=[{Device}]{InstanceName}.<Member>` with the device alias a parameter,
+      history on `P_AIn.Val` only, instances in `DEMO`) and `--format plantpax-faceplates`
+      (one Perspective view per object, bound only through `{Root}`, ISA-101 colors, display
+      only: the operator `OCmd_`/`OSet_` names are not cited yet). `tools/build_kit.py` adds
+      the PlantPAx L5X, the UDTs and the faceplates to every kit whose scene has a PlantPAx map:
+      `kits/tank-level-pid/` (three objects; with its GRAFCET and CONTEXT.md from 2.8 and 2.19)
+      and `kits/plantpax-tank-level/` (four). `build_kit --check` passes.
+      `tests/unit/test_plantpax_hmi.py` (6): each UDT's members are exactly its object's cited
+      names, paths through the device alias with no address, history on the PV only, instances
+      as mapped; every faceplate binding is `{Root}` plus a cited member (or the tag's
+      documentation), each view says it is display only and has no button. Not loaded into a
+      gateway or Designer yet (Docker items); PE review pending.
 
 ### Milestone 4 — Editor, assets, community (ongoing)
 - [ ] 4.1 In-browser scene editor: drag components, edit properties with schema-driven forms, export YAML.

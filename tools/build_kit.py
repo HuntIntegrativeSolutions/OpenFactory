@@ -19,6 +19,9 @@ part code can produce (ruled 2026-10-30):
 - the Ignition 8.3 tag JSON (``export --format ignition``, PLAN 2.4);
 - the GRAFCET chart of the OpenPLC program (``tools/grafcet_from_st.py``, PLAN 2.8), for the
   scenes that tool knows; charts are generated, never hand-edited (ruled 2026-10-31);
+- for a scene with a PlantPAx map (``openfactory.export.plantpax.MAPS``): the PlantPAx demo L5X
+  (``export --format plantpax``, PLAN 3.4), its Ignition UDTs and its Perspective faceplates
+  (``--format plantpax-udts`` and ``plantpax-faceplates``, PLAN 3.8);
 - a 60 s recording under the stand-in script (``test --script --record``, PLAN 2.12; the
   build fails if the scene's checks do), replayable with no scene file and identical on every
   build (``--check`` compares it decompressed);
@@ -58,6 +61,7 @@ sys.path.insert(0, str(REPO / "tools"))
 import grafcet_from_st as grafcet  # noqa: E402 - a sibling tool, not a package
 
 from openfactory.core.schema import load_scene  # noqa: E402
+from openfactory.export.plantpax import MAPS as PLANTPAX  # noqa: E402
 
 KITS = REPO / "kits"
 PE_HEADER = "generated, pending PE review"
@@ -119,6 +123,9 @@ def generated(scene: str) -> list[str]:
     names += [f"{scene}-io{ENCODING_SUFFIX[e]}.csv" for e in encodings]
     names += [f"{scene}-tags.L5X", f"{scene}-ignition-tags.json"]
     names += [f"{scene}-grafcet.html"] if scene in grafcet.SCENES else []
+    if scene in PLANTPAX:  # PLAN 3.4, 3.8: the PlantPAx L5X, its UDTs and faceplates
+        names += [f"{scene}-plantpax.L5X", f"{scene}-plantpax-udts.json"]
+        names += [f"{scene}-plantpax-faceplates.json"]
     names += [f"{scene}.ofrec", "README.md"]
     return names
 
@@ -150,6 +157,13 @@ def build(scene: str, out: Path) -> None:
     )  # fmt: skip
     if scene in grafcet.SCENES:
         grafcet.write(scene, out / f"{scene}-grafcet.html")
+    if scene in PLANTPAX:
+        for fmt, name in (
+            ("plantpax", f"{scene}-plantpax.L5X"),
+            ("plantpax-udts", f"{scene}-plantpax-udts.json"),
+            ("plantpax-faceplates", f"{scene}-plantpax-faceplates.json"),
+        ):
+            openfactory("export", str(kit_scene), "--format", fmt, "-o", str(out / name))
     # The recording runs a copy of the scene in a scratch folder, so `run` cannot touch scenes/.
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp) / src.name
@@ -210,6 +224,12 @@ def readme(scene: str, folder: Path) -> str:
         f"{scene}-tags.L5X": "Studio 5000 controller tag stubs (PLAN 2.3)",
         f"{scene}-ignition-tags.json": "Ignition 8.3 tags, a UDT instance per component (PLAN 2.4)",
         f"{scene}-grafcet.html": "GRAFCET of the OpenPLC program, pending PE review (PLAN 2.8)",
+        f"{scene}-plantpax.L5X": "PlantPAx demo L5X: P_ objects wired to the scene, pending PE "
+        "review; verify on import as docs/plantpax.md lists (PLAN 3.4)",
+        f"{scene}-plantpax-udts.json": "Ignition 8.3 UDTs for those P_ objects, members the cited "
+        "names only (PLAN 3.8)",
+        f"{scene}-plantpax-faceplates.json": "Perspective faceplates for them, display only, "
+        "pending PE review (PLAN 3.8)",
         f"{scene}.ofrec": f"a {RECORD_SECONDS} s recording under the stand-in script (PLAN 2.12)",
         "README.md": "this index",
     }
