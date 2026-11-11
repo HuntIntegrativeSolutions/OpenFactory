@@ -2196,6 +2196,11 @@ runs the sorting program against it; a box visibly gets pushed.
       as mapped; every faceplate binding is `{Root}` plus a cited member (or the tag's
       documentation), each view says it is display only and has no button. Not loaded into a
       gateway or Designer yet (Docker items); PE review pending.
+      *Follow-up (ruled 2026-11-10, not now):* the faceplates stay display only until the
+      status names are cited. Then cite the `Sts_`, `Val_` and `Alm_` members each object needs
+      from RM013's workbooks (as for `CITED`, names and types only) so every faceplate shows its
+      object's mode, running state and alarms; operator commands (`OCmd_`/`OSet_`) remain a
+      separate ruling.
 
 ### Milestone 4 — Editor, assets, community (ongoing)
 - [ ] 4.1 In-browser scene editor: drag components, edit properties with schema-driven forms, export YAML.
