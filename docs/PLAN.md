@@ -2325,6 +2325,35 @@ runs the sorting program against it; a box visibly gets pushed.
       (`load`, `pipe`, `mount`) declared in Python and published in `/api/scene`, with new
       lint checks on them. Proposed tasks 4.1a-d with a Done-when each, and nine decisions
       for the owner.
+      *Ruled 2026-11-10, all nine decisions as recommended:* (1) edits applied on the server
+      through the 4.7 `Document`; (2) a separate `openfactory edit` command, simulation paused,
+      loopback only, never with a PLC; (3) single-field checks in the browser, the server the
+      authority, no `ajv`; (4) the comment lines directly above a deleted component go with
+      it; (5) new ids from the type's prefix and the next free number, a description required
+      before Save, I/O tags proposed for the user to accept or rename; (6) the editor never
+      writes lockfiles; (7) capture within 0.15 m, aligned within 1 mm and 0.1 degrees in the
+      editor and 1 to 2 cm in the lint, the snap-port check replacing W203; (8) composite
+      instances only in the first version; (9) the order 4.1a, b, c, d. Split as below.
+  - [ ] 4.1a Edit operations and the edit server: the `Document` operations, the value
+        emitter, `openfactory edit` with preview and save (hash check, loopback only).
+        *Done when:* pytest applies set, move, add, delete and their inverses to every shipped
+        scene and gets the original bytes back with every comment kept; preview returns the
+        lint's findings; a save against a changed file is refused.
+  - [ ] 4.1b Selection and the property form: edit mode in the viewer, click to select, the
+        schema-driven form, live preview.
+        *Done when:* vitest builds a form for every component type in the shipped schema with
+        no unexpected fallback, and a Playwright test changes a conveyor's speed and saves: the
+        file's diff is that one line.
+  - [ ] 4.1c Placement: palette (primitives and composite types, the scene's and the
+        library's), drag and turn on the floor, delete, the `mesh` field, Download YAML.
+        *Done when:* a Playwright test adds a photo eye and a library composite instance, moves
+        and turns them, sets a mesh, saves; the file validates, the lint shows no new error, and
+        the screenshot is looked at.
+  - [ ] 4.1d Snap ports: ports declared in Python and published, snapping in the editor, the
+        new lint checks, the ports in `docs/components.md`.
+        *Done when:* a Playwright test drags a conveyor near another's discharge and it snaps
+        (ends within 1 mm, headings equal), the connection is added, and the lint is clean; each
+        new lint code has a test that fails without it.
 - [x] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
       *Defined (ruled 2026-11-07):* models authored by our own scripts or taken from CC0/CC-BY
       sources with attribution, each under the 1 MB rule with a license sidecar, drawn through
