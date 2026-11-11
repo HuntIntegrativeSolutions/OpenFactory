@@ -72,6 +72,21 @@ On a native Linux or macOS filesystem the variables are optional; everything els
 See `docs/PLAN.md` for the roadmap and `CLAUDE.md` for the conventions that AI-assisted contributions follow.
 Human contributors should follow the same conventions.
 
+## Before you push
+
+The only pre-push check is the full CI script **on a fresh clone** (ruled 2026-11-10):
+
+```bash
+git clone /path/to/your/OpenFactory /tmp/of-check && cd /tmp/of-check
+bash tools/ci_local.sh            # every step CI runs; it must end "CI OK"
+```
+
+A partial check is not a substitute: `ruff format --check .` also formats Python blocks in the
+Markdown docs, and the docs-site tests read every page, so `uv run pytest tests/unit` on the files
+you touched, or ruff on `src` and `tests` only, misses failures CI then reports. A fresh clone
+catches files you forgot to add and anything a local build left behind. On a drive without
+symlink support, clone to a Linux filesystem (the script needs no `UV_PROJECT_ENVIRONMENT` there).
+
 ## Style
 
 - Python: `ruff` for lint and format, 4-space indent, type hints on public functions.

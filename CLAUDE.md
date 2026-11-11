@@ -152,6 +152,9 @@ OpenFactory/
 ### Testing and commits
 - `uv run pytest` must pass before any commit. `npm test` in `web/` for viewer changes.
   `bash tools/ci_local.sh` runs exactly what CI runs (`.github/workflows/ci.yml`).
+- **Before every push: the full `tools/ci_local.sh` on a fresh clone, and nothing less** (ruled
+  2026-11-10; CONTRIBUTING.md, "Before you push"). Partial checks missed ruff on Markdown and the
+  docs-site tests.
 - Commit messages: imperative, conventional prefix (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
 - Each PR or commit that closes a PLAN task ticks its checkbox in `docs/PLAN.md` in the same commit.
 - No binary file over 1 MB enters git (rule from 2026-10-26; `docs/media/sorting-by-height-openplc.webm`
