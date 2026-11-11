@@ -109,7 +109,7 @@ New lint checks on the same port definitions (codes to be assigned in 2.20's lis
   headings differ (a misaligned join);
 - a `mount`-type device whose beam or plate does not reach across the belt it stands beside.
 
-`docs/components.md` gains each type's ports (the existing test that every registered type has a
+[The component reference](../components.md) gains each type's ports (the existing test that every registered type has a
 section naming its parameters and ports covers it).
 
 ## 5. Where it lives in the viewer
@@ -159,7 +159,7 @@ section naming its parameters and ports covers it).
   them, sets a mesh, saves; the file validates, the lint shows no new error, and the screenshot is
   looked at.
 - **4.1d Snap ports.** Ports declared in Python and published, snapping in the editor, the new lint
-  checks, the ports in `docs/components.md`.
+  checks, the ports in [the component reference](../components.md).
   *Done when:* a Playwright test drags a conveyor near another's discharge and it snaps (ends within
   1 mm, headings equal), the connection is added, and the lint is clean; each new lint code has a
   test that fails without it.
