@@ -2476,9 +2476,40 @@ runs the sorting program against it; a box visibly gets pushed.
       `docs/research/landscape.md`) into OpenFactory YAML for the part types we share (conveyors,
       sensors, diverters), with attribution per their license. Lets the two open projects exchange
       layouts instead of competing on them.
-- [ ] 4.12 Instructor view (deferred from 2.11, ruled 2026-10-30): a separate URL that takes the
+- [x] 4.12 Instructor view (deferred from 2.11, ruled 2026-10-30): a separate URL that takes the
       fault token, shows fault markers even in exam mode, and shows the exam switches read-only,
       so an instructor watches what the trainees cannot see without touching their inputs.
+      *Ruled 2026-11-10:* build it on the 4.3 broadcaster. *Done when:* a Playwright test with
+      one instructor page and two trainee pages shows the marker only on the instructor page,
+      the instructor cannot turn a switch, and a wrong token is refused.
+      *Done (2026-11-10):* `/instructor` serves the viewer, which reads its path
+      (`web/src/instructor.ts`). The token comes from the URL fragment (`#token=`, never sent in
+      a request line; kept for the tab, taken off the address bar) or the tab's stored token,
+      and is the first message on `WS /ws/instructor`. The server checks it: a configured
+      token is always required, loopback too (the stream shows what exam mode hides); with none
+      the stream is open on loopback and refused beyond it, like `/api/fault`; a refusal is
+      `{"error", "refused": true}` and close 1008. An accepted instructor joins the 4.3
+      broadcaster: each frame, while any instructor is connected, a second text is serialized
+      once, the trainee frame plus `instructor: true`, `faults` (`{id: kind}`, every active
+      fault) and `comms`, and every instructor gets it; `/api/status` adds `instructors`. The
+      viewer marks faults from that list, its HUD says INSTRUCTOR, and its exam panel is
+      read-only (buttons disabled, no click handler; "(read-only)"). It still follows the
+      switches, so a trainee's turn shows there. A refused page says "INSTRUCTOR VIEW REFUSED"
+      and does not retry. `tests/integration/test_instructor_view.py`: the sorter in exam mode
+      with a token, one instructor page, two trainee pages and one with a wrong token; the wrong
+      one is refused with no frame and the server counts one instructor among three viewers;
+      `CYL_01 jammed` injected through the API shows its marker on the instructor page and on
+      neither trainee page after forty more frames; every instructor button is disabled, a
+      forced click leaves `PE_01_DI` off at `/api/exam`; a trainee's turn shows ON on the
+      instructor's panel (screenshot looked at: the yellow `CYL_01 ⚠ jammed` label and the
+      read-only panel). `tests/unit/test_instructor_socket.py` (3): wrong, missing and malformed
+      tokens refused on loopback with 1008; open on loopback with no token, refused beyond it;
+      the instructor frame lists the fault the exam-mode trainee frame hides.
+      `web/src/instructor.test.ts` (4). Docs: `docs/scene-format.md`, exam mode.
+      *Noted, not changed:* on loopback the fault menu and `GET /api/fault` stay open to every
+      viewer (§6.4), so a trainee on the same machine can still read faults there; a classroom
+      runs beyond loopback with a token. At 640 px wide the exam panel covers the end of the
+      HUD's first line, for trainees too.
 - [x] 4.13 Viewer framing (found during 4.2, added 2026-11-07): a scene of only operator devices
       must frame them. *Done when:* a screenshot of a scene with one pushbutton and one pilot
       light shows both.

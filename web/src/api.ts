@@ -69,6 +69,10 @@ export interface StateFrame {
   io: Record<string, boolean | number>;
   /** Viewers connected to this core when the frame was sent (PLAN 4.3); absent in a recording. */
   viewers?: number;
+  /** Instructor frames only (PLAN 4.12, /ws/instructor): every active fault by component id. */
+  instructor?: boolean;
+  faults?: Record<string, string>;
+  comms?: unknown;
 }
 
 /** Viewer status read by tools/screenshot.py (PLAN 1.13) through `window.__openfactory`. */
@@ -110,6 +114,38 @@ export function streamState(onFrame: (frame: StateFrame) => void, onReconnect?: 
   if (reconnect && onReconnect) ws.onopen = onReconnect;
   ws.onmessage = (msg) => onFrame(JSON.parse(msg.data as string) as StateFrame);
   ws.onclose = () => setTimeout(() => streamState(onFrame, onReconnect, true), 1000);
+}
+
+/**
+ * The instructor stream (PLAN 4.12): /ws/instructor, the token sent as the first message. Frames
+ * go to `onFrame`; a refusal goes to `onRefused` once and the socket is not reopened. Otherwise a
+ * dropped socket reconnects after a second, as streamState does.
+ */
+export function streamInstructor(
+  token: string | null,
+  onFrame: (frame: StateFrame) => void,
+  onRefused: (reason: string) => void,
+  onReconnect?: () => void,
+  reconnect = false,
+): void {
+  const ws = new WebSocket(wsUrl("/ws/instructor"));
+  let refused = false;
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ token }));
+    if (reconnect && onReconnect) onReconnect();
+  };
+  ws.onmessage = (msg) => {
+    const data = JSON.parse(msg.data as string) as Record<string, unknown>;
+    if (data.refused === true) {
+      refused = true;
+      onRefused(String(data.error ?? "refused"));
+      return;
+    }
+    onFrame(data as unknown as StateFrame);
+  };
+  ws.onclose = () => {
+    if (!refused) setTimeout(() => streamInstructor(token, onFrame, onRefused, onReconnect, true), 1000);
+  };
 }
 
 /** Upstream events (/ws/events): sensor reports, pushbutton presses. Queued until open. */

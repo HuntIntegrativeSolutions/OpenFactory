@@ -23,7 +23,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
-import { BELT_TYPES, EventLink, fetchScene, streamState, type PartState, type SceneDocument, type StateFrame, type Vec3 } from "./api";
+import { BELT_TYPES, EventLink, fetchScene, streamInstructor, streamState, type PartState, type SceneDocument, type StateFrame, type Vec3 } from "./api";
 import { loadRapier, offDeck, PlantPhysics, tiltDeg, type Rapier } from "./physics";
 import { buildComponent, floorFor, type ComponentView } from "./components";
 import { attachHousings } from "./housings";
@@ -32,6 +32,8 @@ import { cssColor, ISA101 } from "./isa101";
 import { ExamPanel } from "./exampanel";
 import { TrendPanel } from "./trend";
 import { FaultMenu } from "./faultmenu";
+import { faultOf, isInstructorPath, tokenFromHash } from "./instructor";
+import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
@@ -62,6 +64,9 @@ window.__openfactory = {
   reloads: 0,
   exam: false,
   viewers: 0,
+  instructor: false, // PLAN 4.12: "connecting", "on" or "refused: <reason>" on /instructor
+  faultMarkers: [] as string[], // ids whose label shows a fault marker
+
   meshes: { loaded: 0, failed: 0 },
   housings: { loaded: 0, failed: 0, types: [] as string[] },
 };
@@ -129,11 +134,24 @@ let views: ComponentView[] = [];
 let plant: THREE.Object3D[] = []; // what buildScene added: component views, floor, grid
 const labelsById = new Map<string, { label: CSS2DObject; fault: string | null }>();
 
+/** The instructor view (PLAN 4.12): /instructor, fault markers even in exam mode, read-only
+ * exam switches. A token in the URL fragment is kept for this tab and taken off the address bar. */
+const INSTRUCTOR = isInstructorPath(location.pathname);
+if (INSTRUCTOR) {
+  const fromHash = tokenFromHash(location.hash);
+  if (fromHash) {
+    rememberToken(fromHash);
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+  window.__openfactory.instructor = "connecting";
+}
+
 /** Show a component's injected fault on its label (ISA-101 alarm yellow), or clear it. */
 function markFault(id: string, fault: string | null): void {
   const entry = labelsById.get(id);
   if (!entry || entry.fault === fault) return;
   entry.fault = fault;
+  window.__openfactory.faultMarkers = [...labelsById].filter(([, e]) => e.fault).map(([k]) => k);
   const el = entry.label.element;
   el.textContent = fault ? `${id} ⚠ ${fault.replace("_", " ")}` : id;
   el.style.background = fault ? cssColor("alarmMedium") : "rgba(31,42,54,0.75)";
@@ -357,7 +375,7 @@ function onFrame(frame: StateFrame): void {
   for (const view of views) {
     const state = frame.components[view.id] ?? {};
     view.update(state);
-    markFault(view.id, typeof state.fault === "string" ? state.fault : null);
+    markFault(view.id, faultOf(frame, view.id));
   }
   parts.update(frame.parts, (p) => drawnYaw(p, frame));
   stepToFrame(frame);
@@ -368,11 +386,13 @@ function onFrame(frame: StateFrame): void {
   status.firstTick ??= frame.tick;
   status.parts = parts.count;
   status.viewers = frame.viewers ?? 1;
+  if (frame.instructor) status.instructor = "on";
   examPanel?.sync(frame.io); // switches are the core's: another viewer's turn shows here (PLAN 4.3)
   status.ready = true;
   const running = views.filter((v) => (BELT_TYPES.has(v.type) || v.type === "turntable" || v.type === "lift") && frame.components[v.id]?.running);
   hud.textContent =
-    `OpenFactory · ${doc.scene.name}${doc.mode === "replay" ? "   REPLAY" : ""}\n` +
+    `OpenFactory · ${doc.scene.name}${doc.mode === "replay" ? "   REPLAY" : ""}` +
+    `${INSTRUCTOR ? "   INSTRUCTOR" : ""}\n` +
     `t = ${frame.t.toFixed(2)} s   tick ${frame.tick}   parts ${frame.parts.length}` +
     `${frame.viewers === undefined ? "" : `   viewers ${frame.viewers}`}\n` +
     `running: ${running.map((v) => v.id).join(", ") || "none"}\n` +
@@ -474,7 +494,7 @@ async function start(): Promise<void> {
   await loadScene();
   wireClicks();
   const menu = new FaultMenu({ target: renderer.domElement, pick: pickComponent });
-  const exam = new ExamPanel();
+  const exam = new ExamPanel(INSTRUCTOR);
   examPanel = exam;
   const refreshExam = () =>
     exam.refresh().then((on) => {
@@ -501,12 +521,22 @@ async function start(): Promise<void> {
   } catch (err) {
     window.__openfactory.physics = `off: ${String(err)}`; // parts follow the core positions instead
   }
-  streamState(onFrame, () => {
+  const reload = () => {
     loadScene().then(refreshExam).then(() => doc && trend.setScene(doc)).catch((err: unknown) => {
       window.__openfactory.error = String(err);
       hud.textContent = `OpenFactory: ${String(err)}`;
     });
-  });
+  };
+  if (INSTRUCTOR) {
+    streamInstructor(currentToken(), onFrame, (reason) => {
+      window.__openfactory.instructor = `refused: ${reason}`;
+      hud.textContent =
+        `OpenFactory · INSTRUCTOR VIEW REFUSED\n${reason}\n` +
+        "Open /instructor#token=<the server's fault token>.";
+    }, reload);
+  } else {
+    streamState(onFrame, reload);
+  }
 }
 
 start().catch((err: unknown) => {

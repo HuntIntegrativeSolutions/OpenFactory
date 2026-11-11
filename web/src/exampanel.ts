@@ -57,7 +57,11 @@ export class ExamPanel {
   private buttons = new Map<string, HTMLButtonElement>();
   private hold = new SwitchHold();
 
-  constructor() {
+  private readonly readOnly: boolean;
+
+  /** `readOnly`: the instructor view (PLAN 4.12) shows the switches but cannot turn them. */
+  constructor(readOnly = false) {
+    this.readOnly = readOnly;
     this.element = document.createElement("div");
     this.element.id = "exam-panel";
     this.element.style.cssText =
@@ -77,7 +81,9 @@ export class ExamPanel {
       return false;
     }
     const title = document.createElement("div");
-    title.textContent = "EXAM MODE: operator switches";
+    title.textContent = this.readOnly
+      ? "EXAM MODE: operator switches (read-only)"
+      : "EXAM MODE: operator switches";
     title.style.cssText = "font-weight:700;margin-bottom:6px";
     this.element.appendChild(title);
     for (const s of state.switches) {
@@ -85,9 +91,15 @@ export class ExamPanel {
       button.dataset.tag = s.tag;
       button.title = `${s.component}.${s.port}: ${s.description}`;
       button.style.cssText =
-        "display:block;width:100%;margin:4px 0;padding:6px 8px;text-align:left;cursor:pointer;" +
+        "display:block;width:100%;margin:4px 0;padding:6px 8px;text-align:left;" +
+        `cursor:${this.readOnly ? "default" : "pointer"};` +
         "border:1px solid #4b5563;border-radius:3px;font:13px Arial,sans-serif;color:#111827";
-      button.addEventListener("click", () => void this.toggle(s.tag));
+      if (this.readOnly) {
+        button.disabled = true; // the instructor watches the trainees' inputs, never turns them
+        button.title += " (read-only: instructor view)";
+      } else {
+        button.addEventListener("click", () => void this.toggle(s.tag));
+      }
       this.buttons.set(s.tag, button);
       this.show(s.tag, s.on);
       this.element.appendChild(button);
@@ -114,6 +126,7 @@ export class ExamPanel {
   }
 
   private async toggle(tag: string): Promise<void> {
+    if (this.readOnly) return;
     const on = this.buttons.get(tag)?.dataset.on !== "true";
     this.hold.click(tag, on, performance.now());
     this.show(tag, on);

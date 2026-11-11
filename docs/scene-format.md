@@ -150,6 +150,18 @@ switch is an instructor action, guarded like `/api/fault`: open on loopback, and
 it needs the fault token (`--fault-token` or `[server] fault_token`). Only a DI binding takes
 `exam`; `switch` is the only value. The shipped sorter marks `PE_01_DI`.
 
+**Instructor view (PLAN 4.12).** `http://<server>/instructor#token=<fault token>` is the same
+viewer for the instructor: fault markers show on the labels even in exam mode, and the exam panel
+shows every switch read-only (title "(read-only)", buttons disabled), so the instructor watches
+what the trainees cannot see without touching their inputs. The token is in the URL fragment,
+which the browser never sends to the server; the page keeps it for the tab, takes it off the
+address bar, and sends it as the first message on `/ws/instructor`. With a fault token configured
+the instructor view always needs it, loopback included (it shows what exam mode hides); with
+none it is open on loopback and refused beyond it. A wrong token gets "INSTRUCTOR VIEW REFUSED"
+and no frames. Instructor frames come from the same broadcaster as everyone's (PLAN 4.3), with
+the active faults added; `GET /api/status` counts `instructors`. On loopback the fault menu (and
+`GET /api/fault`) is still open to every viewer, so run a classroom beyond loopback with a token.
+
 ## Recordings (PLAN 2.12)
 
 A recording (`run --record FILE.ofrec`) contains the full scene file, comments included, so sharing

@@ -51,3 +51,19 @@ export function forgetToken(): void {
   token = null;
   storeToken(null);
 }
+
+/** The token this tab holds (stored or entered), or null (PLAN 4.12: the instructor view). */
+export function currentToken(): string | null {
+  if (!loaded) {
+    token = storedToken();
+    loaded = true;
+  }
+  return token;
+}
+
+/** Keep a token given another way (the instructor URL's #token=), for this tab's requests. */
+export function rememberToken(value: string): void {
+  token = value;
+  loaded = true;
+  storeToken(value);
+}

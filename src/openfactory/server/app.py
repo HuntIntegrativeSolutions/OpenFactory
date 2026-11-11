@@ -12,7 +12,8 @@ Behavior spec
   and the classroom figures (PLAN 4.3): ``viewers`` (state sockets connected),
   ``frames_serialized``, ``frames_sent`` and ``frames_skipped`` (a slow viewer's skipped frames)
   and ``viewers_dropped`` (viewers disconnected because one send was pending more than
-  :data:`STALLED_SEND_S`) since the server started, and the core's ``dropped_ticks`` this run.
+  :data:`STALLED_SEND_S`) since the server started, ``instructors`` (instructor views connected,
+  counted in ``viewers`` too) and the core's ``dropped_ticks`` this run.
 - ``GET /api/events``: the most recent viewer events with the core time they arrived.
 - ``GET /api/fault``: active faults (``{id, type, kind, params, tick}``) and each component's
   supported kinds (PLAN 2.6). ``POST /api/fault`` with ``{"id", "kind", "params"}`` injects one,
@@ -49,6 +50,13 @@ Behavior spec
   :data:`BROADCAST_RETRY_S` while any viewer is connected.
   Each browser keeps its own camera; faults and exam switches are the core's, so every viewer
   sees the same ones.
+- ``WS /ws/instructor`` (PLAN 4.12): the instructor view's stream. The client's first message is
+  ``{"token": "..."}``; with a fault token configured it must match (on any bind, loopback too:
+  this stream shows what exam mode hides), with none it is open on loopback and refused beyond
+  it, as ``/api/fault``. A refusal is ``{"error": ...}`` and close code 1008. Accepted, it gets
+  the same frames as ``/ws/state`` from the same broadcaster plus ``instructor: true``,
+  ``faults`` (``{component id: fault kind}`` for every active fault, even in exam mode) and
+  ``comms``, that text serialized once per frame for every instructor.
 - ``WS /ws/events``: receives viewer events as JSON objects (see
   :meth:`Runtime.apply_event`). An invalid event is answered with ``{"error": "..."}`` and the
   socket stays open.
@@ -90,6 +98,8 @@ STATE_RATE_HZ = 20.0
 STALLED_SEND_S = 5.0
 #: After a broadcaster failure, wait this long before starting it again (review of 2026-11-10).
 BROADCAST_RETRY_S = 1.0
+#: How long an instructor socket may take to send its token (PLAN 4.12).
+INSTRUCTOR_AUTH_S = 5.0
 #: Request header carrying the fault token when the server is bound beyond loopback (PLAN §6.4).
 FAULT_TOKEN_HEADER = "X-OpenFactory-Fault-Token"
 
@@ -215,6 +225,7 @@ def create_app(
             "frames_sent": frames["sent"],
             "frames_skipped": frames["skipped"],
             "viewers_dropped": frames["dropped"],
+            "instructors": len(instructors),
             "dropped_ticks": scheduler.stats.dropped if scheduler is not None else 0,
         }
 
@@ -283,6 +294,7 @@ def create_app(
     frames = {"serialized": 0, "sent": 0, "skipped": 0, "dropped": 0}
     broadcaster: dict[str, asyncio.Task[None] | None] = {"task": None}
     dropping: set[asyncio.Task[None]] = set()
+    instructors: set[WebSocket] = set()  # PLAN 4.12: these viewers get the instructor frame
     app.state.viewers = viewers
     app.state.frames = frames
 
@@ -291,6 +303,21 @@ def create_app(
         every viewer. All WebSocket handlers run on this event loop's thread: no lock."""
         frames["serialized"] += 1
         return json.dumps({**runtime.snapshot, "viewers": len(viewers)}, separators=(",", ":"))
+
+    def instructor_text() -> str:
+        """The frame plus every active fault (PLAN 4.12), serialized once for every instructor.
+        A replay has no fault API: its recorded component states carry their faults."""
+        faults_of = getattr(runtime, "faults", None)
+        found = faults_of() if faults_of is not None else {"active": [], "comms": None}
+        frames["serialized"] += 1
+        frame = {
+            **runtime.snapshot,
+            "viewers": len(viewers),
+            "instructor": True,
+            "faults": {f["id"]: f["kind"] for f in found["active"]},
+            "comms": found.get("comms"),
+        }
+        return json.dumps(frame, separators=(",", ":"))
 
     async def send(ws: WebSocket, text: str) -> None:
         try:
@@ -321,6 +348,7 @@ def create_app(
         """Disconnect a viewer whose send is stuck: forget it, cancel the send, close it."""
         frames["dropped"] += 1
         viewers.pop(ws, None)
+        instructors.discard(ws)
         pending.cancel()
         log.warning("dropped a viewer whose frame send was pending over %g s", STALLED_SEND_S)
         with contextlib.suppress(Exception):
@@ -332,6 +360,7 @@ def create_app(
         deadline = loop.time()
         while viewers:
             text = frame_text()
+            teacher = instructor_text() if instructors else text
             now = loop.time()
             for ws, entry in list(viewers.items()):
                 if entry is not None and not entry[0].done():
@@ -342,7 +371,8 @@ def create_app(
                     else:
                         frames["skipped"] += 1  # a slow viewer: it gets the next frame instead
                     continue
-                viewers[ws] = (asyncio.create_task(send(ws, text)), now)
+                body = teacher if ws in instructors else text
+                viewers[ws] = (asyncio.create_task(send(ws, body)), now)
             deadline += period
             delay = deadline - loop.time()
             if delay < -period:  # fell behind: restart the schedule
@@ -350,22 +380,57 @@ def create_app(
                 delay = 0.0
             await asyncio.sleep(max(delay, 0.0))
 
-    @app.websocket("/ws/state")
-    async def ws_state(ws: WebSocket) -> None:
-        await ws.accept()
+    async def serve_viewer(ws: WebSocket) -> None:
+        """Join the broadcaster until the viewer leaves (it sends nothing; this notices)."""
         viewers[ws] = None
         task = broadcaster["task"]
         if task is None or task.done():  # none yet, or it ended (or failed): start one
             broadcaster["task"] = asyncio.create_task(broadcast())
         try:
-            while True:  # the viewer sends nothing here; this notices it leaving
+            while True:
                 await ws.receive_text()
         except (WebSocketDisconnect, RuntimeError):
             pass
         finally:
+            instructors.discard(ws)
             entry = viewers.pop(ws, None)
             if entry is not None:
                 entry[0].cancel()
+
+    @app.websocket("/ws/state")
+    async def ws_state(ws: WebSocket) -> None:
+        await ws.accept()
+        await serve_viewer(ws)
+
+    def instructor_refusal(token: object) -> str | None:
+        """Why an instructor socket is refused, or None (PLAN 4.12). A configured token is
+        always required; with none, loopback is open and anything else refused."""
+        if expected is not None:
+            if isinstance(token, str) and hmac.compare_digest(token.encode(), expected):
+                return None
+            return "instructor view: missing or wrong fault token"
+        if faults_open:
+            return None
+        return "instructor view off: this server is bound beyond loopback and has no fault token"
+
+    @app.websocket("/ws/instructor")
+    async def ws_instructor(ws: WebSocket) -> None:
+        await ws.accept()
+        try:
+            first = await asyncio.wait_for(ws.receive_text(), timeout=INSTRUCTOR_AUTH_S)
+            sent = json.loads(first)
+            token = sent.get("token") if isinstance(sent, dict) else None
+        except (TimeoutError, ValueError, WebSocketDisconnect, RuntimeError):
+            token = None
+        refusal = instructor_refusal(token)
+        if refusal is not None:
+            log.warning("refused an instructor view: %s", refusal)
+            with contextlib.suppress(Exception):
+                await ws.send_text(json.dumps({"error": refusal, "refused": True}))
+                await ws.close(code=1008)
+            return
+        instructors.add(ws)
+        await serve_viewer(ws)
 
     @app.websocket("/ws/events")
     async def ws_events(ws: WebSocket) -> None:
@@ -384,6 +449,12 @@ def create_app(
             pass
 
     if web_dist is not None and (web_dist / "index.html").is_file():
+
+        @app.get("/instructor", include_in_schema=False)
+        def instructor_page() -> FileResponse:
+            """The instructor view (PLAN 4.12): the same viewer, which reads its path."""
+            return FileResponse(web_dist / "index.html")
+
         app.mount("/", StaticFiles(directory=web_dist, html=True), name="viewer")
     else:
 
