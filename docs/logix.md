@@ -92,6 +92,11 @@ with LogixDriver("<path>") as plc:
     print(plc.read("SIM_HEARTBEAT_DI"))  # reads back True
 ```
 
+## The first live test: Echo
+
+[The Echo runbook](logix-echo-test.md) is the step-by-step guide for the owner's Echo test on a separate
+Windows VM or PC, with a results table to fill in.
+
 ## What is not proven yet
 
 The fake controller in the tests stands in for pycomm3's `LogixDriver` (open, close, the tag list,

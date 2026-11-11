@@ -76,6 +76,7 @@ nav:
       - Component types: []
       - ignition.md
       - logix.md
+      - logix-echo-test.md
       - plantpax.md
       - versioning.md
       - what-openfactory-is-not.md
