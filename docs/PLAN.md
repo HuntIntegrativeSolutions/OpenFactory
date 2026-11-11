@@ -1228,6 +1228,15 @@ runs the sorting program against it; a box visibly gets pushed.
         tank-level-pid 0.006375 (**+0.3 %**). So the process entry's -23 % is one runner CPU
         (EPYC 9V74), not every runner. For the owner, on two data points: accept, rebase that
         entry on CI runs, or give the process scene its own calibration; or wait for more runs.
+      - *One-sided gate (ruled 2026-11-10, done):* for every entry, a candidate score more than
+        25 % slower than its baseline fails; more than 25 % faster passes and is annotated as a
+        warning (`::warning`) naming the entry and the runner's CPU, since then the calibration
+        does not carry to that runner and the gate has lost headroom there; within 25 % either
+        way is a plain notice. Baselines unchanged. The two runs behind the ruling: 42955811835,
+        EPYC 9V74, tank-level-pid -23.0 % (would have been plain under this rule, inside 25 %),
+        and 42958754035, EPYC 9V45, +0.3 %. `tools/bench.py` (`too_fast`); `tests/unit/
+        test_bench.py`: 26 % faster warns and names the CPU, exactly 25 % faster is plain, 26 %
+        slower fails, and on Actions an all-faster run passes with `::warning` annotations.
       - *Process scene in the gate (ruled 2026-11-08):* `tank-level-pid` under its stand-in
         script for the fixed 5000 ticks replaces `flow-net` (`PROCESS` in `tools/bench.py`):
         0.18 to 0.26 ms a tick here, the script's scan included, score 0.0023 to 0.0024 over

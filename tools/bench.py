@@ -303,9 +303,18 @@ def measure(scene: Path, script: Path | None = None) -> dict[str, float]:
 GATE = "candidate_score"
 
 
+def too_fast(got: dict[str, float], base: dict[str, float]) -> bool:
+    """More than ``LIMIT`` faster than the baseline: passes, but is annotated as a warning, since
+    it means the calibration does not carry to this runner and the gate has lost headroom
+    (PLAN 2.9: tank-level-pid -23 % on an EPYC 9V74, +0.3 % on an EPYC 9V45)."""
+    return got[GATE] * LIMIT < base[GATE]
+
+
 def compare(name: str, got: dict[str, float], base: dict[str, float] | None) -> tuple[bool, str]:
     """(passed, report line) for one scene's measurement against its baseline entry, gated on
-    :data:`GATE`; the old calibration's ``score`` is printed beside it, not compared."""
+    :data:`GATE`; the old calibration's ``score`` is printed beside it, not compared. The gate
+    is one-sided (ruled 2026-11-10): more than ``LIMIT`` slower fails; more than ``LIMIT``
+    faster passes with a warning (:func:`too_fast`) naming the entry and the runner's CPU."""
     line = (
         f"{name}: step {got['step_ms']:.3f} ms, candidate {got['candidate_ms']:.3f} ms, "
         f"score {got[GATE]:.6f} (old calibration {got['score']:.6f}, not gated)"
@@ -314,7 +323,15 @@ def compare(name: str, got: dict[str, float], base: dict[str, float] | None) -> 
         return False, f"{line}; no baseline (run tools/bench.py --update and commit it)"
     change = got[GATE] / base[GATE] - 1
     ok = got[GATE] <= base[GATE] * LIMIT
-    verdict = "ok" if ok else f"FAIL: more than {LIMIT - 1:.0%} slower"
+    if not ok:
+        verdict = f"FAIL: more than {LIMIT - 1:.0%} slower"
+    elif too_fast(got, base):
+        verdict = (
+            f"ok, WARNING: more than {LIMIT - 1:.0%} faster than the baseline on "
+            f"{got.get('cpu', 'an unnamed CPU')}; the calibration may not carry to this runner"
+        )
+    else:
+        verdict = "ok"
     return ok, f"{line}; baseline {base[GATE]:.6f} ({change:+.1%}), {verdict}"
 
 
@@ -370,7 +387,8 @@ def main(argv: list[str] | None = None) -> int:
         ok, line = compare(name, got, base.get(name))
         print(line)
         if os.environ.get("GITHUB_ACTIONS") == "true":
-            level = "notice" if ok else "error"
+            fast = ok and name in base and too_fast(got, base[name])
+            level = "error" if not ok else "warning" if fast else "notice"
             print(f"::{level} title=tick-cost gate {name}::{line} {json.dumps(got)}")
         passed &= ok
     return 0 if passed else 1

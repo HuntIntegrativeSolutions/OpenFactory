@@ -29,6 +29,29 @@ def test_a_score_up_to_25_percent_over_the_baseline_passes_and_above_fails():
     assert not ok and "+26.0%" in line and "FAIL: more than 25% slower" in line
 
 
+def test_the_gate_is_one_sided_much_faster_passes_with_a_warning_naming_entry_and_cpu(
+    monkeypatch, capsys
+):
+    """Ruled 2026-11-10: more than 25 % slower fails; more than 25 % faster passes and is a
+    warning annotation naming the entry and the runner's CPU; within 25 % either way is plain."""
+    base = {"score": 0.02, "candidate_score": 0.0800}
+    fast = {**got(0.0800 / 1.26), "cpu": "AMD EPYC 9V74 80-Core Processor"}
+    ok, line = bench.compare("tank-level-pid", fast, base)
+    assert ok and "WARNING: more than 25% faster" in line and "AMD EPYC 9V74" in line
+    ok, line = bench.compare("s", got(0.0800 / 1.25), base)  # exactly 25 % faster: plain ok
+    assert ok and "WARNING" not in line
+    assert not bench.compare("s", got(0.0800 * 1.26), base)[0]  # slower still fails
+    baseline = json.loads(bench.BASELINE.read_text(encoding="utf-8"))["scenes"]
+    slow = min(e["candidate_score"] for e in baseline.values()) / 1.3  # faster than every entry
+    monkeypatch.setattr(bench, "measure", lambda *paths: {**got(slow), "cpu": "Test CPU 9000"})
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert bench.main([]) == 0  # all much faster: passes
+    notes = [x for x in capsys.readouterr().out.splitlines() if x.startswith("::")]
+    assert len(notes) == len(bench.SCENES) + len(bench.PROCESS)
+    load = next(n for n in notes if "tick-cost gate load-200::" in n)
+    assert load.startswith("::warning title=tick-cost gate load-200::") and "Test CPU 9000" in load
+
+
 def test_a_scene_without_a_baseline_fails_and_says_how_to_make_one():
     ok, line = bench.compare("s", got(0.02), None)
     assert not ok and "tools/bench.py --update" in line
