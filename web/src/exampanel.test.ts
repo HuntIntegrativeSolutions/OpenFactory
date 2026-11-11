@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SwitchHold } from "./exampanel";
+import { examPanelTop, SwitchHold } from "./exampanel";
 
 describe("an exam switch click is held until the core echoes it (ruled 2026-11-10)", () => {
   it("ignores a stale frame after the click and follows frames again once one agrees", () => {
@@ -24,5 +24,16 @@ describe("an exam switch click is held until the core echoes it (ruled 2026-11-1
     expect(hold.shown("B", false, 10)).toBe(false);
     hold.release("A");
     expect(hold.shown("A", false, 10)).toBe(false);
+  });
+});
+
+describe("the exam panel keeps clear of the status lines (review of 2026-11-10)", () => {
+  it("stays at the top right when both fit side by side", () => {
+    expect(examPanelTop({ right: 600, bottom: 90 }, 320, 1280)).toBe(12);
+  });
+
+  it("drops below the status lines when the viewport is too narrow", () => {
+    expect(examPanelTop({ right: 600, bottom: 90 }, 320, 640)).toBe(98);
+    expect(examPanelTop({ right: 300.2, bottom: 87.4 }, 320, 640)).toBe(96);
   });
 });

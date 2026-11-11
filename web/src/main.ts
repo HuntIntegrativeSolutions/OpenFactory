@@ -88,6 +88,7 @@ labels.domElement.style.cssText = "position:absolute;top:0;left:0;pointer-events
 app.appendChild(labels.domElement);
 
 const hud = document.createElement("div");
+hud.id = "hud";
 hud.style.cssText =
   `position:absolute;top:12px;left:16px;font:14px/1.45 Arial,sans-serif;color:${cssColor("normalText")};` +
   "pointer-events:none;white-space:pre";
@@ -397,6 +398,7 @@ function onFrame(frame: StateFrame): void {
     `${frame.viewers === undefined ? "" : `   viewers ${frame.viewers}`}\n` +
     `running: ${running.map((v) => v.id).join(", ") || "none"}\n` +
     frameLine();
+  examPanel?.avoid(hud); // below the status lines on a narrow screen
   stateCost.frame(start, performance.now() - start);
   status.stateMs = stateCost.renderMs; // main-thread ms per state frame: scene updates and physics
 }

@@ -115,7 +115,21 @@ def test_the_instructor_sees_faults_and_switches_but_cannot_turn_them(tmp_path):
             # ...while a trainee's turn shows on the instructor's panel
             trainees[0].get_by_text("PE_01_DI: OFF").click()
             teacher.get_by_text("PE_01_DI: ON").wait_for(timeout=30_000)
+
+            # at 640 px the exam panel does not cover the status lines (review of 2026-11-10)
+            for page in [teacher, *trainees]:
+                page.wait_for_timeout(300)  # a few frames: the panel follows the HUD's height
+                hud, panel = (
+                    page.locator("#hud").bounding_box(),
+                    page.locator("#exam-panel").bounding_box(),
+                )
+                assert hud and panel and panel["width"] > 0
+                apart = (
+                    panel["y"] >= hud["y"] + hud["height"] or panel["x"] >= hud["x"] + hud["width"]
+                )
+                assert apart, (hud, panel)
             teacher.screenshot(path=str(tmp_path / "instructor.png"))
+            trainees[1].screenshot(path=str(tmp_path / "trainee.png"))
             browser.close()
         until(lambda: api(web, "/api/status")["viewers"] == 0)
     finally:

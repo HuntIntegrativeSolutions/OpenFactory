@@ -47,6 +47,20 @@ export class SwitchHold {
   }
 }
 
+/** The panel's distance from the top (px): 12 at the top right, or just below the status
+ * lines (the HUD) when the viewport is too narrow for both side by side (review of 2026-11-10:
+ * at 640 px the panel covered the status line). */
+export function examPanelTop(
+  hud: { right: number; bottom: number },
+  panelWidth: number,
+  viewportWidth: number,
+): number {
+  const MARGIN = 12;
+  const GAP = 8;
+  const left = viewportWidth - MARGIN - panelWidth;
+  return hud.right + GAP > left ? Math.ceil(hud.bottom + GAP) : MARGIN;
+}
+
 interface ExamState {
   enabled: boolean;
   switches: ExamSwitch[];
@@ -115,6 +129,14 @@ export class ExamPanel {
       const on = this.hold.shown(tag, Boolean(io[tag]), now);
       if (button.dataset.on !== String(on)) this.show(tag, on);
     }
+  }
+
+  /** Keep clear of the status lines: below them when the viewport is too narrow. */
+  avoid(hud: HTMLElement): void {
+    if (this.element.style.display === "none") return;
+    const top = examPanelTop(hud.getBoundingClientRect(), this.element.offsetWidth, window.innerWidth);
+    const css = `${top}px`;
+    if (this.element.style.top !== css) this.element.style.top = css;
   }
 
   private show(tag: string, on: boolean): void {
