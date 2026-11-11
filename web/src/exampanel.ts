@@ -14,6 +14,39 @@ interface ExamSwitch {
   on: boolean;
 }
 
+/**
+ * Clicked switches held at the clicked value until a state frame echoes it (ruled 2026-11-10).
+ * The POST reply and the state frames come over different connections, so a frame serialized
+ * just before the switch was applied can arrive after the reply and would flip the button back
+ * for one frame. A held switch ignores frames that disagree with the click, until one agrees or
+ * `HOLD_MS` passes (then the core's value wins: the click was lost or someone else turned it).
+ */
+export class SwitchHold {
+  static readonly HOLD_MS = 2000;
+  private held = new Map<string, { on: boolean; until: number }>();
+
+  /** A click: show `on` until a frame agrees, or for HOLD_MS at most. */
+  click(tag: string, on: boolean, now: number): void {
+    this.held.set(tag, { on, until: now + SwitchHold.HOLD_MS });
+  }
+
+  /** The server answered or failed: stop holding (the reply, or the next frame, decides). */
+  release(tag: string): void {
+    this.held.delete(tag);
+  }
+
+  /** What to show for `tag` given a frame's value: the held click, or the frame. */
+  shown(tag: string, frame: boolean, now: number): boolean {
+    const h = this.held.get(tag);
+    if (h === undefined) return frame;
+    if (frame === h.on || now > h.until) {
+      this.held.delete(tag); // echoed, or too old to keep waiting for
+      return frame;
+    }
+    return h.on; // a stale frame: keep the click
+  }
+}
+
 interface ExamState {
   enabled: boolean;
   switches: ExamSwitch[];
@@ -22,6 +55,7 @@ interface ExamState {
 export class ExamPanel {
   readonly element: HTMLDivElement;
   private buttons = new Map<string, HTMLButtonElement>();
+  private hold = new SwitchHold();
 
   constructor() {
     this.element = document.createElement("div");
@@ -64,8 +98,9 @@ export class ExamPanel {
 
   /** Follow the core's state frame (PLAN 4.3): a switch another viewer turned shows here too. */
   sync(io: Record<string, boolean | number>): void {
+    const now = performance.now();
     for (const [tag, button] of this.buttons) {
-      const on = Boolean(io[tag]);
+      const on = this.hold.shown(tag, Boolean(io[tag]), now);
       if (button.dataset.on !== String(on)) this.show(tag, on);
     }
   }
@@ -80,11 +115,25 @@ export class ExamPanel {
 
   private async toggle(tag: string): Promise<void> {
     const on = this.buttons.get(tag)?.dataset.on !== "true";
-    const res = await guardedFetch("/api/exam", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tag, on }),
-    });
-    if (res.ok) this.show(tag, ((await res.json()) as { on: boolean }).on);
+    this.hold.click(tag, on, performance.now());
+    this.show(tag, on);
+    let res: Response;
+    try {
+      res = await guardedFetch("/api/exam", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag, on }),
+      });
+    } catch {
+      this.hold.release(tag); // not sent: the next frame shows the core's value
+      return;
+    }
+    if (!res.ok) {
+      this.hold.release(tag);
+      return;
+    }
+    const applied = ((await res.json()) as { on: boolean }).on;
+    if (applied !== on) this.hold.release(tag); // the core says otherwise: follow it
+    this.show(tag, applied);
   }
 }

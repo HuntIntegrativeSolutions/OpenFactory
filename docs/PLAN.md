@@ -2319,6 +2319,16 @@ runs the sorting program against it; a box visibly gets pushed.
       `test_a_viewer_stuck_on_a_send_is_dropped_and_the_others_keep_their_frames` (real uvicorn,
       one event loop: the stuck viewer is dropped and closed, the other keeps receiving; fails
       on the old code).
+      *Exam panel sync (ruled 2026-11-10: accepted; hold the click if a stale frame can flip
+      it):* not seen. A Playwright probe clicked `PE_01_DI` 40 times at 0.4 s intervals on the
+      sorter in exam mode, with one viewer and again with ten, recording every change of the
+      button's text: every click changed it exactly once (the reply and the next frame wrote
+      the same value), no flip back. It can happen by construction, though: the POST reply and
+      the state frames use different connections, so a frame serialized just before the switch
+      was applied can arrive after the reply. `SwitchHold` (`web/src/exampanel.ts`) now shows
+      the clicked value until a frame agrees, or for 2 s at most (a lost click then shows the
+      core's value); a failed or contrary reply releases it. `exampanel.test.ts` (3); the probe
+      after the change: 20 clicks, no flip.
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from
       `docs/components.md` and the registry; guides and ADRs included; built in CI and deployed
