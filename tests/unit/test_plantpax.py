@@ -142,3 +142,34 @@ def test_no_rung_puts_a_condition_after_a_coil(name, tmp_path):
     assert len(texts) > 10
     bad = [t for t in texts if outputs_then_conditions(t)]
     assert bad == []
+
+
+@pytest.mark.parametrize("name", sorted(plantpax.MAPS))
+def test_program_commands_are_never_issued_in_the_first_scan(name, tmp_path):
+    """Review of 2026-11-10 (fix 2): RM013 says P_PIDE (p. 82), P_Motor (p. 130) and P_ValveC
+    (p. 287) discard commands received at power-up, so Init, which runs on the first scan before
+    the objects, issues none; the ownership request is the last rung of Control (after every
+    object call, read on the second scan); Auto follows the loop's own Sts_Prog; and the
+    setpoint is written every scan, since in Operator the program settings track the
+    operator's."""
+    root = export(name, tmp_path)
+    routine = {
+        r.get("Name"): [x.findtext("Text") for x in r.iter("Rung")] for r in root.iter("Routine")
+    }
+    init, control = "".join(routine["Init"]), routine["Control"]
+    assert "PCmd_" not in init and "PSet_" not in init
+    assert f"OTL({plantpax.PROG_REQ})" in init
+    last_call = max(i for i, t in enumerate(control) if re.match(r"P_\w+\(", t))
+    owners = [i for i, t in enumerate(control) if "PCmd_Prog" in t]
+    assert owners == [len(control) - 1] and owners[0] > last_call
+    assert control[-1].startswith(f"XIC({plantpax.PROG_REQ})")
+    assert control[-1].endswith(f"OTU({plantpax.PROG_REQ});")
+    with_prog = {i.tag for i in plantpax.MAPS[name].instances if i.aoi != "P_AIn"}
+    assert set(re.findall(r"OTL\((\w+)\.PCmd_Prog\)", control[-1])) == with_prog
+    lic = plantpax.LIC.tag
+    (auto,) = [t for t in control if "PCmd_Auto" in t]
+    assert auto.startswith(f"XIC({lic}.Sts_Prog)ONS(")
+    pide_call = control.index(f"P_PIDE({lic});")
+    assert control.index(auto) > pide_call
+    assert control.index(f"MOV({plantpax.SP},{lic}.PSet_SP);") < pide_call
+    assert "S:FS" not in "".join(control + routine["Init"])

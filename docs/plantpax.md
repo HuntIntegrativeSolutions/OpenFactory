@@ -25,15 +25,54 @@ not run against the plant.
 |---|---|
 | Controller tags | The scene's I/O, exactly as `--format l5x` writes them (BOOL and REAL, described, with ranges) |
 | Instance tags | `DEMO_LT_101` (`P_AIn`), `DEMO_LIC_101` (`P_PIDE`), `DEMO_LV_101` (`P_ValveC`), `DEMO_P_101` (`P_Motor`), each with an ISA-5.1 description and **no `<Data>`** |
-| Support tags | `DEMO_LOAD_TMR` (TIMER), `DEMO_LOAD_DELAY_MS` (DINT), `DEMO_LOAD_ONS` (BOOL): the demo's load step, the transfer pump starting 20 s after power-up |
+| Support tags | `DEMO_LIC_101_SP` (REAL, the loop's tunable setpoint, 1.0 m), `DEMO_PROG_REQ` and `DEMO_LIC_101_AUTO_ONS` (BOOL: the program-ownership request and the Auto one-shot); in `plantpax-tank-level` also `DEMO_LOAD_TMR` (TIMER), `DEMO_LOAD_DELAY_MS` (DINT), `DEMO_LOAD_ONS` (BOOL): the demo's load step, the transfer pump starting 20 s after power-up |
 | Program `PlantPAx_Demo` | `MainRoutine`: `Init` on the first scan only (`S:FS`), then `Control` every scan |
-| Routine `Init` | One commented rung per object: ranges, the PI tuning carried over from `tank-level-pid` (gain 8 %/%, 10 repeats a minute, dependent form, reverse acting), the setpoint 1.0 m, the interlock CVs, program ownership and automatic mode |
-| Routine `Control` | The scene's tags wired to the objects in signal order (level → `P_AIn` → `P_PIDE` → `P_ValveC` → valve; pump feedback and the low-level interlock → `P_Motor` → run), each object called once |
+| Routine `Init` | Configuration only, one commented rung per object: ranges, the PI tuning carried over from `tank-level-pid` (gain 8 %/%, 10 repeats a minute, dependent form, reverse acting), the setpoint tag 1.0 m, the interlock CVs; then it raises `DEMO_PROG_REQ`. **No program command and no `PSet_` value is written in the first scan** (see "Program ownership" below) |
+| Routine `Control` | The scene's tags wired to the objects in signal order (level → `P_AIn` → `P_PIDE` → `P_ValveC` → valve; pump feedback and the low-level interlock → `P_Motor` → run), each object called once; `PSet_SP` written from `DEMO_LIC_101_SP` every scan; Auto requested once `P_PIDE` reports Program; and, last, the program-ownership request |
 
 **It does not contain:** the Add-On Instruction definitions or the library's data types (Rockwell
 distributes them; import the library into the project first), I/O modules (the plant is
 OpenFactory, reached through tags), rationalized alarms (none are configured: a scene has no
 rationalized setpoints, ISA-18.2), HMI, or anything safety-related.
+
+## Program ownership and the first scan
+
+Review of 2026-11-10: `Init` used to latch `PCmd_Prog` (and `PCmd_Auto` on the loop) in the first
+scan. What RM013 (PROCES-RM013I-EN-P, April 2023) says about that:
+
+- **Commands received at power-up are discarded.** The execution table of each object says so
+  for its powerup (prescan, first scan) condition: `P_PIDE` p. 82, `P_Motor` p. 130, `P_ValveC`
+  p. 287. `Init` runs on the first scan *before* the objects are called, so its commands were
+  exposed to that.
+- **Whether a command issued in the scan that acquires Program is honoured is not documented.**
+  RM013 does not say whether `PCmd_Auto` (or a `PSet_` value) given in the same scan as
+  `PCmd_Prog` is accepted or dropped; the file is written so that the question never arises.
+- **Program settings track the operator's while in Operator.** `Cfg_SetTrack` (library default 1,
+  workbooks "Regulatory_Procedural Control 4.1" and "Valves 4.1") makes the `PSet_` values follow
+  the operator settings in the Operator command source, so a `PSet_SP` written once before
+  Program is acquired is overwritten.
+- **The library has a power-up owner setting:** `Cfg_ProgPwrUp` of the embedded command-source
+  instruction `P_CmdSrc` (workbook "Cross Functional 4.1", Input Parameters; text p. 381 and its
+  prescan row p. 388): set to 1, the object powers up with Program selected. On `P_PIDE`,
+  `P_ValveC` and `P_Motor` it is **not** an input parameter: it is a member of the local tag
+  `CmdSrc`, and RM013's own examples (`P_DOut` p. 61, `P_nPos` p. 289) only say that `CmdSrc.Cfg_ProgPwrUp` "is set
+  to 1", not how. It is applied at prescan, so a rung in `Init` could not affect the first power-up
+  anyway, and the file has no `<Data>` that could carry it. **The file therefore does not use it**
+  `[TBD: whether a partial import can carry CmdSrc.Cfg_ProgPwrUp on the three instances; set it in
+  the tag editor; import check 9]`.
+
+What the file does instead, so ownership never depends on that setting:
+
+1. `Init` writes configuration only and raises `DEMO_PROG_REQ`.
+2. The **last rung of `Control`**, after every object call of the first scan, issues one
+   `PCmd_Prog` to each owned object and clears `DEMO_PROG_REQ`; each object reads it on the
+   second scan.
+3. `P_PIDE`'s `PCmd_Auto` is issued on the rising edge of its own `Sts_Prog`, after its call, so
+   the loop reads it on the scan after it reports Program.
+4. `PSet_SP` is written from `DEMO_LIC_101_SP` every scan (`PSet_CV` already was).
+
+`tests/unit/test_plantpax.py` (`test_program_commands_are_never_issued_in_the_first_scan`)
+holds all four.
 
 ## Verify on import (Studio 5000)
 
@@ -54,13 +93,19 @@ The owner verifies, in order, before the demo is shown (ruled 2026-11-09):
 6. **`P_PIDE`**: the gain form (`Cfg_Depend` set: dependent, so `Cfg_IGain` 10 is repeats per
    minute) and the action (`Cfg_CtrlAction` cleared: CV rises as the level falls), both
    `[TBD: verify the sense of each bit]`; the PV and CV ranges; program ownership and automatic
-   mode after the first scan; the setpoint `PSet_SP` 1.0 m.
+   mode a scan after power-up; the setpoint `PSet_SP` 1.0 m from `DEMO_LIC_101_SP`.
 7. **`P_ValveC`**: CV and raw ranges 0 to 100 % both sides (the scene's AO is already in %),
    position feedback from `FV_01_ZT_AI`, `Cfg_IntlkCV` 0 with `Inp_IntlkOK` off while the high
    level switch is on, and what it does with bad feedback.
 8. **`P_Motor`**: run feedback from `P_01_RUN_DI` (the scene reports running at once), the
    5 s fail-to-start time, the low-level interlock, and the one program start at 20 s.
-9. **`Init` runs once**, on the first scan only, and nothing else uses `S:FS`.
+9. **`Init` runs once**, on the first scan only, issues no program command, and nothing else
+   uses `S:FS`. **Program ownership:** a scan after power-up `P_PIDE`, `P_ValveC` and `P_Motor`
+   show Program (`Sts_Prog`) and `P_PIDE` shows Auto ("Program ownership and the first scan"
+   above). Optionally set `CmdSrc.Cfg_ProgPwrUp` to 1 on those three instances in the tag editor
+   so they also *power up* in Program (RM013 p. 381); the file works without it `[TBD: whether
+   the partial import can carry it, and whether ladder may write a member of an object's local
+   tag]`.
 10. **SoftwareRevision 35.00** (or `--controller` and the revision of your project) and the
     controller or emulator type match.
 11. **The live run** (after PLAN 2.2): the level holds 1.0 m across the pump's start as the
@@ -135,6 +180,7 @@ it lists nothing the rungs do not use.
 | `P_PIDE` | `PCmd_Auto` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
 | `P_PIDE` | `PCmd_Prog` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
 | `P_PIDE` | `PSet_SP` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Sts_Prog` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Output Parameters |
 | `P_ValveC` | `Cfg_CVEUMax` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
 | `P_ValveC` | `Cfg_CVEUMin` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
 | `P_ValveC` | `Cfg_CVRawMax` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
@@ -148,4 +194,3 @@ it lists nothing the rungs do not use.
 | `P_ValveC` | `Out_CV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Output Parameters |
 | `P_ValveC` | `PCmd_Prog` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
 | `P_ValveC` | `PSet_CV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-

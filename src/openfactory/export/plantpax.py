@@ -11,10 +11,14 @@ Objects 4.x (4.10.03 or later):
 - one instance tag per mapped object (``P_AIn``, ``P_PIDE``, ``P_ValveC``, ``P_Motor``), its
   ``DataType`` the object's name, with an ISA-5.1 description and **no** ``<Data>`` element: the
   library's own defaults apply, and the configuration is written by ``Init``;
-- a few support tags the routines need (a TIMER and its preset for the demo's load step);
+- a few support tags the routines need (the loop's tunable setpoint, the program-ownership
+  request and the Auto one-shot; a TIMER and its preset for the demo's load step);
 - program ``PlantPAx_Demo`` with three ladder routines: ``MainRoutine`` (``Init`` on the first
-  scan only, then ``Control`` every scan), ``Init`` (one commented rung per configuration value)
-  and ``Control`` (the scene tags wired to the objects, each object called once, in signal order).
+  scan only, then ``Control`` every scan), ``Init`` (one commented rung per configuration value,
+  and no program command: the objects discard commands received at power-up, RM013 pp. 82, 130,
+  287) and ``Control`` (the scene tags wired to the objects, each object called once, in signal
+  order; Auto once the loop reports Program; last, one ``PCmd_Prog`` per owned object, read on
+  the second scan; see :func:`_ownership` and docs/plantpax.md).
 
 What it does not contain (docs/plantpax.md): the Add-On Instruction definitions and the library's
 data types (Rockwell distributes them; the owner imports the library into the project first), I/O
@@ -91,6 +95,7 @@ CITED: dict[tuple[str, str], str] = {
     ("P_PIDE", "PCmd_Prog"): IN,
     ("P_PIDE", "PCmd_Auto"): IN,
     ("P_PIDE", "Out_CV"): OUT,
+    ("P_PIDE", "Sts_Prog"): OUT,
     ("P_ValveC", "Inp_PosFdbk"): IN,
     ("P_ValveC", "Inp_IntlkOK"): IN,
     ("P_ValveC", "Cfg_HasPosFdbk"): IN,
@@ -116,6 +121,9 @@ CITED: dict[tuple[str, str], str] = {
 
 AREA = "DEMO"  # HIS Controls AREA_EQUIP_NNN; the area prefix is the owner's to confirm
 PROGRAM = "PlantPAx_Demo"
+SP = f"{AREA}_LIC_101_SP"  # the loop's setpoint, a tunable REAL
+PROG_REQ = f"{AREA}_PROG_REQ"  # set by Init, consumed at the end of Control's first scan
+AUTO_ONS = f"{AREA}_LIC_101_AUTO_ONS"
 
 
 @dataclass(frozen=True)
@@ -170,12 +178,14 @@ _LOOP_INIT = (
         f"OTL({LIC.tag}.Cfg_Depend)OTU({LIC.tag}.Cfg_CtrlAction);",
     ),
     Rung(
-        "LIC-101 P_PIDE: setpoint 1.0 m (tunable: PSet_SP), CV 0 % while interlocked",
-        f"MOV(1.0,{LIC.tag}.PSet_SP)MOV(0.0,{LIC.tag}.Cfg_IntlkCV);",
+        f"LIC-101 P_PIDE: setpoint 1.0 m in {SP} (tunable; Control writes it to PSet_SP every "
+        "scan), CV 0 % while interlocked",
+        f"MOV(1.0,{SP})MOV(0.0,{LIC.tag}.Cfg_IntlkCV);",
     ),
     Rung(
-        "LIC-101 P_PIDE: program owner, automatic (one-shot program commands)",
-        f"OTL({LIC.tag}.PCmd_Prog)OTL({LIC.tag}.PCmd_Auto);",
+        "Request program ownership at the end of this scan's Control, after each object has run "
+        "its first scan: commands received at power-up are discarded (RM013 pp. 82, 130, 287)",
+        f"OTL({PROG_REQ});",
     ),
     Rung(
         "LV-101 P_ValveC: CV and feedback 0 to 100 % both sides (the scene's AO and AI are in %); "
@@ -183,7 +193,7 @@ _LOOP_INIT = (
         f"OTL({LV.tag}.Cfg_HasPosFdbk)MOV(0.0,{LV.tag}.Cfg_CVEUMin)MOV(100.0,{LV.tag}.Cfg_CVEUMax)"
         f"MOV(0.0,{LV.tag}.Cfg_CVRawMin)MOV(100.0,{LV.tag}.Cfg_CVRawMax)"
         f"MOV(0.0,{LV.tag}.Cfg_FdbkRawMin)MOV(100.0,{LV.tag}.Cfg_FdbkRawMax)"
-        f"MOV(0.0,{LV.tag}.Cfg_IntlkCV)OTL({LV.tag}.PCmd_Prog);",
+        f"MOV(0.0,{LV.tag}.Cfg_IntlkCV);",
     ),
 )
 
@@ -205,8 +215,19 @@ _LOOP_CONTROL = (
         f"XIO(TK_01_LSH_DI)OTE({LIC.tag}.Inp_IntlkOK);",
     ),
     Rung(
+        f"LIC-101 setpoint from {SP} every scan: while the loop is in Operator its program "
+        "settings track the operator's (Cfg_SetTrack, library default 1), so a write made once "
+        "would be lost before Program is acquired",
+        f"MOV({SP},{LIC.tag}.PSet_SP);",
+    ),
+    Rung(
         "LIC-101 P_PIDE instance call [TBD: operand count, instance only here]",
         f"P_PIDE({LIC.tag});",
+    ),
+    Rung(
+        "LIC-101 automatic: once the loop reports Program (Sts_Prog), one Auto command, read on "
+        "the next scan, so it never shares a scan with the ownership request",
+        f"XIC({LIC.tag}.Sts_Prog)ONS({AUTO_ONS})OTL({LIC.tag}.PCmd_Auto);",
     ),
     Rung(
         "LV-101 CV from LIC-101, position feedback from FV_01_ZT_AI, LSH closes the valve",
@@ -225,9 +246,9 @@ _LOOP_CONTROL = (
 
 _PUMP_INIT = (
     Rung(
-        "P-101 P_Motor: run feedback used, fail to start after 5 s, program owner",
+        "P-101 P_Motor: run feedback used, fail to start after 5 s",
         f"OTL({PMP.tag}.Cfg_HasRunFdbk)OTL({PMP.tag}.Cfg_UseRunFdbk)"
-        f"MOV(5.0,{PMP.tag}.Cfg_FailToStartT)OTL({PMP.tag}.PCmd_Prog);",
+        f"MOV(5.0,{PMP.tag}.Cfg_FailToStartT);",
     ),
 )
 
@@ -255,10 +276,33 @@ _PUMP_CONTROL = (
     ),
 )
 
+_LOOP_SUPPORT = (
+    (SP, "REAL", "LIC-101 Level Control Tank level setpoint, m (tunable, 1.0)"),
+    (PROG_REQ, "BOOL", "Program ownership request: set on the first scan, cleared on use"),
+    (AUTO_ONS, "BOOL", "LIC-101 automatic request: one-shot storage bit"),
+)
+
+
+def _ownership(*objects: Instance) -> Rung:
+    """The last rung of Control: the objects take program commands only after their first scan
+    (RM013: P_PIDE p. 82, P_Motor p. 130, P_ValveC p. 287 discard commands received at
+    power-up), so the request Init raises is issued here, after every object call of the first
+    scan, and each object reads it on the second. The library's own power-up owner,
+    CmdSrc.Cfg_ProgPwrUp (P_CmdSrc, RM013 p. 381), lives on each object's local CmdSrc tag,
+    which no rung here names (docs/plantpax.md, import check 9)."""
+    names = ", ".join(o.isa for o in objects)
+    return Rung(
+        f"Program ownership for {names}: one PCmd_Prog each, after the first scan's object calls",
+        f"XIC({PROG_REQ})"
+        + "".join(f"OTL({o.tag}.PCmd_Prog)" for o in objects)
+        + f"OTU({PROG_REQ});",
+    )
+
+
 MAPS: dict[str, PlantPaxMap] = {
     "plantpax-tank-level": PlantPaxMap(
         (LT, LIC, LV, PMP),
-        (
+        _LOOP_SUPPORT + (
             (f"{AREA}_LOAD_TMR", "TIMER", "Demo load step: transfer pump start delay timer"),
             (f"{AREA}_LOAD_DELAY_MS", "DINT", "Demo load step: pump start delay, ms (20000)"),
             (f"{AREA}_LOAD_ONS", "BOOL", "Demo load step: one-shot storage bit"),
@@ -267,9 +311,11 @@ MAPS: dict[str, PlantPaxMap] = {
             Rung("Demo load step: start the transfer pump 20 s after power-up (tunable)",
                  f"MOV(20000,{AREA}_LOAD_DELAY_MS);"),
         ),
-        _LOOP_CONTROL + _PUMP_CONTROL,
+        _LOOP_CONTROL + _PUMP_CONTROL + (_ownership(LIC, LV, PMP),),
     ),
-    "tank-level-pid": PlantPaxMap((LT, LIC, LV), (), _LOOP_INIT, _LOOP_CONTROL),
+    "tank-level-pid": PlantPaxMap(
+        (LT, LIC, LV), _LOOP_SUPPORT, _LOOP_INIT, _LOOP_CONTROL + (_ownership(LIC, LV),)
+    ),
 }  # fmt: skip
 
 MEMBER = re.compile(r"\b(" + AREA + r"_[A-Z0-9_]+)\.([A-Za-z][A-Za-z0-9_]*)")
@@ -340,7 +386,9 @@ def plantpax_l5x(
             "</Tag>",
         ]
     for name, data_type, description in plan.support:
-        radix = "" if data_type in ("TIMER", "BOOL") else ' Radix="Decimal"'
+        radix = {"TIMER": "", "BOOL": "", "REAL": ' Radix="Float"'}.get(
+            data_type, ' Radix="Decimal"'
+        )
         lines += [
             f'<Tag Name="{name}" TagType="Base" DataType="{data_type}"{radix} Constant="false"'
             ' ExternalAccess="Read/Write">',

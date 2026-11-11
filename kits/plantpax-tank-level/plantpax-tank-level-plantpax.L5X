@@ -38,6 +38,15 @@
 <Tag Name="DEMO_P_101" TagType="Base" DataType="P_Motor" Constant="false" ExternalAccess="Read/Write">
 <Description><![CDATA[Level Control Tank Transfer Pump P-101]]></Description>
 </Tag>
+<Tag Name="DEMO_LIC_101_SP" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[LIC-101 Level Control Tank level setpoint, m (tunable, 1.0)]]></Description>
+</Tag>
+<Tag Name="DEMO_PROG_REQ" TagType="Base" DataType="BOOL" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Program ownership request: set on the first scan, cleared on use]]></Description>
+</Tag>
+<Tag Name="DEMO_LIC_101_AUTO_ONS" TagType="Base" DataType="BOOL" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[LIC-101 automatic request: one-shot storage bit]]></Description>
+</Tag>
 <Tag Name="DEMO_LOAD_TMR" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
 <Description><![CDATA[Demo load step: transfer pump start delay timer]]></Description>
 </Tag>
@@ -79,20 +88,20 @@
 <Text><![CDATA[MOV(8.0,DEMO_LIC_101.Cfg_PGain)MOV(10.0,DEMO_LIC_101.Cfg_IGain)MOV(0.0,DEMO_LIC_101.Cfg_DGain)OTL(DEMO_LIC_101.Cfg_Depend)OTU(DEMO_LIC_101.Cfg_CtrlAction);]]></Text>
 </Rung>
 <Rung Number="3" Type="N">
-<Comment><![CDATA[LIC-101 P_PIDE: setpoint 1.0 m (tunable: PSet_SP), CV 0 % while interlocked]]></Comment>
-<Text><![CDATA[MOV(1.0,DEMO_LIC_101.PSet_SP)MOV(0.0,DEMO_LIC_101.Cfg_IntlkCV);]]></Text>
+<Comment><![CDATA[LIC-101 P_PIDE: setpoint 1.0 m in DEMO_LIC_101_SP (tunable; Control writes it to PSet_SP every scan), CV 0 % while interlocked]]></Comment>
+<Text><![CDATA[MOV(1.0,DEMO_LIC_101_SP)MOV(0.0,DEMO_LIC_101.Cfg_IntlkCV);]]></Text>
 </Rung>
 <Rung Number="4" Type="N">
-<Comment><![CDATA[LIC-101 P_PIDE: program owner, automatic (one-shot program commands)]]></Comment>
-<Text><![CDATA[OTL(DEMO_LIC_101.PCmd_Prog)OTL(DEMO_LIC_101.PCmd_Auto);]]></Text>
+<Comment><![CDATA[Request program ownership at the end of this scan's Control, after each object has run its first scan: commands received at power-up are discarded (RM013 pp. 82, 130, 287)]]></Comment>
+<Text><![CDATA[OTL(DEMO_PROG_REQ);]]></Text>
 </Rung>
 <Rung Number="5" Type="N">
 <Comment><![CDATA[LV-101 P_ValveC: CV and feedback 0 to 100 % both sides (the scene's AO and AI are in %); position feedback used; closed while interlocked]]></Comment>
-<Text><![CDATA[OTL(DEMO_LV_101.Cfg_HasPosFdbk)MOV(0.0,DEMO_LV_101.Cfg_CVEUMin)MOV(100.0,DEMO_LV_101.Cfg_CVEUMax)MOV(0.0,DEMO_LV_101.Cfg_CVRawMin)MOV(100.0,DEMO_LV_101.Cfg_CVRawMax)MOV(0.0,DEMO_LV_101.Cfg_FdbkRawMin)MOV(100.0,DEMO_LV_101.Cfg_FdbkRawMax)MOV(0.0,DEMO_LV_101.Cfg_IntlkCV)OTL(DEMO_LV_101.PCmd_Prog);]]></Text>
+<Text><![CDATA[OTL(DEMO_LV_101.Cfg_HasPosFdbk)MOV(0.0,DEMO_LV_101.Cfg_CVEUMin)MOV(100.0,DEMO_LV_101.Cfg_CVEUMax)MOV(0.0,DEMO_LV_101.Cfg_CVRawMin)MOV(100.0,DEMO_LV_101.Cfg_CVRawMax)MOV(0.0,DEMO_LV_101.Cfg_FdbkRawMin)MOV(100.0,DEMO_LV_101.Cfg_FdbkRawMax)MOV(0.0,DEMO_LV_101.Cfg_IntlkCV);]]></Text>
 </Rung>
 <Rung Number="6" Type="N">
-<Comment><![CDATA[P-101 P_Motor: run feedback used, fail to start after 5 s, program owner]]></Comment>
-<Text><![CDATA[OTL(DEMO_P_101.Cfg_HasRunFdbk)OTL(DEMO_P_101.Cfg_UseRunFdbk)MOV(5.0,DEMO_P_101.Cfg_FailToStartT)OTL(DEMO_P_101.PCmd_Prog);]]></Text>
+<Comment><![CDATA[P-101 P_Motor: run feedback used, fail to start after 5 s]]></Comment>
+<Text><![CDATA[OTL(DEMO_P_101.Cfg_HasRunFdbk)OTL(DEMO_P_101.Cfg_UseRunFdbk)MOV(5.0,DEMO_P_101.Cfg_FailToStartT);]]></Text>
 </Rung>
 <Rung Number="7" Type="N">
 <Comment><![CDATA[Demo load step: start the transfer pump 20 s after power-up (tunable)]]></Comment>
@@ -119,40 +128,52 @@
 <Text><![CDATA[XIO(TK_01_LSH_DI)OTE(DEMO_LIC_101.Inp_IntlkOK);]]></Text>
 </Rung>
 <Rung Number="4" Type="N">
+<Comment><![CDATA[LIC-101 setpoint from DEMO_LIC_101_SP every scan: while the loop is in Operator its program settings track the operator's (Cfg_SetTrack, library default 1), so a write made once would be lost before Program is acquired]]></Comment>
+<Text><![CDATA[MOV(DEMO_LIC_101_SP,DEMO_LIC_101.PSet_SP);]]></Text>
+</Rung>
+<Rung Number="5" Type="N">
 <Comment><![CDATA[LIC-101 P_PIDE instance call [TBD: operand count, instance only here]]]></Comment>
 <Text><![CDATA[P_PIDE(DEMO_LIC_101);]]></Text>
 </Rung>
-<Rung Number="5" Type="N">
+<Rung Number="6" Type="N">
+<Comment><![CDATA[LIC-101 automatic: once the loop reports Program (Sts_Prog), one Auto command, read on the next scan, so it never shares a scan with the ownership request]]></Comment>
+<Text><![CDATA[XIC(DEMO_LIC_101.Sts_Prog)ONS(DEMO_LIC_101_AUTO_ONS)OTL(DEMO_LIC_101.PCmd_Auto);]]></Text>
+</Rung>
+<Rung Number="7" Type="N">
 <Comment><![CDATA[LV-101 CV from LIC-101, position feedback from FV_01_ZT_AI, LSH closes the valve]]></Comment>
 <Text><![CDATA[MOV(DEMO_LIC_101.Out_CV,DEMO_LV_101.PSet_CV)MOV(FV_01_ZT_AI,DEMO_LV_101.Inp_PosFdbk)XIO(TK_01_LSH_DI)OTE(DEMO_LV_101.Inp_IntlkOK);]]></Text>
 </Rung>
-<Rung Number="6" Type="N">
+<Rung Number="8" Type="N">
 <Comment><![CDATA[LV-101 P_ValveC instance call [TBD: operand count, instance only here]]]></Comment>
 <Text><![CDATA[P_ValveC(DEMO_LV_101);]]></Text>
 </Rung>
-<Rung Number="7" Type="N">
+<Rung Number="9" Type="N">
 <Comment><![CDATA[LV-101 valve position command to the simulator, FV_01_POS_AO (%)]]></Comment>
 <Text><![CDATA[MOV(DEMO_LV_101.Out_CV,FV_01_POS_AO);]]></Text>
 </Rung>
-<Rung Number="8" Type="N">
+<Rung Number="10" Type="N">
 <Comment><![CDATA[P-101 demo load step: start the transfer pump once, DEMO_LOAD_DELAY_MS after power-up]]></Comment>
 <Text><![CDATA[MOV(DEMO_LOAD_DELAY_MS,DEMO_LOAD_TMR.PRE)TON(DEMO_LOAD_TMR,?,?)XIC(DEMO_LOAD_TMR.DN)ONS(DEMO_LOAD_ONS)OTL(DEMO_P_101.PCmd_Start);]]></Text>
 </Rung>
-<Rung Number="9" Type="N">
+<Rung Number="11" Type="N">
 <Comment><![CDATA[P-101 running feedback P_01_RUN_DI into P_Motor]]></Comment>
 <Text><![CDATA[XIC(P_01_RUN_DI)OTE(DEMO_P_101.Inp_RunFdbk);]]></Text>
 </Rung>
-<Rung Number="10" Type="N">
+<Rung Number="12" Type="N">
 <Comment><![CDATA[P-101 interlock: the low level switch (LSL) interlocks the pump off]]></Comment>
 <Text><![CDATA[XIO(TK_01_LSL_DI)OTE(DEMO_P_101.Inp_IntlkOK);]]></Text>
 </Rung>
-<Rung Number="11" Type="N">
+<Rung Number="13" Type="N">
 <Comment><![CDATA[P-101 P_Motor instance call [TBD: operand count, instance only here]]]></Comment>
 <Text><![CDATA[P_Motor(DEMO_P_101);]]></Text>
 </Rung>
-<Rung Number="12" Type="N">
+<Rung Number="14" Type="N">
 <Comment><![CDATA[P-101 run command to the simulator, P_01_RUN_DO]]></Comment>
 <Text><![CDATA[XIC(DEMO_P_101.Out_Run)OTE(P_01_RUN_DO);]]></Text>
+</Rung>
+<Rung Number="15" Type="N">
+<Comment><![CDATA[Program ownership for LIC-101, LV-101, P-101: one PCmd_Prog each, after the first scan's object calls]]></Comment>
+<Text><![CDATA[XIC(DEMO_PROG_REQ)OTL(DEMO_LIC_101.PCmd_Prog)OTL(DEMO_LV_101.PCmd_Prog)OTL(DEMO_P_101.PCmd_Prog)OTU(DEMO_PROG_REQ);]]></Text>
 </Rung>
 </RLLContent>
 </Routine>

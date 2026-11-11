@@ -347,6 +347,18 @@
               "opcServer": "Ignition OPC UA Server",
               "tagType": "AtomicTag",
               "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "P_PIDE.Sts_Prog (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Sts_Prog",
+              "opcItemPath": "ns=1;s=[{Device}]{InstanceName}.Sts_Prog",
+              "opcServer": "Ignition OPC UA Server",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
             }
           ]
         },
