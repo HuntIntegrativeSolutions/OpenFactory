@@ -159,8 +159,19 @@ address bar, and sends it as the first message on `/ws/instructor`. With a fault
 the instructor view always needs it, loopback included (it shows what exam mode hides); with
 none it is open on loopback and refused beyond it. A wrong token gets "INSTRUCTOR VIEW REFUSED"
 and no frames. Instructor frames come from the same broadcaster as everyone's (PLAN 4.3), with
-the active faults added; `GET /api/status` counts `instructors`. On loopback the fault menu (and
-`GET /api/fault`) is still open to every viewer, so run a classroom beyond loopback with a token.
+the active faults added; `GET /api/status` counts `instructors`.
+
+The switches are read-only *in the instructor page* only. The token holder is the instructor, and
+the same token still turns a switch or injects a fault through the API (`POST /api/exam`,
+`/api/fault`), by design.
+
+**A classroom binds beyond loopback with a token.** On loopback (`127.0.0.1`, the default) the
+fault API is open, so every viewer's fault menu (and `GET /api/fault`) shows the active faults:
+that is the single-user case, one person at one machine. For trainees on their own machines, run
+`openfactory run SCENE --exam --bind 0.0.0.0 --fault-token <token>` (or `[server] fault_token`
+in `openfactory.local.toml`): then the fault API, the exam switches and the instructor view all
+need the token, and only the instructor has it. `--bind` opens every server (Modbus too), so do
+it on a classroom network only.
 
 ## Recordings (PLAN 2.12)
 
