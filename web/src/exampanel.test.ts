@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { examPanelTop, SwitchHold } from "./exampanel";
+import { examPanelTop, startsCollapsed, SwitchHold } from "./exampanel";
 
 describe("an exam switch click is held until the core echoes it (ruled 2026-11-10)", () => {
   it("ignores a stale frame after the click and follows frames again once one agrees", () => {
@@ -35,5 +35,20 @@ describe("the exam panel keeps clear of the status lines (review of 2026-11-10)"
   it("drops below the status lines when the viewport is too narrow", () => {
     expect(examPanelTop({ right: 600, bottom: 90 }, 320, 640)).toBe(98);
     expect(examPanelTop({ right: 300.2, bottom: 87.4 }, 320, 640)).toBe(96);
+  });
+});
+
+describe("the exam panel collapses (ruled 2026-11-10)", () => {
+  it("starts collapsed on the instructor page below 900 px, open elsewhere", () => {
+    expect(startsCollapsed(null, true, 640)).toBe(true);
+    expect(startsCollapsed(null, true, 899)).toBe(true);
+    expect(startsCollapsed(null, true, 900)).toBe(false);
+    expect(startsCollapsed(null, false, 640)).toBe(false);
+  });
+
+  it("follows what this browser chose last time", () => {
+    expect(startsCollapsed("0", true, 640)).toBe(false);
+    expect(startsCollapsed("1", false, 1280)).toBe(true);
+    expect(startsCollapsed("junk", true, 640)).toBe(true);
   });
 });

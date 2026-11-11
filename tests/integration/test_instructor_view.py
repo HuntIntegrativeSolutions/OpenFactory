@@ -94,6 +94,44 @@ def test_the_instructor_sees_faults_and_switches_but_cannot_turn_them(tmp_path):
                 "() => window.__openfactory.faultMarkers.includes('CYL_01')", timeout=30_000
             )
             assert "CYL_01 ⚠ jammed" in teacher.locator("body").inner_text()
+
+            # at 640 px the instructor's exam panel starts collapsed and covers no fault label:
+            # the label is on screen and is what the page shows at its own centre (ruled
+            # 2026-11-10)
+            assert teacher.locator("#exam-panel").get_attribute("data-collapsed") == "true"
+            for page in trainees:
+                assert page.locator("#exam-panel").get_attribute("data-collapsed") == "false"
+            teacher.wait_for_timeout(500)
+            label = teacher.get_by_text("CYL_01 ⚠ jammed")
+            box = label.bounding_box()
+            assert box and box["x"] >= 0 and box["y"] >= 0
+            assert box["x"] + box["width"] <= 640 and box["y"] + box["height"] <= 360
+            for cover in ("#exam-panel", "#hud"):  # neither box overlaps the label's
+                other = teacher.locator(cover).bounding_box()
+                assert other is not None
+                apart = (
+                    other["x"] >= box["x"] + box["width"]
+                    or box["x"] >= other["x"] + other["width"]
+                    or other["y"] >= box["y"] + box["height"]
+                    or box["y"] >= other["y"] + other["height"]
+                )
+                assert apart, (cover, other, box)
+            # and nothing else is on top: the labels layer and the HUD ignore the pointer, so the
+            # probe makes the label and the HUD hit-testable for one elementFromPoint
+            on_top = teacher.evaluate(
+                """([x, y]) => {
+                     const label = [...document.querySelectorAll('div')]
+                       .find((d) => d.textContent === 'CYL_01 ⚠ jammed');
+                     const hud = document.getElementById('hud');
+                     const keep = [label.style.pointerEvents, hud.style.pointerEvents];
+                     label.style.pointerEvents = 'auto'; hud.style.pointerEvents = 'auto';
+                     const hit = document.elementFromPoint(x, y);
+                     [label.style.pointerEvents, hud.style.pointerEvents] = keep;
+                     return hit === label || label.contains(hit); }""",
+                [box["x"] + box["width"] / 2, box["y"] + box["height"] / 2],
+            )
+            assert on_top, "the CYL_01 fault label is covered"
+            teacher.screenshot(path=str(tmp_path / "instructor-collapsed.png"))
             for page in trainees:  # well after the fault: forty more frames
                 seen = page.evaluate("() => window.__openfactory.frames")
                 page.wait_for_function(f"() => window.__openfactory.frames > {seen + 40}")
@@ -101,6 +139,8 @@ def test_the_instructor_sees_faults_and_switches_but_cannot_turn_them(tmp_path):
                 assert "⚠" not in page.locator("body").inner_text()
 
             # the instructor's switches are read-only: disabled, and a forced click does nothing
+            teacher.locator("#exam-panel-header").click()  # open the collapsed panel
+            assert teacher.locator("#exam-panel").get_attribute("data-collapsed") == "false"
             buttons = teacher.locator("#exam-panel button")
             assert buttons.count() >= 1
             assert all(buttons.nth(i).is_disabled() for i in range(buttons.count()))

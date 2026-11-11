@@ -66,16 +66,47 @@ interface ExamState {
   switches: ExamSwitch[];
 }
 
+/** Below this width the instructor page starts with the panel collapsed (ruled 2026-11-10). */
+export const INSTRUCTOR_COLLAPSE_BELOW_PX = 900;
+
+/** Whether the panel starts collapsed: what this browser chose last time on this kind of page,
+ * else collapsed on the instructor page below 900 px (its fault labels must stay visible) and
+ * open everywhere else. */
+export function startsCollapsed(stored: string | null, readOnly: boolean, width: number): boolean {
+  if (stored === "1" || stored === "0") return stored === "1";
+  return readOnly && width < INSTRUCTOR_COLLAPSE_BELOW_PX;
+}
+
+function readStored(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null; // storage blocked: the default applies
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // storage blocked: remembered for this page only
+  }
+}
+
 export class ExamPanel {
   readonly element: HTMLDivElement;
   private buttons = new Map<string, HTMLButtonElement>();
   private hold = new SwitchHold();
 
   private readonly readOnly: boolean;
+  private readonly storageKey: string;
+  private collapsed: boolean;
 
   /** `readOnly`: the instructor view (PLAN 4.12) shows the switches but cannot turn them. */
   constructor(readOnly = false) {
     this.readOnly = readOnly;
+    this.storageKey = `openfactory.examPanel.collapsed.${readOnly ? "instructor" : "viewer"}`;
+    this.collapsed = startsCollapsed(readStored(this.storageKey), readOnly, window.innerWidth);
     this.element = document.createElement("div");
     this.element.id = "exam-panel";
     this.element.style.cssText =
@@ -94,12 +125,43 @@ export class ExamPanel {
       this.element.style.display = "none";
       return false;
     }
+    // the header toggles the switches open or closed, remembered per browser and kind of page
     const title = document.createElement("div");
-    title.textContent = this.readOnly
-      ? "EXAM MODE: operator switches (read-only)"
-      : "EXAM MODE: operator switches";
-    title.style.cssText = "font-weight:700;margin-bottom:6px";
+    title.id = "exam-panel-header";
+    title.setAttribute("role", "button");
+    title.tabIndex = 0;
+    title.style.cssText = "font-weight:700;cursor:pointer;user-select:none";
+    const body = document.createElement("div");
+    body.id = "exam-panel-body";
+    body.style.marginTop = "6px";
+    const draw = () => {
+      // collapsed, the panel is one short line, as narrow as its text, so it covers no labels
+      const label = this.collapsed
+        ? `Exam switches${this.readOnly ? " (read-only)" : ""}`
+        : `EXAM MODE: operator switches${this.readOnly ? " (read-only)" : ""}`;
+      title.textContent = `${this.collapsed ? "▸" : "▾"} ${label}`;
+      title.style.whiteSpace = this.collapsed ? "nowrap" : "normal";
+      this.element.style.padding = this.collapsed ? "4px 8px" : "8px 10px";
+      this.element.style.width = this.collapsed ? "max-content" : "";
+      title.title = this.collapsed ? "Show the switches" : "Hide the switches";
+      body.style.display = this.collapsed ? "none" : "block";
+      this.element.dataset.collapsed = String(this.collapsed);
+    };
+    const flip = () => {
+      this.collapsed = !this.collapsed;
+      writeStored(this.storageKey, this.collapsed ? "1" : "0");
+      draw();
+    };
+    title.addEventListener("click", flip);
+    title.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        flip();
+      }
+    });
+    draw();
     this.element.appendChild(title);
+    this.element.appendChild(body);
     for (const s of state.switches) {
       const button = document.createElement("button");
       button.dataset.tag = s.tag;
@@ -116,7 +178,7 @@ export class ExamPanel {
       }
       this.buttons.set(s.tag, button);
       this.show(s.tag, s.on);
-      this.element.appendChild(button);
+      body.appendChild(button);
     }
     this.element.style.display = "block";
     return true;

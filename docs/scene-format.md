@@ -161,6 +161,10 @@ none it is open on loopback and refused beyond it. A wrong token gets "INSTRUCTO
 and no frames. Instructor frames come from the same broadcaster as everyone's (PLAN 4.3), with
 the active faults added; `GET /api/status` counts `instructors`.
 
+The exam panel's header collapses and opens it on every page; the browser remembers the choice
+per kind of page. The instructor page starts collapsed below 900 px wide, so the panel never
+covers the fault labels that page is for.
+
 The switches are read-only *in the instructor page* only. The token holder is the instructor, and
 the same token still turns a switch or injects a fault through the API (`POST /api/exam`,
 `/api/fault`), by design.
