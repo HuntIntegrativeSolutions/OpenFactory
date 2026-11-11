@@ -12,6 +12,7 @@ from pathlib import Path
 import httpx
 import pytest
 import uvicorn
+from websockets.exceptions import ConnectionClosed
 from websockets.sync.client import connect
 
 from openfactory.core.config import Endpoint
@@ -131,3 +132,55 @@ def test_root_without_a_viewer_build_explains_how_to_build(served):
     host, _ = served
     page = httpx.get(f"http://{host}/").text
     assert "npm run build" in page
+
+
+def test_a_viewer_stuck_on_a_send_is_dropped_and_the_others_keep_their_frames(monkeypatch):
+    """Review of 2026-11-10: a viewer whose frame send has been pending more than STALLED_SEND_S
+    (5 s; 0.5 s here) is disconnected and counted as viewers_dropped in /api/status, and the
+    other viewer keeps receiving frames. A real uvicorn, so every socket is on one event loop;
+    the stuck viewer's server-side send is replaced by one that never completes."""
+    import asyncio
+
+    from openfactory.server import app as app_module
+
+    assert app_module.STALLED_SEND_S == 5.0
+    monkeypatch.setattr(app_module, "STALLED_SEND_S", 0.5)
+    runtime = Runtime(load(EXAMPLE))
+    app = create_app(runtime, web_dist=None)
+    endpoint = Endpoint(bind="127.0.0.1", port=free_port())
+    server = uvicorn.Server(server_config(app, endpoint))
+    thread = threading.Thread(target=server.run, daemon=True)
+    runtime.start()
+    thread.start()
+    try:
+        deadline = time.monotonic() + 10
+        while not server.started:
+            assert time.monotonic() < deadline, "uvicorn did not start"
+            time.sleep(0.02)
+        host = f"127.0.0.1:{endpoint.port}"
+        with connect(f"ws://{host}/ws/state") as stuck, connect(f"ws://{host}/ws/state") as ok:
+            while json.loads(ok.recv(timeout=2))["viewers"] != 2:
+                pass
+            stuck_server_side = next(iter(app.state.viewers))  # connected first
+
+            async def never(text: str) -> None:
+                await asyncio.Event().wait()
+
+            stuck_server_side.send_text = never
+            deadline = time.monotonic() + 5
+            while httpx.get(f"http://{host}/api/status").json()["viewers_dropped"] == 0:
+                assert time.monotonic() < deadline, "the stuck viewer was never dropped"
+                ok.recv(timeout=2)
+            status = httpx.get(f"http://{host}/api/status").json()
+            assert status["viewers_dropped"] == 1 and status["viewers"] == 1
+            frames = [json.loads(ok.recv(timeout=2)) for _ in range(30)]
+            assert frames[-1]["viewers"] == 1  # the other viewer still gets frames
+            ticks = [f["tick"] for f in frames]
+            assert ticks[-1] > ticks[0]
+            with pytest.raises(ConnectionClosed):  # the server closed the stuck viewer's socket
+                while True:
+                    stuck.recv(timeout=2)
+    finally:
+        server.should_exit = True
+        thread.join(5)
+        runtime.stop()

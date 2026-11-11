@@ -2292,6 +2292,15 @@ runs the sorting program against it; a box visibly gets pushed.
       page shows ON on all ten; the core dropped 0 ticks and each page's physics dropped 0;
       the count returns to 0 when the browser closes. `test_snapshot_off_tick` and
       `test_server` updated for the broadcaster and the `viewers` key.
+      *Review of 2026-11-10 (fix 5):* a failed broadcaster no longer waits for the next
+      connection: it logs each failure once and starts again after 1 s (`BROADCAST_RETRY_S`)
+      while any viewer is connected. A viewer whose send has been pending more than 5 s
+      (`STALLED_SEND_S`) is dropped (its send cancelled, its socket closed with 1008) and
+      counted in `/api/status` as `viewers_dropped`. `test_a_failed_broadcaster_restarts_while_
+      viewers_stay` (two failures, the same viewer then gets frames, two log lines) and
+      `test_a_viewer_stuck_on_a_send_is_dropped_and_the_others_keep_their_frames` (real uvicorn,
+      one event loop: the stuck viewer is dropped and closed, the other keeps receiving; fails
+      on the old code).
 - [ ] 4.4 Docs site (MkDocs Material), component reference generated from docstrings
       *Defined (ruled 2026-11-06):* MkDocs Material; the component reference generated from
       `docs/components.md` and the registry; guides and ADRs included; built in CI and deployed

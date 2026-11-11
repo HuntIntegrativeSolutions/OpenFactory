@@ -11,7 +11,8 @@ Behavior spec
 - ``GET /api/status``: sim time and tick, part counts, viewer events received by type and id,
   and the classroom figures (PLAN 4.3): ``viewers`` (state sockets connected),
   ``frames_serialized``, ``frames_sent`` and ``frames_skipped`` (a slow viewer's skipped frames)
-  since the server started, and the core's ``dropped_ticks`` this run.
+  and ``viewers_dropped`` (viewers disconnected because one send was pending more than
+  :data:`STALLED_SEND_S`) since the server started, and the core's ``dropped_ticks`` this run.
 - ``GET /api/events``: the most recent viewer events with the core time they arrived.
 - ``GET /api/fault``: active faults (``{id, type, kind, params, tick}``) and each component's
   supported kinds (PLAN 2.6). ``POST /api/fault`` with ``{"id", "kind", "params"}`` injects one,
@@ -42,7 +43,10 @@ Behavior spec
   ``viewers``, how many viewers are connected. The simulation runs at its own 50 Hz; a frame is
   whatever snapshot is current when it is sent, so the viewer interpolates. One broadcaster serves
   every viewer (PLAN 4.3): each frame is serialized once and the same text goes to all of them,
-  each send its own task, so a slow viewer skips frames (counted) instead of delaying the others.
+  each send its own task, so a slow viewer skips frames (counted) instead of delaying the others,
+  and a viewer whose send has been pending more than :data:`STALLED_SEND_S` is dropped (counted,
+  its socket closed). If the broadcaster fails it logs the failure once and starts again after
+  :data:`BROADCAST_RETRY_S` while any viewer is connected.
   Each browser keeps its own camera; faults and exam switches are the core's, so every viewer
   sees the same ones.
 - ``WS /ws/events``: receives viewer events as JSON objects (see
@@ -82,6 +86,10 @@ from openfactory.server.runtime import Runtime
 log = logging.getLogger(__name__)
 
 STATE_RATE_HZ = 20.0
+#: A viewer whose frame send has been pending this long is dropped (review of 2026-11-10).
+STALLED_SEND_S = 5.0
+#: After a broadcaster failure, wait this long before starting it again (review of 2026-11-10).
+BROADCAST_RETRY_S = 1.0
 #: Request header carrying the fault token when the server is bound beyond loopback (PLAN §6.4).
 FAULT_TOKEN_HEADER = "X-OpenFactory-Fault-Token"
 
@@ -206,6 +214,7 @@ def create_app(
             "frames_serialized": frames["serialized"],
             "frames_sent": frames["sent"],
             "frames_skipped": frames["skipped"],
+            "viewers_dropped": frames["dropped"],
             "dropped_ticks": scheduler.stats.dropped if scheduler is not None else 0,
         }
 
@@ -268,10 +277,12 @@ def create_app(
 
     # One broadcaster for every viewer (PLAN 4.3, the classroom): each 20 Hz frame is serialized
     # once and the same text is sent to every connected viewer; a viewer still sending its last
-    # frame skips this one instead of holding the others back.
-    viewers: dict[WebSocket, asyncio.Task[None] | None] = {}
-    frames = {"serialized": 0, "sent": 0, "skipped": 0}
+    # frame skips this one instead of holding the others back; one stuck on a send for more than
+    # STALLED_SEND_S is dropped. Each viewer maps to its pending send and when that send started.
+    viewers: dict[WebSocket, tuple[asyncio.Task[None], float] | None] = {}
+    frames = {"serialized": 0, "sent": 0, "skipped": 0, "dropped": 0}
     broadcaster: dict[str, asyncio.Task[None] | None] = {"task": None}
+    dropping: set[asyncio.Task[None]] = set()
     app.state.viewers = viewers
     app.state.frames = frames
 
@@ -289,11 +300,31 @@ def create_app(
             viewers.pop(ws, None)
 
     async def broadcast() -> None:
+        """Serve frames while any viewer is connected. A failure is logged once and the
+        broadcaster starts again after BROADCAST_RETRY_S if viewers remain (review of
+        2026-11-10), so connected viewers never freeze on a dead task."""
         try:
-            await _broadcast()
-        except Exception:  # never silently: viewers would freeze; the next connection restarts it
-            log.exception("state broadcaster failed; it restarts with the next viewer to connect")
-            raise
+            while viewers:
+                try:
+                    await _broadcast()
+                except Exception:
+                    log.exception(
+                        "state broadcaster failed; restarting in %g s while %d viewer(s) stay",
+                        BROADCAST_RETRY_S,
+                        len(viewers),
+                    )
+                    await asyncio.sleep(BROADCAST_RETRY_S)
+        finally:
+            broadcaster["task"] = None
+
+    async def drop(ws: WebSocket, pending: asyncio.Task[None]) -> None:
+        """Disconnect a viewer whose send is stuck: forget it, cancel the send, close it."""
+        frames["dropped"] += 1
+        viewers.pop(ws, None)
+        pending.cancel()
+        log.warning("dropped a viewer whose frame send was pending over %g s", STALLED_SEND_S)
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(ws.close(code=1008), timeout=1.0)
 
     async def _broadcast() -> None:
         loop = asyncio.get_running_loop()
@@ -301,18 +332,23 @@ def create_app(
         deadline = loop.time()
         while viewers:
             text = frame_text()
-            for ws, pending in list(viewers.items()):
-                if pending is not None and not pending.done():
-                    frames["skipped"] += 1  # a slow viewer: it gets the next frame instead
+            now = loop.time()
+            for ws, entry in list(viewers.items()):
+                if entry is not None and not entry[0].done():
+                    if now - entry[1] > STALLED_SEND_S:
+                        task = asyncio.create_task(drop(ws, entry[0]))
+                        dropping.add(task)  # keep a reference until it is done
+                        task.add_done_callback(dropping.discard)
+                    else:
+                        frames["skipped"] += 1  # a slow viewer: it gets the next frame instead
                     continue
-                viewers[ws] = asyncio.create_task(send(ws, text))
+                viewers[ws] = (asyncio.create_task(send(ws, text)), now)
             deadline += period
             delay = deadline - loop.time()
             if delay < -period:  # fell behind: restart the schedule
                 deadline = loop.time()
                 delay = 0.0
             await asyncio.sleep(max(delay, 0.0))
-        broadcaster["task"] = None
 
     @app.websocket("/ws/state")
     async def ws_state(ws: WebSocket) -> None:
@@ -327,9 +363,9 @@ def create_app(
         except (WebSocketDisconnect, RuntimeError):
             pass
         finally:
-            pending = viewers.pop(ws, None)
-            if pending is not None:
-                pending.cancel()
+            entry = viewers.pop(ws, None)
+            if entry is not None:
+                entry[0].cancel()
 
     @app.websocket("/ws/events")
     async def ws_events(ws: WebSocket) -> None:

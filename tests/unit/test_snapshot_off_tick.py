@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from openfactory.core.loader import load
+from openfactory.server import app as app_module
 from openfactory.server.app import create_app
 from openfactory.server.runtime import Runtime
 
@@ -82,12 +83,14 @@ def test_an_exam_switch_rebuilds_the_snapshot_between_ticks():
     assert runtime.snapshot["io"]["PE_01_DI"] is True  # no tick needed
 
 
-def test_a_failed_broadcaster_restarts_with_the_next_viewer(caplog):
-    """PLAN 4.3: if serializing a frame fails, the broadcaster logs it and the next viewer to
-    connect starts a new one, instead of every viewer freezing on a dead task."""
+def test_a_failed_broadcaster_restarts_while_viewers_stay(caplog, monkeypatch):
+    """PLAN 4.3, review of 2026-11-10: if serializing a frame fails, the broadcaster logs the
+    failure once and starts again after BROADCAST_RETRY_S while viewers are connected, so the
+    viewer that was connected gets frames again without reconnecting."""
+    monkeypatch.setattr(app_module, "BROADCAST_RETRY_S", 0.05)
 
     class Flaky(Runtime):
-        failures = 1
+        failures = 2
 
         @property
         def snapshot(self):  # noqa: ANN201
@@ -98,8 +101,8 @@ def test_a_failed_broadcaster_restarts_with_the_next_viewer(caplog):
 
     runtime = Flaky(load(SORTER), realtime=False)
     client = TestClient(create_app(runtime, web_dist=None))
-    with client.websocket_connect("/ws/state") as first:
-        first.send_text("")  # let the broadcaster run (and fail) before this viewer leaves
-    assert "state broadcaster failed" in caplog.text
-    with client.websocket_connect("/ws/state") as second:
-        assert '"tick"' in second.receive_text()  # a new broadcaster serves the next viewer
+    with client.websocket_connect("/ws/state") as viewer:
+        assert '"tick"' in viewer.receive_text()  # the same viewer, after two failures
+    assert caplog.text.count("state broadcaster failed") == 2  # once per failure
+    with client.websocket_connect("/ws/state") as second:  # and a later viewer is served too
+        assert '"tick"' in second.receive_text()
