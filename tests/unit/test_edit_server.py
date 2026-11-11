@@ -37,6 +37,8 @@ def test_the_scene_is_served_in_edit_mode_with_its_source(editing):
     src = client.get("/api/edit/source").json()
     assert src["name"] == scene.name and src["text"] == scene.read_text(encoding="utf-8")
     assert len(src["base"]) == 64
+    conv = next(c for c in src["data"]["components"] if c["id"] == "CONV_01")
+    assert conv["speed_mps"] == 0.5 and conv["type"] == "belt_conveyor"
 
 
 def test_preview_returns_the_lints_findings_and_the_scene_and_writes_nothing(editing):

@@ -2362,11 +2362,32 @@ runs the sorting program against it; a box visibly gets pushed.
         with W204 and E100 findings and nothing written; save changing one line with its
         inline comment in place and the lockfiles untouched; 409 after a hand edit on disk,
         which survives; 422 and 400 writing nothing; no edit routes in a normal run.
-  - [ ] 4.1b Selection and the property form: edit mode in the viewer, click to select, the
+  - [x] 4.1b Selection and the property form: edit mode in the viewer, click to select, the
         schema-driven form, live preview.
         *Done when:* vitest builds a form for every component type in the shipped schema with
         no unexpected fallback, and a Playwright test changes a conveyor's speed and saves: the
         file's diff is that one line.
+        *Done (2026-11-10):* `web/src/editor/forms.ts` builds a component's form from
+        `scene.schema.json`: text (pattern, length), number (integer, limits), boolean, enum,
+        3-vector, optional (a "not set" state), I/O tag binding, nested group, and a YAML text
+        field for anything else (sent as `set_raw`); `checkField` checks one value from the
+        schema's keywords, `opFor` makes the operation. `web/src/editor/panel.ts`: the panel in
+        edit mode (`mode: "edit"` in `/api/scene`): click a component (a composite's part
+        selects its instance) and it is outlined in the highlight blue; its form shows the
+        file's values (`data` from `/api/edit/source`); an accepted change is previewed (all
+        operations against the base), the findings listed and the plant redrawn from the
+        preview's document; Save and Revert. The id and type are read only (renames are
+        4.1c's), and a binding written as a mapping shows its tag read only. No viewer
+        physics in edit mode. `forms.test.ts` (5): all 29 component types build a form with
+        only the pinned fallbacks (`mesh.scale` everywhere; `BoxEmitter.parts`,
+        `Tank.nozzles`, `Drain.schedule`, `Pipe.path`, `Pump.curve`, a composite instance's
+        `io`); every type has id, type, description and position controls; the conveyor's
+        limits; the operations. `tests/integration/test_editor.py`: `openfactory edit` on a
+        copy of the sorter, a real click on CONV_01, `-1` refused in the browser and never sent,
+        `0.6` previewed with nothing written, Save: the file's diff is that one line (its inline
+        comment in place) and the lockfiles are untouched. Edit-mode screenshot looked at.
+        *Noted for 4.1c:* the panel covers the right edge of the plant (the camera framing does
+        not allow for it); bindings written as mappings are read only.
   - [ ] 4.1c Placement: palette (primitives and composite types, the scene's and the
         library's), drag and turn on the floor, delete, the `mesh` field, Download YAML.
         *Done when:* a Playwright test adds a photo eye and a library composite instance, moves

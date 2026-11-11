@@ -6,7 +6,8 @@ Behavior spec
 *base* every request names). The browser sends operations (:mod:`openfactory.core.sceneedit`);
 the session applies them to the text, never the browser (ruled 2026-11-10):
 
-- ``GET /api/edit/source``: ``{name, text, base}``.
+- ``GET /api/edit/source``: ``{name, text, base, data}``, ``data`` the file's values as written
+  (parsed YAML), which the editor's forms show; a preview carries the previewed ``data`` too.
 - ``POST /api/edit/preview`` ``{base, ops}``: the text with the operations applied, the lint's
   findings on it (``openfactory lint``, run on the text as if it were the file, so its lockfiles,
   library and meshes are found beside it), and the scene document the viewer draws (``null`` when
@@ -30,6 +31,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from openfactory.core.sceneedit import apply_ops
 
 
@@ -43,6 +46,13 @@ class EditRejected(Exception):
     def __init__(self, result: dict[str, Any]) -> None:
         super().__init__("the edited scene has lint errors")
         self.result = result
+
+
+def _data(text: str) -> Any:
+    try:
+        return yaml.safe_load(text)
+    except yaml.YAMLError:
+        return None
 
 
 def text_hash(text: str) -> str:
@@ -71,7 +81,14 @@ class EditSession:
         return self._document
 
     def source(self) -> dict[str, Any]:
-        return {"name": self.path.name, "text": self.text, "base": self.base}
+        """The text, its base, and ``data``: the file's values as written (YAML parsed, no
+        defaults filled in), which the editor's forms show."""
+        return {
+            "name": self.path.name,
+            "text": self.text,
+            "base": self.base,
+            "data": _data(self.text),
+        }
 
     def _check_base(self, base: str) -> None:
         on_disk = text_hash(self.path.read_text(encoding="utf-8"))
@@ -102,6 +119,7 @@ class EditSession:
             "findings": [asdict(f) for f in findings],
             "errors": sum(f.level == "error" for f in findings),
             "scene": scene,
+            "data": _data(text),
         }
 
     def save(self, base: str, ops: list[dict[str, Any]]) -> dict[str, Any]:

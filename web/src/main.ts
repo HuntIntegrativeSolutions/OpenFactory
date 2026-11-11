@@ -33,6 +33,7 @@ import { ExamPanel } from "./exampanel";
 import { TrendPanel } from "./trend";
 import { FaultMenu } from "./faultmenu";
 import { faultOf, isInstructorPath, tokenFromHash } from "./instructor";
+import { EditorPanel } from "./editor/panel";
 import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
@@ -211,7 +212,7 @@ function wireClicks(): void {
     const pickable = views.flatMap((v) => v.pickable.map((o) => [o, v] as const));
     const hit = raycaster.intersectObjects(pickable.map(([o]) => o), false)[0];
     const view = hit && pickable.find(([o]) => o === hit.object)?.[1];
-    if (!view || !doc || !events) return;
+    if (!view || !doc || !events || editing()) return;
     if (view.type === "pushbutton") events.send({ type: "press", id: view.id });
     if (view.type === "selector_switch") {
       const geometry = doc.components.find((c) => c.id === view.id);
@@ -429,13 +430,22 @@ function frameLine(): string {
  */
 /** A recording served by `openfactory replay` (PLAN 2.12): parts are drawn where it has them,
  * with no viewer physics, as when Rapier fails to load. */
+/** The scene editor (PLAN 4.1, `openfactory edit`): no viewer physics, clicks select. */
+function editing(): boolean {
+  return doc?.mode === "edit";
+}
+
 function replaying(): boolean {
   return doc?.mode === "replay";
 }
 
 async function loadScene(): Promise<void> {
+  await applyScene(await fetchScene());
+}
+
+/** Build the plant from a scene document (a fetched one, or an editor preview's). */
+async function applyScene(next: SceneDocument): Promise<void> {
   loading = true;
-  const next = await fetchScene();
   const status = window.__openfactory;
   if (!doc || JSON.stringify(next) !== JSON.stringify(doc)) {
     if (doc) status.reloads = Number(status.reloads) + 1;
@@ -458,7 +468,7 @@ async function loadScene(): Promise<void> {
   corePositions.clear();
   lastFrame = null;
   events = new EventLink();
-  if (rapier) {
+  if (rapier && !editing()) {
     physics = replaying() ? null : new PlantPhysics(rapier, { components: doc.components, connections: doc.connections, friction: doc.scene.friction, dt: doc.dt });
   }
   loading = false;
@@ -514,8 +524,15 @@ async function start(): Promise<void> {
     __openfactoryCamera: () => camera.position.toArray(),
     __openfactoryFaultMenu: menu,
     __openfactoryScreenOf: screenOf,
+    // the component under a viewport point, for tests that click one (PLAN 4.1b)
+    __openfactoryPick: (x: number, y: number) => pickComponent(x, y)?.id ?? null,
     __openfactoryPartTargets: () => parts.targets(),
   });
+  if (editing()) {
+    await startEditor();
+    streamState(onFrame, () => void 0);
+    return;
+  }
   try {
     rapier = await loadRapier();
     if (doc && !replaying()) physics = new PlantPhysics(rapier, { components: doc.components, connections: doc.connections, friction: doc.scene.friction, dt: doc.dt });
@@ -539,6 +556,35 @@ async function start(): Promise<void> {
   } else {
     streamState(onFrame, reload);
   }
+}
+
+/** Edit mode (PLAN 4.1b): the editor panel, click to select, a box around the selection. */
+async function startEditor(): Promise<void> {
+  let selectedId: string | null = null;
+  let outline: THREE.BoxHelper | null = null;
+  const highlight = () => {
+    if (outline) scene.remove(outline);
+    outline = null;
+    const view = views.find((v) => v.id === selectedId);
+    if (!view) return;
+    outline = new THREE.BoxHelper(view.object, new THREE.Color(cssColor("highlight")));
+    scene.add(outline);
+  };
+  const panel = new EditorPanel((next) => {
+    void applyScene(next).then(highlight);
+  });
+  window.__openfactory.editor = panel.status;
+  window.__openfactory.physics = "off: edit";
+  renderer.domElement.addEventListener("click", (e) => {
+    const picked = pickComponent(e.clientX, e.clientY);
+    // a part expanded from a composite (PLAN 2.16) selects its instance, which is what the file holds
+    const geometry = picked ? doc?.components.find((c) => c.id === picked.id) : undefined;
+    const instance = (geometry?.composite as { id?: string } | undefined)?.id;
+    selectedId = picked ? (instance ?? picked.id) : null;
+    panel.select(selectedId);
+    highlight();
+  });
+  await panel.start();
 }
 
 start().catch((err: unknown) => {
