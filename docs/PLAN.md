@@ -1222,8 +1222,12 @@ runs the sorting program against it; a box visibly gets pushed.
         baseline); the process entry does not on this one: its step ran 3.0 times faster than
         here (0.086 against 0.262 ms) while the candidate ran 2.3 times faster (the old
         calibration missed by more, -31 %). A gate 23 % low on a runner lets a regression of up
-        to about 60 % pass there. For the owner: accept, rebase that one entry on CI runs, or
-        give the process scene its own calibration.
+        to about 60 % pass there.
+      - Second CI run gated on the candidate, 42958754035 (36c5b58, 2026-11-11): **AMD EPYC
+        9V45** (a fourth runner CPU): load-200 0.065927 (+2.5 %), queue-200 0.068382 (+3.3 %),
+        tank-level-pid 0.006375 (**+0.3 %**). So the process entry's -23 % is one runner CPU
+        (EPYC 9V74), not every runner. For the owner, on two data points: accept, rebase that
+        entry on CI runs, or give the process scene its own calibration; or wait for more runs.
       - *Process scene in the gate (ruled 2026-11-08):* `tank-level-pid` under its stand-in
         script for the fixed 5000 ticks replaces `flow-net` (`PROCESS` in `tools/bench.py`):
         0.18 to 0.26 ms a tick here, the script's scan included, score 0.0023 to 0.0024 over
