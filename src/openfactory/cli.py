@@ -1,5 +1,7 @@
 """``openfactory`` command line (PLAN task 1.10): ``run``, ``test``, ``validate``, ``lint``,
-``export``, ``bundle``.
+``export``, ``bundle``, ``migrate`` (PLAN 4.7: rewrites scenes in an older format version to the
+current one in place, keeping comments and key order; ``--check`` writes nothing and exits 1 if a
+file needs it; :mod:`openfactory.core.migrate`).
 
 Behavior spec
 -------------
@@ -868,6 +870,59 @@ def validate(
         raise typer.Exit(1)
     if failed:
         typer.echo(f"{failed} of {len(files)} scene(s) failed")
+        raise typer.Exit(1)
+
+
+@app.command()
+def migrate(
+    scenes: Annotated[
+        list[Path],
+        typer.Argument(
+            help="Scene files (or library composites) or directories of them.", metavar="SCENE..."
+        ),
+    ],
+    check: Annotated[
+        bool,
+        typer.Option("--check", help="Write nothing; exit 1 if any file needs migrating."),
+    ] = False,
+) -> None:
+    """Rewrite scenes in older format versions to the current one (PLAN 4.7), in place, keeping
+    comments and key order. A file already current is left untouched. Exit 1 on an error, or
+    with --check when a file would change."""
+    from openfactory.core.migrate import migrate_text
+    from openfactory.core.schema import SCHEMA_VERSION
+
+    files = _scene_files(scenes)
+    if not files:
+        typer.echo("no scenes given")
+        raise typer.Exit(1)
+    failed = stale = 0
+    for path in files:
+        if is_bundle(path):
+            failed += 1
+            typer.echo(f"FAIL {path}: a bundle; unpack it, migrate its scene, bundle it again")
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+            result = migrate_text(text)
+        except (OSError, ValueError) as exc:
+            failed += 1
+            typer.echo(f"FAIL {path}: {exc}")
+            continue
+        if not result.changed:
+            typer.echo(f"OK   {path}: format {SCHEMA_VERSION}, current")
+            continue
+        stale += 1
+        if check:
+            typer.echo(f"OLD  {path}: format {result.source}, needs migrating to {SCHEMA_VERSION}")
+            continue
+        path.write_text(result.text, encoding="utf-8")
+        typer.echo(f"MIGRATED {path}: " + "; ".join(result.steps))
+    if failed:
+        typer.echo(f"{failed} of {len(files)} file(s) failed")
+    if check and stale:
+        typer.echo(f"{stale} of {len(files)} file(s) need `openfactory migrate`")
+    if failed or (check and stale):
         raise typer.Exit(1)
 
 

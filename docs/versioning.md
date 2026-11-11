@@ -41,9 +41,18 @@ Milestone 2, which added component types and optional keys only, while the packa
 (ruled 2026-11-06). A scene that uses a key or a component type added in a later release needs
 that release; an older one rejects the scene at load time with the unknown key or type named.
 
-The first breaking format change bumps the format version and ships with `openfactory migrate`,
-which rewrites older scenes, and a test corpus of every shipped scene at every past format version
-(PLAN 4.7). Until then there is nothing to migrate.
+`openfactory migrate SCENE...` (PLAN 4.7) rewrites scenes, library composites and example scenes
+written in an older format version to the current one, in place. It edits only the text the
+format change touches, so comments, key order, quoting and layout stay as they were; a file that
+is already current is left byte for byte. `openfactory migrate --check scenes` writes nothing and
+exits 1 if any file needs migrating; CI runs it on every shipped scene. A bundle (`.ofz`) is
+unpacked, its scene migrated, and bundled again.
+
+The format is still `0.1` and has never broken, so there is no migration yet and `migrate` changes
+nothing. The first breaking change bumps the format version, adds its migration to
+`src/openfactory/core/migrate.py`, and copies every shipped scene, as it was, into
+`tests/migrate/<old version>/`: that corpus of every shipped scene at every past format version
+must migrate to the shipped files exactly (`tests/unit/test_migrate.py`).
 
 The exported JSON Schema shows both versions: its `$id` is the format
 (`urn:openfactory:scene:0.1`), and its `$comment` names the package release that exported it.

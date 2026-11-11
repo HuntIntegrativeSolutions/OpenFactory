@@ -2387,7 +2387,7 @@ runs the sorting program against it; a box visibly gets pushed.
       header, and regenerates the JSON Schema, whose `$comment` names the package version
       (`docs/versioning.md`, "Release steps").
 - [ ] 4.6 Desktop packaging (PyInstaller + bundled viewer) for Windows users without Python
-- [ ] 4.7 Scene schema versioning: `openfactory: "0.2"` bumps require `openfactory migrate` to rewrite
+- [x] 4.7 Scene schema versioning: `openfactory: "0.2"` bumps require `openfactory migrate` to rewrite
       older scenes, with a test corpus of every shipped scene at every past version. Must exist before
       4.5, because a public release freezes the format people depend on.
       *Ruled 2026-11-06:* the package version and the scene format version are independent.
@@ -2395,6 +2395,30 @@ runs the sorting program against it; a box visibly gets pushed.
       `openfactory: "0.1"` while the package is 0.2.0, and `migrate` waits for the first
       breaking format change (`docs/versioning.md`). The exported schema keeps
       `$id: urn:openfactory:scene:0.1` and names the package release in its `$comment`.
+      *Ruled 2026-11-10 (build it now):* the framework, a no-op 0.1 path, and one synthetic
+      migration in the tests only that proves a rewrite keeps comments and key order. *Done
+      when:* `migrate --check` passes on every shipped scene in CI and the synthetic test
+      round-trips.
+      *Done (2026-11-10):* `src/openfactory/core/migrate.py`. `MIGRATIONS` is keyed by the
+      version a migration starts from and is empty (0.1 has never broken); `migrate_text`
+      chains them to `SCHEMA_VERSION`, rewriting `openfactory:` after each, and returns a
+      current file byte for byte. Rewrites edit a `Document`: PyYAML's composer gives each
+      node's start and end in the text and an edit (`rename_key`, `set_scalar`) splices only
+      that span, so comments, key order, quoting and layout stay (no load-and-dump, no new
+      dependency). Errors: no version line, a newer version, no migration from a version.
+      `openfactory migrate SCENE... [--check]` rewrites in place, or with `--check` writes
+      nothing and exits 1 when a file needs it; a bundle is refused with how to do it. CI step 3
+      runs `migrate --check scenes scenes/examples scenes/_library` (14 files, all current).
+      The corpus lives in `tests/migrate/<version>/` (README there), one folder per version a
+      migration starts from, every shipped scene as it was; none yet.
+      `tests/unit/test_migrate.py` (6): every shipped scene unchanged byte for byte; the corpus
+      folders are exactly the migrations' source versions, each scene migrating to the shipped
+      file; `migrate --check` passes on all shipped files; the errors; a two-step chain keeps a
+      comment on the version line; and a synthetic 0.1 -> 0.2 migration (scene `description`
+      to `summary`, every component's `position` to `at`, one speed rewritten) on
+      `conveyor-start-stop.yaml`: every comment kept in order, the same line count, only the
+      version, renamed and rewritten lines changed and nothing else on them, key order
+      identical under the new names, and its inverse gives the original bytes.
 - [x] 4.8 Release hygiene before 4.5: SECURITY.md with a disclosure contact, CODE_OF_CONDUCT.md,
       semantic versioning policy, CHANGELOG.md, SBOM generated from `THIRD_PARTY.md`, and a one-page
       "what OpenFactory is not" statement (not safety-rated, not virtual commissioning, not a PLC).
