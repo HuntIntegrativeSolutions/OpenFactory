@@ -35,14 +35,16 @@ def test_the_gate_is_one_sided_much_faster_passes_with_a_warning_naming_entry_an
     """Ruled 2026-11-10: more than 25 % slower fails; more than 25 % faster passes and is a
     warning annotation naming the entry and the runner's CPU; within 25 % either way is plain."""
     base = {"score": 0.02, "candidate_score": 0.0800}
-    fast = {**got(0.0800 / 1.26), "cpu": "AMD EPYC 9V74 80-Core Processor"}
+    fast = {**got(0.0800 * 0.74), "cpu": "AMD EPYC 9V74 80-Core Processor"}  # -26 %
     ok, line = bench.compare("tank-level-pid", fast, base)
     assert ok and "WARNING: more than 25% faster" in line and "AMD EPYC 9V74" in line
-    ok, line = bench.compare("s", got(0.0800 / 1.25), base)  # exactly 25 % faster: plain ok
+    ok, line = bench.compare("s", got(0.0800 * 0.75), base)  # exactly -25 %: plain ok
+    assert ok and "WARNING" not in line and "-25.0%" in line
+    ok, line = bench.compare("s", got(0.0800 * 0.77), base)  # -23 %, run 42955811835's case
     assert ok and "WARNING" not in line
     assert not bench.compare("s", got(0.0800 * 1.26), base)[0]  # slower still fails
     baseline = json.loads(bench.BASELINE.read_text(encoding="utf-8"))["scenes"]
-    slow = min(e["candidate_score"] for e in baseline.values()) / 1.3  # faster than every entry
+    slow = min(e["candidate_score"] for e in baseline.values()) * 0.7  # -30 % or more for all
     monkeypatch.setattr(bench, "measure", lambda *paths: {**got(slow), "cpu": "Test CPU 9000"})
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     assert bench.main([]) == 0  # all much faster: passes

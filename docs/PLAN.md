@@ -1267,8 +1267,13 @@ runs the sorting program against it; a box visibly gets pushed.
         way is a plain notice. Baselines unchanged. The two runs behind the ruling: 42955811835,
         EPYC 9V74, tank-level-pid -23.0 % (would have been plain under this rule, inside 25 %),
         and 42958754035, EPYC 9V45, +0.3 %. `tools/bench.py` (`too_fast`); `tests/unit/
-        test_bench.py`: 26 % faster warns and names the CPU, exactly 25 % faster is plain, 26 %
-        slower fails, and on Actions an all-faster run passes with `::warning` annotations.
+        test_bench.py`: -26 % warns and names the CPU, exactly -25 % and -23 % are plain, +26 %
+        fails, and on Actions an all-faster run passes with `::warning` annotations. (As first
+        committed, 24b4654, the warning fired below base / 1.25, at -20 %, while the line
+        printed the change against the baseline; fixed to warn below -25 % as printed.)
+      - Run 42964905710 (07fa743, 2026-11-11), the first under the one-sided rule, EPYC 9V74
+        again: load-200 +0.5 %, queue-200 -1.5 %, tank-level-pid -25.6 %, which passed with the
+        warning annotation naming the CPU.
       - *Process scene in the gate (ruled 2026-11-08):* `tank-level-pid` under its stand-in
         script for the fixed 5000 ticks replaces `flow-net` (`PROCESS` in `tools/bench.py`):
         0.18 to 0.26 ms a tick here, the script's scan included, score 0.0023 to 0.0024 over

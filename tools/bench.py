@@ -307,7 +307,7 @@ def too_fast(got: dict[str, float], base: dict[str, float]) -> bool:
     """More than ``LIMIT`` faster than the baseline: passes, but is annotated as a warning, since
     it means the calibration does not carry to this runner and the gate has lost headroom
     (PLAN 2.9: tank-level-pid -23 % on an EPYC 9V74, +0.3 % on an EPYC 9V45)."""
-    return got[GATE] * LIMIT < base[GATE]
+    return got[GATE] < base[GATE] * (2 - LIMIT)  # change below -25 %, as the line prints it
 
 
 def compare(name: str, got: dict[str, float], base: dict[str, float] | None) -> tuple[bool, str]:
