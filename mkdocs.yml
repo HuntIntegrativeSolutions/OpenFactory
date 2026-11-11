@@ -80,6 +80,7 @@ nav:
       - what-openfactory-is-not.md
   - Decisions:
       - adr/ADR-0001-stack.md
+      - adr/ADR-0002-logix-emulate-path.md
       - adr/ADR-0003-analog-encoding.md
       - adr/ADR-0004-modbus-address-lockfile.md
       - adr/ADR-0005-flow-network-solver.md
@@ -89,4 +90,5 @@ nav:
       - research/jolt-vs-rapier.md
       - research/flownet-design.md
       - research/plantpax-demo-design.md
+      - research/logix-emulate.md
   - Roadmap: PLAN.md
