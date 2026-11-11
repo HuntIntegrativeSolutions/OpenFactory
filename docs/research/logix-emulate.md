@@ -2,9 +2,9 @@
 
 *Document only, 2026-11-10. Public sources only (vendor release notes and product pages, library
 documentation and source, community forums), per the clean-room rule; no installer, binary or
-installation media was opened, and nothing here has been run against a controller. The proposal
-for ruling is [ADR-0002](../adr/ADR-0002-logix-emulate-path.md). PLAN 2.1 stays open until the
-owner rules and the first live tests below have run.*
+installation media was opened, and nothing here has been run against a controller. The decision
+is [ADR-0002](../adr/ADR-0002-logix-emulate-path.md), accepted 2026-11-10; the live tests wait on
+the owner (PLAN 2.2).*
 
 ## The question
 

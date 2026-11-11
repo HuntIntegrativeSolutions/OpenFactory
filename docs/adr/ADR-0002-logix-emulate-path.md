@@ -1,7 +1,8 @@
 # ADR-0002: The Rockwell path, a bench controller and an emulated one
 
-**Status:** Proposed, 2026-11-10, for the owner's ruling. Nothing in it has been tested against a
-controller; PLAN 2.1 stays open.
+**Status:** Accepted, 2026-11-10: decisions 1 to 5 as proposed, and the live tests in the order
+(d), Echo (e), Emulate (a). Nothing in it has been tested against a controller yet; the live
+tests wait on the owner (PLAN 2.2, open questions).
 **Deciders:** HIS Controls (T. Hunt), Claude Opus 5.5
 **Appendix:** [Reaching an emulated Logix controller](../research/logix-emulate.md), the research
 spike: every option with its sources, what pycomm3 can and cannot reach, what the owner installs,
@@ -24,7 +25,7 @@ the rule did not foresee:
    which is what pycomm3's tag services use, and Ignition's Logix driver is reported working
    against it. No public source shows pycomm3 itself against Echo.
 
-## Proposed decision
+## Decision
 
 1. **(d) the bench CompactLogix 5380 stays the documented reference path**, unchanged: pycomm3
    direct, `LogixDriver('<ip>')`, PLAN 2.2's done-when as written.
@@ -46,7 +47,7 @@ the rule did not foresee:
    Echo SDK only for co-simulation (pausing or scaling Echo's clock with OpenFactory's), as a
    separate task.
 
-**Order of the live tests (proposed):** (d) first, because it is the reference and PLAN 2.2's
+**Order of the live tests:** (d) first, because it is the reference and PLAN 2.2's
 done-when; then (e) on a host or VM with Echo; then (a) on a separate host or VM, if a v35-or-earlier
 5570 demo is wanted. Each test is the appendix's "First live test", recorded under PLAN 2.1 with
 the versions used (Studio 5000, Echo or Emulate, FT Linx, RSLinx Classic, pycomm3 1.2.16).
@@ -63,9 +64,8 @@ the versions used (Studio 5000, Echo or Emulate, FT Linx, RSLinx Classic, pycomm
 - Nothing here is safety-related; an emulated or bench controller running an OpenFactory demo is
   a training setup, not a commissioning or safety test.
 
-## Open for the owner
+## Open for the owner (listed under PLAN 2.2)
 
-- Rule on decisions 1-5 and the test order.
-- Which emulator licences and Studio 5000 versions the bench host has (they choose between (e)
-  and (a)), and whether a VM is available so the two can be tested side by side.
-- Whether the bench 5380 (d) is available for PLAN 2.2.
+- Whether the bench CompactLogix 5380 (d) is available for PLAN 2.2.
+- Which host runs Echo (and, if a v35-or-earlier demo is wanted, which separate host or VM runs
+  Emulate), with its Studio 5000 version.
