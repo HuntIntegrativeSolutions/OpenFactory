@@ -350,7 +350,7 @@
             },
             {
               "accessRights": "Read_Only",
-              "dataType": "Float4",
+              "dataType": "Boolean",
               "documentation": "P_PIDE.Sts_Prog (PROCES-RM013I-EN-P, April 2023 (library 4.10.06))",
               "enabled": true,
               "historyEnabled": false,

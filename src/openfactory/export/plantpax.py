@@ -119,6 +119,37 @@ CITED: dict[tuple[str, str], str] = {
     ("P_Motor", "Out_Run"): OUT,
 }
 
+#: Each cited member's data type, from the same workbook row ("Data Type" column). Every member is
+#: BOOL or REAL; a MOV into a REAL is written with a decimal literal (review of 2026-11-10, fix 4:
+#: Cfg_FailToStartT is REAL, seconds, so ``5.0`` is right). The HMI export takes its tag types from
+#: here too.
+DATA_TYPE: dict[tuple[str, str], str] = {
+    **dict.fromkeys(CITED, "REAL"),
+    **dict.fromkeys(
+        [
+            ("P_AIn", "Sts_PVBad"),
+            ("P_PIDE", "Inp_PVBad"),
+            ("P_PIDE", "Inp_IntlkOK"),
+            ("P_PIDE", "Cfg_CtrlAction"),
+            ("P_PIDE", "Cfg_Depend"),
+            ("P_PIDE", "PCmd_Prog"),
+            ("P_PIDE", "PCmd_Auto"),
+            ("P_PIDE", "Sts_Prog"),
+            ("P_ValveC", "Inp_IntlkOK"),
+            ("P_ValveC", "Cfg_HasPosFdbk"),
+            ("P_ValveC", "PCmd_Prog"),
+            ("P_Motor", "Inp_RunFdbk"),
+            ("P_Motor", "Inp_IntlkOK"),
+            ("P_Motor", "Cfg_HasRunFdbk"),
+            ("P_Motor", "Cfg_UseRunFdbk"),
+            ("P_Motor", "PCmd_Prog"),
+            ("P_Motor", "PCmd_Start"),
+            ("P_Motor", "Out_Run"),
+        ],
+        "BOOL",
+    ),
+}
+
 AREA = "DEMO"  # HIS Controls AREA_EQUIP_NNN; the area prefix is the owner's to confirm
 PROGRAM = "PlantPAx_Demo"
 SP = f"{AREA}_LIC_101_SP"  # the loop's setpoint, a tunable REAL
@@ -430,9 +461,10 @@ def plantpax_l5x(
 
 def source_table() -> str:
     """The source table as Markdown, for docs/plantpax.md and the kit."""
-    rows = ["| Object | Member | Where RM013 lists it |", "|---|---|---|"]
+    rows = ["| Object | Member | Type | Where RM013 lists it |", "|---|---|---|---|"]
     for (aoi, member), sheet in sorted(CITED.items()):
         rows.append(
-            f'| `{aoi}` | `{member}` | {PUBLICATION}, workbook "{WORKBOOK[aoi]}", {sheet} |'
+            f"| `{aoi}` | `{member}` | {DATA_TYPE[aoi, member]} | {PUBLICATION}, "
+            f'workbook "{WORKBOOK[aoi]}", {sheet} |'
         )
     return "\n".join(rows) + "\n"

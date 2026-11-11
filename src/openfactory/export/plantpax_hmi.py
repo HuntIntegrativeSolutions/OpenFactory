@@ -36,20 +36,12 @@ import json
 from typing import Any
 
 from openfactory.core.schema import Scene
-from openfactory.export.plantpax import AREA, CITED, MAPS, PUBLICATION
+from openfactory.export.plantpax import AREA, CITED, DATA_TYPE, MAPS, PUBLICATION
 
 VERSION = "8.3.0"
 LOGIX_OPC_SERVER = "Ignition OPC UA Server"
 DEFAULT_DEVICE = "PlantPAxDemo"
 GENERATED = "generated, pending PE review"
-#: The cited members that are BOOL in RM013's workbooks; every other cited member is REAL.
-BOOL_MEMBERS = frozenset(
-    {
-        "Sts_PVBad", "Inp_PVBad", "Inp_IntlkOK", "Inp_RunFdbk", "Cfg_CtrlAction", "Cfg_Depend",
-        "Cfg_HasPosFdbk", "Cfg_HasRunFdbk", "Cfg_UseRunFdbk", "PCmd_Prog", "PCmd_Auto",
-        "PCmd_Start", "Out_Run",
-    }
-)  # fmt: skip
 #: History on the process value only (HIS Controls Ignition conventions).
 HISTORY = frozenset({("P_AIn", "Val")})
 #: What each faceplate shows: (label, member, units hint) in display order.
@@ -96,7 +88,7 @@ def plantpax_udts(scene: Scene, *, device: str = DEFAULT_DEVICE) -> dict[str, An
                 "valueSource": "opc",
                 "opcServer": LOGIX_OPC_SERVER,
                 "opcItemPath": f"ns=1;s=[{{Device}}]{{InstanceName}}.{m}",
-                "dataType": "Boolean" if m in BOOL_MEMBERS else "Float4",
+                "dataType": {"BOOL": "Boolean", "REAL": "Float4"}[DATA_TYPE[aoi, m]],
                 "accessRights": "Read_Only",
                 "historyEnabled": (aoi, m) in HISTORY,
                 "documentation": f"{aoi}.{m} ({PUBLICATION})",
@@ -167,7 +159,7 @@ def _view(aoi: str) -> dict[str, Any]:
     readouts = READOUTS[aoi]
     rows = []
     for label, member, units in readouts:
-        if member in BOOL_MEMBERS:
+        if DATA_TYPE[aoi, member] == "BOOL":
             expr = f'if({{view.custom.{member}}}, "{label}: yes", "{label}: no")'
         else:
             expr = f'"{label}: " + numberFormat({{view.custom.{member}}}, "#,##0.00") + " {units}"'
@@ -180,7 +172,7 @@ def _view(aoi: str) -> dict[str, Any]:
                 },
             )
         )
-    custom = {m: (False if m in BOOL_MEMBERS else 0.0) for _, m, _ in readouts}
+    custom = {m: (False if DATA_TYPE[aoi, m] == "BOOL" else 0.0) for _, m, _ in readouts}
     prop_config: dict[str, Any] = {f"custom.{m}": {**_bound(m), "persistent": True} for m in custom}
     prop_config["params.tagPath"] = {"paramDirection": "input", "persistent": True}
     prop_config["params.equipmentName"] = {"paramDirection": "input", "persistent": True}

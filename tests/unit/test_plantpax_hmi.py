@@ -73,3 +73,18 @@ def test_faceplates_bind_only_cited_members_through_their_root(name):
 def test_a_scene_without_a_map_is_refused():
     with pytest.raises(ValueError, match="no PlantPAx map"):
         plantpax_hmi.plantpax_udts(scene("batch-mix-heat"))
+
+
+def test_every_udt_member_has_its_rm013_data_type():
+    """Each member's Ignition type follows plantpax.DATA_TYPE (BOOL -> Boolean, REAL -> Float4),
+    so a newly cited status bit such as P_PIDE.Sts_Prog is a Boolean (review of 2026-11-10)."""
+    types, _ = plantpax_hmi.plantpax_udts(scene("plantpax-tank-level"))["tags"]
+    seen = 0
+    for udt in types["tags"]:
+        aoi = udt["name"].removesuffix("_UDT")
+        for m in udt["tags"]:
+            want = {"BOOL": "Boolean", "REAL": "Float4"}[plantpax.DATA_TYPE[aoi, m["name"]]]
+            assert m["dataType"] == want, (aoi, m["name"])
+            seen += 1
+    assert seen == len(plantpax.DATA_TYPE)
+    assert plantpax.DATA_TYPE["P_PIDE", "Sts_Prog"] == "BOOL"

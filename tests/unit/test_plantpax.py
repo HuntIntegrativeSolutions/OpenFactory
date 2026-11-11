@@ -197,3 +197,25 @@ def test_the_l5x_starts_the_pump_once_and_the_stand_in_restarts_it_when_lsl_clea
     guide = (REPO / "docs" / "guides" / "plantpax-tank-level.md").read_text(encoding="utf-8")
     assert "## The pump after a low-level trip" in page and "check 11 expects" in page
     assert "plantpax.md#the-pump-after-a-low-level-trip" in guide
+
+
+@pytest.mark.parametrize("name", sorted(plantpax.MAPS))
+def test_every_write_matches_the_members_data_type_in_rm013(name, tmp_path):
+    """Review of 2026-11-10 (fix 4): Cfg_FailToStartT is REAL in RM013's Motors workbook, so its
+    literal 5.0 is right. Every MOV literal into a cited member has the member's type's form
+    (REAL with a decimal point, an integer type without), and every coil writes a BOOL."""
+    assert set(plantpax.DATA_TYPE) == set(plantpax.CITED)
+    assert plantpax.DATA_TYPE["P_Motor", "Cfg_FailToStartT"] == "REAL"
+    aoi = {i.tag: i.aoi for i in plantpax.MAPS[name].instances}
+    root = export(name, tmp_path)
+    checked = 0
+    for text in (r.findtext("Text") for r in root.iter("Rung")):
+        for literal, tag, member in re.findall(r"MOV\((-?[0-9.]+),(\w+)\.(\w+)\)", text):
+            if tag in aoi:
+                real = plantpax.DATA_TYPE[aoi[tag], member] == "REAL"
+                assert ("." in literal) == real, (literal, tag, member)
+                checked += 1
+        for tag, member in re.findall(r"OT[ELU]\((\w+)\.(\w+)\)", text):
+            if tag in aoi:
+                assert plantpax.DATA_TYPE[aoi[tag], member] == "BOOL", (tag, member)
+    assert checked >= 20

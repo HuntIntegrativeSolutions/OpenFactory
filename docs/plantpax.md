@@ -161,59 +161,61 @@ L5X, and each faceplate opened with `tagPath` `[default]DEMO/<instance>`.
 
 ## The source table
 
-Every member a rung names, and where Rockwell's public manual lists it. Names only: no
-description or default is copied from the manual, whose reproduction is not permitted. The table
+Every member a rung names, its data type, and where Rockwell's public manual lists it. Names
+and types only: no description or default is copied from the manual, whose reproduction is not
+permitted. Every member is BOOL or REAL; a value written to a REAL is a decimal literal
+(`Cfg_FailToStartT`, seconds, is REAL, so `MOV(5.0,...)`, checked 2026-11-10). The table
 is generated from `src/openfactory/export/plantpax.py` (`CITED`); `tests/unit/test_plantpax.py`
 checks this page carries it as the code has it, that every member a rung names is in it, and that
 it lists nothing the rungs do not use.
 
-| Object | Member | Where RM013 lists it |
-|---|---|---|
-| `P_AIn` | `Cfg_InpRawMax` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
-| `P_AIn` | `Cfg_InpRawMin` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
-| `P_AIn` | `Cfg_PVEUMax` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
-| `P_AIn` | `Cfg_PVEUMin` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
-| `P_AIn` | `Inp_PV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
-| `P_AIn` | `Sts_PVBad` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Output Parameters |
-| `P_AIn` | `Val` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Output Parameters |
-| `P_Motor` | `Cfg_FailToStartT` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
-| `P_Motor` | `Cfg_HasRunFdbk` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
-| `P_Motor` | `Cfg_UseRunFdbk` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
-| `P_Motor` | `Inp_IntlkOK` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
-| `P_Motor` | `Inp_RunFdbk` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
-| `P_Motor` | `Out_Run` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Output Parameters |
-| `P_Motor` | `PCmd_Prog` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
-| `P_Motor` | `PCmd_Start` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_CVEUMax` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_CVEUMin` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_CtrlAction` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_DGain` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_Depend` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_IGain` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_IntlkCV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_MaxCV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_MinCV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_PGain` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_PVEUMax` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Cfg_PVEUMin` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Inp_IntlkOK` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Inp_PV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Inp_PVBad` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Out_CV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Output Parameters |
-| `P_PIDE` | `PCmd_Auto` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `PCmd_Prog` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `PSet_SP` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
-| `P_PIDE` | `Sts_Prog` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Output Parameters |
-| `P_ValveC` | `Cfg_CVEUMax` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Cfg_CVEUMin` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Cfg_CVRawMax` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Cfg_CVRawMin` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Cfg_FdbkRawMax` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Cfg_FdbkRawMin` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Cfg_HasPosFdbk` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Cfg_IntlkCV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Inp_IntlkOK` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Inp_PosFdbk` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `Out_CV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Output Parameters |
-| `P_ValveC` | `PCmd_Prog` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
-| `P_ValveC` | `PSet_CV` | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| Object | Member | Type | Where RM013 lists it |
+|---|---|---|---|
+| `P_AIn` | `Cfg_InpRawMax` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
+| `P_AIn` | `Cfg_InpRawMin` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
+| `P_AIn` | `Cfg_PVEUMax` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
+| `P_AIn` | `Cfg_PVEUMin` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
+| `P_AIn` | `Inp_PV` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Input Parameters |
+| `P_AIn` | `Sts_PVBad` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Output Parameters |
+| `P_AIn` | `Val` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "IO Processing 4.1", Output Parameters |
+| `P_Motor` | `Cfg_FailToStartT` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
+| `P_Motor` | `Cfg_HasRunFdbk` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
+| `P_Motor` | `Cfg_UseRunFdbk` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
+| `P_Motor` | `Inp_IntlkOK` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
+| `P_Motor` | `Inp_RunFdbk` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
+| `P_Motor` | `Out_Run` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Output Parameters |
+| `P_Motor` | `PCmd_Prog` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
+| `P_Motor` | `PCmd_Start` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Motors 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_CVEUMax` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_CVEUMin` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_CtrlAction` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_DGain` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_Depend` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_IGain` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_IntlkCV` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_MaxCV` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_MinCV` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_PGain` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_PVEUMax` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Cfg_PVEUMin` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Inp_IntlkOK` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Inp_PV` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Inp_PVBad` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Out_CV` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Output Parameters |
+| `P_PIDE` | `PCmd_Auto` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `PCmd_Prog` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `PSet_SP` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Input Parameters |
+| `P_PIDE` | `Sts_Prog` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Regulatory_Procedural Control 4.1", Output Parameters |
+| `P_ValveC` | `Cfg_CVEUMax` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Cfg_CVEUMin` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Cfg_CVRawMax` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Cfg_CVRawMin` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Cfg_FdbkRawMax` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Cfg_FdbkRawMin` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Cfg_HasPosFdbk` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Cfg_IntlkCV` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Inp_IntlkOK` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Inp_PosFdbk` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `Out_CV` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Output Parameters |
+| `P_ValveC` | `PCmd_Prog` | BOOL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
+| `P_ValveC` | `PSet_CV` | REAL | PROCES-RM013I-EN-P, April 2023 (library 4.10.06), workbook "Valves 4.1", Input Parameters |
