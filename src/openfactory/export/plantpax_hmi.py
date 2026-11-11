@@ -13,15 +13,20 @@ tag (``DEMO_LT_101``). **The members are exactly the cited names** of that objec
 (:data:`openfactory.export.plantpax.CITED`, PROCES-RM013I), nothing more: each an ``AtomicTag``
 reading ``ns=1;s=[{Device}]{InstanceName}.<Member>`` through Ignition's Logix driver (``Device``,
 a UDT parameter, is the gateway's device alias, never an address), ``Boolean`` or ``Float4``,
-read-only, with history on the process value only (``P_AIn.Val``). No alarms (none are
-rationalized, ISA-18.2).
+read-only, with history on the process value only (``P_AIn.Val``). The members are the rungs'
+cited names (``CITED``) and the faceplates' (``DISPLAY``: mode, owner, state, interlock and
+``Alm_`` bits), with ``Int4`` for the owner id. **No Ignition alarms are configured** on any
+member, the ``Alm_`` bits included: nothing is rationalized (ISA-18.2), so the bits are read and
+shown, never alarmed.
 
 :func:`plantpax_faceplates` writes one Perspective view per object type, in a single JSON
 document ``{"generated": ..., "views": {"PlantPAx/<AOI>_Faceplate": view}}``, each view in the
-shape of the shipped ``sorting-by-height-perspective.json``: a header (equipment name and its
-tag's documentation, the mode shown as not configured), the main readouts bound indirectly to
-``{Root}/<Member>`` from the view parameter ``tagPath`` (template reuse: no absolute path), an
-alarm summary line, and a breadcrumb footer, in the ISA-101 palette (``ignition-conventions.md``).
+shape of the shipped ``sorting-by-height-perspective.json``: a header (equipment name, its tag's
+documentation, the mode from the command-source bits, ``Program``/``Operator``/``Out of
+Service``, plus the loop mode for ``P_PIDE``, and the owner id), the main readouts (running state
+for the motor, position for the valve, the interlock trip bit), an alarm line naming the active
+``Alm_`` bits in ISA-101 alarm red, and a breadcrumb footer, every member bound indirectly to
+``{Root}/<Member>`` from the view parameter ``tagPath`` (template reuse: no absolute path).
 **The faceplates are display-only.** Operator commands and setpoints go through the objects'
 ``OCmd_``/``OSet_`` members, which are local tags whose names the manual's extracted lists did
 not give; until the owner verifies them in Studio 5000 the views write nothing (each says so).
@@ -36,7 +41,7 @@ import json
 from typing import Any
 
 from openfactory.core.schema import Scene
-from openfactory.export.plantpax import AREA, CITED, DATA_TYPE, MAPS, PUBLICATION
+from openfactory.export.plantpax import AREA, CITED, DATA_TYPE, DISPLAY, MAPS, PUBLICATION
 
 VERSION = "8.3.0"
 LOGIX_OPC_SERVER = "Ignition OPC UA Server"
@@ -60,7 +65,43 @@ READOUTS: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("Interlock OK", "Inp_IntlkOK", ""),
     ),
 }  # fmt: skip
+#: Status shown on each faceplate (PLAN 3.8 follow-up, ruled 2026-11-10), all from the cited
+#: members (:data:`openfactory.export.plantpax.DISPLAY`). Each list is (member, text) in
+#: precedence order: the first member that is on decides the text.
+MODE: dict[str, tuple[tuple[str, str], ...]] = {
+    "P_PIDE": (("Sts_OoS", "Out of Service"), ("Sts_Prog", "Program"), ("Sts_Oper", "Operator")),
+    "P_ValveC": (("Sts_OoS", "Out of Service"), ("Sts_Prog", "Program"), ("Sts_Oper", "Operator")),
+    "P_Motor": (("Sts_OoS", "Out of Service"), ("Sts_Prog", "Program"), ("Sts_Oper", "Operator")),
+}
+LOOP_MODE: dict[str, tuple[tuple[str, str], ...]] = {
+    "P_PIDE": (("Sts_Casc", "Cascade"), ("Sts_Auto", "Auto"), ("Sts_Man", "Manual")),
+}
+RUN_STATE: dict[str, tuple[tuple[str, str], ...]] = {
+    "P_Motor": (
+        ("Sts_Running", "Running"), ("Sts_Starting", "Starting"),
+        ("Sts_Stopping", "Stopping"), ("Sts_Stopped", "Stopped"),
+    ),
+}  # fmt: skip
+#: Extra readouts after READOUTS: (label, member, units).
+STATE: dict[str, tuple[tuple[str, str, str], ...]] = {
+    "P_AIn": (("PV failed", "Sts_Fail", ""),),
+    "P_PIDE": (("Interlock trip", "Sts_IntlkTrip", ""),),
+    "P_ValveC": (("Valve position", "Val_Pos", "%"), ("Interlock trip", "Sts_IntlkTrip", "")),
+    "P_Motor": (("Interlock trip", "Sts_IntlkTrip", ""),),
+}
+#: The alarm bits each faceplate lists when on.
+ALARMS: dict[str, tuple[str, ...]] = {
+    "P_AIn": ("Alm_HiHi", "Alm_Hi", "Alm_Lo", "Alm_LoLo", "Alm_Fail"),
+    "P_PIDE": (
+        "Alm_HiHiDev", "Alm_HiDev", "Alm_LoDev", "Alm_LoLoDev", "Alm_IntlkTrip", "Alm_Fail",
+    ),
+    "P_ValveC": ("Alm_IntlkTrip", "Alm_ActuatorFault", "Alm_IOFault"),
+    "P_Motor": ("Alm_FailToStart", "Alm_FailToStop", "Alm_IntlkTrip", "Alm_IOFault"),
+}  # fmt: skip
+#: Logix type -> Ignition tag dataType.
+IGNITION_TYPE = {"BOOL": "Boolean", "REAL": "Float4", "DINT": "Int4"}
 BG, HEADER_BG, TEXT, MUTED, HIGHLIGHT = "#1F2A36", "#0F172A", "#E5E7EB", "#9CA3AF", "#60A5FA"
+ALARM = "#EF4444"  # ISA-101 alarmHigh: an active alarm bit
 
 
 def _map(scene: Scene) -> Any:
@@ -72,8 +113,26 @@ def _map(scene: Scene) -> Any:
 
 
 def members(aoi: str) -> list[str]:
-    """The cited members of one object, sorted."""
-    return sorted(m for a, m in CITED if a == aoi)
+    """The cited members of one object (the rungs' and the faceplate's), sorted."""
+    return sorted(m for a, m in {**CITED, **DISPLAY} if a == aoi)
+
+
+def shown(aoi: str) -> list[str]:
+    """Every member the faceplate of ``aoi`` binds, in display order, each once."""
+    out = [m for _, m, _ in READOUTS[aoi]]
+    out += [m for m, _ in MODE.get(aoi, ())] + [m for m, _ in LOOP_MODE.get(aoi, ())]
+    out += ["Val_Owner"] if (aoi, "Val_Owner") in DISPLAY else []
+    out += [m for m, _ in RUN_STATE.get(aoi, ())] + [m for _, m, _ in STATE.get(aoi, ())]
+    out += list(ALARMS[aoi]) + ["Sts_AlmInh"]
+    return list(dict.fromkeys(out))
+
+
+def _pick(pairs: tuple[tuple[str, str], ...], default: str) -> str:
+    """An expression: the text of the first member that is on, else ``default``."""
+    expr = f'"{default}"'
+    for member, text in reversed(pairs):
+        expr = f'if({{view.custom.{member}}}, "{text}", {expr})'
+    return expr
 
 
 def plantpax_udts(scene: Scene, *, device: str = DEFAULT_DEVICE) -> dict[str, Any]:
@@ -88,7 +147,7 @@ def plantpax_udts(scene: Scene, *, device: str = DEFAULT_DEVICE) -> dict[str, An
                 "valueSource": "opc",
                 "opcServer": LOGIX_OPC_SERVER,
                 "opcItemPath": f"ns=1;s=[{{Device}}]{{InstanceName}}.{m}",
-                "dataType": {"BOOL": "Boolean", "REAL": "Float4"}[DATA_TYPE[aoi, m]],
+                "dataType": IGNITION_TYPE[DATA_TYPE[aoi, m]],
                 "accessRights": "Read_Only",
                 "historyEnabled": (aoi, m) in HISTORY,
                 "documentation": f"{aoi}.{m} ({PUBLICATION})",
@@ -155,9 +214,19 @@ def _bound(member: str) -> dict[str, Any]:
     }
 
 
+def _expr_label(name: str, expr: str, color: str = TEXT, size: str = "18px") -> dict[str, Any]:
+    return _label(
+        name,
+        {"color": color, "fontSize": size, "padding": "4px 8px"},
+        propConfig={"props.text": {"binding": {"type": "expr", "config": {"expression": expr}}}},
+    )
+
+
 def _view(aoi: str) -> dict[str, Any]:
-    readouts = READOUTS[aoi]
+    readouts = READOUTS[aoi] + STATE.get(aoi, ())
     rows = []
+    if aoi in RUN_STATE:
+        rows.append(_expr_label("RunStateLabel", '"State: " + ' + _pick(RUN_STATE[aoi], "unknown")))
     for label, member, units in readouts:
         if DATA_TYPE[aoi, member] == "BOOL":
             expr = f'if({{view.custom.{member}}}, "{label}: yes", "{label}: no")'
@@ -172,7 +241,8 @@ def _view(aoi: str) -> dict[str, Any]:
                 },
             )
         )
-    custom = {m: (False if DATA_TYPE[aoi, m] == "BOOL" else 0.0) for _, m, _ in readouts}
+    default = {"BOOL": False, "REAL": 0.0, "DINT": 0}
+    custom = {m: default[DATA_TYPE[aoi, m]] for m in shown(aoi)}
     prop_config: dict[str, Any] = {f"custom.{m}": {**_bound(m), "persistent": True} for m in custom}
     prop_config["params.tagPath"] = {"paramDirection": "input", "persistent": True}
     prop_config["params.equipmentName"] = {"paramDirection": "input", "persistent": True}
@@ -211,10 +281,10 @@ def _view(aoi: str) -> dict[str, Any]:
                     }
                 },
             ),
-            _label("Mode", {"color": HIGHLIGHT, "fontSize": "12px"}),
+            _mode(aoi),
+            _owner(aoi),
         ],
     }
-    header["children"][2]["props"]["text"] = "Mode: not shown (no mode member cited yet)"
     commands = _label(
         "Commands",
         {"color": MUTED, "fontSize": "12px", "padding": "8px"},
@@ -223,8 +293,7 @@ def _view(aoi: str) -> dict[str, Any]:
         "Display only: operator commands and setpoints use the object's OCmd_/OSet_ members, "
         "not yet verified in Studio 5000 (docs/plantpax.md)."
     )
-    alarms = _label("AlarmSummary", {"color": MUTED, "fontSize": "12px", "padding": "8px"})
-    alarms["props"]["text"] = "Alarms: none configured (not rationalized, ISA-18.2)."
+    alarms = _alarms(aoi)
     footer = {
         "type": "ia.container.flex",
         "version": 0,
@@ -275,6 +344,46 @@ def _view(aoi: str) -> dict[str, Any]:
             "children": [header, main, commands, alarms, footer],
         },
     }
+
+
+def _mode(aoi: str) -> dict[str, Any]:
+    """The command source (and the loop mode), or a fixed line for an object that has none."""
+    if aoi not in MODE:
+        node = _label("Mode", {"color": HIGHLIGHT, "fontSize": "12px"})
+        node["props"]["text"] = "Mode: none (an input object has no command source)"
+        return node
+    expr = '"Mode: " + ' + _pick(MODE[aoi], "none selected")
+    if aoi in LOOP_MODE:
+        expr += ' + " / " + ' + _pick(LOOP_MODE[aoi], "no loop mode")
+    return _expr_label("Mode", expr, HIGHLIGHT, "12px")
+
+
+def _owner(aoi: str) -> dict[str, Any]:
+    if (aoi, "Val_Owner") not in DISPLAY:
+        node = _label("Owner", {"color": MUTED, "fontSize": "12px"})
+        node["props"]["text"] = "Owner: none (no command source)"
+        return node
+    expr = (
+        'if({view.custom.Val_Owner} = 0, "Owner: none", "Owner: " + toStr({view.custom.Val_Owner}))'
+    )
+    return _expr_label("Owner", expr, MUTED, "12px")
+
+
+def _alarms(aoi: str) -> dict[str, Any]:
+    """The active alarm bits by name, red while any is on; the UDTs configure no Ignition alarms
+    (nothing is rationalized, ISA-18.2): this line only shows the controller's own bits."""
+    bits = ALARMS[aoi]
+    anyone = " || ".join(f"{{view.custom.{b}}}" for b in bits)
+    names = " + ".join(f'if({{view.custom.{b}}}, "{b.removeprefix("Alm_")} ", "")' for b in bits)
+    text = (
+        f'"Alarms (controller bits, not rationalized): " + if({anyone}, {names}, "none active")'
+        ' + if({view.custom.Sts_AlmInh}, " (some shelved or disabled)", "")'
+    )
+    node = _expr_label("AlarmSummary", text, MUTED, "12px")
+    node["propConfig"]["props.style.color"] = {
+        "binding": {"type": "expr", "config": {"expression": f'if({anyone}, "{ALARM}", "{MUTED}")'}}
+    }
+    return node
 
 
 def plantpax_faceplates(scene: Scene) -> dict[str, Any]:

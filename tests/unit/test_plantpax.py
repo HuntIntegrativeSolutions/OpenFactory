@@ -204,7 +204,8 @@ def test_every_write_matches_the_members_data_type_in_rm013(name, tmp_path):
     """Review of 2026-11-10 (fix 4): Cfg_FailToStartT is REAL in RM013's Motors workbook, so its
     literal 5.0 is right. Every MOV literal into a cited member has the member's type's form
     (REAL with a decimal point, an integer type without), and every coil writes a BOOL."""
-    assert set(plantpax.DATA_TYPE) == set(plantpax.CITED)
+    assert set(plantpax.DATA_TYPE) == set(plantpax.CITED) | set(plantpax.DISPLAY)
+    assert not set(plantpax.CITED) & set(plantpax.DISPLAY)
     assert plantpax.DATA_TYPE["P_Motor", "Cfg_FailToStartT"] == "REAL"
     aoi = {i.tag: i.aoi for i in plantpax.MAPS[name].instances}
     root = export(name, tmp_path)

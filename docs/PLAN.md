@@ -2266,6 +2266,21 @@ runs the sorting program against it; a box visibly gets pushed.
       from RM013's workbooks (as for `CITED`, names and types only) so every faceplate shows its
       object's mode, running state and alarms; operator commands (`OCmd_`/`OSet_`) remain a
       separate ruling.
+      *Done (2026-11-10, ruled the same day: mode, owner, running or position state, interlock
+      state and alarms on the four faceplates, still display only through `{Root}`, alarms in
+      the UDTs unconfigured):* `plantpax.DISPLAY` cites 45 output members (`Sts_`, `Val_`,
+      `Alm_`), names and types only, from the same RM013 workbooks (each checked against its
+      workbook row and sheet); the source table in `docs/plantpax.md` lists them with a "Used
+      by" column. `P_AIn` has no command source (no `Sts_Prog` or `Val_Owner` in its lists), so
+      its faceplate says so. The UDTs gain the members (`Val_Owner` DINT as `Int4`) and no
+      Ignition alarm. Faceplates: the mode from `Sts_OoS`/`Sts_Prog`/`Sts_Oper` (and the loop
+      mode `Sts_Casc`/`Sts_Auto`/`Sts_Man`), the owner, the motor's run state, the valve's
+      `Val_Pos`, `Sts_IntlkTrip`, and an alarm line naming the `Alm_` bits that are on, red
+      while any is. `tests/unit/test_plantpax_hmi.py`: every binding is `{Root}` plus a cited
+      member and every displayed member is bound; every faceplate citation is shown; each UDT
+      member's type; no UDT alarms; the four faceplates show mode, owner, state, interlock and
+      alarms, with no input component. Both kits rebuilt. Expressions not yet checked in a
+      Designer.
 
 ### Milestone 4 — Editor, assets, community (ongoing)
 - [ ] 4.1 In-browser scene editor: drag components, edit properties with schema-driven forms, export YAML.

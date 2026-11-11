@@ -4,7 +4,14 @@
   "views": {
     "PlantPAx/P_AIn_Faceplate": {
       "custom": {
+        "Alm_Fail": false,
+        "Alm_Hi": false,
+        "Alm_HiHi": false,
+        "Alm_Lo": false,
+        "Alm_LoLo": false,
         "Inp_PV": 0.0,
+        "Sts_AlmInh": false,
+        "Sts_Fail": false,
         "Sts_PVBad": false,
         "Val": 0.0,
         "generated": "generated, pending PE review",
@@ -16,6 +23,76 @@
         "tagPath": "[default]DEMO/"
       },
       "propConfig": {
+        "custom.Alm_Fail": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_Fail"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_Hi": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_Hi"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_HiHi": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_HiHi"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_Lo": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_Lo"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_LoLo": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_LoLo"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
         "custom.Inp_PV": {
           "binding": {
             "config": {
@@ -25,6 +102,34 @@
                 "Root": "{view.params.tagPath}"
               },
               "tagPath": "{Root}/Inp_PV"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_AlmInh": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_AlmInh"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Fail": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Fail"
             },
             "type": "tag"
           },
@@ -138,7 +243,21 @@
                     "color": "#60A5FA",
                     "fontSize": "12px"
                   },
-                  "text": "Mode: not shown (no mode member cited yet)"
+                  "text": "Mode: none (an input object has no command source)"
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Owner"
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "12px"
+                  },
+                  "text": "Owner: none (no command source)"
                 },
                 "type": "ia.display.label",
                 "version": 0
@@ -230,6 +349,30 @@
                 },
                 "type": "ia.display.label",
                 "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Sts_FailLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Sts_Fail}, \"PV failed: yes\", \"PV failed: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
               }
             ],
             "meta": {
@@ -263,13 +406,30 @@
             "meta": {
               "name": "AlarmSummary"
             },
+            "propConfig": {
+              "props.style.color": {
+                "binding": {
+                  "config": {
+                    "expression": "if({view.custom.Alm_HiHi} || {view.custom.Alm_Hi} || {view.custom.Alm_Lo} || {view.custom.Alm_LoLo} || {view.custom.Alm_Fail}, \"#EF4444\", \"#9CA3AF\")"
+                  },
+                  "type": "expr"
+                }
+              },
+              "props.text": {
+                "binding": {
+                  "config": {
+                    "expression": "\"Alarms (controller bits, not rationalized): \" + if({view.custom.Alm_HiHi} || {view.custom.Alm_Hi} || {view.custom.Alm_Lo} || {view.custom.Alm_LoLo} || {view.custom.Alm_Fail}, if({view.custom.Alm_HiHi}, \"HiHi \", \"\") + if({view.custom.Alm_Hi}, \"Hi \", \"\") + if({view.custom.Alm_Lo}, \"Lo \", \"\") + if({view.custom.Alm_LoLo}, \"LoLo \", \"\") + if({view.custom.Alm_Fail}, \"Fail \", \"\"), \"none active\") + if({view.custom.Sts_AlmInh}, \" (some shelved or disabled)\", \"\")"
+                  },
+                  "type": "expr"
+                }
+              }
+            },
             "props": {
               "style": {
                 "color": "#9CA3AF",
                 "fontSize": "12px",
-                "padding": "8px"
-              },
-              "text": "Alarms: none configured (not rationalized, ISA-18.2)."
+                "padding": "4px 8px"
+              }
             },
             "type": "ia.display.label",
             "version": 0
@@ -329,9 +489,23 @@
     },
     "PlantPAx/P_Motor_Faceplate": {
       "custom": {
+        "Alm_FailToStart": false,
+        "Alm_FailToStop": false,
+        "Alm_IOFault": false,
+        "Alm_IntlkTrip": false,
         "Inp_IntlkOK": false,
         "Inp_RunFdbk": false,
         "Out_Run": false,
+        "Sts_AlmInh": false,
+        "Sts_IntlkTrip": false,
+        "Sts_OoS": false,
+        "Sts_Oper": false,
+        "Sts_Prog": false,
+        "Sts_Running": false,
+        "Sts_Starting": false,
+        "Sts_Stopped": false,
+        "Sts_Stopping": false,
+        "Val_Owner": 0,
         "generated": "generated, pending PE review",
         "members_from": "PROCES-RM013I-EN-P, April 2023 (library 4.10.06); names only, verify in Studio 5000",
         "object": "P_Motor"
@@ -341,6 +515,62 @@
         "tagPath": "[default]DEMO/"
       },
       "propConfig": {
+        "custom.Alm_FailToStart": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_FailToStart"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_FailToStop": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_FailToStop"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_IOFault": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_IOFault"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_IntlkTrip": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_IntlkTrip"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
         "custom.Inp_IntlkOK": {
           "binding": {
             "config": {
@@ -378,6 +608,146 @@
                 "Root": "{view.params.tagPath}"
               },
               "tagPath": "{Root}/Out_Run"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_AlmInh": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_AlmInh"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_IntlkTrip": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_IntlkTrip"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_OoS": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_OoS"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Oper": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Oper"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Prog": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Prog"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Running": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Running"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Starting": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Starting"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Stopped": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Stopped"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Stopping": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Stopping"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Val_Owner": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Val_Owner"
             },
             "type": "tag"
           },
@@ -458,12 +828,46 @@
                 "meta": {
                   "name": "Mode"
                 },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"Mode: \" + if({view.custom.Sts_OoS}, \"Out of Service\", if({view.custom.Sts_Prog}, \"Program\", if({view.custom.Sts_Oper}, \"Operator\", \"none selected\")))"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
                 "props": {
                   "style": {
                     "color": "#60A5FA",
-                    "fontSize": "12px"
-                  },
-                  "text": "Mode: not shown (no mode member cited yet)"
+                    "fontSize": "12px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Owner"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Val_Owner} = 0, \"Owner: none\", \"Owner: \" + toStr({view.custom.Val_Owner}))"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "12px",
+                    "padding": "4px 8px"
+                  }
                 },
                 "type": "ia.display.label",
                 "version": 0
@@ -484,6 +888,30 @@
           },
           {
             "children": [
+              {
+                "meta": {
+                  "name": "RunStateLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"State: \" + if({view.custom.Sts_Running}, \"Running\", if({view.custom.Sts_Starting}, \"Starting\", if({view.custom.Sts_Stopping}, \"Stopping\", if({view.custom.Sts_Stopped}, \"Stopped\", \"unknown\"))))"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
               {
                 "meta": {
                   "name": "Out_RunLabel"
@@ -555,6 +983,30 @@
                 },
                 "type": "ia.display.label",
                 "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Sts_IntlkTripLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Sts_IntlkTrip}, \"Interlock trip: yes\", \"Interlock trip: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
               }
             ],
             "meta": {
@@ -588,13 +1040,30 @@
             "meta": {
               "name": "AlarmSummary"
             },
+            "propConfig": {
+              "props.style.color": {
+                "binding": {
+                  "config": {
+                    "expression": "if({view.custom.Alm_FailToStart} || {view.custom.Alm_FailToStop} || {view.custom.Alm_IntlkTrip} || {view.custom.Alm_IOFault}, \"#EF4444\", \"#9CA3AF\")"
+                  },
+                  "type": "expr"
+                }
+              },
+              "props.text": {
+                "binding": {
+                  "config": {
+                    "expression": "\"Alarms (controller bits, not rationalized): \" + if({view.custom.Alm_FailToStart} || {view.custom.Alm_FailToStop} || {view.custom.Alm_IntlkTrip} || {view.custom.Alm_IOFault}, if({view.custom.Alm_FailToStart}, \"FailToStart \", \"\") + if({view.custom.Alm_FailToStop}, \"FailToStop \", \"\") + if({view.custom.Alm_IntlkTrip}, \"IntlkTrip \", \"\") + if({view.custom.Alm_IOFault}, \"IOFault \", \"\"), \"none active\") + if({view.custom.Sts_AlmInh}, \" (some shelved or disabled)\", \"\")"
+                  },
+                  "type": "expr"
+                }
+              }
+            },
             "props": {
               "style": {
                 "color": "#9CA3AF",
                 "fontSize": "12px",
-                "padding": "8px"
-              },
-              "text": "Alarms: none configured (not rationalized, ISA-18.2)."
+                "padding": "4px 8px"
+              }
             },
             "type": "ia.display.label",
             "version": 0
@@ -654,10 +1123,25 @@
     },
     "PlantPAx/P_PIDE_Faceplate": {
       "custom": {
+        "Alm_Fail": false,
+        "Alm_HiDev": false,
+        "Alm_HiHiDev": false,
+        "Alm_IntlkTrip": false,
+        "Alm_LoDev": false,
+        "Alm_LoLoDev": false,
         "Inp_IntlkOK": false,
         "Inp_PV": 0.0,
         "Out_CV": 0.0,
         "PSet_SP": 0.0,
+        "Sts_AlmInh": false,
+        "Sts_Auto": false,
+        "Sts_Casc": false,
+        "Sts_IntlkTrip": false,
+        "Sts_Man": false,
+        "Sts_OoS": false,
+        "Sts_Oper": false,
+        "Sts_Prog": false,
+        "Val_Owner": 0,
         "generated": "generated, pending PE review",
         "members_from": "PROCES-RM013I-EN-P, April 2023 (library 4.10.06); names only, verify in Studio 5000",
         "object": "P_PIDE"
@@ -667,6 +1151,90 @@
         "tagPath": "[default]DEMO/"
       },
       "propConfig": {
+        "custom.Alm_Fail": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_Fail"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_HiDev": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_HiDev"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_HiHiDev": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_HiHiDev"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_IntlkTrip": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_IntlkTrip"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_LoDev": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_LoDev"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_LoLoDev": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_LoLoDev"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
         "custom.Inp_IntlkOK": {
           "binding": {
             "config": {
@@ -718,6 +1286,132 @@
                 "Root": "{view.params.tagPath}"
               },
               "tagPath": "{Root}/PSet_SP"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_AlmInh": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_AlmInh"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Auto": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Auto"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Casc": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Casc"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_IntlkTrip": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_IntlkTrip"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Man": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Man"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_OoS": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_OoS"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Oper": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Oper"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Prog": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Prog"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Val_Owner": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Val_Owner"
             },
             "type": "tag"
           },
@@ -798,12 +1492,46 @@
                 "meta": {
                   "name": "Mode"
                 },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"Mode: \" + if({view.custom.Sts_OoS}, \"Out of Service\", if({view.custom.Sts_Prog}, \"Program\", if({view.custom.Sts_Oper}, \"Operator\", \"none selected\"))) + \" / \" + if({view.custom.Sts_Casc}, \"Cascade\", if({view.custom.Sts_Auto}, \"Auto\", if({view.custom.Sts_Man}, \"Manual\", \"no loop mode\")))"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
                 "props": {
                   "style": {
                     "color": "#60A5FA",
-                    "fontSize": "12px"
-                  },
-                  "text": "Mode: not shown (no mode member cited yet)"
+                    "fontSize": "12px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Owner"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Val_Owner} = 0, \"Owner: none\", \"Owner: \" + toStr({view.custom.Val_Owner}))"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "12px",
+                    "padding": "4px 8px"
+                  }
                 },
                 "type": "ia.display.label",
                 "version": 0
@@ -919,6 +1647,30 @@
                 },
                 "type": "ia.display.label",
                 "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Sts_IntlkTripLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Sts_IntlkTrip}, \"Interlock trip: yes\", \"Interlock trip: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
               }
             ],
             "meta": {
@@ -952,13 +1704,30 @@
             "meta": {
               "name": "AlarmSummary"
             },
+            "propConfig": {
+              "props.style.color": {
+                "binding": {
+                  "config": {
+                    "expression": "if({view.custom.Alm_HiHiDev} || {view.custom.Alm_HiDev} || {view.custom.Alm_LoDev} || {view.custom.Alm_LoLoDev} || {view.custom.Alm_IntlkTrip} || {view.custom.Alm_Fail}, \"#EF4444\", \"#9CA3AF\")"
+                  },
+                  "type": "expr"
+                }
+              },
+              "props.text": {
+                "binding": {
+                  "config": {
+                    "expression": "\"Alarms (controller bits, not rationalized): \" + if({view.custom.Alm_HiHiDev} || {view.custom.Alm_HiDev} || {view.custom.Alm_LoDev} || {view.custom.Alm_LoLoDev} || {view.custom.Alm_IntlkTrip} || {view.custom.Alm_Fail}, if({view.custom.Alm_HiHiDev}, \"HiHiDev \", \"\") + if({view.custom.Alm_HiDev}, \"HiDev \", \"\") + if({view.custom.Alm_LoDev}, \"LoDev \", \"\") + if({view.custom.Alm_LoLoDev}, \"LoLoDev \", \"\") + if({view.custom.Alm_IntlkTrip}, \"IntlkTrip \", \"\") + if({view.custom.Alm_Fail}, \"Fail \", \"\"), \"none active\") + if({view.custom.Sts_AlmInh}, \" (some shelved or disabled)\", \"\")"
+                  },
+                  "type": "expr"
+                }
+              }
+            },
             "props": {
               "style": {
                 "color": "#9CA3AF",
                 "fontSize": "12px",
-                "padding": "8px"
-              },
-              "text": "Alarms: none configured (not rationalized, ISA-18.2)."
+                "padding": "4px 8px"
+              }
             },
             "type": "ia.display.label",
             "version": 0
@@ -1018,9 +1787,19 @@
     },
     "PlantPAx/P_ValveC_Faceplate": {
       "custom": {
+        "Alm_ActuatorFault": false,
+        "Alm_IOFault": false,
+        "Alm_IntlkTrip": false,
         "Inp_IntlkOK": false,
         "Inp_PosFdbk": 0.0,
         "Out_CV": 0.0,
+        "Sts_AlmInh": false,
+        "Sts_IntlkTrip": false,
+        "Sts_OoS": false,
+        "Sts_Oper": false,
+        "Sts_Prog": false,
+        "Val_Owner": 0,
+        "Val_Pos": 0.0,
         "generated": "generated, pending PE review",
         "members_from": "PROCES-RM013I-EN-P, April 2023 (library 4.10.06); names only, verify in Studio 5000",
         "object": "P_ValveC"
@@ -1030,6 +1809,48 @@
         "tagPath": "[default]DEMO/"
       },
       "propConfig": {
+        "custom.Alm_ActuatorFault": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_ActuatorFault"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_IOFault": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_IOFault"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Alm_IntlkTrip": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Alm_IntlkTrip"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
         "custom.Inp_IntlkOK": {
           "binding": {
             "config": {
@@ -1067,6 +1888,104 @@
                 "Root": "{view.params.tagPath}"
               },
               "tagPath": "{Root}/Out_CV"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_AlmInh": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_AlmInh"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_IntlkTrip": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_IntlkTrip"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_OoS": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_OoS"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Oper": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Oper"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Sts_Prog": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Sts_Prog"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Val_Owner": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Val_Owner"
+            },
+            "type": "tag"
+          },
+          "persistent": true
+        },
+        "custom.Val_Pos": {
+          "binding": {
+            "config": {
+              "fallbackDelay": 2.5,
+              "mode": "indirect",
+              "references": {
+                "Root": "{view.params.tagPath}"
+              },
+              "tagPath": "{Root}/Val_Pos"
             },
             "type": "tag"
           },
@@ -1147,12 +2066,46 @@
                 "meta": {
                   "name": "Mode"
                 },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"Mode: \" + if({view.custom.Sts_OoS}, \"Out of Service\", if({view.custom.Sts_Prog}, \"Program\", if({view.custom.Sts_Oper}, \"Operator\", \"none selected\")))"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
                 "props": {
                   "style": {
                     "color": "#60A5FA",
-                    "fontSize": "12px"
-                  },
-                  "text": "Mode: not shown (no mode member cited yet)"
+                    "fontSize": "12px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Owner"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Val_Owner} = 0, \"Owner: none\", \"Owner: \" + toStr({view.custom.Val_Owner}))"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#9CA3AF",
+                    "fontSize": "12px",
+                    "padding": "4px 8px"
+                  }
                 },
                 "type": "ia.display.label",
                 "version": 0
@@ -1244,6 +2197,54 @@
                 },
                 "type": "ia.display.label",
                 "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Val_PosLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "\"Valve position: \" + numberFormat({view.custom.Val_Pos}, \"#,##0.00\") + \" %\""
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
+              },
+              {
+                "meta": {
+                  "name": "Sts_IntlkTripLabel"
+                },
+                "propConfig": {
+                  "props.text": {
+                    "binding": {
+                      "config": {
+                        "expression": "if({view.custom.Sts_IntlkTrip}, \"Interlock trip: yes\", \"Interlock trip: no\")"
+                      },
+                      "type": "expr"
+                    }
+                  }
+                },
+                "props": {
+                  "style": {
+                    "color": "#E5E7EB",
+                    "fontSize": "18px",
+                    "padding": "4px 8px"
+                  }
+                },
+                "type": "ia.display.label",
+                "version": 0
               }
             ],
             "meta": {
@@ -1277,13 +2278,30 @@
             "meta": {
               "name": "AlarmSummary"
             },
+            "propConfig": {
+              "props.style.color": {
+                "binding": {
+                  "config": {
+                    "expression": "if({view.custom.Alm_IntlkTrip} || {view.custom.Alm_ActuatorFault} || {view.custom.Alm_IOFault}, \"#EF4444\", \"#9CA3AF\")"
+                  },
+                  "type": "expr"
+                }
+              },
+              "props.text": {
+                "binding": {
+                  "config": {
+                    "expression": "\"Alarms (controller bits, not rationalized): \" + if({view.custom.Alm_IntlkTrip} || {view.custom.Alm_ActuatorFault} || {view.custom.Alm_IOFault}, if({view.custom.Alm_IntlkTrip}, \"IntlkTrip \", \"\") + if({view.custom.Alm_ActuatorFault}, \"ActuatorFault \", \"\") + if({view.custom.Alm_IOFault}, \"IOFault \", \"\"), \"none active\") + if({view.custom.Sts_AlmInh}, \" (some shelved or disabled)\", \"\")"
+                  },
+                  "type": "expr"
+                }
+              }
+            },
             "props": {
               "style": {
                 "color": "#9CA3AF",
                 "fontSize": "12px",
-                "padding": "8px"
-              },
-              "text": "Alarms: none configured (not rationalized, ISA-18.2)."
+                "padding": "4px 8px"
+              }
             },
             "type": "ia.display.label",
             "version": 0

@@ -119,10 +119,35 @@ CITED: dict[tuple[str, str], str] = {
     ("P_Motor", "Out_Run"): OUT,
 }
 
-#: Each cited member's data type, from the same workbook row ("Data Type" column). Every member is
-#: BOOL or REAL; a MOV into a REAL is written with a decimal literal (review of 2026-11-10, fix 4:
-#: Cfg_FailToStartT is REAL, seconds, so ``5.0`` is right). The HMI export takes its tag types from
-#: here too.
+#: Members only the faceplates show (PLAN 3.8 follow-up, ruled 2026-11-10): each object's mode
+#: (command source and, for the loop, loop mode), owner, running or position state, interlock
+#: state and alarm bits, cited by the same rule as :data:`CITED` (names and data types only, from
+#: the same workbooks' Output Parameters sheets). No rung names them. ``P_AIn`` has no command
+#: source, so no mode or owner. Disjoint from :data:`CITED`.
+DISPLAY: dict[tuple[str, str], str] = {
+    **{("P_AIn", m): OUT for m in (
+        "Sts_Fail", "Sts_AlmInh", "Alm_HiHi", "Alm_Hi", "Alm_Lo", "Alm_LoLo", "Alm_Fail",
+    )},
+    **{("P_PIDE", m): OUT for m in (
+        "Sts_OoS", "Sts_Oper", "Sts_Auto", "Sts_Man", "Sts_Casc", "Val_Owner", "Sts_IntlkTrip",
+        "Sts_AlmInh", "Alm_HiHiDev", "Alm_HiDev", "Alm_LoDev", "Alm_LoLoDev", "Alm_IntlkTrip",
+        "Alm_Fail",
+    )},
+    **{("P_ValveC", m): OUT for m in (
+        "Sts_OoS", "Sts_Prog", "Sts_Oper", "Val_Owner", "Val_Pos", "Sts_IntlkTrip", "Sts_AlmInh",
+        "Alm_IntlkTrip", "Alm_ActuatorFault", "Alm_IOFault",
+    )},
+    **{("P_Motor", m): OUT for m in (
+        "Sts_OoS", "Sts_Prog", "Sts_Oper", "Val_Owner", "Sts_Stopped", "Sts_Starting",
+        "Sts_Running", "Sts_Stopping", "Sts_IntlkTrip", "Sts_AlmInh", "Alm_FailToStart",
+        "Alm_FailToStop", "Alm_IntlkTrip", "Alm_IOFault",
+    )},
+}  # fmt: skip
+
+#: Each cited member's data type, from the same workbook row ("Data Type" column). Every member
+#: is BOOL, REAL or (an owner id) DINT; a MOV into a REAL is written with a decimal literal
+#: (review of 2026-11-10, fix 4: Cfg_FailToStartT is REAL, seconds, so ``5.0`` is right). The HMI
+#: export takes its tag types from here too.
 DATA_TYPE: dict[tuple[str, str], str] = {
     **dict.fromkeys(CITED, "REAL"),
     **dict.fromkeys(
@@ -148,6 +173,12 @@ DATA_TYPE: dict[tuple[str, str], str] = {
         ],
         "BOOL",
     ),
+    # the faceplate members (DISPLAY): BOOL but the owner (DINT) and the valve position (REAL)
+    **{key: "BOOL" for key in DISPLAY},
+    ("P_PIDE", "Val_Owner"): "DINT",
+    ("P_ValveC", "Val_Owner"): "DINT",
+    ("P_Motor", "Val_Owner"): "DINT",
+    ("P_ValveC", "Val_Pos"): "REAL",
 }
 
 AREA = "DEMO"  # HIS Controls AREA_EQUIP_NNN; the area prefix is the owner's to confirm
@@ -461,10 +492,14 @@ def plantpax_l5x(
 
 def source_table() -> str:
     """The source table as Markdown, for docs/plantpax.md and the kit."""
-    rows = ["| Object | Member | Type | Where RM013 lists it |", "|---|---|---|---|"]
-    for (aoi, member), sheet in sorted(CITED.items()):
+    rows = [
+        "| Object | Member | Type | Used by | Where RM013 lists it |",
+        "|---|---|---|---|---|",
+    ]
+    for (aoi, member), sheet in sorted({**CITED, **DISPLAY}.items()):
+        used = "rungs" if (aoi, member) in CITED else "faceplate"
         rows.append(
-            f"| `{aoi}` | `{member}` | {DATA_TYPE[aoi, member]} | {PUBLICATION}, "
+            f"| `{aoi}` | `{member}` | {DATA_TYPE[aoi, member]} | {used} | {PUBLICATION}, "
             f'workbook "{WORKBOOK[aoi]}", {sheet} |'
         )
     return "\n".join(rows) + "\n"
