@@ -67,10 +67,11 @@ the port.
 
 ```python
 from pycomm3 import LogixDriver
+
 with LogixDriver("<path>") as plc:
-    print(plc.info)                                   # the controller answers
-    print(plc.write("SIM_HEARTBEAT_DI", True))        # a tag from the export
-    print(plc.read("SIM_HEARTBEAT_DI"))               # reads back True
+    print(plc.info)  # the controller answers
+    print(plc.write("SIM_HEARTBEAT_DI", True))  # a tag from the export
+    print(plc.read("SIM_HEARTBEAT_DI"))  # reads back True
 ```
 
 ## What is not proven yet
