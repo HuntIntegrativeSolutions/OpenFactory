@@ -173,3 +173,27 @@ def test_program_commands_are_never_issued_in_the_first_scan(name, tmp_path):
     assert control.index(auto) > pide_call
     assert control.index(f"MOV({plantpax.SP},{lic}.PSet_SP);") < pide_call
     assert "S:FS" not in "".join(control + routine["Init"])
+
+
+def test_the_l5x_starts_the_pump_once_and_the_stand_in_restarts_it_when_lsl_clears(tmp_path):
+    """Review of 2026-11-10 (fix 3), documented in docs/plantpax.md and the scene's guide: the L5X
+    gives P_Motor one start (a one-shot at 20 s), while the stand-in (like the OpenPLC program)
+    runs the pump again as soon as the low level switch clears."""
+    root = export("plantpax-tank-level", tmp_path)
+    starts = [r.findtext("Text") for r in root.iter("Rung") if "PCmd_Start" in r.findtext("Text")]
+    assert len(starts) == 1 and "ONS(" in starts[0] and "LSL" not in starts[0]
+    import runpy
+
+    script = runpy.run_path(str(REPO / "examples" / "pyplc" / "plantpax-tank-level.py"))
+    io = {"TK_01_LSH_DI": False, "TK_01_LSL_DI": False, "TK_01_LT_AI": 1.0}
+    run = []
+    for n in range(1500):  # 30 s at 20 ms, LSL on from 22 s to 24 s
+        t = n * 0.02
+        io["TK_01_LSL_DI"] = 22.0 <= t < 24.0
+        script["step"](io, t)
+        run.append(io["P_01_RUN_DO"])
+    assert run[int(21 / 0.02)] and not run[int(23 / 0.02)] and run[int(25 / 0.02)]
+    page = (REPO / "docs" / "plantpax.md").read_text(encoding="utf-8")
+    guide = (REPO / "docs" / "guides" / "plantpax-tank-level.md").read_text(encoding="utf-8")
+    assert "## The pump after a low-level trip" in page and "check 11 expects" in page
+    assert "plantpax.md#the-pump-after-a-low-level-trip" in guide

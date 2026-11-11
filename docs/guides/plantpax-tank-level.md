@@ -45,7 +45,12 @@ The same addresses in both lockfiles; under `int16_scaled` the level reads 0 to 
    minute).
 2. The high level switch closes the valve and holds the controller at 0 %.
 3. The transfer pump starts 20 s after power-up, the load step, and the low level switch stops
-   it: its interlock against running the tank dry.
+   it: its interlock against running the tank dry. **After an LSL trip the programs differ:** the
+   OpenPLC and stand-in programs run the pump again as soon as LSL clears (their run command is
+   "load delay done AND NOT LSL"); the PlantPAx L5X gives `P_Motor` one start command, at 20 s,
+   so after a trip the pump stays off until someone starts it again (the faceplate, or a new
+   `PCmd_Start`). The scene's checks do not see the difference: under the loop the level never
+   falls below 0.98 m, far above LSL at 0.3 m ([details](../plantpax.md#the-pump-after-a-low-level-trip)).
 4. The first second starts the loop in manual at the valve's starting position (bumpless).
 
 ## Run it

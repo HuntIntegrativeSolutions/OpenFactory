@@ -74,6 +74,29 @@ What the file does instead, so ownership never depends on that setting:
 `tests/unit/test_plantpax.py` (`test_program_commands_are_never_issued_in_the_first_scan`)
 holds all four.
 
+## The pump after a low-level trip
+
+The programs for `plantpax-tank-level` do not behave alike once the low level switch (LSL, 0.3 m)
+has tripped the transfer pump:
+
+- **OpenPLC and the stand-in** (`examples/openplc/plantpax-tank-level.st`,
+  `examples/pyplc/plantpax-tank-level.py`) compute the run command every scan as "load delay done
+  AND NOT LSL", so the pump **restarts by itself when LSL clears**.
+- **The PlantPAx L5X** issues one `PCmd_Start` (a one-shot when the load timer is done, 20 s after
+  power-up). When `Inp_IntlkOK` drops, `P_Motor` stops the running motor and raises its interlock
+  trip (RM013 p. 129; `Sts_IntlkTrip`); nothing in the file issues another start, so the pump
+  **stays off until a new start** (from the faceplate or a program command). RM013 does not say
+  in so many words that `P_Motor` drops its run request on a trip, so this is
+  `[TBD: confirm on the first live run]`.
+
+**What live-run check 11 expects:** the scene's own checks (60 s, and 300 s per PLAN §9 rule 10):
+the level 0.98 to 1.02 m after 45 s, never overflow, never dry, at most two pump starts. In that run
+LSL never trips: under the stand-in the level stays between 0.98 and 1.02 m (0.987 to 1.009 m after
+45 s, `openfactory test --script ... --duration 300`, 2026-11-10), far above 0.3 m. So check 11
+expects **one start, at 20 s, and no LSL trip**, which both behaviours give; it does not test the
+restart. A demo of the trip (draining the tank by hand) shows the difference, and the instructor
+should say so.
+
 ## Verify on import (Studio 5000)
 
 The owner verifies, in order, before the demo is shown (ruled 2026-11-09):
