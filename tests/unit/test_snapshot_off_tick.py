@@ -5,8 +5,10 @@ builds one per tick; an exam switch rebuilds it at once."""
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from openfactory.core.loader import load
@@ -83,6 +85,19 @@ def test_an_exam_switch_rebuilds_the_snapshot_between_ticks():
     assert runtime.snapshot["io"]["PE_01_DI"] is True  # no tick needed
 
 
+def receive_within(ws, seconds: float = 10.0) -> str:  # noqa: ANN001
+    """The next frame, or a test failure after ``seconds``: TestClient's receive_text has no
+    timeout, so a broadcaster that never restarts would hang the run (review of 2026-11-10).
+    The waiting thread is a daemon, so a stuck one never holds the process open."""
+    got: list[str] = []
+    waiter = threading.Thread(target=lambda: got.append(ws.receive_text()), daemon=True)
+    waiter.start()
+    waiter.join(seconds)
+    if not got:
+        pytest.fail(f"no frame within {seconds} s: the broadcaster did not restart")
+    return got[0]
+
+
 def test_a_failed_broadcaster_restarts_while_viewers_stay(caplog, monkeypatch):
     """PLAN 4.3, review of 2026-11-10: if serializing a frame fails, the broadcaster logs the
     failure once and starts again after BROADCAST_RETRY_S while viewers are connected, so the
@@ -102,7 +117,7 @@ def test_a_failed_broadcaster_restarts_while_viewers_stay(caplog, monkeypatch):
     runtime = Flaky(load(SORTER), realtime=False)
     client = TestClient(create_app(runtime, web_dist=None))
     with client.websocket_connect("/ws/state") as viewer:
-        assert '"tick"' in viewer.receive_text()  # the same viewer, after two failures
+        assert '"tick"' in receive_within(viewer)  # the same viewer, after two failures
     assert caplog.text.count("state broadcaster failed") == 2  # once per failure
     with client.websocket_connect("/ws/state") as second:  # and a later viewer is served too
-        assert '"tick"' in second.receive_text()
+        assert '"tick"' in receive_within(second)
