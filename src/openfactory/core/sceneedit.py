@@ -1,0 +1,188 @@
+"""Scene edit operations (PLAN 4.1a): what the editor sends, applied to a scene's YAML text.
+
+Behavior spec
+-------------
+The scene editor never writes YAML itself (ruled 2026-11-10). It sends a list of operations, and
+:func:`apply_ops` applies them, in order, to the file's text through the 4.7
+:class:`~openfactory.core.migrate.Document`: every change is a splice at the positions PyYAML's
+composer reports, so every comment, blank line, quote and key order outside the edited text stays
+byte for byte.
+
+Operations (JSON objects). A ``path`` is a list of keys from the top of the scene; inside
+``components`` (or any list of mappings with ``id``) a component is named by its id, so
+``["components", "CONV_01", "speed_mps"]``:
+
+- ``{"op": "set", "path": [...], "value": V}``: sets a scalar or a flow value (a position
+  ``[x, y, z]``, a binding ``{tag: X}``), or adds the key as the mapping's last if it is not there.
+  A block mapping is set key by key.
+- ``{"op": "set_raw", "path": [...], "literal": "text"}``: the same with YAML source text, as the
+  inverse of a set uses to restore the exact original spelling.
+- ``{"op": "unset", "path": [...]}``: removes the key (its whole lines).
+- ``{"op": "move", "id": "CONV_02", "position": [x, y, z], "rotation_deg": r}``: a set of the
+  position and, when given, the rotation.
+- ``{"op": "add", "component": {...}}``: appends a component, written in the shipped scenes'
+  style (block keys, flow lists and small mappings, a nested block for ``io``-like mappings).
+- ``{"op": "delete", "id": "X"}``: removes the component and the comment lines directly above it
+  (ruled 2026-11-10).
+- ``{"op": "splice", "at": i, "remove": n, "insert": "text"}``: a raw text splice, only what an
+  inverse uses to put a deleted component back exactly.
+
+:func:`apply_ops` returns the new text and, for each operation, its inverse; applying the
+inverses in reverse order gives the original bytes back (``tests/unit/test_sceneedit.py`` does,
+on every shipped scene). Errors (an unknown id, a path that is not there, a bad op) raise
+``ValueError`` naming the operation.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import re
+from typing import Any
+
+import yaml
+
+from openfactory.core.migrate import Document
+
+Op = dict[str, Any]
+_PLAIN = re.compile(r"^[A-Za-z_][A-Za-z0-9_ ./()%+-]*$")
+
+
+def emit(value: Any) -> str:
+    """One value as YAML source text, flow style for lists and mappings."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError(f"{value!r} is not a scene value")
+        text = repr(value)
+        return text
+    if isinstance(value, str):
+        plain = _PLAIN.match(value) and value == value.strip()
+        if plain and yaml.safe_load(value) == value and ": " not in value:
+            return value
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, list | tuple):
+        return "[" + ", ".join(emit(v) for v in value) + "]"
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{emit_key(k)}: {emit(v)}" for k, v in value.items()) + "}"
+    raise ValueError(f"{value!r} is not a scene value")
+
+
+def emit_key(key: Any) -> str:
+    if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+        raise ValueError(f"{key!r} is not a scene key")
+    return key
+
+
+def emit_item(component: dict[str, Any]) -> list[str]:
+    """A component as block lines relative to its dash: ``- id: X`` then two-space keys. A
+    mapping whose values are mappings (``io``) is a nested block; anything else is flow."""
+    if not component:
+        raise ValueError("an empty component")
+    lines: list[str] = []
+    for i, (key, value) in enumerate(component.items()):
+        lead = "- " if i == 0 else "  "
+        nested = (
+            isinstance(value, dict)
+            and value
+            and all(isinstance(v, dict | str) for v in value.values())
+        )
+        if nested and i > 0:
+            lines.append(f"{lead}{emit_key(key)}:")
+            lines += [f"    {emit_key(k)}: {emit(v)}" for k, v in value.items()]
+        else:
+            lines.append(f"{lead}{emit_key(key)}: {emit(value)}")
+    return lines
+
+
+def _resolve(doc: Document, path: list[Any]) -> tuple[Any, ...]:
+    """A path with component ids turned into list indexes."""
+    out: list[Any] = []
+    for step in path:
+        if isinstance(step, str) and out:
+            _, node = doc.find(tuple(out))
+            if isinstance(node, yaml.SequenceNode):
+                for i, item in enumerate(node.value):
+                    if isinstance(item, yaml.MappingNode) and any(
+                        k.value == "id" and v.value == step for k, v in item.value
+                    ):
+                        out.append(i)
+                        break
+                else:
+                    raise ValueError(f"no item with id {step!r} in {'.'.join(map(str, out))}")
+                continue
+        out.append(step)
+    return tuple(out)
+
+
+def _index_of(doc: Document, comp_id: str) -> int:
+    return _resolve(doc, ["components", comp_id])[-1]
+
+
+def _set(doc: Document, path: list[Any], literal: str) -> Op:
+    """Set (or add) the value at ``path``; returns the inverse."""
+    resolved = _resolve(doc, path[:-1]) + (path[-1],)
+    if doc.has(resolved):
+        start, end, old = doc.set_node(resolved, literal)
+        return {"op": "set_raw", "path": path, "literal": old}
+    doc.add_key(resolved[:-1], emit_key(path[-1]), literal)
+    return {"op": "unset", "path": path}
+
+
+def _apply(doc: Document, op: Op) -> Op:
+    kind = op.get("op")
+    if kind == "set":
+        return _set(doc, list(op["path"]), emit(op["value"]))
+    if kind == "set_raw":
+        return _set(doc, list(op["path"]), str(op["literal"]))
+    if kind == "unset":
+        path = list(op["path"])
+        start, _, old = doc.delete_key(_resolve(doc, path[:-1]) + (path[-1],))
+        return {"op": "splice", "at": start, "remove": 0, "insert": old}
+    if kind == "move":
+        comp = op["id"]
+        inverses = [_set(doc, ["components", comp, "position"], emit(list(op["position"])))]
+        if op.get("rotation_deg") is not None:
+            rot = ["components", comp, "rotation_deg"]
+            inverses.append(_set(doc, rot, emit(op["rotation_deg"])))
+        return {"op": "batch", "ops": inverses[::-1]}
+    if kind == "add":
+        component = op["component"]
+        if not isinstance(component, dict) or "id" not in component:
+            raise ValueError("add: a component needs an id")
+        doc.append_item(("components",), emit_item(component))
+        return {"op": "delete", "id": component["id"]}
+    if kind == "delete":
+        start, _, old = doc.delete_item(("components",), _index_of(doc, op["id"]))
+        return {"op": "splice", "at": start, "remove": 0, "insert": old}
+    if kind == "splice":
+        at, remove = int(op["at"]), int(op.get("remove", 0))
+        start, end, old = doc.splice(at, at + remove, str(op.get("insert", "")))
+        return {"op": "splice", "at": start, "remove": end - start, "insert": old}
+    if kind == "batch":
+        return {"op": "batch", "ops": [_apply(doc, o) for o in op["ops"]][::-1]}
+    raise ValueError(f"unknown op {kind!r}")
+
+
+def apply_ops(text: str, ops: list[Op]) -> tuple[str, list[Op]]:
+    """The text with ``ops`` applied in order, and each op's inverse (apply them in reverse
+    order to undo)."""
+    doc = Document(text)
+    inverses = []
+    for n, op in enumerate(ops):
+        try:
+            inverses.append(_apply(doc, op))
+        except (KeyError, IndexError, ValueError, TypeError, yaml.YAMLError) as exc:
+            detail = exc.args[0] if exc.args else exc
+            raise ValueError(f"op {n + 1} ({op.get('op')}): {detail}") from None
+    return doc.text, inverses
+
+
+def undo(text: str, inverses: list[Op]) -> str:
+    """Apply inverses from :func:`apply_ops` in reverse order."""
+    return apply_ops(text, inverses[::-1])[0]

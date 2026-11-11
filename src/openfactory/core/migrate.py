@@ -98,6 +98,125 @@ class Document:
             raise ValueError(f"{'.'.join(map(str, path))}: a sequence item has no key")
         self._splice(key, new)
 
+    # -- the editor's operations (PLAN 4.1a): each returns (start, end, old) of the text it
+    # replaced, so a caller can undo it exactly with :meth:`splice`.
+
+    def splice(self, start: int, end: int, text: str) -> tuple[int, int, str]:
+        """Replace ``text[start:end]``; returns the span of the new text and the old text."""
+        old = self.text[start:end]
+        self.text = self.text[:start] + text + self.text[end:]
+        return start, start + len(text), old
+
+    def _line_start(self, i: int) -> int:
+        return self.text.rfind("\n", 0, i) + 1
+
+    def _line_end(self, i: int) -> int:
+        j = self.text.find("\n", i)
+        return len(self.text) if j < 0 else j
+
+    def _leaf_end(self, node: yaml.Node) -> int:
+        """Where a node's own text ends. A block collection's end mark lies at the next token,
+        past any comment lines that follow it, so descend to its last leaf instead."""
+        block = isinstance(node, yaml.MappingNode | yaml.SequenceNode) and not node.flow_style
+        if block and node.value:
+            last = node.value[-1]
+            return self._leaf_end(last[1] if isinstance(last, tuple) else last)
+        end = node.end_mark.index
+        while end > node.start_mark.index and self.text[end - 1] in " \t\r\n":
+            end -= 1  # a block scalar's mark includes its trailing newlines
+        return end
+
+    def set_node(self, path: Path_, literal: str) -> tuple[int, int, str]:
+        """Replace a scalar or a flow collection (``[1, 0, 2]``, ``{tag: X}``) with ``literal``.
+        A block collection is edited key by key instead."""
+        _, node = self.find(path)
+        if isinstance(node, yaml.MappingNode | yaml.SequenceNode) and not node.flow_style:
+            raise ValueError(f"{'.'.join(map(str, path))}: a block collection; set its keys")
+        return self.splice(node.start_mark.index, self._leaf_end(node), literal)
+
+    def add_key(self, map_path: Path_, key: str, literal: str) -> tuple[int, int, str]:
+        """Add ``key: literal`` as the mapping's last key: on its own line at the siblings'
+        indentation for a block mapping, before the ``}`` of a flow mapping."""
+        _, node = self.find(map_path)
+        if not isinstance(node, yaml.MappingNode):
+            raise ValueError(f"{'.'.join(map(str, map_path))}: not a mapping")
+        if any(k.value == key for k, _ in node.value):
+            raise ValueError(f"{'.'.join(map(str, map_path))}: {key!r} is already there")
+        if node.flow_style:
+            if node.value:
+                at = self._leaf_end(node.value[-1][1])
+                return self.splice(at, at, f", {key}: {literal}")
+            at = node.start_mark.index + 1
+            return self.splice(at, at, f"{key}: {literal}")
+        if not node.value:
+            raise ValueError(f"{'.'.join(map(str, map_path))}: an empty block mapping")
+        indent = node.value[0][0].start_mark.column
+        at = self._line_end(self._leaf_end(node.value[-1][1]))
+        return self.splice(at, at, "\n" + " " * indent + f"{key}: {literal}")
+
+    def delete_key(self, path: Path_) -> tuple[int, int, str]:
+        """Remove a key and its value: its whole lines in a block mapping (an inline comment on
+        them goes too), or ``key: value`` and one comma in a flow mapping."""
+        key, value = self.find(path)
+        if key is None:
+            raise ValueError(f"{'.'.join(map(str, path))}: a sequence item; delete the item")
+        parent = self.find(tuple(path[:-1]))[1]
+        if isinstance(parent, yaml.MappingNode) and parent.flow_style:
+            start, end = key.start_mark.index, self._leaf_end(value)
+            after = self.text[end:]
+            stripped = after.lstrip(" ")
+            if stripped.startswith(","):
+                end += len(after) - len(stripped) + 1
+                end += len(self.text[end:]) - len(self.text[end:].lstrip(" "))
+            else:
+                before = self.text[:start].rstrip(" ")
+                if before.endswith(","):
+                    start = len(before) - 1
+            return self.splice(start, end, "")
+        start = self._line_start(key.start_mark.index)
+        if self.text[start : key.start_mark.index].strip():
+            raise ValueError(f"{'.'.join(map(str, path))}: shares its line with a list dash")
+        end = self._line_end(self._leaf_end(value))
+        return self.splice(start, min(end + 1, len(self.text)), "")
+
+    def _dash(self, item: yaml.Node) -> int:
+        """The index of the ``-`` that opens a block sequence item."""
+        start = self._line_start(item.start_mark.index)
+        dash = self.text.rfind("-", start, item.start_mark.index)
+        if dash < 0:
+            raise ValueError("not a block sequence item")
+        return dash
+
+    def append_item(self, seq_path: Path_, lines: list[str]) -> tuple[int, int, str]:
+        """Append a block item after the sequence's last one. ``lines`` are the item's lines
+        relative to its dash: the first starts ``- ``, the rest are indented by two."""
+        _, node = self.find(seq_path)
+        if not isinstance(node, yaml.SequenceNode) or node.flow_style or not node.value:
+            raise ValueError(f"{'.'.join(map(str, seq_path))}: not a non-empty block sequence")
+        last = node.value[-1]
+        dash = self._dash(last)
+        pad = " " * (dash - self._line_start(dash))
+        at = self._line_end(self._leaf_end(last))
+        return self.splice(at, at, "".join("\n" + pad + line for line in lines))
+
+    def delete_item(self, seq_path: Path_, index: int) -> tuple[int, int, str]:
+        """Remove a block sequence item, with the comment lines directly above it (no blank
+        line between), which belong to it (ruled 2026-11-10)."""
+        _, node = self.find(seq_path)
+        if not isinstance(node, yaml.SequenceNode) or node.flow_style:
+            raise ValueError(f"{'.'.join(map(str, seq_path))}: not a block sequence")
+        if not 0 <= index < len(node.value):
+            raise IndexError(index)
+        item = node.value[index]
+        start = self._line_start(self._dash(item))
+        while start > 0:
+            above = self._line_start(start - 1)
+            if not self.text[above : start - 1].strip().startswith("#"):
+                break
+            start = above
+        end = self._line_end(self._leaf_end(item))
+        return self.splice(start, min(end + 1, len(self.text)), "")
+
 
 @dataclass(frozen=True)
 class Migration:

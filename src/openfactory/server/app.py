@@ -143,6 +143,13 @@ class CommsRequest(BaseModel):
     latency_ms: float = Field(0.0, ge=0)
 
 
+class EditRequest(BaseModel):
+    """The scene editor's operations against a base text (PLAN 4.1a, server/editor.py)."""
+
+    base: str
+    ops: list[dict[str, Any]]
+
+
 class FaultRequest(BaseModel):
     """Body of ``POST /api/fault``: a component fault ``{id, kind, params}`` (PLAN 2.6) or a comms
     fault ``{comms: {drop, latency_ms}}`` (PLAN 2.13), not both."""
@@ -177,6 +184,7 @@ def create_app(
     *,
     bind: str = "127.0.0.1",
     fault_token: str | None = None,
+    edit: Any = None,
 ) -> FastAPI:
     """The app for one runtime. ``bind`` is the address the server listens on; it decides
     whether ``/api/fault`` is open (loopback) or needs ``fault_token`` (PLAN §6.4)."""
@@ -200,7 +208,34 @@ def create_app(
 
     @app.get("/api/scene")
     def scene() -> dict[str, Any]:
+        if edit is not None:  # PLAN 4.1a: the file being edited, as it is now
+            return edit.document()
         return runtime.scene_document()
+
+    if edit is not None:
+        from openfactory.server.editor import EditConflict, EditRejected
+
+        @app.get("/api/edit/source")
+        def edit_source() -> dict[str, Any]:
+            return edit.source()
+
+        def run_edit(action: Any, body: EditRequest) -> dict[str, Any]:
+            try:
+                return action(body.base, body.ops)
+            except EditConflict as exc:
+                raise HTTPException(409, str(exc)) from None
+            except EditRejected as exc:
+                raise HTTPException(422, exc.result) from None
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from None
+
+        @app.post("/api/edit/preview")
+        def edit_preview(body: EditRequest) -> dict[str, Any]:
+            return run_edit(edit.preview, body)
+
+        @app.post("/api/edit/save")
+        def edit_save(body: EditRequest) -> dict[str, Any]:
+            return run_edit(edit.save, body)
 
     @app.get("/models/{name}")
     def model(name: str) -> FileResponse:

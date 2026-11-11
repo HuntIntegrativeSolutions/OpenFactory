@@ -1,7 +1,8 @@
 """``openfactory`` command line (PLAN task 1.10): ``run``, ``test``, ``validate``, ``lint``,
-``export``, ``bundle``, ``migrate`` (PLAN 4.7: rewrites scenes in an older format version to the
-current one in place, keeping comments and key order; ``--check`` writes nothing and exits 1 if a
-file needs it; :mod:`openfactory.core.migrate`).
+``export``, ``bundle``, ``edit`` (PLAN 4.1: the scene editor, paused, loopback only;
+:mod:`openfactory.server.editor`), ``migrate`` (PLAN 4.7: rewrites scenes in an older format
+version to the current one in place, keeping comments and key order; ``--check`` writes nothing
+and exits 1 if a file needs it; :mod:`openfactory.core.migrate`).
 
 Behavior spec
 -------------
@@ -927,6 +928,40 @@ def validate(
     if failed:
         typer.echo(f"{failed} of {len(files)} scene(s) failed")
         raise typer.Exit(1)
+
+
+@app.command()
+def edit(
+    scene: Annotated[Path, typer.Argument(help="The scene file to edit.", metavar="SCENE")],
+    web_port: Annotated[int | None, typer.Option(help="Viewer port (default 8000).")] = None,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings and errors only.")] = False,
+) -> None:
+    """Edit a scene in the browser (PLAN 4.1): the viewer in edit mode, the simulation paused,
+    on loopback only, with no PLC or protocol server. Saves change only the edited lines; the
+    address lockfiles are never written (the next run or export assigns new tags)."""
+    _setup_logging(quiet)
+    from openfactory.core.loader import build
+    from openfactory.server.app import create_app, server_config
+    from openfactory.server.editor import EditSession
+    from openfactory.server.runtime import Runtime
+
+    if is_bundle(scene) or not scene.is_file():
+        typer.echo(f"error: {scene}: not a scene file (unpack a bundle first)", err=True)
+        raise typer.Exit(1)
+    try:
+        session = EditSession(scene)
+        loaded = build(load_scene(scene), base_dir=scene.parent)
+    except (OSError, ValueError, ValidationError) as exc:
+        typer.echo(f"error: {scene}: does not load, fix it by hand first:\n{exc}", err=True)
+        raise typer.Exit(1) from None
+    runtime = Runtime(loaded, realtime=False)  # never started: the simulation stays paused
+    settings = load_settings()
+    endpoint = Endpoint(bind="127.0.0.1", port=web_port or settings.web.port)  # loopback only
+    app = create_app(runtime, bind=endpoint.bind, edit=session)
+    web = uvicorn.Server(server_config(app, endpoint))
+    log.info("editing %s: http://%s:%d/ (Ctrl+C to stop)", scene, endpoint.bind, endpoint.port)
+    with contextlib.suppress(KeyboardInterrupt):
+        web.run()
 
 
 @app.command()

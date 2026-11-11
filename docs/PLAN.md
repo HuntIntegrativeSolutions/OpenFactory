@@ -2334,11 +2334,34 @@ runs the sorting program against it; a box visibly gets pushed.
       writes lockfiles; (7) capture within 0.15 m, aligned within 1 mm and 0.1 degrees in the
       editor and 1 to 2 cm in the lint, the snap-port check replacing W203; (8) composite
       instances only in the first version; (9) the order 4.1a, b, c, d. Split as below.
-  - [ ] 4.1a Edit operations and the edit server: the `Document` operations, the value
+  - [x] 4.1a Edit operations and the edit server: the `Document` operations, the value
         emitter, `openfactory edit` with preview and save (hash check, loopback only).
         *Done when:* pytest applies set, move, add, delete and their inverses to every shipped
         scene and gets the original bytes back with every comment kept; preview returns the
         lint's findings; a save against a changed file is refused.
+        *Done (2026-11-10):* `Document` (4.7) gains `splice`, `set_node`, `add_key`,
+        `delete_key`, `append_item`, `delete_item`, each a splice at composer positions (a
+        block node's end taken from its last leaf, so trailing comment lines are never
+        swallowed; a deleted item takes the comment lines directly above it).
+        `core/sceneedit.py`: the operations (`set`, `set_raw`, `unset`, `move`, `add`,
+        `delete`; paths name components by id), the value emitter in the shipped style, and
+        `apply_ops`, which returns each operation's exact inverse. `server/editor.py`:
+        `EditSession` with `GET /api/edit/source`, `POST /api/edit/preview` (the text, the
+        lint's findings on it as if it were the file, the scene document or null) and `POST
+        /api/edit/save` (409 when the base is not the file on disk now, 422 on a lint error,
+        400 for a bad op; lockfiles never written); `/api/scene` serves the edited document
+        with `mode: "edit"`. `openfactory edit SCENE`: loopback only, the runtime never
+        started, no protocol server. `lint_scene(path, text=...)` lints text as if it were the
+        file. Tests: `test_sceneedit.py` (17), on all 12 shipped scenes set, move, add and
+        delete each load with the change, keep every comment outside the edit (a delete loses
+        only its own leading comments), leave the other components equal, and undo to the
+        original bytes, singly and all four together; two scenes (`tank-level-onoff`, a closed
+        flow loop, and `accumulation-demo`) have no component that deletes without a dangling
+        reference, so their delete is checked as text and its load error asserted to name the
+        component (removing the references is 4.1c's). `test_edit_server.py` (6): preview
+        with W204 and E100 findings and nothing written; save changing one line with its
+        inline comment in place and the lockfiles untouched; 409 after a hand edit on disk,
+        which survives; 422 and 400 writing nothing; no edit routes in a normal run.
   - [ ] 4.1b Selection and the property form: edit mode in the viewer, click to select, the
         schema-driven form, live preview.
         *Done when:* vitest builds a form for every component type in the shipped schema with

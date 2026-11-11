@@ -75,7 +75,7 @@ from openfactory.components.pusher import beyond_path, push_depth, push_path
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.loader import build
 from openfactory.core.loader import lint as loader_lint
-from openfactory.core.schema import CARRIER_TYPES, PLC_WRITES, load_scene
+from openfactory.core.schema import CARRIER_TYPES, PLC_WRITES, load_scene, parse_scene
 from openfactory.core.sizing import belt_under, emitted_parts
 from openfactory.protocols.modbus import (
     AddressError,
@@ -132,10 +132,15 @@ def _footprint(comp) -> tuple[float, float, float, float]:
     return min(xs), max(xs), min(zs), max(zs)
 
 
-def lint_scene(path: Path, scripts: list[Path] | None = None) -> list[Finding]:
+def lint_scene(
+    path: Path, scripts: list[Path] | None = None, *, text: str | None = None
+) -> list[Finding]:
+    """Lint the scene at ``path``; with ``text``, lint that text as if it were the file there
+    (its lockfiles, library composites and meshes found beside ``path``), as the editor's
+    preview does (PLAN 4.1a)."""
     scripts = scripts or []
     try:
-        scene = load_scene(path)
+        scene = load_scene(path) if text is None else parse_scene(text, path.parent)
         loaded = build(scene, base_dir=path.parent)
         scene_dir = path.parent  # `path` is reused below for a pusher's push path
     except (OSError, ValueError, ValidationError) as exc:
