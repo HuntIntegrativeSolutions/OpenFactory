@@ -47,3 +47,6 @@ group = "OpenFactory"
 # [connections.bench_l33er]
 # protocol = "logix"
 # path = "192.0.2.10/1/0"   # IP / backplane port / slot
+#
+# `openfactory run SCENE --logix bench_l33er` (PLAN 2.2). The path for a bench 5380, Logix Echo
+# and Logix Emulate is in docs/logix.md (ADR-0002).

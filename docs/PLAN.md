@@ -728,6 +728,32 @@ runs the sorting program against it; a box visibly gets pushed.
       *Open for the owner (ADR-0002, 2026-11-10):* (1) is the bench CompactLogix 5380 available
       for this task's Done-when; (2) which host runs FactoryTalk Logix Echo (and which separate
       host or VM runs Logix Emulate, if a v35-or-earlier demo is wanted)?
+      *Built (2026-11-10), not ticked (the Done-when is the bench run):*
+      `src/openfactory/protocols/logix.py`, `LogixClient`: every 50 ms one batched `write()` of
+      the DI/AI tags that changed (all of them after each connect, the heartbeat included), then
+      one batched `read()` of every DO/AO into the I/O table as the PLC; pycomm3's blocking
+      calls in a worker thread. `bool`/`float32`/`int16` map to `BOOL`/`REAL`/`INT`; on connect
+      each scene tag is checked against the controller's tag list, and a missing or mismatched
+      tag (or one a read or write rejects) is logged once and left out while the rest run. A
+      communication error closes the driver, logs one line per outage and reconnects after
+      0.5, 1, 2, 4 then 5 s, with no restart; the I/O table keeps the PLC's last outputs and
+      the PLC sees the heartbeat freeze. A run does not wait for an unreachable controller.
+      `openfactory run SCENE --logix NAME` (or the scene's `plc: {protocol: logix, role: client,
+      connection: NAME}`) takes the CIP path from `[connections.NAME]` in `openfactory.toml` /
+      `openfactory.local.toml`, replaces the Modbus server, and refuses `--script` with it.
+      `docs/logix.md`: setup, and the path for the bench 5380, Echo and Emulate.
+      `tests/unit/test_logix.py` (11) against a fake controller (a stand-in for `LogixDriver`
+      with a droppable link): batching (one write of only the changed inputs, one read), BOOL
+      and REAL both ways, the heartbeat written on change, a missing and a mismatched tag, a
+      tag deleted online, a 10 s drop survived (one log line, last outputs held, inputs
+      re-sent, one reconnect, the same task), an unreachable controller not holding up the run,
+      and the CLI's connection errors. Writing them found one bug: pycomm3 returns a single
+      result for a single tag, and its `Tag` is a NamedTuple, so "is it a tuple" split it into
+      fields. *What the fake cannot prove:* that pycomm3 reaches a real 5380, Echo or Emulate
+      with these paths; real timing of a batched read against 50 ms; that a pulled cable
+      reaches pycomm3 as a socket timeout after 5 s, not at once as in the fake; how a
+      controller answers a write to a Read Only tag or one a rung writes; how long it keeps a
+      dead connection. `plc_tag:` per binding (§6.2, a UDT member) is not built.
 - [x] 2.3 `export/l5x_stub.py`: controller tags only (BOOL/REAL) for a scene, via existing
       `/io-to-l5x` where possible. Writes to the consuming project's `03-plc/generated/`, never here.
       *Done when (ruled 2026-10-30):* controller-scoped BOOL and REAL tags with descriptions from

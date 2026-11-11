@@ -27,6 +27,10 @@ Behavior spec
   ``--port`` is the Modbus port and ``--web-port`` the viewer port. With the viewer bound beyond
   loopback, ``/api/fault`` needs ``--fault-token`` or ``[server] fault_token``; with neither, the
   fault API is off and ``run`` logs a one-line notice (PLAN §6.4).
+- ``run --logix NAME`` (PLAN 2.2, ADR-0002): exchange the I/O table with a Logix controller at
+  the named connection in ``openfactory.toml`` instead of serving Modbus
+  (:mod:`openfactory.protocols.logix`); a scene's ``plc: {protocol: logix, role: client,
+  connection: NAME}`` does the same.
 - ``run --exam`` (PLAN 2.11): every DI bound with ``exam: switch`` follows an operator switch
   in the viewer (``/api/exam``) instead of the simulation, starting off, and state frames carry
   no fault markers, so trainees find faults from the PLC's side.
@@ -322,6 +326,16 @@ def run(
             "MQTT Engine).",
         ),
     ] = False,
+    logix: Annotated[
+        str | None,
+        typer.Option(
+            "--logix",
+            metavar="CONNECTION",
+            help="Exchange the I/O table with a Logix controller (bench, Echo or Emulate) at "
+            "this named connection in openfactory.toml [connections.NAME], instead of serving "
+            "Modbus (PLAN 2.2, ADR-0002; docs/logix.md). Overrides the scene's plc block.",
+        ),
+    ] = None,
     force: Annotated[
         list[str] | None,
         typer.Option(help="TAG=VALUE: set a DO/AO tag at startup as if the PLC wrote it."),
@@ -411,6 +425,7 @@ def run(
         serve_opcua=opcua,
         opcua_port=opcua_port,
         sparkplug=sparkplug,
+        logix=logix,
         faults=faults,
         record=record,
     )
@@ -530,6 +545,7 @@ def _simulate(
     serve_opcua: bool = False,
     opcua_port: int | None = None,
     sparkplug: bool = False,
+    logix: str | None = None,
     faults: list[tuple[float, str, str, dict[str, Any]]] | None = None,
     record: Path | None = None,
 ):  # -> tuple[Runtime, float]; Runtime is imported lazily with the web stack
@@ -544,8 +560,12 @@ def _simulate(
     from openfactory.server.runtime import Runtime
 
     settings = load_settings()
+    logix_client = None
+    connection = logix or (parsed.plc.connection if parsed.plc.protocol == "logix" else None)
+    if logix is not None or parsed.plc.protocol == "logix":
+        logix_client = _logix_client(parsed, loaded, settings, connection, script)
     modbus = None
-    if parsed.plc.protocol == "modbus_tcp":
+    if logix_client is None and parsed.plc.protocol == "modbus_tcp":
         try:
             register_map = scene_register_map(parsed, encoding, scene_path=scene)
         except AddressError as exc:
@@ -568,7 +588,7 @@ def _simulate(
             scene_name=parsed.scene.name,
             folders={c.id: c.description for c in parsed.components},
         )
-    elif parsed.plc.protocol not in ("none", "modbus_tcp", "opcua"):
+    elif parsed.plc.protocol not in ("none", "modbus_tcp", "opcua", "logix"):
         log.warning(
             "plc.protocol %s is not implemented yet; running without a PLC server",
             parsed.plc.protocol,
@@ -639,7 +659,7 @@ def _simulate(
         log.info("recording to %s", record)
     wall = time.perf_counter()
     try:
-        servers = [s for s in (modbus, opcua, publisher) if s is not None]
+        servers = [s for s in (modbus, opcua, publisher, logix_client) if s is not None]
         asyncio.run(_serve(runtime, servers, web, duration))
     finally:
         if runtime.recorder is not None:  # Ctrl+C or a script fault still leaves a whole file
@@ -651,6 +671,33 @@ def _simulate(
         )
         raise typer.Exit(1)
     return runtime, time.perf_counter() - wall
+
+
+def _logix_client(parsed: Scene, loaded: LoadedScene, settings, name, script):  # noqa: ANN001, ANN202
+    """The Logix client for a named connection (PLAN 2.2, ADR-0002), or exit 1 saying why."""
+    from openfactory.protocols.logix import LogixClient
+
+    def fail(message: str) -> None:
+        typer.echo(f"error: logix: {message}", err=True)
+        raise typer.Exit(1)
+
+    if parsed.plc.protocol == "logix" and parsed.plc.role != "client":
+        fail("plc.role must be client: OpenFactory polls the controller (PLAN 6.2)")
+    if not name:
+        fail("no connection named: set plc.connection in the scene or pass --logix NAME")
+    conn = settings.connections.get(name)
+    if conn is None:
+        known = ", ".join(sorted(settings.connections)) or "none"
+        fail(
+            f"no [connections.{name}] in openfactory.toml or openfactory.local.toml "
+            f"(connections: {known})"
+        )
+    if conn.protocol != "logix":
+        fail(f"[connections.{name}] has protocol {conn.protocol!r}, not 'logix'")
+    if script is not None:
+        fail("--script and a Logix controller would both write the PLC outputs; use one")
+    log.info("logix: connection %s, CIP path %s", name, conn.path)
+    return LogixClient(loaded.io, conn.path)
 
 
 def _faults(

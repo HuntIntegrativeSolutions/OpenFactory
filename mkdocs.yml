@@ -75,6 +75,7 @@ nav:
       # Filled in by tools/mkdocs_hooks.py with one page per registered component type.
       - Component types: []
       - ignition.md
+      - logix.md
       - plantpax.md
       - versioning.md
       - what-openfactory-is-not.md
