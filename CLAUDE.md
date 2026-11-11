@@ -38,7 +38,11 @@ specific product's code or assets.
   descriptions of what a conveyor or photo eye does.
 - If a contributor or session has been exposed to commercial simulator internals, say so and stop. Tainted
   work cannot be merged.
-- `E:\04_Software\` is off-limits for this project. Do not open it.
+- `E:\04_Software\` is off-limits for this project. Do not open it. `E:\Hyper-V VMs` and
+  `E:\VirtualBox-VMs` are off-limits on this drive too: do not open or list them.
+- **Never run `find`, `ls -R`, `grep -r` or any other walk above the repository root or your
+  scratch folder** (ruled 2026-11-10). A walk from `/` or `/mnt/e` crosses the folders above. If
+  you need a file from outside the repository, ask the owner for it.
 - **No HIS MCP servers in this repository.** Never call `industrial-sops`, `ai-memory-vendor-docs`,
   `ai-memory-cognitive`, `l5x-analysis`, `deep-research`, or `nexus` while working on OpenFactory.
   They index client and vendor material, including commercial simulator manuals, and the global

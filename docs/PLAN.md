@@ -2588,7 +2588,14 @@ runs the sorting program against it; a box visibly gets pushed.
    number or URL, in a code comment.
 6. **When stuck for more than two attempts**, write the blocker under the task and move on. Do not loop.
 7. **New decisions get an ADR.** Short is fine: context, decision, consequences.
-8. **Never touch** `E:\04_Software`, `E:\Hyper-V VMs`, or `E:\VirtualBox-VMs`.
+8. **Never touch** `E:\04_Software`, `E:\Hyper-V VMs`, or `E:\VirtualBox-VMs`. **Never run
+   `find`, `ls -R`, `grep -r` or any other walk above the repository root or the session's scratch
+   folder** (ruled 2026-11-10): a walk from `/` or `/mnt/e` crosses all three. A file needed from
+   outside is asked of the owner.
+   *Incident, 2026-11-10 (ruled: no exposure):* looking for an earlier copy of RM013, a session
+   ran `find / -iname "*rm013*"`, which walked `/mnt/e` including `04_Software`, `Hyper-V VMs` and
+   `VirtualBox-VMs`; it was stopped within two minutes, printed no path and opened no file. The
+   manual was fetched again from the public mirror instead, and the walk rule above was added.
 9. **A parity trace that does not gate carries a PLAN note** (added 2026-10-27). A trace with
    `gate=False` in `tools/parity_trace.py` is reported but not held to its tolerance; it needs a
    note under the task that added it giving the measured worst delta, the model difference that

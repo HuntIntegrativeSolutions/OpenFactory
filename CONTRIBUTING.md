@@ -14,6 +14,10 @@ OpenFactory is an original, independently developed work. To keep it that way, e
 3. You **may** use public knowledge: protocol specifications, open standards (IEC 61131, ISA-5.1,
    ISA-101), open-source libraries, textbooks, and your own engineering experience.
 4. If you are unsure whether something is clean, open an issue and ask before writing code.
+5. Search only inside the repository (and your own scratch folder). Never run `find`, `ls -R`,
+   `grep -r` or any other walk from above the repository root: on a shared drive it can cross
+   folders this policy keeps you out of (vendor software, virtual machines). If you need a file
+   from outside the repository, ask the maintainer for it.
 
 Contributions that violate this policy will be removed, and the contributor may be blocked.
 
