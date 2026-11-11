@@ -13,12 +13,16 @@ bench = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bench)
 
 
-def got(score: float) -> dict[str, float]:
-    return {"score": score, "step_ms": 2.5, "calibration_ms": 100.0, "parts": 200}
+def got(score: float, old: float = 0.025) -> dict[str, float]:
+    """A measurement whose gated score (the candidate's, ruled 2026-11-10) is ``score``."""
+    return {
+        "score": old, "step_ms": 2.5, "calibration_ms": 100.0, "parts": 200,
+        "candidate_ms": 36.0, "candidate_score": score,
+    }  # fmt: skip
 
 
 def test_a_score_up_to_25_percent_over_the_baseline_passes_and_above_fails():
-    base = {"score": 0.0200}
+    base = {"score": 0.0200, "candidate_score": 0.0200}
     assert bench.compare("s", got(0.0200 * 1.25), base)[0]
     assert bench.compare("s", got(0.0150), base)[0]  # faster is fine
     ok, line = bench.compare("s", got(0.0200 * 1.26), base)
@@ -28,6 +32,17 @@ def test_a_score_up_to_25_percent_over_the_baseline_passes_and_above_fails():
 def test_a_scene_without_a_baseline_fails_and_says_how_to_make_one():
     ok, line = bench.compare("s", got(0.02), None)
     assert not ok and "tools/bench.py --update" in line
+    ok, line = bench.compare("s", got(0.02), {"score": 0.02})  # an entry from before the switch
+    assert not ok and "tools/bench.py --update" in line
+
+
+def test_the_gate_is_the_candidate_score_and_the_old_score_is_only_reported():
+    """Ruled 2026-11-10: the switch. The old calibration's score no longer fails or passes."""
+    assert bench.GATE == "candidate_score"
+    base = {"score": 0.0200, "candidate_score": 0.0700}
+    ok, line = bench.compare("s", got(0.0700, old=0.0400), base)  # old score +100 %
+    assert ok and "not gated" in line
+    assert not bench.compare("s", got(0.0700 * 1.3, old=0.0200), base)[0]
 
 
 def test_the_committed_baseline_covers_every_scene_at_the_200_part_cap_and_the_process_scene():
@@ -37,6 +52,7 @@ def test_the_committed_baseline_covers_every_scene_at_the_200_part_cap_and_the_p
     assert all(path.is_file() for path in bench.SCENES.values())
     assert all(doc["scenes"][name]["parts"] >= 190 for name in bench.SCENES)
     assert all(s["score"] > 0 for s in doc["scenes"].values())
+    assert all(s["candidate_score"] > 0 and s["cpu"] for s in doc["scenes"].values())
     assert (doc["warm_ticks"], doc["blocks"], doc["block_ticks"]) == (
         bench.WARM_TICKS, bench.BLOCKS, bench.BLOCK_TICKS,
     )  # fmt: skip
@@ -49,7 +65,8 @@ def test_the_calibration_is_deterministic():
 def test_on_github_actions_each_result_is_also_an_annotation(monkeypatch, capsys):
     """The score a CI runner measured is readable from the public check-runs API (PLAN 2.9)."""
     base = json.loads(bench.BASELINE.read_text(encoding="utf-8"))["scenes"]
-    monkeypatch.setattr(bench, "measure", lambda *paths: got(base["load-200"]["score"] * 1.3))
+    gate = base["load-200"]["candidate_score"] * 1.3
+    monkeypatch.setattr(bench, "measure", lambda *paths: got(gate))
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     assert bench.main([]) == 1
     lines = capsys.readouterr().out.splitlines()
@@ -57,7 +74,7 @@ def test_on_github_actions_each_result_is_also_an_annotation(monkeypatch, capsys
     assert len(notes) == len(bench.SCENES) + len(bench.PROCESS)
     load = next(n for n in notes if "tick-cost gate load-200::" in n)
     assert load.startswith("::error title=tick-cost gate load-200::load-200: step 2.500 ms")
-    assert json.loads(load[load.index("{") :]) == got(base["load-200"]["score"] * 1.3)
+    assert json.loads(load[load.index("{") :]) == got(gate)
     monkeypatch.delenv("GITHUB_ACTIONS")
     bench.main([])
     assert not [line for line in capsys.readouterr().out.splitlines() if line.startswith("::")]
@@ -99,6 +116,6 @@ def test_update_only_rewrites_one_entry_and_keeps_the_others(monkeypatch, tmp_pa
     monkeypatch.setattr(bench, "measure", lambda *paths: got(0.5))
     assert bench.main(["--update", "--only", "tank-level-pid"]) == 0
     after = json.loads(baseline.read_text(encoding="utf-8"))
-    assert after["scenes"]["tank-level-pid"]["score"] == 0.5
+    assert after["scenes"]["tank-level-pid"]["candidate_score"] == 0.5
     assert after["scenes"]["load-200"] == before["scenes"]["load-200"]
     assert list(after["scenes"]) == [*bench.SCENES, *bench.PROCESS]

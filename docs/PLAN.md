@@ -1191,6 +1191,19 @@ runs the sorting program against it; a box visibly gets pushed.
         again on this CPU (load-200 0.027518, +9.6 %; queue-200 0.028650, +8.5 %; tank-level-pid
         0.002426, +0.2 %). The switch itself (`--update` of every entry with the candidate as the
         gate; the conveyor entries carry no candidate fields yet) waits for the owner's go.
+      - *Switch (ruled 2026-11-10: go; done):* `tools/bench.py` gates on `candidate_score`
+        (`GATE`); the old calibration's `score` is still measured, printed ("not gated") and
+        kept in the baseline. An entry without a candidate score fails as "no baseline".
+        `--update` of every entry on this machine (i7-1260P, CPython 3.11.15, Clang 22.1.3), so
+        the conveyor entries now carry the candidate fields: candidate scores load-200
+        0.064295, queue-200 0.066211, tank-level-pid 0.006356 (old scores 0.023909, 0.026009,
+        0.002333). These are 6 % and 10 % below the local values the switch rule used (0.0686,
+        0.0736, measured on 2026-11-07), within this machine's day-to-day spread; against them
+        the two qualifying CI runs score +8.1 %/+5.3 % (EPYC 7763) and +5.1 %/+7.6 % (Xeon
+        8573C), inside the 25 % limit. A gate run right after, same session: -3.8 %, +3.0 %,
+        +7.3 %, all ok. `tests/unit/test_bench.py`: the gate is the candidate score and the old
+        score never decides; the committed baseline has candidate fields and a CPU for every
+        entry.
       - *Process scene in the gate (ruled 2026-11-08):* `tank-level-pid` under its stand-in
         script for the fixed 5000 ticks replaces `flow-net` (`PROCESS` in `tools/bench.py`):
         0.18 to 0.26 ms a tick here, the script's scan included, score 0.0023 to 0.0024 over

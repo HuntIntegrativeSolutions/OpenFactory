@@ -1,29 +1,37 @@
 {
  "comment": "tools/bench.py --update; commit with the change that moves it (PLAN 2.9)",
- "measured_on": "CPython 3.11.15, x86_64",
+ "measured_on": "CPython 3.11.15 (Clang 22.1.3 ), 12th Gen Intel(R) Core(TM) i7-1260P",
  "warm_ticks": 3000,
  "blocks": 40,
  "block_ticks": 50,
  "scenes": {
   "load-200": {
-   "score": 0.0251,
-   "step_ms": 2.482,
-   "calibration_ms": 98.675,
-   "parts": 200
+   "score": 0.023909,
+   "step_ms": 2.274,
+   "calibration_ms": 95.114,
+   "parts": 200,
+   "candidate_ms": 35.37,
+   "candidate_score": 0.064295,
+   "cpu": "12th Gen Intel(R) Core(TM) i7-1260P",
+   "python": "CPython 3.11.15 (Clang 22.1.3 )"
   },
   "queue-200": {
-   "score": 0.0264,
-   "step_ms": 2.822,
-   "calibration_ms": 106.76,
-   "parts": 200
+   "score": 0.026009,
+   "step_ms": 2.295,
+   "calibration_ms": 88.243,
+   "parts": 200,
+   "candidate_ms": 34.663,
+   "candidate_score": 0.066211,
+   "cpu": "12th Gen Intel(R) Core(TM) i7-1260P",
+   "python": "CPython 3.11.15 (Clang 22.1.3 )"
   },
   "tank-level-pid": {
-   "score": 0.002421,
-   "step_ms": 0.203,
-   "calibration_ms": 84.028,
+   "score": 0.002333,
+   "step_ms": 0.262,
+   "calibration_ms": 112.18,
    "parts": 3,
-   "candidate_ms": 31.461,
-   "candidate_score": 0.006466,
+   "candidate_ms": 41.172,
+   "candidate_score": 0.006356,
    "cpu": "12th Gen Intel(R) Core(TM) i7-1260P",
    "python": "CPython 3.11.15 (Clang 22.1.3 )"
   }

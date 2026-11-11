@@ -3,6 +3,7 @@
 Usage::
 
     uv run python tools/bench.py             # measure, compare, exit 1 on a regression over 25 %
+                                             # (gated on candidate_score since 2026-11-10)
     uv run python tools/bench.py --update    # measure and rewrite tools/bench_baseline.json
     uv run python tools/bench.py --update --only tank-level-pid   # one entry, the rest kept
 
@@ -26,6 +27,10 @@ readable through the public check-runs API without signing in, unlike the job lo
 CI runner measured can be read back and, if the runner's score differs from this machine's,
 committed as the baseline (PLAN 2.9).
 
+**The gate (switched 2026-11-10, as ruled):** ``candidate_score``, the step over the candidate
+calibration ``calibrate_tick`` below. The old ``score`` (the step over ``calibrate``) is still
+measured, reported and kept in the baseline, but no longer gates.
+
 The calibration did not carry between two CI runs (PLAN 2.9, "Bench drift", 2026-11-07): with
 the same step code the step took 0.63 times as long on the second, but the calibration only
 0.76 times, so the score fell 17-19 %; on one machine both move together. The runs differ in
@@ -34,8 +39,9 @@ Python-level calls and attribute access; the calibration's time goes mostly into
 (``insort``, ``sin``, ``hypot``). A candidate, ``calibrate_tick``, is a frozen
 miniature of a tick's own operations (small objects, methods, ``getattr``, bisect, tuples). It
 is timed in the same blocks and reported beside the gate (``candidate_ms``, ``candidate_score``)
-with the CPU model and Python build, but not gated, until CI runs on more than one runner CPU
-or Python build show which score holds.
+with the CPU model and Python build. Two CI runs on different runner CPUs (AMD EPYC 7763,
+Intel Xeon Platinum 8573C) scored within 10 % of the local candidate values, which met the switch
+rule of 2026-11-07, and the owner ruled the switch on 2026-11-10.
 """
 
 from __future__ import annotations
@@ -283,28 +289,33 @@ def measure(scene: Path, script: Path | None = None) -> dict[str, float]:
     step_ms, cal_ms = statistics.fmean(step_s) * 1000, statistics.fmean(cal_s) * 1000
     cand_ms = statistics.fmean(cand_s) * 1000
     return {
-        "score": round(step_ms / cal_ms, 6),  # one rounding step on 0.0024 is 0.04 %, not 4 %
+        "score": round(step_ms / cal_ms, 6),  # the old calibration's score, reported, not gated
         "step_ms": round(step_ms, 3),
         "calibration_ms": round(cal_ms, 3),
         "parts": count(),  # a process scene: its network's links
-        "candidate_ms": round(cand_ms, 3),  # not gated (see the module docstring)
+        "candidate_ms": round(cand_ms, 3),  # the gate's calibration since 2026-11-10
         "candidate_score": round(step_ms / cand_ms, 6),
         **machine(),
     }
 
 
+#: The gated score (ruled 2026-11-10): the step over the candidate calibration.
+GATE = "candidate_score"
+
+
 def compare(name: str, got: dict[str, float], base: dict[str, float] | None) -> tuple[bool, str]:
-    """(passed, report line) for one scene's measurement against its baseline entry."""
+    """(passed, report line) for one scene's measurement against its baseline entry, gated on
+    :data:`GATE`; the old calibration's ``score`` is printed beside it, not compared."""
     line = (
-        f"{name}: step {got['step_ms']:.3f} ms, calibration {got['calibration_ms']:.3f} ms, "
-        f"score {got['score']:.6f}"
+        f"{name}: step {got['step_ms']:.3f} ms, candidate {got['candidate_ms']:.3f} ms, "
+        f"score {got[GATE]:.6f} (old calibration {got['score']:.6f}, not gated)"
     )
-    if base is None:
+    if base is None or GATE not in base:
         return False, f"{line}; no baseline (run tools/bench.py --update and commit it)"
-    change = got["score"] / base["score"] - 1
-    ok = got["score"] <= base["score"] * LIMIT
+    change = got[GATE] / base[GATE] - 1
+    ok = got[GATE] <= base[GATE] * LIMIT
     verdict = "ok" if ok else f"FAIL: more than {LIMIT - 1:.0%} slower"
-    return ok, f"{line}; baseline {base['score']:.6f} ({change:+.1%}), {verdict}"
+    return ok, f"{line}; baseline {base[GATE]:.6f} ({change:+.1%}), {verdict}"
 
 
 def main(argv: list[str] | None = None) -> int:
