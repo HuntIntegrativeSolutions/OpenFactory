@@ -92,4 +92,5 @@ nav:
       - research/flownet-design.md
       - research/plantpax-demo-design.md
       - research/logix-emulate.md
+      - research/scene-editor-design.md
   - Roadmap: PLAN.md

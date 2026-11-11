@@ -2287,6 +2287,15 @@ runs the sorting program against it; a box visibly gets pushed.
       Must support placing and editing composite types (2.16) and assigning meshes (2.15) from day one.
       Components declare typed snap ports (`load` for conveyor ends, `pipe`, `mount`) so the editor
       can snap end to end and the lint (2.20) can check them.
+      *Design proposal (2026-11-10, for ruling; no code):* `docs/research/scene-editor-design.md`.
+      First version: `openfactory edit SCENE` (simulation paused, loopback only), select, a
+      form built from the JSON Schema, move and turn on the floor, add from a palette of
+      primitives and composite types, delete, Save. Edits are operations the server applies
+      to the YAML text through the 4.7 `Document` (extended with set, add and delete splices),
+      then loads and lints; Save is refused if the file changed on disk. Typed snap ports
+      (`load`, `pipe`, `mount`) declared in Python and published in `/api/scene`, with new
+      lint checks on them. Proposed tasks 4.1a-d with a Done-when each, and nine decisions
+      for the owner.
 - [x] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
       *Defined (ruled 2026-11-07):* models authored by our own scripts or taken from CC0/CC-BY
       sources with attribution, each under the 1 MB rule with a license sidecar, drawn through
