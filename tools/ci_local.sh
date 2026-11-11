@@ -125,12 +125,15 @@ uv run python tools/screenshot.py scenes/sorting-by-height.yaml --seconds 20 \
 step "pytest (CI=true: zero skips allowed)"
 # -rfEs, not -rs: -r replaces pytest's default "fE", and the FAILED and ERROR summary lines are what
 # a failure annotation quotes (run 42365962279 failed here with none to quote)
-uv run pytest -q -rfEs | tee tools/screenshots/ci-pytest.log
+uv run pytest -q -rfEs --junitxml=tools/screenshots/ci-pytest.xml | tee tools/screenshots/ci-pytest.log
 if grep -Eq "[0-9]+ skipped" tools/screenshots/ci-pytest.log; then
   echo "pytest skipped tests under CI=true; every prerequisite must be present" >&2
   annotate_failure # an explicit exit does not fire the ERR trap
   exit 1
 fi
+# The count and the third-party broker checks as annotations, readable without the job log
+# (which needs admin rights): the Sparkplug tests against Mosquitto (PLAN 3.5), each by outcome.
+uv run python tools/ci_report.py tools/screenshots/ci-pytest.log tools/screenshots/ci-pytest.xml
 
 step "parity traces current"
 uv run python tools/parity_trace.py --check
