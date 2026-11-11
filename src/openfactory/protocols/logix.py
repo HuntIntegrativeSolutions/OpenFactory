@@ -26,12 +26,19 @@ of another type **mismatched**; both are logged once per connection, listed in :
 left out of the batches, and the rest keep running. A tag the controller rejects in a read or
 write (pycomm3 returns a ``Tag`` whose ``error`` is set) is treated the same way.
 
-**Link loss.** Any pycomm3 communication error (``PycommError``) or socket error (and any other
-error in a cycle, which is also logged with its traceback) closes the driver,
-logs one line, and reconnects after a backoff of 0.5, 1, 2, 4 then 5 s per attempt, until it
-succeeds, with no restart of either side. While the link is down the I/O table keeps the PLC's
-last values (as with Modbus, where a PLC that stops polling leaves its outputs where they were);
-the PLC detects the simulator's absence from ``SIM_HEARTBEAT_DI`` (§6.1), which stops changing.
+**Link loss, the outputs** (``on_link_loss``, per connection; owner's ruling 2026-11-10). With
+``"off"``, the default, once no exchange with the controller has succeeded for
+``link_loss_timeout_s`` (1.0 s), every PLC-written tag (DO, AO) goes to its off state (False, 0.0,
+0) in one atomic write, logged once per outage, as a real output module goes to its fault state
+on a comms fault; the controller's values return with the first read after reconnecting. A
+watchdog task measures from the last successful exchange, so a cycle stuck in pycomm3's socket
+timeout trips it on time too. With ``"hold"`` the I/O table keeps the PLC's last values.
+
+**Link loss, the connection.** Any pycomm3 communication error (``PycommError``) or socket
+error (and any other error in a cycle, also logged with its traceback) closes the driver, logs
+one line, and reconnects after a backoff of 0.5, 1, 2, 4 then 5 s per attempt, until it
+succeeds, with no restart of either side. The PLC detects the simulator's absence from
+``SIM_HEARTBEAT_DI`` (§6.1), which stops changing.
 
 **Path.** The CIP path is a named connection in ``openfactory.toml`` /
 ``openfactory.local.toml`` (``[connections.<name>]``, ``protocol = "logix"``, ``path``), never in
@@ -48,6 +55,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -61,6 +69,8 @@ LOGIX_TYPE = {"bool": "BOOL", "float32": "REAL", "int16": "INT"}
 #: Seconds to wait before reconnect attempt 1, 2, 3, ...; the last repeats.
 BACKOFF_S = (0.5, 1.0, 2.0, 4.0, 5.0)
 PERIOD_S = 0.05
+#: A PLC-written tag's off state, by dtype (on_link_loss = "off").
+OFF_VALUE: dict[str, Any] = {"bool": False, "float32": 0.0, "int16": 0}
 
 
 class Driver(Protocol):
@@ -104,6 +114,8 @@ class LogixStatus:
     reads: int = 0
     writes: int = 0
     last_error: str | None = None
+    outputs_off: bool = False  # the PLC's outputs were set off for this outage
+    output_drops: int = 0  # outages that set them off
     missing: list[str] = field(default_factory=list)
     mismatched: dict[str, str] = field(default_factory=dict)  # tag -> "REAL, expected BOOL"
 
@@ -117,7 +129,15 @@ class LogixClient:
         period_s: float = PERIOD_S,
         backoff_s: tuple[float, ...] = BACKOFF_S,
         driver_factory: Callable[[str], Driver] = default_driver,
+        on_link_loss: str = "off",
+        link_loss_timeout_s: float = 1.0,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
+        if on_link_loss not in ("off", "hold"):
+            raise ValueError(f"on_link_loss must be 'off' or 'hold', not {on_link_loss!r}")
+        self.on_link_loss = on_link_loss
+        self.link_loss_timeout_s = link_loss_timeout_s
+        self._clock = clock
         self.io = io
         self.path = path
         self.period_s = period_s
@@ -127,6 +147,8 @@ class LogixClient:
         tags = io.tags()
         self._sim = [t.name for t in tags if t.kind in ("DI", "AI")]  # we write these
         self._plc = [t.name for t in tags if t.kind in ("DO", "AO")]  # we read these
+        self._off = {t.name: OFF_VALUE[t.dtype] for t in tags if t.kind in ("DO", "AO")}
+        self._last_ok = clock()  # the last successful exchange (or the start)
         self._type = {t.name: LOGIX_TYPE[t.dtype] for t in tags}
         self._sent: dict[str, Any] = {}  # last value the controller acknowledged, per sim tag
         self._skip: set[str] = set()
@@ -209,7 +231,39 @@ class LogixClient:
             with contextlib.suppress(Exception):
                 driver.close()
 
+    def _check_link_loss(self) -> None:
+        """With on_link_loss "off": the PLC's outputs off once the link has been silent for the
+        timeout, once per outage (called by the watchdog, on the event loop)."""
+        if self.on_link_loss != "off" or self.state.outputs_off:
+            return
+        silent = self._clock() - self._last_ok
+        if silent <= self.link_loss_timeout_s:
+            return
+        self.io.set_many(self._off, Writer.PLC)
+        self.state.outputs_off = True
+        self.state.output_drops += 1
+        log.warning(
+            "logix %s: no exchange for %.1f s; every PLC output set off (on_link_loss = off)",
+            self.path,
+            silent,
+        )
+
+    async def _watchdog(self) -> None:
+        interval = min(0.05, self.link_loss_timeout_s / 4)
+        while not self._stop.is_set():
+            self._check_link_loss()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._stop.wait(), timeout=interval)
+
     async def serve_forever(self) -> None:
+        watchdog = asyncio.create_task(self._watchdog())
+        try:
+            await self._serve()
+        finally:
+            await self.shutdown()
+            await watchdog
+
+    async def _serve(self) -> None:
         attempt = 0
         while not self._stop.is_set():
             try:
@@ -225,6 +279,10 @@ class LogixClient:
                     attempt = 0
                     self._ready.set()
                 await asyncio.to_thread(self._cycle, self._driver)
+                self._last_ok = self._clock()
+                if self.state.outputs_off:
+                    self.state.outputs_off = False  # the read just restored the PLC's values
+                    log.info("logix %s: PLC outputs restored from the controller", self.path)
             except Exception as exc:  # noqa: BLE001 - never end the task: log and reconnect
                 if not isinstance(exc, self._errors):
                     log.exception("logix %s: unexpected error in the cycle", self.path)
@@ -269,6 +327,9 @@ class LogixClient:
             "reads": s.reads,
             "writes": s.writes,
             "last_error": s.last_error,
+            "on_link_loss": self.on_link_loss,
+            "outputs_off": s.outputs_off,
+            "output_drops": s.output_drops,
             "missing": sorted(s.missing),
             "mismatched": dict(s.mismatched),
         }

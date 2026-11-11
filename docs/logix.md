@@ -24,10 +24,26 @@ type: `BOOL` for a DI or DO, `REAL` for an AI or AO. `openfactory export SCENE -
 exactly those tags as a Studio 5000 partial import (PLAN 2.3), `SIM_HEARTBEAT_DI` included. A tag
 the controller lacks, or has with another type, is logged once and left out; the rest run.
 
-If the link drops, OpenFactory logs one line, keeps the controller's last outputs, and reconnects
-by itself (after 0.5, 1, 2, 4, then every 5 s), with no restart of either side. Your program sees
-the simulator is gone because `SIM_HEARTBEAT_DI` stops changing (it toggles every 0.5 s of
-simulated time): watch it with a timer and stop the line if it freezes.
+If the link drops, OpenFactory logs one line and reconnects by itself (after 0.5, 1, 2, 4, then
+every 5 s), with no restart of either side. Your program sees the simulator is gone because
+`SIM_HEARTBEAT_DI` stops changing (it toggles every 0.5 s of simulated time): watch it with a
+timer and stop the line if it freezes.
+
+### What the plant does when the link is lost: `on_link_loss`
+
+Each connection chooses what happens to the PLC-written tags (DO and AO) in the simulated plant:
+
+| `on_link_loss` | Behaviour |
+|---|---|
+| `"off"` (default) | Once no exchange with the controller has succeeded for `link_loss_timeout_s` (default 1.0 s), every DO goes false and every AO to 0.0, in one write, logged once per outage. Conveyors stop, valves close to their 0 % command. The controller's values come back with the first read after the reconnect. |
+| `"hold"` | The plant keeps the controller's last outputs until the link returns: a running conveyor keeps running. |
+
+**Why "off" is the default:** a real output module goes to its fault state on a communications
+fault, and that state is usually "off" (configurable per module in Studio 5000), so a plant that
+keeps running with no controller teaches the wrong lesson. `"hold"` is there for demos that must
+not stop on a network blip. The timeout counts from the last successful exchange, so it also
+covers a controller that stops answering without an error: pycomm3 reports a pulled cable only
+after its socket timeout (5 s), and the outputs go off after 1 s regardless.
 
 ## Setup
 
@@ -44,6 +60,8 @@ simulated time): watch it with a timer and stop the line if it freezes.
    [connections.bench]
    protocol = "logix"
    path = "192.0.2.10"          # see the path for your controller below
+   on_link_loss = "off"         # or "hold"; "off" is the default (see above)
+   link_loss_timeout_s = 1.0    # the default
    ```
 
 4. Run: `uv run openfactory run scenes/sorting-by-height.yaml --logix bench`, or put

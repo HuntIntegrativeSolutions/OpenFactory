@@ -232,22 +232,36 @@ def test_a_tag_rejected_in_a_read_is_left_out_without_dropping_the_link():
     run(main())
 
 
-def test_a_10_s_drop_resumes_with_no_restart_and_the_controller_gets_the_new_inputs(caplog):
-    """The link drops for 10 s: the client logs it once, keeps the PLC's last outputs, backs
-    off, reconnects by itself (the same client, the same task), writes every input again, and
-    the controller's logic sees the input changed during the outage."""
+@pytest.mark.parametrize("mode", ["hold", "off"])
+def test_a_10_s_drop_resumes_with_no_restart_and_the_controller_gets_the_new_inputs(mode, caplog):
+    """The link drops for 10 s: the client logs it once, backs off, reconnects by itself (the
+    same client, the same task), writes every input again, and the controller's logic sees the
+    input changed during the outage. With on_link_loss "hold" the PLC's last outputs stay; with
+    "off" (the default) they go off after link_loss_timeout_s, in one write, logged once, and
+    come back from the controller after the reconnect."""
     caplog.set_level(logging.INFO)
 
     async def main():
         io, plc = table(), Controller(dict(TYPES), logic)
-        c = client(io, plc, backoff_s=(0.1, 0.2, 0.5, 1.0))
+        c = client(io, plc, backoff_s=(0.1, 0.2, 0.5, 1.0), on_link_loss=mode)
+        writes: list[set[str]] = []
         task = asyncio.create_task(c.serve_forever())
-        await until(lambda: io.get("CONV_01_RUN_DO") is True)
+        io.set("LT_01_AI", 0.3, Writer.SIM)
+        await until(lambda: io.get("CONV_01_RUN_DO") is True and io.get("FV_01_POS_AO") == 0.6)
+        batch: set[str] = set()
+        io.on_change(lambda name, old, new, writer: batch.add(name))  # noqa: ARG005
         plc.drop()
+        t_drop = time.monotonic()
         await until(lambda: not c.status()["connected"])
         io.set_many({"PE_01_DI": True, "LT_01_AI": 0.4}, Writer.SIM)  # during the outage
+        batch.clear()
+        if mode == "off":
+            await until(lambda: c.status()["outputs_off"], timeout=3.0)
+            assert time.monotonic() - t_drop >= 1.0  # not before the timeout
+            writes.append(set(batch))
         await asyncio.sleep(10.0)
-        assert io.get("CONV_01_RUN_DO") is True  # the last value held
+        expected = (True, 0.6) if mode == "hold" else (False, 0.0)
+        assert (io.get("CONV_01_RUN_DO"), io.get("FV_01_POS_AO")) == expected
         assert plc.values["PE_01_DI"] is False  # nothing reached the controller
         opens = plc.opens
         plc.restore()
@@ -257,6 +271,10 @@ def test_a_10_s_drop_resumes_with_no_restart_and_the_controller_gets_the_new_inp
         status = c.status()
         assert status["reconnects"] == 1 and status["connects"] == 2
         assert "CommError" in status["last_error"]
+        assert status["output_drops"] == (1 if mode == "off" else 0)
+        assert status["outputs_off"] is False  # restored by the first read
+        if mode == "off":
+            assert writes == [{"CONV_01_RUN_DO", "FV_01_POS_AO"}]  # both, in the one write
         await c.shutdown()
         await task
 
@@ -264,6 +282,56 @@ def test_a_10_s_drop_resumes_with_no_restart_and_the_controller_gets_the_new_inp
     lost = [r for r in caplog.records if "link lost" in r.getMessage()]
     assert len(lost) == 1  # one line per outage, not per attempt
     assert any("reconnected" in r.getMessage() for r in caplog.records)
+    off = [r for r in caplog.records if "every PLC output set off" in r.getMessage()]
+    assert len(off) == (1 if mode == "off" else 0)
+
+
+def test_the_link_loss_timeout_is_measured_from_the_last_good_exchange():
+    """A stalled controller (calls hang, no error yet) trips "off" on the timeout, measured on an
+    injected clock: not at 0.9 s of silence with a 1.0 s timeout, at 1.1 s yes, and only once."""
+    now = [100.0]
+
+    async def main():
+        io, plc = table(), Controller(dict(TYPES), logic)
+        c = client(io, plc, on_link_loss="off", link_loss_timeout_s=1.0, clock=lambda: now[0])
+        task = asyncio.create_task(c.serve_forever())
+        await until(lambda: io.get("CONV_01_RUN_DO") is True)
+        plc.drop()  # the cycle now fails; the fake clock decides "how long"
+        await until(lambda: not c.status()["connected"])
+        last_ok = c._last_ok
+        now[0] = last_ok + 0.9
+        await asyncio.sleep(0.2)
+        assert not c.status()["outputs_off"] and io.get("CONV_01_RUN_DO") is True
+        now[0] = last_ok + 1.1
+        await until(lambda: c.status()["outputs_off"])
+        assert io.get("CONV_01_RUN_DO") is False
+        now[0] = last_ok + 30.0
+        await asyncio.sleep(0.2)
+        assert c.status()["output_drops"] == 1  # once per outage
+        await c.shutdown()
+        await task
+
+    run(main())
+
+
+def test_the_connection_entry_takes_on_link_loss_and_its_timeout(tmp_path):
+    from openfactory.core.config import load_settings
+
+    (tmp_path / "openfactory.local.toml").write_text(
+        '[connections.a]\nprotocol = "logix"\npath = "192.0.2.10"\n'
+        '[connections.b]\nprotocol = "logix"\npath = "192.0.2.11"\non_link_loss = "hold"\n'
+        "link_loss_timeout_s = 2.5\n",
+        encoding="utf-8",
+    )
+    conns = load_settings(tmp_path).connections
+    assert (conns["a"].on_link_loss, conns["a"].link_loss_timeout_s) == ("off", 1.0)
+    assert (conns["b"].on_link_loss, conns["b"].link_loss_timeout_s) == ("hold", 2.5)
+    (tmp_path / "openfactory.local.toml").write_text(
+        '[connections.a]\nprotocol = "logix"\npath = "x"\non_link_loss = "maybe"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="on_link_loss"):
+        load_settings(tmp_path)
 
 
 def test_an_unreachable_controller_does_not_hold_up_the_run():

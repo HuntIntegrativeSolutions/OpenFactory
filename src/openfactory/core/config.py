@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -44,6 +44,11 @@ class Endpoint(_Strict):
 class Connection(_Strict):
     protocol: str
     path: str
+    #: Logix (PLAN 2.2): what the PLC-written tags do when the link is lost. "off" (default): once
+    #: no exchange has succeeded for ``link_loss_timeout_s``, every DO/AO goes to its off state,
+    #: as a real output module goes to its fault state on a comms fault. "hold": keep the last.
+    on_link_loss: Literal["off", "hold"] = "off"
+    link_loss_timeout_s: float = Field(1.0, gt=0, le=60)
 
 
 class ServerSettings(_Strict):

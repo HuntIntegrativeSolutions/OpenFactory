@@ -754,6 +754,23 @@ runs the sorting program against it; a box visibly gets pushed.
       reaches pycomm3 as a socket timeout after 5 s, not at once as in the fake; how a
       controller answers a write to a Read Only tag or one a rung writes; how long it keeps a
       dead connection. `plc_tag:` per binding (§6.2, a UDT member) is not built.
+      *Owner's answers (2026-11-10):* (1) the bench 5380 is **not available yet**, so 2.2 stays
+      open; (2) Echo runs on **a VM or another PC, separate from this one** (the live-test
+      runbook is `docs/logix-echo-test.md`). `run --logix NAME` accepted.
+      *Link loss (ruled 2026-11-10, done):* selectable per connection, `on_link_loss = "off"`
+      (default) or `"hold"`, with `link_loss_timeout_s` (default 1.0). With "off", once no
+      exchange has succeeded for the timeout, every DO/AO goes to its off state (false, 0.0, 0)
+      in one atomic write, logged once per outage; the first read after reconnecting restores
+      the controller's values. A watchdog task measures from the last good exchange, so a
+      cycle stuck in pycomm3's 5 s socket timeout trips it on time. "hold" is the earlier
+      behaviour. `docs/logix.md` explains both and why "off" is the default (real output
+      modules go to a fault state). Tests: the 10 s drop with each setting (hold keeps 0.6 and
+      True; off goes to 0.0 and False after at least 1 s, both tags in the one write, logged
+      once, restored after reconnect), the timeout on an injected clock (0.9 s no, 1.1 s yes,
+      once per outage), and the connection entry's defaults and a bad value.
+      *For ruling:* should the Modbus server get the same setting (PLC outputs off when the
+      PLC has not polled or written for a timeout)? Today a PLC that stops polling leaves its
+      Modbus outputs where they were; that path is unchanged.
 - [x] 2.3 `export/l5x_stub.py`: controller tags only (BOOL/REAL) for a scene, via existing
       `/io-to-l5x` where possible. Writes to the consuming project's `03-plc/generated/`, never here.
       *Done when (ruled 2026-10-30):* controller-scoped BOOL and REAL tags with descriptions from

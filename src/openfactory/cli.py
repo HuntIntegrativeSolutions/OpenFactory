@@ -697,7 +697,16 @@ def _logix_client(parsed: Scene, loaded: LoadedScene, settings, name, script):  
     if script is not None:
         fail("--script and a Logix controller would both write the PLC outputs; use one")
     log.info("logix: connection %s, CIP path %s", name, conn.path)
-    return LogixClient(loaded.io, conn.path)
+    log.info(
+        "logix: on link loss, outputs %s",
+        f"off after {conn.link_loss_timeout_s:g} s" if conn.on_link_loss == "off" else "held",
+    )
+    return LogixClient(
+        loaded.io,
+        conn.path,
+        on_link_loss=conn.on_link_loss,
+        link_loss_timeout_s=conn.link_loss_timeout_s,
+    )
 
 
 def _faults(
