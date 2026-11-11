@@ -2160,6 +2160,13 @@ runs the sorting program against it; a box visibly gets pushed.
         commented and balanced and naming only declared tags, each object called once, the
         source table exactly the members the rungs name, the page carrying the table as the
         code has it, a scene with no map refused, a deterministic export.
+      *Review of 2026-11-10, ruled:* the five fixes accepted (the pump interlock rung, no
+      program command in the first scan, the pump-restart note, the RM013 data types, the
+      broadcaster). `Cfg_ProgPwrUp` deviation accepted: the file does not write an object's
+      internal tags, and it stays `[TBD]` in import check 9 as an optional setting for the
+      owner. The ownership sequence as built (configuration only in `Init`, `PCmd_Prog` at the
+      end of the first scan's `Control`, `PCmd_Auto` on `Sts_Prog`, `PSet_SP` every scan) is
+      accepted.
 - [ ] 3.5 MQTT Sparkplug B publisher (`protocols/sparkplug.py`) tested against Ignition 8.3 MQTT Engine
       *Ruled 2026-11-08:* the publisher with a unit test against a local broker in CI, and a
       documented Ignition test deferred to Docker.
@@ -2513,6 +2520,8 @@ runs the sorting program against it; a box visibly gets pushed.
       `conveyor-start-stop.yaml`: every comment kept in order, the same line count, only the
       version, renamed and rewritten lines changed and nothing else on them, key order
       identical under the new names, and its inverse gives the original bytes.
+      *Ruled 2026-11-10:* accepted, including the position-based edits with PyYAML (no new
+      dependency).
 - [x] 4.8 Release hygiene before 4.5: SECURITY.md with a disclosure contact, CODE_OF_CONDUCT.md,
       semantic versioning policy, CHANGELOG.md, SBOM generated from `THIRD_PARTY.md`, and a one-page
       "what OpenFactory is not" statement (not safety-rated, not virtual commissioning, not a PLC).

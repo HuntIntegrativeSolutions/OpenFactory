@@ -88,6 +88,9 @@ and a run that starts with the controller unreachable. It **cannot** prove:
   default) rather than an immediate error, so the outage is noticed later than in the test;
 - how a controller answers a write to a tag whose External Access is Read Only, or to a tag a rung
   also writes;
-- how long the controller keeps a dead connection before it accepts a new one.
+- how long the controller keeps a dead connection before it accepts a new one;
+- how long a run waits at start when the controller's host is up but does not answer: the tests
+  show a refused connection returning at once, but an address that swallows packets holds the
+  first attempt until pycomm3's socket timeout (5 s) before the run goes ahead.
 
 Those are the bench run's (PLAN 2.2) and the Echo and Emulate first tests' (ADR-0002) to show.
