@@ -139,14 +139,18 @@
 <Text><![CDATA[MOV(DEMO_LOAD_DELAY_MS,DEMO_LOAD_TMR.PRE)TON(DEMO_LOAD_TMR,?,?)XIC(DEMO_LOAD_TMR.DN)ONS(DEMO_LOAD_ONS)OTL(DEMO_P_101.PCmd_Start);]]></Text>
 </Rung>
 <Rung Number="9" Type="N">
-<Comment><![CDATA[P-101 running feedback P_01_RUN_DI; the low level switch (LSL) interlocks the pump off]]></Comment>
-<Text><![CDATA[XIC(P_01_RUN_DI)OTE(DEMO_P_101.Inp_RunFdbk)XIO(TK_01_LSL_DI)OTE(DEMO_P_101.Inp_IntlkOK);]]></Text>
+<Comment><![CDATA[P-101 running feedback P_01_RUN_DI into P_Motor]]></Comment>
+<Text><![CDATA[XIC(P_01_RUN_DI)OTE(DEMO_P_101.Inp_RunFdbk);]]></Text>
 </Rung>
 <Rung Number="10" Type="N">
+<Comment><![CDATA[P-101 interlock: the low level switch (LSL) interlocks the pump off]]></Comment>
+<Text><![CDATA[XIO(TK_01_LSL_DI)OTE(DEMO_P_101.Inp_IntlkOK);]]></Text>
+</Rung>
+<Rung Number="11" Type="N">
 <Comment><![CDATA[P-101 P_Motor instance call [TBD: operand count, instance only here]]]></Comment>
 <Text><![CDATA[P_Motor(DEMO_P_101);]]></Text>
 </Rung>
-<Rung Number="11" Type="N">
+<Rung Number="12" Type="N">
 <Comment><![CDATA[P-101 run command to the simulator, P_01_RUN_DO]]></Comment>
 <Text><![CDATA[XIC(DEMO_P_101.Out_Run)OTE(P_01_RUN_DO);]]></Text>
 </Rung>

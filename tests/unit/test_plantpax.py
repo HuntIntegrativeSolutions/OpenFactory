@@ -81,3 +81,64 @@ def test_the_export_is_deterministic(tmp_path):
 def test_the_owners_page_lists_the_source_table_as_the_code_has_it():
     page = (REPO / "docs" / "plantpax.md").read_text(encoding="utf-8")
     assert plantpax.source_table() in page
+
+
+CONDITIONS = {"XIC", "XIO", "ONS", "OSR", "OSF", "EQU", "NEQ", "GRT", "GEQ", "LES", "LEQ", "LIM",
+              "MEQ", "CMP"}  # fmt: skip
+COILS = {"OTE", "OTL", "OTU"}
+
+
+def outputs_then_conditions(text: str) -> list[str]:
+    """The condition instructions that follow a coil on the same path outside any branch: in
+    Logix ladder such a condition is in series *after* the coil, so it gates only what comes
+    after it, never the coil, and a rung written as two lines in one is wrong (review of
+    2026-11-10: the pump's interlock was true only while the pump already ran)."""
+    found, depth, coil_seen, i = [], 0, [False], 0
+    while i < len(text):
+        ch = text[i]
+        if ch == "[":
+            depth += 1
+            coil_seen.append(coil_seen[-1])
+            i += 1
+        elif ch == ",":
+            coil_seen[-1] = coil_seen[-2]  # a new branch leg starts where the branch started
+            i += 1
+        elif ch == "]":
+            depth -= 1
+            leg = coil_seen.pop()
+            coil_seen[-1] = coil_seen[-1] or leg
+            i += 1
+        else:
+            m = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\(", text[i:])
+            if not m:
+                i += 1
+                continue
+            name, j, level = m.group(1).upper(), i + m.end(), 1
+            while level:  # skip the operands, which may hold parentheses
+                level += {"(": 1, ")": -1}.get(text[j], 0)
+                j += 1
+            if depth == 0 and name in CONDITIONS and coil_seen[-1]:
+                found.append(name)
+            if name in COILS:
+                coil_seen[-1] = True
+            i = j
+    return found
+
+
+def test_the_checker_catches_a_condition_after_a_coil_and_allows_branches_and_series_outputs():
+    old_pump_rung = "XIC(P_01_RUN_DI)OTE(A.Inp_RunFdbk)XIO(TK_01_LSL_DI)OTE(A.Inp_IntlkOK);"
+    assert outputs_then_conditions(old_pump_rung) == ["XIO"]
+    assert outputs_then_conditions("XIC(A)OTE(B)OTL(C)MOV(1,D);") == []
+    assert outputs_then_conditions("XIC(A)[OTE(B),XIC(C)OTE(D)];") == []  # parallel legs
+    assert outputs_then_conditions("XIC(A)[OTE(B),XIO(C)]OTE(D);") == []
+    assert outputs_then_conditions("MOV(A,B)TON(T,?,?)XIC(T.DN)OTL(C);") == []
+    assert outputs_then_conditions("OTE(A)GRT(B,1)OTE(C);") == ["GRT"]
+
+
+@pytest.mark.parametrize("name", sorted(plantpax.MAPS))
+def test_no_rung_puts_a_condition_after_a_coil(name, tmp_path):
+    root = export(name, tmp_path)
+    texts = [r.findtext("Text") for r in root.iter("Rung")]
+    assert len(texts) > 10
+    bad = [t for t in texts if outputs_then_conditions(t)]
+    assert bad == []

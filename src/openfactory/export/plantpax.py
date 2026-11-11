@@ -238,8 +238,12 @@ _PUMP_CONTROL = (
         f"XIC({AREA}_LOAD_TMR.DN)ONS({AREA}_LOAD_ONS)OTL({PMP.tag}.PCmd_Start);",
     ),
     Rung(
-        "P-101 running feedback P_01_RUN_DI; the low level switch (LSL) interlocks the pump off",
-        f"XIC(P_01_RUN_DI)OTE({PMP.tag}.Inp_RunFdbk)XIO(TK_01_LSL_DI)OTE({PMP.tag}.Inp_IntlkOK);",
+        "P-101 running feedback P_01_RUN_DI into P_Motor",
+        f"XIC(P_01_RUN_DI)OTE({PMP.tag}.Inp_RunFdbk);",
+    ),
+    Rung(
+        "P-101 interlock: the low level switch (LSL) interlocks the pump off",
+        f"XIO(TK_01_LSL_DI)OTE({PMP.tag}.Inp_IntlkOK);",
     ),
     Rung(
         "P-101 P_Motor instance call [TBD: operand count, instance only here]",
