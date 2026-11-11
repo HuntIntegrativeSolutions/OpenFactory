@@ -71,3 +71,29 @@ def test_the_instructor_frame_lists_faults_that_the_exam_mode_trainee_frame_hide
         assert "faults" not in trainee and "instructor" not in trainee
         assert "fault" not in trainee["components"]["CYL_01"]
     assert client.get("/api/status").json()["instructors"] == 0
+
+
+def test_the_instructor_sees_a_misaligned_eye_where_it_points_and_the_trainee_does_not():
+    """Review of 2026-11-10: in exam mode a misaligned eye is drawn where it belongs for trainees
+    (beam_offset_m 0) and where it really points for the instructor."""
+    runtime = exam_runtime()
+    runtime.inject_fault("PE_01", "misaligned", {})
+    real = runtime.loaded.component("PE_01").state()["beam_offset_m"]
+    assert real != 0
+    assert runtime.exam_hidden() == {"PE_01": {"beam_offset_m": real}}
+    client = TestClient(create_app(runtime, web_dist=None, fault_token="s3cret"))
+    with client.websocket_connect("/ws/instructor") as ws:
+        ws.send_text(json.dumps({"token": "s3cret"}))
+        frame = json.loads(ws.receive_text())
+        assert frame["components"]["PE_01"]["beam_offset_m"] == real
+        assert frame["faults"]["PE_01"] == "misaligned"
+    with client.websocket_connect("/ws/state") as ws:
+        assert json.loads(ws.receive_text())["components"]["PE_01"]["beam_offset_m"] == 0.0
+
+
+def test_outside_exam_mode_nothing_is_hidden():
+    runtime = Runtime(load(SORTER), realtime=False)
+    runtime._step(0.02)
+    runtime.inject_fault("PE_01", "misaligned", {})
+    assert runtime.exam_hidden() == {}
+    assert runtime.snapshot["components"]["PE_01"]["beam_offset_m"] != 0

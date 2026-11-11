@@ -54,7 +54,8 @@ Behavior spec
   ``{"token": "..."}``; with a fault token configured it must match (on any bind, loopback too:
   this stream shows what exam mode hides), with none it is open on loopback and refused beyond
   it, as ``/api/fault``. A refusal is ``{"error": ...}`` and close code 1008. Accepted, it gets
-  the same frames as ``/ws/state`` from the same broadcaster plus ``instructor: true``,
+  the same frames as ``/ws/state`` from the same broadcaster, with each component's real state
+  where exam mode hides it (a misaligned eye's ``beam_offset_m``), plus ``instructor: true``,
   ``faults`` (``{component id: fault kind}`` for every active fault, even in exam mode) and
   ``comms``, that text serialized once per frame for every instructor.
 - ``WS /ws/events``: receives viewer events as JSON objects (see
@@ -309,9 +310,16 @@ def create_app(
         A replay has no fault API: its recorded component states carry their faults."""
         faults_of = getattr(runtime, "faults", None)
         found = faults_of() if faults_of is not None else {"active": [], "comms": None}
+        hidden_of = getattr(runtime, "exam_hidden", None)
+        hidden = hidden_of() if hidden_of is not None else {}
         frames["serialized"] += 1
+        snap = runtime.snapshot
+        components = snap["components"]
+        if hidden:  # exam mode: draw the plant as it is (a misaligned eye where it points)
+            components = {k: {**v, **hidden.get(k, {})} for k, v in components.items()}
         frame = {
-            **runtime.snapshot,
+            **snap,
+            "components": components,
             "viewers": len(viewers),
             "instructor": True,
             "faults": {f["id"]: f["kind"] for f in found["active"]},

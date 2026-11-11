@@ -405,6 +405,22 @@ class Runtime:
         self._event({**entry, "core_t": self.loaded.time, "core_tick": self.loaded.tick})
         self.event_counts[f"{event}:{data['id']}"] += 1
 
+    def exam_hidden(self) -> dict[str, dict[str, Any]]:
+        """What the exam-mode frame hides, per component (PLAN 4.12, review of 2026-11-10): each
+        state value that differs from the snapshot's, such as a misaligned eye's real
+        ``beam_offset_m``, so the instructor view draws the plant as it is. Faults themselves go
+        out separately (:meth:`faults`). Empty outside exam mode."""
+        with self.lock:
+            if self.loaded.exam is None:
+                return {}
+            out: dict[str, dict[str, Any]] = {}
+            for comp in self.loaded.components:
+                real, shown = comp.state(), self._component_state(comp)
+                hidden = {k: v for k, v in real.items() if shown.get(k) != v}
+                if hidden:
+                    out[comp.id] = hidden
+            return out
+
     def _component_state(self, comp: Any) -> dict[str, Any]:
         state = comp.state()
         if self.loaded.exam is not None:  # exam mode (PLAN 2.11): trainees find faults via the PLC
