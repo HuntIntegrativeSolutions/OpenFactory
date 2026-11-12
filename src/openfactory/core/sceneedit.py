@@ -24,6 +24,9 @@ Operations (JSON objects). A ``path`` is a list of keys from the top of the scen
   style (block keys, flow lists and small mappings, a nested block for ``io``-like mappings).
 - ``{"op": "delete", "id": "X"}``: removes the component and the comment lines directly above it
   (ruled 2026-11-10).
+- ``{"op": "use_library", "name": "accumulation_conveyor"}``: adds ``{library: name}`` to the
+  ``composites:`` block (PLAN 4.1c), creating the block just above ``components:`` if the scene
+  has none; nothing if the scene already uses it.
 - ``{"op": "splice", "at": i, "remove": n, "insert": "text"}``: a raw text splice, only what an
   inverse uses to put a deleted component back exactly.
 
@@ -134,6 +137,49 @@ def _set(doc: Document, path: list[Any], literal: str) -> Op:
     return {"op": "unset", "path": path}
 
 
+_LIBRARY_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def _inserted(span: tuple[int, int, str]) -> Op:
+    start, end, old = span
+    return {"op": "splice", "at": start, "remove": end - start, "insert": old}
+
+
+def _use_library(doc: Document, name: str) -> Op:
+    """Add ``{library: name}`` to ``composites:`` unless it is there: after the last entry, or
+    as a new ``composites:`` block just above ``components:`` (at the end if there is none)."""
+    if not _LIBRARY_NAME.match(name):
+        raise ValueError(f"{name!r} is not a library composite name")
+    entry = f"{{library: {name}}}"
+    if doc.has(("composites",)):
+        _, node = doc.find(("composites",))
+        if not isinstance(node, yaml.SequenceNode):
+            raise ValueError("composites: not a list")
+        for item in node.value:
+            if isinstance(item, yaml.MappingNode) and any(
+                k.value == "library" and v.value == name for k, v in item.value
+            ):
+                return {"op": "batch", "ops": []}  # already used
+        if node.flow_style:
+            if node.value:
+                at = doc._leaf_end(node.value[-1])
+                return _inserted(doc.splice(at, at, f", {entry}"))
+            at = node.start_mark.index + 1
+            return _inserted(doc.splice(at, at, entry))
+        if node.value:
+            return _inserted(doc.append_item(("composites",), [f"- {entry}"]))
+        raise ValueError("composites: an empty block list")
+    block = f"composites:\n  - {entry}\n"
+    if doc.has(("components",)):
+        key, _ = doc.find(("components",))
+        assert key is not None
+        at = doc._line_start(key.start_mark.index)
+        return _inserted(doc.splice(at, at, block))
+    at = len(doc.text)
+    lead = "" if doc.text.endswith("\n") or not doc.text else "\n"
+    return _inserted(doc.splice(at, at, lead + block))
+
+
 def _apply(doc: Document, op: Op) -> Op:
     kind = op.get("op")
     if kind == "set":
@@ -160,6 +206,8 @@ def _apply(doc: Document, op: Op) -> Op:
     if kind == "delete":
         start, _, old = doc.delete_item(("components",), _index_of(doc, op["id"]))
         return {"op": "splice", "at": start, "remove": 0, "insert": old}
+    if kind == "use_library":
+        return _use_library(doc, str(op["name"]))
     if kind == "splice":
         at, remove = int(op["at"]), int(op.get("remove", 0))
         start, end, old = doc.splice(at, at + remove, str(op.get("insert", "")))

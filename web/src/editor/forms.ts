@@ -213,10 +213,15 @@ export function checkField(field: Field, value: unknown): string | null {
 export type EditOp =
   | { op: "set"; path: Path; value: unknown }
   | { op: "set_raw"; path: Path; literal: string }
-  | { op: "unset"; path: Path };
+  | { op: "unset"; path: Path }
+  | { op: "add"; component: Record<string, unknown> }
+  | { op: "delete"; id: string }
+  | { op: "use_library"; name: string };
+
+export type PathOp = Extract<EditOp, { path: Path }>;
 
 /** The operation that writes an accepted value (null for an optional clears the key). */
-export function opFor(componentId: string, field: Field, value: unknown): EditOp {
+export function opFor(componentId: string, field: Field, value: unknown): PathOp {
   const path: Path = ["components", componentId, ...field.path];
   if (field.kind === "yaml") return { op: "set_raw", path, literal: String(value) };
   if (field.kind === "optional" && value === null) return { op: "unset", path };

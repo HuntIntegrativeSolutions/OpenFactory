@@ -2430,11 +2430,49 @@ runs the sorting program against it; a box visibly gets pushed.
         comment in place) and the lockfiles are untouched. Edit-mode screenshot looked at.
         *Noted for 4.1c:* the panel covers the right edge of the plant (the camera framing does
         not allow for it); bindings written as mappings are read only.
-  - [ ] 4.1c Placement: palette (primitives and composite types, the scene's and the
+  - [x] 4.1c Placement: palette (primitives and composite types, the scene's and the
         library's), drag and turn on the floor, delete, the `mesh` field, Download YAML.
         *Done when:* a Playwright test adds a photo eye and a library composite instance, moves
         and turns them, sets a mesh, saves; the file validates, the lint shows no new error, and
         the screenshot is looked at.
+        *Done (2026-11-11):* `src/openfactory/core/templates.py`: the palette (the 29 built-in
+        types, the scene's composite types, and every `_library/` composite beside the scene or
+        above it, the loader's own search) and new components as ruled (decision 5): the id from
+        the type's prefix and the next free number (`PE_02`), a tag proposed for every required
+        port (`PE_02_DI`, `ACC_01_RELEASE_DO`; optional ports stay unbound), starter values for
+        required parameters, a reference proposed where the scene has an obvious one (a
+        heater's tank, a conveyor with no `run` binding for a VFD, a tank's level for a
+        transmitter) else left empty for the user, and a placeholder description. A new
+        operation, `use_library`, adds `{library: name}` to `composites:` (after the last entry,
+        in a flow list, or as a new block just above `components:`). Server: `POST
+        /api/edit/palette` (with the `.glb` files beside the scene), `POST /api/edit/new`, and
+        `/models/<id>.glb` serves the mesh of the scene as last previewed (the URL carries the
+        file name so a changed file is not taken from the cache). Viewer: the panel's palette
+        and Add (placed on the floor at the centre of the uncovered view), Move and Turn with
+        three's `TransformControls` on the handle at the file's position (floor axes only; the
+        vertical axis only; a 0.05 m and 15 degree grid, Shift for free; a composite instance's
+        parts follow its handle), Delete (button or key; a component not saved yet takes back
+        its add and changes, `web/src/editor/ops.ts`), the mesh picker, Download YAML. Save and
+        Download stay disabled until each new component has its own description. Previews no
+        longer reframe the camera. *4.1b's notes, closed:* the view's centre is shifted to the
+        middle of the part of the window the panel does not cover (a camera view offset), and a
+        binding written as a mapping is edited as one line of YAML. `docs/editor.md` (new, in the
+        docs site). Tests: `tests/unit/test_templates.py` (35: every type's new component loads
+        in a scene, except the four that name pipe ends and a VFD with nothing free to drive,
+        whose load error names the empty field, and a junction, which needs a pipe; ids, tags,
+        `use_library` on block and flow lists with its inverse), `tests/unit/test_edit_server.py`
+        (+2: palette and new against pending operations; a mesh set in a preview is served),
+        `web/src/editor/ops.test.ts` (4), and `tests/integration/test_editor_place.py`: on a copy
+        of the sorter with the library and a mesh beside it, a pushbutton added and deleted
+        leaves nothing; a photo eye and an accumulation conveyor added from the palette, Save
+        disabled until each is described, each moved and turned by real mouse drags on the
+        gizmo (on the grids); the pusher's mesh set and drawn; CONV_01's speed binding edited as
+        YAML (its inline comment kept); saved: the file validates, the lint has no errors before
+        or after, the download equals the saved file, the lockfiles are untouched. Screenshots
+        `tools/screenshots/editor-4.1c.png` and `editor-4.1b.png` looked at.
+        *Not done:* renaming a component, and deleting the references to a deleted one with it
+        (a referenced component's delete shows the load error); a new component is placed at
+        the centre of the view even if that overlaps the plant (the lint's W205 says so).
   - [ ] 4.1d Snap ports: ports declared in Python and published, snapping in the editor, the
         new lint checks, the ports in `docs/components.md`.
         *Done when:* a Playwright test drags a conveyor near another's discharge and it snaps

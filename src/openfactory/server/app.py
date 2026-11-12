@@ -150,6 +150,13 @@ class EditRequest(BaseModel):
     ops: list[dict[str, Any]]
 
 
+class NewComponentRequest(EditRequest):
+    """A new component for the editor's palette (PLAN 4.1c): its type and where to place it."""
+
+    type: str
+    position: tuple[float, float, float] = (0.0, 0.0, 0.0)
+
+
 class FaultRequest(BaseModel):
     """Body of ``POST /api/fault``: a component fault ``{id, kind, params}`` (PLAN 2.6) or a comms
     fault ``{comms: {drop, latency_ms}}`` (PLAN 2.13), not both."""
@@ -237,11 +244,22 @@ def create_app(
         def edit_save(body: EditRequest) -> dict[str, Any]:
             return run_edit(edit.save, body)
 
+        @app.post("/api/edit/palette")
+        def edit_palette(body: EditRequest) -> dict[str, Any]:
+            return run_edit(edit.palette, body)
+
+        @app.post("/api/edit/new")
+        def edit_new(body: NewComponentRequest) -> dict[str, Any]:
+            return run_edit(lambda base, ops: edit.new(base, ops, body.type, body.position), body)
+
     @app.get("/models/{name}")
     def model(name: str) -> FileResponse:
         """A custom mesh the scene declares (PLAN 2.15), by component id; nothing else is served.
         A replay has no ``meshes`` and serves none."""
-        meshes = getattr(getattr(runtime, "loaded", None), "meshes", {})
+        if edit is not None:  # PLAN 4.1c: the scene as last previewed
+            meshes = edit.meshes
+        else:
+            meshes = getattr(getattr(runtime, "loaded", None), "meshes", {})
         comp_id, _, ext = name.rpartition(".")
         if ext != "glb" or comp_id not in meshes:
             raise HTTPException(status_code=404, detail=f"no mesh {name!r} in this scene")

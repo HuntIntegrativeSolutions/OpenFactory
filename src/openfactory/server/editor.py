@@ -18,6 +18,15 @@ the session applies them to the text, never the browser (ruled 2026-11-10):
   response carries the findings either way. A save returns the new ``base``. Lockfiles are never
   written (ruled 2026-11-10): new tags get addresses on the next ``run`` or ``export``.
 - ``GET /api/scene`` serves the session's current document with ``"mode": "edit"``.
+- ``POST /api/edit/palette`` ``{base, ops}`` (PLAN 4.1c): what can be placed
+  (:func:`openfactory.core.templates.palette`, against the text with the operations applied, so a
+  library composite placed but not yet saved shows as in use) and the ``.glb`` files beside the
+  scene a ``mesh.file`` can name.
+- ``POST /api/edit/new`` ``{base, ops, type, position}``: a new component of that type
+  (:func:`openfactory.core.templates.new_component`): the editor adds it with an ``add``
+  operation, after a ``use_library`` one when ``library`` is set.
+- ``GET /models/<id>.glb`` serves the mesh of the scene as last previewed, so a mesh set in the
+  form is drawn before Save.
 
 A bad operation (an unknown id, a path that is not there) is **400** naming the operation.
 ``openfactory edit`` serves this on loopback only, with the simulation never started and no
@@ -30,6 +39,7 @@ import hashlib
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import yaml
 
@@ -65,20 +75,49 @@ class EditSession:
         self.text = self.path.read_text(encoding="utf-8")
         self.base = text_hash(self.text)
         self._document: dict[str, Any] | None = None
+        #: Component id -> mesh file of the scene as last loaded (saved or previewed).
+        self.meshes: dict[str, Path] = {}
 
-    @staticmethod
-    def _document_of(text: str, path: Path) -> dict[str, Any]:
+    def _document_of(self, text: str, path: Path) -> dict[str, Any]:
         from openfactory.core.loader import build
         from openfactory.core.schema import parse_scene
         from openfactory.server.runtime import Runtime
 
         loaded = build(parse_scene(text, path.parent), base_dir=path.parent)
-        return {**Runtime(loaded, realtime=False).scene_document(), "mode": "edit"}
+        self.meshes = dict(getattr(loaded, "meshes", {}) or {})
+        doc = {**Runtime(loaded, realtime=False).scene_document(), "mode": "edit"}
+        for comp in doc.get("components", []):
+            mesh = comp.get("mesh")
+            if isinstance(mesh, dict) and comp.get("id") in self.meshes:
+                # another file for the same id must not come from the browser's cache (PLAN 4.1c)
+                mesh["url"] += "?file=" + quote(self.meshes[comp["id"]].name)
+        return doc
 
     def document(self) -> dict[str, Any]:
         if self._document is None:
             self._document = self._document_of(self.text, self.path)
         return self._document
+
+    def _applied(self, base: str, ops: list[dict[str, Any]]) -> str:
+        self._check_base(base)
+        return apply_ops(self.text, ops)[0]
+
+    def palette(self, base: str, ops: list[dict[str, Any]]) -> dict[str, Any]:
+        from openfactory.core.templates import mesh_files, palette
+
+        data = _data(self._applied(base, ops))
+        return {
+            "items": palette(data, self.path.parent),
+            "meshes": mesh_files(self.path.parent),
+        }
+
+    def new(
+        self, base: str, ops: list[dict[str, Any]], type_name: str, position: Any
+    ) -> dict[str, Any]:
+        from openfactory.core.templates import new_component
+
+        data = _data(self._applied(base, ops))
+        return new_component(type_name, data, self.path.parent, position)
 
     def source(self) -> dict[str, Any]:
         """The text, its base, and ``data``: the file's values as written (YAML parsed, no
@@ -105,8 +144,7 @@ class EditSession:
         """Apply ``ops`` to the text at ``base``; ValueError for a bad op."""
         from openfactory.lint import lint_scene
 
-        self._check_base(base)
-        text, _ = apply_ops(self.text, ops)
+        text = self._applied(base, ops)
         findings = lint_scene(self.path, text=text)
         try:
             scene = self._document_of(text, self.path)

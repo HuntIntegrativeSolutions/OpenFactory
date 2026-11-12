@@ -22,6 +22,7 @@
 // a fresh physics world, part set, and event link (frames are ignored until that is done).
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { BELT_TYPES, EventLink, fetchScene, streamInstructor, streamState, type PartState, type SceneDocument, type StateFrame, type Vec3 } from "./api";
 import { loadRapier, offDeck, PlantPhysics, tiltDeg, type Rapier } from "./physics";
@@ -106,9 +107,28 @@ const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerH
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+/** Width of the editor panel the plant should be centred clear of (PLAN 4.1c), 0 outside edit
+ * mode or when the window is too narrow for both. */
+let panelWidth = 0;
+/** How far the view's centre is shifted left for the panel, in CSS pixels (fitCamera). */
+let viewShiftPx = 0;
+
+/** Size the camera to the window; with the editor panel open, shift the view's centre left to
+ * the middle of the part of the window the panel does not cover (a wider virtual view, of which
+ * the window shows all but the panel's width on the left). */
+function fitCamera(): void {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const p = w - panelWidth >= 320 ? panelWidth : 0;
+  viewShiftPx = p;
+  camera.aspect = (w + p) / h;
+  if (p) camera.setViewOffset(w + p, h, p, 0, w, h);
+  else camera.clearViewOffset();
   camera.updateProjectionMatrix();
+}
+
+window.addEventListener("resize", () => {
+  fitCamera();
   renderer.setSize(window.innerWidth, window.innerHeight);
   labels.setSize(window.innerWidth, window.innerHeight);
 });
@@ -174,7 +194,7 @@ function clearScene(): void {
   labelsById.clear();
 }
 
-function buildScene(doc: SceneDocument): void {
+function buildScene(doc: SceneDocument, frame = true): void {
   const floorY = floorFor(doc.components);
   views = doc.components.map((g) => buildComponent(g, { floorY }));
   for (const view of views) {
@@ -194,7 +214,7 @@ function buildScene(doc: SceneDocument): void {
   grid.position.y = floorY;
   scene.add(floor, grid);
   plant = [...views.map((v) => v.object), floor, grid];
-  frameCamera(framedBounds(views.map((v) => v.object)));
+  if (frame) frameCamera(framedBounds(views.map((v) => v.object)));
 }
 
 /** Next selector position on a click: a -> b -> a, or a -> center -> b -> a with 3 positions. */
@@ -448,10 +468,12 @@ async function applyScene(next: SceneDocument): Promise<void> {
   loading = true;
   const status = window.__openfactory;
   if (!doc || JSON.stringify(next) !== JSON.stringify(doc)) {
+    // an editor preview redraws the plant where the user is looking (PLAN 4.1c)
+    const keepCamera = doc !== null && editing() && next.mode === "edit";
     if (doc) status.reloads = Number(status.reloads) + 1;
     clearScene();
     doc = next;
-    buildScene(doc);
+    buildScene(doc, !keepCamera);
     // custom housings (PLAN 2.15) are in place before the first frame is drawn, or have failed
     const specs = new Map(doc.components.filter((g) => g.mesh).map((g) => [g.id, g.mesh!]));
     status.meshes = await attachMeshes(views, specs);
@@ -558,32 +580,155 @@ async function start(): Promise<void> {
   }
 }
 
-/** Edit mode (PLAN 4.1b): the editor panel, click to select, a box around the selection. */
+/** Edit mode (PLAN 4.1b, 4.1c): the editor panel, click to select, a box around the selection,
+ * and a gizmo that moves the selection on the floor or turns it about the vertical axis, on a
+ * 0.05 m and 15 degree grid that Shift turns off. A composite instance moves as one: the gizmo
+ * holds a handle at the instance's own position, and its parts follow it while dragging. */
 async function startEditor(): Promise<void> {
   let selectedId: string | null = null;
-  let outline: THREE.BoxHelper | null = null;
+  let outline: THREE.BoxHelper | THREE.Box3Helper | null = null;
+  let suppressClick = false;
+  const handle = new THREE.Object3D();
+  scene.add(handle);
+  const gizmo = new TransformControls(camera, renderer.domElement);
+  scene.add(gizmo.getHelper());
+  const GRID_M = 0.05;
+  const GRID_RAD = THREE.MathUtils.degToRad(15);
+  const snap = (on: boolean) => {
+    gizmo.setTranslationSnap(on ? GRID_M : null);
+    gizmo.setRotationSnap(on ? GRID_RAD : null);
+  };
+  snap(true);
+  window.addEventListener("keydown", (e) => e.key === "Shift" && snap(false));
+  window.addEventListener("keyup", (e) => e.key === "Shift" && snap(true));
+  const setMode = (mode: "move" | "turn") => {
+    gizmo.setMode(mode === "move" ? "translate" : "rotate");
+    gizmo.showX = mode === "move";
+    gizmo.showY = mode === "turn";
+    gizmo.showZ = mode === "move";
+  };
+  /** The views drawn for a component in the file: itself, or a composite instance's parts. */
+  const boundsOf = (objects: THREE.Object3D[]) => {
+    const box = new THREE.Box3();
+    for (const o of objects) box.expandByObject(o);
+    return box;
+  };
+  const viewsOf = (id: string) =>
+    views.filter((v) => {
+      if (v.id === id) return true;
+      const g = doc?.components.find((c) => c.id === v.id);
+      return (g?.composite as { id?: string } | undefined)?.id === id;
+    });
+  let dragStart: { handle: THREE.Matrix4; objects: [THREE.Object3D, THREE.Matrix4][] } | null = null;
   const highlight = () => {
     if (outline) scene.remove(outline);
     outline = null;
-    const view = views.find((v) => v.id === selectedId);
-    if (!view) return;
-    outline = new THREE.BoxHelper(view.object, new THREE.Color(cssColor("highlight")));
+    gizmo.detach();
+    const drawn = selectedId ? viewsOf(selectedId) : [];
+    const data = selectedId ? panel.componentData(selectedId) : null;
+    if (!drawn.length) return;
+    outline = drawn.length === 1
+      ? new THREE.BoxHelper(drawn[0].object, new THREE.Color(cssColor("highlight")))
+      : new THREE.Box3Helper(boundsOf(drawn.map((v) => v.object)), new THREE.Color(cssColor("highlight")));
     scene.add(outline);
+    const position = data?.position as number[] | undefined;
+    if (!position || drawn.some((v) => v.type === "pipe")) return; // a pipe is drawn from its path
+    handle.position.set(position[0], position[1], position[2]);
+    handle.rotation.set(0, THREE.MathUtils.degToRad(Number(data?.rotation_deg ?? 0)), 0);
+    handle.updateMatrixWorld();
+    gizmo.attach(handle);
   };
-  const panel = new EditorPanel((next) => {
-    void applyScene(next).then(highlight);
+  const select = (id: string | null) => {
+    selectedId = id;
+    panel.select(id);
+    highlight();
+  };
+  const panel = new EditorPanel({
+    onScene: (next) => void applyScene(next).then(highlight),
+    onSelect: select,
+    placement: () => {
+      // the floor point (y 0, the plant's datum) at the centre of the uncovered view
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(new THREE.Vector2(-viewShiftPx / window.innerWidth, 0), camera);
+      const hit = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+      const at = hit ?? controls.target.clone();
+      const round = (v: number) => Math.round(v / GRID_M) * GRID_M;
+      return [Number(round(at.x).toFixed(3)), 0, Number(round(at.z).toFixed(3))];
+    },
+    setMode,
   });
   window.__openfactory.editor = panel.status;
   window.__openfactory.physics = "off: edit";
+  gizmo.addEventListener("dragging-changed", (e) => {
+    const dragging = Boolean((e as unknown as { value: boolean }).value);
+    controls.enabled = !dragging;
+    if (dragging) {
+      handle.updateMatrixWorld();
+      dragStart = {
+        handle: handle.matrixWorld.clone(),
+        objects: (selectedId ? viewsOf(selectedId) : []).map((v) => [v.object, v.object.matrix.clone()]),
+      };
+      return;
+    }
+    suppressClick = true; // the click that ends a drag does not change the selection
+    if (!selectedId || !dragStart) return;
+    dragStart = null;
+    const p = handle.position;
+    const position: [number, number, number] = [p.x, p.y, p.z].map((v) => Number(v.toFixed(3))) as [number, number, number];
+    let deg = THREE.MathUtils.radToDeg(handle.rotation.y);
+    deg = Number((((deg % 360) + 540) % 360 - 180).toFixed(1));
+    const before = Number(panel.componentData(selectedId)?.rotation_deg ?? 0);
+    panel.moveTo(selectedId, position, Math.abs(deg - before) > 1e-6 ? deg : null);
+  });
+  gizmo.addEventListener("objectChange", () => {
+    if (!dragStart) return;
+    // move the drawn views with the handle until the preview redraws them
+    handle.updateMatrixWorld();
+    const delta = handle.matrixWorld.clone().multiply(dragStart.handle.clone().invert());
+    for (const [object, start] of dragStart.objects) {
+      object.matrix.copy(delta.clone().multiply(start));
+      object.matrix.decompose(object.position, object.quaternion, object.scale);
+    }
+    if (outline instanceof THREE.BoxHelper) outline.update();
+    else if (outline) outline.box.copy(boundsOf(dragStart.objects.map(([o]) => o)));
+  });
   renderer.domElement.addEventListener("click", (e) => {
+    if (suppressClick) {
+      suppressClick = false;
+      return;
+    }
     const picked = pickComponent(e.clientX, e.clientY);
     // a part expanded from a composite (PLAN 2.16) selects its instance, which is what the file holds
     const geometry = picked ? doc?.components.find((c) => c.id === picked.id) : undefined;
     const instance = (geometry?.composite as { id?: string } | undefined)?.id;
-    selectedId = picked ? (instance ?? picked.id) : null;
-    panel.select(selectedId);
-    highlight();
+    select(picked ? (instance ?? picked.id) : null);
   });
+  window.addEventListener("keydown", (e) => {
+    const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
+    if (!typing && e.key === "Delete") void panel.deleteSelected();
+  });
+  Object.assign(window, {
+    /** A component's values as the file with pending edits has them (tests, PLAN 4.1c). */
+    __openfactoryEditorData: (id: string) => panel.componentData(id),
+    /** Select a component as a click on it would (tests, PLAN 4.1c). */
+    __openfactoryEditorSelect: (id: string | null) => select(id),
+    /** Where the gizmo's handles are on screen, for tests that drag them (PLAN 4.1c): the
+     * handle's origin, a point on the x arrow (move) and on the vertical-axis ring (turn). */
+    __openfactoryGizmo: () => {
+      if (!gizmo.object) return null;
+      const origin = handle.getWorldPosition(new THREE.Vector3());
+      const fov = camera.fov;
+      const factor = origin.distanceTo(camera.position) * Math.min((1.9 * Math.tan((Math.PI * fov) / 360)) / camera.zoom, 7);
+      const unit = (factor * gizmo.size) / 4;
+      const along = (v: THREE.Vector3) => {
+        const q = origin.clone().add(v.multiplyScalar(unit)).project(camera);
+        return [((q.x + 1) / 2) * window.innerWidth, ((1 - q.y) / 2) * window.innerHeight];
+      };
+      return { origin: along(new THREE.Vector3()), xArrow: along(new THREE.Vector3(0.6, 0, 0)), ring: along(new THREE.Vector3(0, 0, 0.5)), unitPx: unit };
+    },
+  });
+  panelWidth = panel.element.offsetWidth;
+  fitCamera();
   await panel.start();
 }
 

@@ -109,3 +109,54 @@ def test_the_run_api_has_no_edit_routes():
     client = TestClient(create_app(runtime, web_dist=None))
     assert client.get("/api/edit/source").status_code == 404
     assert "mode" not in client.get("/api/scene").json()
+
+
+def test_palette_and_new_component_against_the_pending_operations(editing):
+    """PLAN 4.1c: the palette lists built-in types and library composites; a new component's id
+    counts the ones already added but not saved."""
+    scene, client = editing
+    (scene.parent / "_library").mkdir()
+    shutil.copy(
+        REPO / "scenes" / "_library" / "accumulation_conveyor.yaml", scene.parent / "_library"
+    )
+    base = client.get("/api/edit/source").json()["base"]
+    pal = client.post("/api/edit/palette", json={"base": base, "ops": []}).json()
+    types = [i["type"] for i in pal["items"]]
+    assert "photo_eye" in types and "accumulation_conveyor" in types
+    new = client.post(
+        "/api/edit/new", json={"base": base, "ops": [], "type": "photo_eye", "position": [1, 0, 2]}
+    ).json()
+    eye = new["component"]
+    assert eye["id"] == "PE_02" and eye["position"] == [1.0, 0.1, 2.0] and new["library"] is None
+    second = client.post(
+        "/api/edit/new",
+        json={"base": base, "ops": [{"op": "add", "component": eye}], "type": "photo_eye"},
+    ).json()
+    assert second["component"]["id"] == "PE_03"
+    bad = client.post("/api/edit/new", json={"base": base, "ops": [], "type": "no_such_type"})
+    assert bad.status_code == 400
+
+
+def test_a_mesh_set_in_a_preview_is_served_before_save(tmp_path):
+    for f in (REPO / "scenes").glob("sorting-by-height*"):
+        shutil.copy(f, tmp_path / f.name)
+    (tmp_path / "models").mkdir()
+    shutil.copy(REPO / "tests" / "scenes" / "models" / "pusher-housing.glb", tmp_path / "models")
+    scene = tmp_path / "sorting-by-height.yaml"
+    runtime = Runtime(build(load_scene(scene), base_dir=tmp_path), realtime=False)
+    client = TestClient(create_app(runtime, web_dist=None, edit=EditSession(scene)))
+    base = client.get("/api/edit/source").json()["base"]
+    assert client.get("/models/CYL_01.glb").status_code == 404
+    pal = client.post("/api/edit/palette", json={"base": base, "ops": []}).json()
+    assert pal["meshes"] == ["models/pusher-housing.glb"]
+    op = {
+        "op": "set",
+        "path": ["components", "CYL_01", "mesh"],
+        "value": {"file": pal["meshes"][0]},
+    }
+    res = client.post("/api/edit/preview", json={"base": base, "ops": [op]}).json()
+    assert res["errors"] == 0
+    mesh = next(c for c in res["scene"]["components"] if c["id"] == "CYL_01")["mesh"]
+    assert mesh["url"] == "/models/CYL_01.glb?file=pusher-housing.glb"
+    got = client.get(mesh["url"])
+    assert got.status_code == 200 and got.content[:4] == b"glTF"
