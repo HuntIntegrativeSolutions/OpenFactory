@@ -1318,6 +1318,9 @@ runs the sorting program against it; a box visibly gets pushed.
       viewer, and read the frame line once parts reach 200. A p95 above 16.7 ms with render plus
       state well below it means the GPU or its driver: part instancing (400 of the 542 draw
       calls) and a static merge come next.
+      *Same visit (added 2026-11-11):* once 4.14 is built, read the same frame line at each of
+      its quality levels (low, standard, high). One visit settles this reading and 4.14's
+      default level.
       **Physics engine check:** Jolt (MIT) compiled to multi-threaded WASM supports true conveyor
       surface velocity through its contact listener, which Rapier JS lacks (`libraries.md`). Build a
       spike branch swapping Rapier for `jolt-physics` on the sorter, compare parity trace, frame time at
@@ -2725,6 +2728,73 @@ runs the sorting program against it; a box visibly gets pushed.
       *Follow-up (ruled 2026-11-07, not now):* portrait-phone framing. On a portrait screen the
       horizontal field of view is narrower than the vertical, and conveyor lines are cut off at
       the sides; fitting across too pulls every conveyor scene back about three times there.
+- [ ] 4.14 Viewer lighting and materials (ruled 2026-11-11, from the rendering review in
+      `docs/research/viewer-rendering-notes.md`). Give the plant a lit, grounded look without
+      moving a status color.
+      *Why:* the viewer has no environment map, no tone mapping and no shadows. Metal and
+      painted parts render flat and the plant floats above the floor. The models are already
+      built in code (4.2), so the work is lighting and materials, not geometry.
+      *Done when:*
+      1. **Status colors are exact at every level.** Every material that carries an ISA-101
+         status color is unlit and excluded from tone mapping and from environment reflections,
+         at low, standard and high alike (ruled 2026-11-11). A Playwright test samples pixels on a
+         running belt, a stopped belt and an alarm indicator (a red pilot light,
+         `tests/scenes/operator-devices-only.yaml`) at each of the three levels. Each must be within
+         a small tolerance of its hex value in the style table. The tolerance and the reason for it
+         are stated here.
+      2. **Only solid housings and parts cast shadows.** Outline volumes, beams, labels, helpers
+         and selection or edit-mode gizmos cast and receive none. Parts opt in explicitly in
+         `web/src/parts.ts`. A test walks the scene graph and asserts this.
+      3. **Shadows are soft, and the shadow camera is fitted to the scene's bounds,** so a large
+         scene is covered. Screenshots of sorting-by-height, palletizer-lite, tank-level-pid and
+         `tests/scenes/operator-devices-only.yaml`, each looked at.
+      4. **A quality setting with three levels:**
+         - low: today's lighting for everything except status materials, which become exact
+           (item 1);
+         - standard: tone mapping and the environment, no shadows;
+         - high: standard plus shadows.
+
+         It is chosen by a URL parameter and a HUD control and remembered per browser. The
+         default is standard until the owner's reading. CI and `tools/screenshot.py` use low
+         unless a test asks otherwise, so run times do not move. Status materials change at low
+         too, so existing screenshots and any image checks that sample a belt are expected to
+         change. Each one that changes is listed here with its before and after values and
+         updated in the same commit as the change. The default is recorded below as open for
+         ruling.
+      5. **The environment comes from three's own `RoomEnvironment`** (MIT, already in the
+         package), built once. No HDR file, no new dependency, no new binary. Report the bundle
+         size before and after.
+      6. **Performance on the software renderer for each level,** at 200 parts on
+         `tests/scenes/load-200.yaml`: frame time, render time and draw calls, before and after,
+         recorded here. The owner then reads the same numbers on real hardware from the HUD; that
+         reading is listed under 2.9's open reading as one visit that settles both.
+      7. **Parity traces, kits and recordings are unchanged.** `npm test` and the full
+         `tools/ci_local.sh` on a fresh clone pass.
+
+      Not ticked until the owner's GPU reading is in.
+      *Note (2026-11-11), from the reverted spike:* sampled from `tools/screenshot.py` images
+      of sorting-by-height:
+
+      | Belt | Today's lighting | Spike (tone mapping and environment) | Style table |
+      |------|------------------|--------------------------------------|-------------|
+      | Running | `#24B457` | `#8BDC93` | `#22C55E` |
+      | Stopped | `#8F95A0` | `#C6C9CD` | `#9CA3AF` |
+
+      Today's lighting already misses, because the belt is a lit, shaded
+      `MeshStandardMaterial`. An exact status color therefore needs a material that lighting,
+      the environment and tone mapping all leave alone at every level, for example unlit with
+      `toneMapped` off. That changes how status surfaces look at low as well, and moves the
+      existing image checks. *Ruled 2026-11-11:* status materials are unlit at every level, low
+      included (items 1 and 4 amended).
+
+      Three r186 (the pinned version) logs that `PCFSoftShadowMap` has been removed and falls
+      back to `PCFShadowMap`. Choose the softening from the r186 documentation.
+      *Open for ruling:* the default quality level. It stays open until the owner's GPU reading.
+      *Candidates, parked (ruled 2026-11-11, no task):*
+      - A read-only trainee panel in run mode: a component's ports, tags and faults beside the 3D,
+        from facts the core already has (CONTEXT.md, 2.19).
+      - Live checks in the viewer during a run: the scene's `checks:` (2.11) shown as they pass or
+        fail, not only at the end of `openfactory test`.
 
 ---
 
@@ -2773,6 +2843,10 @@ runs the sorting program against it; a box visibly gets pushed.
    `parity-turntable` (note under 2.5, ruled 2026-10-30).
 10. **A scene's Done-when includes a 300 s `openfactory test` run** (ruled 2026-10-28), as well as
    the 60 s run CI does, so a scene over capacity cannot pass by running short.
+11. **Outside apps are reviewed for ideas only** (ruled 2026-11-11): a review of a public browser
+   hardware-learning app (`docs/research/viewer-rendering-notes.md`) left task 4.14 and two parked
+   ideas, its lighting spike was reverted uncommitted, and nothing of that app's code, text, names
+   or assets is used.
 
 ---
 
