@@ -25,28 +25,40 @@ research and reasoning behind every architectural choice. `docs/research/` holds
 
 ---
 
-## Clean-Room Rule (Non-Negotiable)
+## Original Work and Vendor Material
 
 OpenFactory is an original work. It is inspired by the *category* of 3D PLC simulators, not by any
 specific product's code or assets.
 
-- **Never** read, decompile, extract, or reference the binaries, scene files, 3D models, textures,
-  documentation PDFs, or installer contents of Factory I/O or any other commercial simulator.
-- **Never** copy component names, scene names, UI layouts, or menu structures from a commercial product.
-  Every name in OpenFactory is our own.
-- Public knowledge is fine: protocol specifications, open-source libraries, textbooks, and general
-  descriptions of what a conveyor or photo eye does.
-- If a contributor or session has been exposed to commercial simulator internals, say so and stop. Tainted
-  work cannot be merged.
-- `E:\04_Software\` is off-limits for this project. Do not open it. `E:\Hyper-V VMs` and
-  `E:\VirtualBox-VMs` are off-limits on this drive too: do not open or list them.
+**The clean-room rule is lifted for sessions (owner ruling, 2026-11-11).** A session may read vendor
+documentation, installed vendor software, SDK documentation, installation media the owner names
+(including a named path under `E:\04_Software\`), and HIS reverse-engineering studies such as the
+FactoryTalk Logix Echo study, to learn how to interoperate. Having read them no longer stops work.
+What still holds, and why:
+
+- **Never copy** code, 3D models, textures, scene files, documentation text, component names,
+  scene names, UI layouts or menu structures from a commercial product (copyright and
+  trademarks). Every name in OpenFactory is our own.
+- **Vendor SDKs and vendor-specific code stay out of this repository.** No vendor binary, SDK
+  package, manual, or contract recovered by reverse engineering is committed here, and no code
+  that links a vendor SDK. Rockwell-specific code (the Logix Echo SDK) lives in HIS Controls'
+  Echo-Tools, outside this repository; OpenFactory offers vendor-neutral interfaces it can use.
+- **Public files keep public citations.** PLAN, docs and code comments cite public sources (a
+  publication number or URL) or "the vendor SDK documentation". Never put reverse-engineering
+  findings, internal paths, recovered contracts or security findings about vendor software in
+  this repository.
+- **Until the owner rules on the public wording,** nothing derived from the internals of
+  Factory I/O or another commercial 3D simulator enters this repository: CONTRIBUTING.md, the
+  docs site and the issue and PR templates still describe OpenFactory as a clean-room work.
+- `E:\Hyper-V VMs` and `E:\VirtualBox-VMs` are off-limits on this drive (the drive's own rule): do
+  not open or list them. Open `E:\04_Software\` only at a path the owner names.
 - **Never run `find`, `ls -R`, `grep -r` or any other walk above the repository root or your
   scratch folder** (ruled 2026-11-10). A walk from `/` or `/mnt/e` crosses the folders above. If
   you need a file from outside the repository, ask the owner for it.
 - **No HIS MCP servers in this repository.** Never call `industrial-sops`, `ai-memory-vendor-docs`,
   `ai-memory-cognitive`, `l5x-analysis`, `deep-research`, or `nexus` while working on OpenFactory.
-  They index client and vendor material, including commercial simulator manuals, and the global
-  CLAUDE.md instructions to use them do not apply here. Use web search on public sources only.
+  They index client material, which must never reach a public Apache-2.0 repository, and the
+  global CLAUDE.md instructions to use them do not apply here.
 
 ---
 
@@ -71,7 +83,7 @@ Full detail with rationale: `docs/PLAN.md` §3.
 OpenFactory/
 ├── CLAUDE.md                 ← you are here
 ├── README.md                 ← public-facing overview
-├── CONTRIBUTING.md           ← clean-room policy, DCO, style
+├── CONTRIBUTING.md           ← contributor policy, DCO, style
 ├── LICENSE                   ← Apache-2.0
 ├── docs/
 │   ├── PLAN.md               ← THE roadmap (milestones, tasks, acceptance criteria)
@@ -101,8 +113,9 @@ OpenFactory/
 1. Read the current milestone in `docs/PLAN.md` and pick the next unchecked task. Do not skip ahead.
 2. Check `docs/adr/` for a decision that already covers your question before proposing a new approach.
 3. For any new protocol work, read the public specification, the vendor's published manual, and the
-   library's own documentation and source first (public sources only, per the clean-room rule).
-   Do not guess register maps or CIP service codes.
+   library's own documentation and source first, and cite them (see "Original Work and Vendor
+   Material" for what may be cited in this repository). Do not guess register maps or CIP
+   service codes.
 4. On a drive without symlink support (WSL `/mnt/e`), set up uv and npm as in `CONTRIBUTING.md`,
    "Required setup on drives without symlink support" (`UV_PROJECT_ENVIRONMENT`, `UV_LINK_MODE=copy`,
    npm `bin-links=false`) before running any `uv` or `npm` command.
@@ -164,7 +177,7 @@ OpenFactory/
 ### What this project does NOT do
 - No safety-rated simulation. OpenFactory is a training and demo tool. Say so in every README and scene.
 - No vendor firmware emulation. We talk to PLCs; we do not pretend to be one.
-- No copying of commercial assets, ever (see Clean-Room Rule).
+- No copying of commercial assets, ever (see "Original Work and Vendor Material").
 
 ---
 

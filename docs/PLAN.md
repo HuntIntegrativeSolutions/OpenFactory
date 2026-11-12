@@ -1917,6 +1917,48 @@ runs the sorting program against it; a box visibly gets pushed.
       belt beyond, the stroke must reach the beyond belt's near edge plus half the deepest
       emitted part's depth along the stroke, the stroke that puts the whole part on the belt
       beyond rather than balanced on the seam (the phone-demo fault).
+- [ ] 2.21 Lockstep co-simulation with FactoryTalk Logix Echo (added 2026-11-11; §2.4 option (c)
+      revived for Echo). *Why:* the 2.2 path polls the controller over EtherNet/IP while both
+      sides run free, so a PLC test can come out differently run to run. Echo's SDK can switch an
+      emulated controller into co-simulation mode and advance its virtual time step by step
+      ("Controller API: use to control the execution, scale time, and access tags", Rockwell's
+      Echo v2 overview), which lets OpenFactory and the controller advance together.
+      *Split (the rule from CLAUDE.md, "Original Work and Vendor Material"):* everything that
+      links Rockwell's SDK lives in HIS Controls' Echo-Tools, outside this repository; this
+      repository gets only a vendor-neutral way for an outside program to advance the core.
+      *Depends on:* 2.2 passing on Echo (`docs/logix-echo-test.md`), and the owner's choice of
+      Echo version. Echo 3.00 ships the SDK for C#/.NET only; Echo 4.00 (10/2025) adds Python
+      to the API (4.00 release notes) but needs Windows 11 or Windows Server 2022/2025.
+      *First deliverable:* an ADR (§9 rule 7) choosing between:
+      (a) **Python, Echo 4.00:** a `--script` stand-in (2.10, `step(io, t)` every tick, kept in
+          Echo-Tools) that writes the plant's inputs to the controller, advances it one tick
+          and reads its outputs. No OpenFactory change.
+      (b) **Out of process, Echo 3.00 or later:** a small external-step interface in
+          OpenFactory (loopback by default; beyond loopback only with a token, §6.4): the
+          outside program sends the PLC's outputs, the core runs one tick and returns the
+          plant's inputs. The C# bridge in Echo-Tools drives it.
+      *Facts the design must carry* (Echo SDK documentation installed with Echo; release notes):
+      the SDK reaches the Echo service on the same PC only, and the owner runs Echo on a separate
+      VM or PC, so either OpenFactory runs on the Echo host or the step interface is opened
+      beyond loopback (owner decision); a step runs *at least* the asked time and returns the
+      time it actually ran, and Rockwell recommends 10 ms steps against our 20 ms tick, so the
+      bridge tracks the difference rather than assuming one step per tick; tags are written as
+      controller-scope tags, as 2.2 does (an input injected into a module tag only stays while
+      the module is inhibited or faulted); no snapshot can be taken in co-simulation mode; the
+      licence server can delay starting an emulated controller by minutes (4.00 release notes),
+      so the bridge waits for it rather than failing.
+      *Done when:* CI: a fake outside stepper drives the core through the chosen interface and
+      two runs give byte-identical I/O traces, the same as the `--script` run of the same
+      scene. On the Echo host: the sorter (`sorting-by-height`), with its control program
+      ported to Logix from `examples/openplc/sorting-by-height.st`, runs in lockstep for 60 s
+      twice, its DO changes land on the same ticks both times, its `checks:` pass, and the time per
+      step (SDK call overhead plus the tick) is measured and recorded here.
+      *Sources:* FactoryTalk Logix Echo release notes 3.00
+      (https://compatibility.rockwellautomation.com/GeneratedReleaseNote.aspx?v1=62836) and
+      4.00 (…?v1=66077); Rockwell's Echo v2 overview
+      (https://www.controltech.si/doc/news/FactoryTalk_LogixEcho_v2.pdf); Siemens SIMIT –
+      FactoryTalk Logix Echo coupling V2.1.4.2, entry 109800094 (a shipping SDK-based coupling;
+      Echo and SIMIT on the same PC).
 
 ### Milestone 3 — Process simulation (target 3–4 weeks)
 - [x] 3.1 Flow network solver (`core/flownet.py`): directed graph of sources, pipes, valves, pumps,
@@ -2737,7 +2779,7 @@ runs the sorting program against it; a box visibly gets pushed.
 | Scope creep in component library | Milestones slip | Table in §5 is the list. New types need an issue and a PLAN edit first |
 | LGPL in asyncua | License questions from adopters | `THIRD_PARTY.md` explains dynamic import; offer `open62541` binding as alternative later |
 | Performance with many parts | Demo looks bad | Cap parts at 200; instanced meshes; profile in 2.9 |
-| Clean-room doubt | Legal exposure | CONTRIBUTING policy, DCO sign-off, never open `04_Software` from this project |
+| Clean-room doubt | Legal exposure | CONTRIBUTING policy, DCO sign-off; nothing copied from a commercial product, and no vendor SDK, binary or vendor-specific code in this repository (CLAUDE.md, ruled 2026-11-11) |
 | Scene format freezes at public release | Breaking changes after 4.5 strand users' scenes | Schema versioning and `migrate` (4.7) before release |
 | Physics or protocol library API churn | Parity or Modbus binding silently breaks on upgrade | Pinned minors; quarterly upgrade task (4.9) reruns parity and round-trip tests |
 | Users mistake it for virtual commissioning or safety validation | Reputational and liability exposure | "What OpenFactory is not" statement (4.8) in README, docs site, and every scene header |
@@ -2757,7 +2799,9 @@ runs the sorting program against it; a box visibly gets pushed.
    number or URL, in a code comment.
 6. **When stuck for more than two attempts**, write the blocker under the task and move on. Do not loop.
 7. **New decisions get an ADR.** Short is fine: context, decision, consequences.
-8. **Never touch** `E:\04_Software`, `E:\Hyper-V VMs`, or `E:\VirtualBox-VMs`. **Never run
+8. **Never touch** `E:\Hyper-V VMs` or `E:\VirtualBox-VMs`, and open `E:\04_Software` only at a
+   path the owner names (the clean-room rule for sessions was lifted 2026-11-11; what still
+   holds is in CLAUDE.md, "Original Work and Vendor Material"). **Never run
    `find`, `ls -R`, `grep -r` or any other walk above the repository root or the session's scratch
    folder** (ruled 2026-11-10): a walk from `/` or `/mnt/e` crosses all three. A file needed from
    outside is asked of the owner.
