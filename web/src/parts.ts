@@ -56,6 +56,10 @@ export class PartMeshes {
       if (!entry) {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(...p.size), this.material(p.name, p.color));
         mesh.name = p.id;
+        // parts opt in to shadows here (PLAN 4.14): they are solid, and they are not under a
+        // component, so lighting.ts applyShadowRoles never sees them; their edge lines stay out
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         mesh.position.set(...p.position);
         const edges = new THREE.LineSegments(
           new THREE.EdgesGeometry(mesh.geometry),

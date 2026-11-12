@@ -6,7 +6,7 @@ import * as THREE from "three";
 import type { ComponentGeometry } from "../api";
 import { ISA101 } from "../isa101";
 import { PART_COLORS } from "../parts";
-import { NEUTRAL, box, num, placed, setColor, wireBox, zCylinder, type Builder, type DefaultHousing, type HousingPart } from "./types";
+import { NEUTRAL, asStatus, box, noShadow, num, placed, setColor, wireBox, zCylinder, type Builder, type DefaultHousing, type HousingPart } from "./types";
 
 /** Photo eye: origin at the beam midpoint; the beam spans local z. */
 export const photoEye: Builder = (g) => {
@@ -23,7 +23,7 @@ export const photoEye: Builder = (g) => {
     for (const part of ["head", "bracket"]) parts.push({ part, at, turnDeg: side < 0 ? 0 : 180 });
   }
   eye.add(...heads);
-  const beam = zCylinder(0.006, beamLength, ISA101.stopped);
+  const beam = noShadow(asStatus(zCylinder(0.006, beamLength, ISA101.stopped)));
   beam.name = "beam";
   eye.add(beam);
   return {
@@ -54,7 +54,7 @@ export const pusher: Builder = (g) => {
   group.add(body);
   const rod = zCylinder(0.012, 1, NEUTRAL.structure);
   group.add(rod);
-  const plate = box([plateW, plateH, 0.02], ISA101.stopped, [0, 0, -0.01]);
+  const plate = asStatus(box([plateW, plateH, 0.02], ISA101.stopped, [0, 0, -0.01]));
   plate.name = "plate";
   group.add(plate);
   const setStroke = (z: number) => {
@@ -143,11 +143,17 @@ const LAMP: Record<string, number> = {
   black: 0x111827,
 };
 
-function lens(color: number): THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial> {
-  const mesh = zCylinder(0.03, 0.025, color);
-  mesh.material.emissive.setHex(color);
-  mesh.material.emissiveIntensity = 0;
-  return mesh;
+/** A button cap or lamp lens: a status mesh (PLAN 4.14), drawn at its color's exact hex. */
+function lens(color: number): THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial> {
+  return asStatus(zCylinder(0.03, 0.025, color));
+}
+
+/**
+ * An unlit lamp's lens (PLAN 4.14): a fifth of its lit color in linear light, so it reads as dark
+ * glass of that color and never as a status color itself.
+ */
+export function dimmed(color: number): number {
+  return new THREE.Color(color).multiplyScalar(0.2).getHex();
 }
 
 /** Pushbutton: origin at the button face center, facing local +z. Click to press. */
@@ -168,7 +174,7 @@ export const pushbutton: Builder = (g) => {
     // the enclosure and guard collar (PLAN 4.2); the cap, which shows the color and moves, stays
     defaultHousing: { model: "pushbutton", parts: [{ part: "panel", at: [0, 0, 0] }] },
     update(state) {
-      cap.material.emissiveIntensity = state.pressed ? 0.8 : 0;
+      // the cap keeps its exact color (PLAN 4.14); a press shows as its 7.5 mm of travel
       cap.position.z = state.pressed ? -0.02 : -0.0125;
     },
   };
@@ -179,7 +185,9 @@ export const pilotLight: Builder = (g) => {
   const group = placed(g);
   const plate = box([0.08, 0.08, 0.02], NEUTRAL.frame, [0, 0, -0.03]);
   group.add(plate);
-  const lamp = lens(LAMP[String(g.color ?? "green")] ?? ISA101.running);
+  const lit = LAMP[String(g.color ?? "green")] ?? ISA101.running;
+  const lamp = lens(lit);
+  setColor(lamp, dimmed(lit));
   lamp.position.z = -0.0125;
   group.add(lamp);
   return {
@@ -192,7 +200,7 @@ export const pilotLight: Builder = (g) => {
     // the enclosure and bezel ring (PLAN 4.2); the lens, which lights, stays a primitive
     defaultHousing: { model: "pilot_light", parts: [{ part: "panel", at: [0, 0, 0] }] },
     update(state) {
-      lamp.material.emissiveIntensity = state.lit ? 1.2 : 0;
+      setColor(lamp, state.lit ? lit : dimmed(lit));
     },
   };
 };
@@ -242,12 +250,12 @@ export const counterDisplay: Builder = (g) => {
       const size: [number, number, number] = across
         ? [DIGIT_W, SEG_T, 0.002]
         : [SEG_T, DIGIT_H / 2, 0.002];
-      const seg = box(size, SEGMENT_OFF, [cx + x, y, 0]);
+      const seg = asStatus(box(size, SEGMENT_OFF, [cx + x, y, 0]));
       seg.name = `digit${i}.${name}`;
       segments[name] = seg;
       group.add(seg);
     }
-    const dot = box([SEG_T, SEG_T, 0.002], SEGMENT_OFF, [cx + DIGIT_W / 2 + 0.005, -DIGIT_H / 2, 0]);
+    const dot = asStatus(box([SEG_T, SEG_T, 0.002], SEGMENT_OFF, [cx + DIGIT_W / 2 + 0.005, -DIGIT_H / 2, 0]));
     dot.name = `digit${i}.dp`;
     group.add(dot);
     cells.push({ segments, dot });
@@ -300,7 +308,7 @@ export const selectorSwitch: Builder = (g) => {
 /** Any type without a builder still renders, as a grey box at its origin (PLAN G4). */
 export const fallback: Builder = (g: ComponentGeometry) => {
   const group = placed(g);
-  const marker = box([0.15, 0.15, 0.15], ISA101.stopped);
+  const marker = asStatus(box([0.15, 0.15, 0.15], ISA101.stopped));
   group.add(marker);
   return {
     id: g.id,
@@ -323,7 +331,7 @@ export const stopper: Builder = (g) => {
   const height = num(g, "height", 0.05);
   const thickness = num(g, "thickness", 0.02);
   const group = placed(g);
-  const blade = box([thickness, height, width], ISA101.stopped, [thickness / 2, -height / 2, 0]);
+  const blade = asStatus(box([thickness, height, width], ISA101.stopped, [thickness / 2, -height / 2, 0]));
   blade.name = "blade";
   group.add(blade);
   // actuator housing under the belt, so a lowered stopper is still visible
@@ -362,7 +370,7 @@ export const diverterArm: Builder = (g) => {
   const swing = new THREE.Group();
   swing.name = "arm";
   group.add(swing);
-  const paddle = box([length, height - clearance, thickness], ISA101.stopped, [length / 2, clearance + (height - clearance) / 2, 0]);
+  const paddle = asStatus(box([length, height - clearance, thickness], ISA101.stopped, [length / 2, clearance + (height - clearance) / 2, 0]));
   paddle.name = "paddle";
   swing.add(paddle);
   return {
@@ -405,7 +413,7 @@ export const pickAndPlace: Builder = (g, ctx) => {
   carriage.add(box([0.14, 0.1, 0.14], NEUTRAL.structure, [0, beamY - 0.06, 0]));
   const rod = box([0.03, 1, 0.03], NEUTRAL.structure);
   carriage.add(rod);
-  const pad = box([grip[0], grip[1], grip[2]], ISA101.stopped);
+  const pad = asStatus(box([grip[0], grip[1], grip[2]], ISA101.stopped));
   pad.name = "pad";
   carriage.add(pad);
   const setPose = (x: number, y: number) => {
@@ -442,7 +450,7 @@ export const distanceSensor: Builder = (g) => {
   const group = placed(g);
   const housing = box([0.06, 0.06, 0.06], NEUTRAL.frame, down ? [0, 0.03, 0] : [0, 0, -0.03]);
   group.add(housing);
-  const beam = zCylinder(0.005, 1, ISA101.stopped);
+  const beam = noShadow(asStatus(zCylinder(0.005, 1, ISA101.stopped)));
   beam.name = "beam";
   const aim = new THREE.Group(); // beam along local +z, or turned to point down
   if (down) aim.rotation.x = Math.PI / 2;

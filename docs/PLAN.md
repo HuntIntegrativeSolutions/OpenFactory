@@ -1320,7 +1320,9 @@ runs the sorting program against it; a box visibly gets pushed.
       calls) and a static merge come next.
       *Same visit (added 2026-11-11):* once 4.14 is built, read the same frame line at each of
       its quality levels (low, standard, high). One visit settles this reading and 4.14's
-      default level.
+      default level. 4.14 is built on branch `viewer-lighting-4.14`: open the viewer with
+      `?quality=low`, `?quality=standard` and `?quality=high` in turn, or use the control at the
+      bottom left. The frame line names the level it was read at.
       **Physics engine check:** Jolt (MIT) compiled to multi-threaded WASM supports true conveyor
       surface velocity through its contact listener, which Rapier JS lacks (`libraries.md`). Build a
       spike branch swapping Rapier for `jolt-physics` on the sorter, compare parity trace, frame time at
@@ -2795,6 +2797,109 @@ runs the sorting program against it; a box visibly gets pushed.
         from facts the core already has (CONTEXT.md, 2.19).
       - Live checks in the viewer during a run: the scene's `checks:` (2.11) shown as they pass or
         fail, not only at the end of `openfactory test`.
+
+      *Progress (2026-11-11), built on branch `viewer-lighting-4.14`, not ticked (waits for the
+      owner's GPU reading).*
+      - **Status materials (item 1).** `statusMaterial` and `asStatus` in
+        `web/src/components/types.ts` give each status surface a `MeshBasicMaterial` with
+        `toneMapped: false`. In r186 `scene.environment` reaches only standard, Lambert and Phong
+        materials, and an unlit material receives no shadow.
+        - Status meshes: belts, rollers, the turntable platform, pusher plates, stopper blades,
+          diverter paddles, gripper pads, sensor beams, lamp and button lenses, counter segments,
+          valve handles, pump volutes, heater elements, drive doors, the fallback marker and
+          direction arrows.
+        - Outline volumes and the edit-mode selection box are not tone mapped.
+        - Equipment that shows a status color only while active switches to a status material
+          for it (`showStatus`) and keeps its lit material otherwise: lift posts, supply and
+          drain stubs, and a tank's liquid while it overflows (then opaque).
+        - Behaviour changes:
+          - An unlit pilot lamp is a dark tint of its color (a fifth of it in linear light, not
+            a status color).
+          - A pushbutton cap no longer glows when pressed; its 7.5 mm of travel shows the press.
+
+        `tests/integration/test_status_colors.py` samples the per-channel median of a 9 x 9
+        patch, at low, standard and high, on CONV_01 forced running and CONV_02 stopped
+        (sorting-by-height), and on the lit lamp of `tests/scenes/operator-devices-only.yaml`.
+        That lamp is amber (`alarmMedium`), not red, so the test also samples a copy recolored
+        red (`alarmHigh`). The scene itself is unchanged.
+        **Tolerance: 2 levels of 255 per channel.** An unlit, untone-mapped material differs
+        from its hex only by color management: sRGB to linear on the CPU, the sRGB output
+        transform in the shader, then 8-bit quantisation, which can move a channel by 1. One
+        more level covers SwiftShader's float precision. Measured: all 12 samples (2 belts and
+        2 lamps, each at 3 levels) were off by 0.
+      - **Shadow roles (item 2).** `applyShadowRoles` in `web/src/lighting.ts` sets the roles:
+        - Solid equipment casts and receives shadows.
+        - Status meshes cast but do not receive.
+        - Outline volumes (transparent) cast and receive nothing, nor do beams and decals
+          (`noShadow`), lines, labels, the grid or the selection box.
+        - Parts opt in in `web/src/parts.ts`.
+
+        `web/src/lighting.test.ts` walks a scene graph holding every component type (idle and
+        active), a part, the floor, the grid and a selection box. Six deliberate breaks each
+        fail it: a belt left lit, a beam allowed to cast, outlines allowed to cast, a fixed
+        shadow camera, parts not opting in, and the environment rebuilt per level change.
+      - **Soft, fitted shadows (item 3).** `PCFShadowMap` with `shadow.radius` 4 on a 2048
+        square map. r186's PCF filter spreads its samples by the radius; `PCFSoftShadowMap` is
+        removed in r186. The camera is fitted to the bounding sphere of the framed bounds
+        extended to the floor, plus 0.5 m. A unit test shows it covers a small cell and a 40 m
+        line, and that the reverted spike's fixed 12 m box misses the line.
+        Screenshots at high, each looked at (git-ignored, `tools/screenshots/`):
+        - `4.14-sorting-by-height-high.png`
+        - `4.14-palletizer-lite-high.png`
+        - `4.14-tank-level-pid-high.png`
+        - `4.14-operator-devices-only-high.png`
+      - **Quality setting (item 4).** `web/src/quality.ts`; the control sits at the bottom left
+        (the top right and bottom right are taken by the exam, editor and trend panels).
+        - Precedence: `?quality=` in the URL (that page only), then the remembered control
+          choice, then low when `navigator.webdriver` is set (every Playwright run), else
+          `DEFAULT_QUALITY`, which is standard.
+        - The HUD's frame line names the level.
+        - `tools/screenshot.py --quality`, default low.
+        - Documented in `docs/guides/README.md`, "Viewer quality".
+
+        Image checks that changed, measured with the exact CI step (`tools/screenshot.py`
+        sorting-by-height, 20 s under the stand-in):
+
+        | | Non-background | Near-black | Colour bins | Draw calls |
+        |-|----------------|------------|-------------|------------|
+        | Before (`origin/main`) | 12.8 % | 0.0 % | 294 | 33 |
+        | After (low) | 13.0 % | 0.0 % | 450 | 33 |
+
+        The verdict is OK both times, and the thresholds (at least 2 % foreground, at most 90 %
+        near-black) are unchanged. The bins rise with the flat exact belt colors and the new
+        control. No check samples a belt pixel.
+        *For the owner:* the README capture `docs/media/sorting-by-height-openplc.png` (with the
+        `.webm` it links) was made with OpenPLC on 2026-10-25 and is not regenerated here. A
+        faithful one needs an OpenPLC run, and a stand-in capture would mislabel it.
+      - **Environment and bundle (item 5).** three's `RoomEnvironment`, prefiltered once by
+        `PMREMGenerator` the first time standard or high is chosen; low never builds it. No HDR
+        file, dependency or binary.
+
+        | Bundle | `origin/main` | This branch |
+        |--------|---------------|-------------|
+        | `index` | 744,456 bytes (193.63 kB gzip) | 752,293 bytes (195.90 kB gzip) |
+        | Rapier | 4,335,104 bytes | unchanged |
+
+        `index` grows by 7,837 bytes, 2.27 kB gzipped.
+      - **Software-renderer performance (item 6).** Method:
+        - `tests/scenes/load-200.yaml` with every DO forced, at 200 parts, 1280 x 720, headless
+          Chromium with SwiftShader.
+        - Read from `window.__openfactory` 30 s after the viewer reached 200 parts, so the
+          120-frame window holds only 200-part frames.
+        - Two rounds in opposite order. The machine was shared with another active session, so
+          compare levels within this table, not with 2.9's 2026-11-04 numbers.
+
+        | Level | Frame ms | p95 ms | Render ms | State ms | Draw calls |
+        |-------|----------|--------|-----------|----------|------------|
+        | Before (`origin/main`) | 329.0-344.4 | 600-667 | 6.3-8.6 | 9.3-13.6 | 502 |
+        | Low | 308.5-339.7 | 583-667 | 6.5-8.0 | 10.4-14.7 | 502 |
+        | Standard | 590.7-592.9 | 1400-1533 | 15.0-22.4 | 14.2-14.9 | 502 |
+        | High | 718.5-727.1 | 1850-1883 | 22.7-22.8 | 13.0-14.6 | 762 |
+
+        Low is within run-to-run spread of before. Standard costs about 1.8 times the frame on
+        SwiftShader, because PBR environment shading is rasterised on the CPU. High adds the
+        shadow pass (260 draw calls) for about 2.2 times. A GPU decides the default (the owner's
+        reading, 2.9).
 
 ---
 

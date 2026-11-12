@@ -90,6 +90,21 @@ draws one AI tag's last ten minutes, sampled at 2 Hz of simulated time, from
 tag's range is in the caption), so a 2 cm dip reads on a 2 m transmitter. A replay has no
 history.
 
+## Viewer quality
+
+The control at the bottom left of the viewer sets how the plant is lit (PLAN 4.14). There are
+three levels:
+
+- **low:** the original flat lighting, the lightest on a slow machine.
+- **standard:** filmic tone mapping and a studio environment, so painted steel and parts have
+  form.
+- **high:** standard plus soft shadows that ground the plant on the floor.
+
+`?quality=low`, `standard` or `high` in the address sets the level for that page only. A level
+chosen with the control is remembered by the browser. Status colors are the same at every level:
+running green, stopped grey and alarm colors are drawn at their exact ISA-101 values, and no
+shadow falls on them. An automated browser (Playwright, `tools/screenshot.py`) starts at low.
+
 ## Record a run, replay it anywhere
 
 `--record` on `run` or `test` writes the whole run, scene included, to one file; anyone can replay
