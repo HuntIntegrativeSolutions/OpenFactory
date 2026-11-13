@@ -41,7 +41,7 @@ import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
 import { framedBounds, framePose } from "./framing";
 import { applyShadowRoles, buildStage, Lighting } from "./lighting";
-import { initialQuality, QUALITIES, readStored, remember, type Quality } from "./quality";
+import { initialQuality, isAutomatedBrowser, QUALITIES, QUALITY_TOOLTIP, readStored, remember, type Quality } from "./quality";
 
 /** localStorage, or null where reading it throws (blocked site data). */
 function storage(): Storage | null {
@@ -118,14 +118,14 @@ const lighting = new Lighting(renderer, scene, () => {
   pmrem.dispose();
   return texture;
 });
-let quality: Quality = initialQuality(window.location.search, readStored(storage()), navigator.webdriver === true);
+let quality: Quality = initialQuality(window.location.search, readStored(storage()), isAutomatedBrowser(navigator));
 lighting.apply(quality);
 window.__openfactory.quality = quality;
 
 /** The quality control (PLAN 4.14): low, standard, high; a choice made here is remembered. */
 const qualityControl = document.createElement("select");
 qualityControl.id = "quality";
-qualityControl.title = "Viewer quality";
+qualityControl.title = QUALITY_TOOLTIP;
 qualityControl.style.cssText =
   // bottom left: the exam and editor panels hold the top right, the trend panel the bottom right
   `position:absolute;bottom:12px;left:16px;font:12px Arial,sans-serif;color:${cssColor("normalText")};` +

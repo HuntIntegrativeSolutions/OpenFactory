@@ -2276,6 +2276,8 @@ runs the sorting program against it; a box visibly gets pushed.
     it would have caught `batch-mix-heat`'s `STEP`, an IEC 61131-3 keyword).
   - The Ignition 8.3 MQTT Engine test of 3.5 (`docs/ignition.md`, "Test with Ignition").
   - The OPC UA and Ignition checks of 2.4 against a running gateway.
+  - Recapture the README image `docs/media/sorting-by-height-openplc.png` and the video it links
+    from an OpenPLC run at viewer quality standard (PLAN 4.14, ruled 2026-11-12).
 - [x] 3.8 Process demo kit (`kits/tank-level-pid/`) built with 2.14, including PlantPAx L5X and
       Perspective faceplates from 3.4.
       *Amended (ruled 2026-11-09):* the Perspective faceplates move here from 3.4. *Done when:*
@@ -2805,28 +2807,38 @@ runs the sorting program against it; a box visibly gets pushed.
         `toneMapped: false`. In r186 `scene.environment` reaches only standard, Lambert and Phong
         materials, and an unlit material receives no shadow.
         - Status meshes: belts, rollers, the turntable platform, pusher plates, stopper blades,
-          diverter paddles, gripper pads, sensor beams, lamp and button lenses, counter segments,
+          diverter paddles, gripper pads, sensor beams, lamp lenses, counter segments,
           valve handles, pump volutes, heater elements, drive doors, the fallback marker and
           direction arrows.
         - Outline volumes and the edit-mode selection box are not tone mapped.
         - Equipment that shows a status color only while active switches to a status material
           for it (`showStatus`) and keeps its lit material otherwise: lift posts, supply and
-          drain stubs, and a tank's liquid while it overflows (then opaque).
-        - Behaviour changes:
-          - An unlit pilot lamp is a dark tint of its color (a fifth of it in linear light, not
-            a status color).
-          - A pushbutton cap no longer glows when pressed; its 7.5 mm of travel shows the press.
+          drain stubs, a tank's liquid while it overflows (then opaque), and a pushbutton's cap
+          while pressed.
+        - Behaviour changes (*ruled 2026-11-12*):
+          - An unlit pilot lamp is a dark tint of its color, one rule for every lamp color:
+            unlit = sRGB(0.2 x linear(lit)) per channel. Accepted provisionally; the reviewer
+            looks at the screenshot. The rule and each color's result are in
+            `docs/components.md`, "Status colors", and a unit test holds the code to that table.
+          - A pressed pushbutton shows as lit: its cap takes the status material while pressed
+            (`showStatus`, as above) and moves its 7.5 mm. Released, it is shaded paint. (Built
+            first without the lit state; ruled back: a lit button is a status indication, and
+            the travel cannot be seen from a plant view.)
+          - Pipes, posts and liquid keep their shading except while showing a status: accepted.
 
         `tests/integration/test_status_colors.py` samples the per-channel median of a 9 x 9
         patch, at low, standard and high, on CONV_01 forced running and CONV_02 stopped
-        (sorting-by-height), and on the lit lamp of `tests/scenes/operator-devices-only.yaml`.
-        That lamp is amber (`alarmMedium`), not red, so the test also samples a copy recolored
-        red (`alarmHigh`). The scene itself is unchanged.
+        (sorting-by-height), on the lit lamp of `tests/scenes/operator-devices-only.yaml`, and
+        on that scene's green pushbutton pressed (a copy set `maintained` and clicked in the
+        viewer). The lamp is amber (`alarmMedium`), not red, so the test also samples a copy
+        recolored red (`alarmHigh`); accepted 2026-11-12. The scene itself is unchanged.
         **Tolerance: 2 levels of 255 per channel.** An unlit, untone-mapped material differs
         from its hex only by color management: sRGB to linear on the CPU, the sRGB output
         transform in the shader, then 8-bit quantisation, which can move a channel by 1. One
         more level covers SwiftShader's float precision. Measured: all 12 samples (2 belts and
-        2 lamps, each at 3 levels) were off by 0.
+        2 lamps, each at 3 levels) were off by 0; the pressed button (2026-11-12) was off by 0
+        at all 3 levels, and the released cap read `#137C3A` at low and `#6CD17C` at standard
+        and high (73 and 74 levels away), so a released button never reads as pressed.
       - **Shadow roles (item 2).** `applyShadowRoles` in `web/src/lighting.ts` sets the roles:
         - Solid equipment casts and receives shadows.
         - Status meshes cast but do not receive.
@@ -2847,12 +2859,24 @@ runs the sorting program against it; a box visibly gets pushed.
         - `4.14-sorting-by-height-high.png`
         - `4.14-palletizer-lite-high.png`
         - `4.14-tank-level-pid-high.png`
-        - `4.14-operator-devices-only-high.png`
+        - `4.14-operator-devices-only-high.png` (lamp lit, button released)
+        - `4.14-operator-devices-pressed-lit-high.png` (button pressed, lamp lit; 2026-11-12)
+        - `4.14-operator-devices-unlit-high.png` (lamp unlit, for the provisional tint;
+          2026-11-12)
+        Retaken on 2026-11-12 after the pushbutton change.
       - **Quality setting (item 4).** `web/src/quality.ts`; the control sits at the bottom left
         (the top right and bottom right are taken by the exam, editor and trend panels).
         - Precedence: `?quality=` in the URL (that page only), then the remembered control
-          choice, then low when `navigator.webdriver` is set (every Playwright run), else
-          `DEFAULT_QUALITY`, which is standard.
+          choice, then low in an automated browser, else `DEFAULT_QUALITY`, which is standard.
+        - *Ruled 2026-11-12:* the automatic level is accepted on condition that the detection
+          lives in one function, is documented, and has a test per branch. It is
+          `isAutomatedBrowser` in `web/src/quality.ts`, and it detects exactly one thing:
+          `navigator.webdriver` is the boolean `true` (the WebDriver standard's flag, set by
+          Chromium under Playwright, Selenium and Puppeteer). False, missing, a non-boolean
+          value or no navigator count as a person; headless mode, the user agent and the screen
+          size are not looked at. Documented in `docs/guides/README.md`, "Viewer quality", and
+          in the control's tooltip (`QUALITY_TOOLTIP`). `web/src/quality.test.ts` has one test
+          per branch and one tying the tooltip to it.
         - The HUD's frame line names the level.
         - `tools/screenshot.py --quality`, default low.
         - Documented in `docs/guides/README.md`, "Viewer quality".
@@ -2868,9 +2892,9 @@ runs the sorting program against it; a box visibly gets pushed.
         The verdict is OK both times, and the thresholds (at least 2 % foreground, at most 90 %
         near-black) are unchanged. The bins rise with the flat exact belt colors and the new
         control. No check samples a belt pixel.
-        *For the owner:* the README capture `docs/media/sorting-by-height-openplc.png` (with the
-        `.webm` it links) was made with OpenPLC on 2026-10-25 and is not regenerated here. A
-        faithful one needs an OpenPLC run, and a stand-in capture would mislabel it.
+        The README capture `docs/media/sorting-by-height-openplc.png` (with the `.webm` it
+        links) was made with OpenPLC on 2026-10-25 and is not regenerated here: a faithful one
+        needs an OpenPLC run. *Ruled 2026-11-12:* left as is; recapturing both is a Docker item.
       - **Environment and bundle (item 5).** three's `RoomEnvironment`, prefiltered once by
         `PMREMGenerator` the first time standard or high is chosen; low never builds it. No HDR
         file, dependency or binary.
@@ -2896,7 +2920,8 @@ runs the sorting program against it; a box visibly gets pushed.
         | Standard | 590.7-592.9 | 1400-1533 | 15.0-22.4 | 14.2-14.9 | 502 |
         | High | 718.5-727.1 | 1850-1883 | 22.7-22.8 | 13.0-14.6 | 762 |
 
-        Low is within run-to-run spread of before. Standard costs about 1.8 times the frame on
+        The before row was measured on a baseline worktree of `origin/main`, removed after these
+        numbers were recorded (ruled 2026-11-12). Low is within run-to-run spread of before. Standard costs about 1.8 times the frame on
         SwiftShader, because PBR environment shading is rasterised on the CPU. High adds the
         shadow pass (260 draw calls) for about 2.2 times. A GPU decides the default (the owner's
         reading, 2.9).

@@ -1,6 +1,6 @@
 // PLAN 4.14 item 4: which quality level a page starts at, and remembering a HUD choice.
 import { describe, expect, it } from "vitest";
-import { DEFAULT_QUALITY, initialQuality, readStored, remember, STORAGE_KEY } from "./quality";
+import { DEFAULT_QUALITY, initialQuality, isAutomatedBrowser, QUALITY_TOOLTIP, readStored, remember, STORAGE_KEY } from "./quality";
 
 describe("initialQuality", () => {
   it("takes the URL first, then the remembered choice, then low when automated, else the default", () => {
@@ -38,5 +38,29 @@ describe("remembered choice", () => {
     expect(readStored(broken)).toBeNull();
     expect(() => remember(broken, "low")).not.toThrow();
     expect(readStored(null)).toBeNull();
+  });
+});
+
+describe("isAutomatedBrowser: navigator.webdriver === true, nothing else", () => {
+  it("is automated when webdriver is true", () => {
+    expect(isAutomatedBrowser({ webdriver: true })).toBe(true);
+  });
+  it("is a person when webdriver is false", () => {
+    expect(isAutomatedBrowser({ webdriver: false })).toBe(false);
+  });
+  it("is a person when webdriver is missing", () => {
+    expect(isAutomatedBrowser({})).toBe(false);
+  });
+  it("is a person when webdriver is truthy but not the boolean true", () => {
+    expect(isAutomatedBrowser({ webdriver: "true" })).toBe(false);
+    expect(isAutomatedBrowser({ webdriver: 1 })).toBe(false);
+  });
+  it("is a person when there is no navigator", () => {
+    expect(isAutomatedBrowser(undefined)).toBe(false);
+    expect(isAutomatedBrowser(null)).toBe(false);
+  });
+  it("is what the HUD tooltip says", () => {
+    expect(QUALITY_TOOLTIP).toContain("navigator.webdriver is true");
+    expect(QUALITY_TOOLTIP).toContain(`starts at ${DEFAULT_QUALITY}`);
   });
 });

@@ -63,6 +63,9 @@ describe("status materials (PLAN 4.14 item 1)", () => {
         for (const mesh of meshes(view.object)) {
           const hex = colorOf(mesh);
           if (hex === null || !STATUS.has(hex)) continue;
+          // a released pushbutton's cap is the button's paint, shaded; pressed, it is a status
+          // (ruled 2026-11-12; the test below)
+          if (type === "pushbutton" && state !== ACTIVE) continue;
           const material = mesh.material as THREE.Material;
           expect(material, `${type} ${mesh.name || mesh.type}`).toBeInstanceOf(THREE.MeshBasicMaterial);
           expect(material.toneMapped, `${type} ${mesh.name}`).toBe(false);
@@ -85,6 +88,38 @@ describe("status materials (PLAN 4.14 item 1)", () => {
     expect(colorOf(lamp)).toBe(ISA101.alarmHigh);
     view.update({ lit: false });
     expect(colorOf(lamp)).toBe(dimmed(ISA101.alarmHigh));
+  });
+
+  it("an unlit lamp follows one rule for every color: sRGB(0.2 x linear(lit)), as docs/components.md lists", () => {
+    const listed: Record<string, [number, number]> = {
+      green: [0x22c55e, 0x0b5e29], red: [0xef4444, 0x731c1c], amber: [0xfacc15, 0x796105],
+      white: [0xe5e7eb, 0x6e6f71], blue: [0x60a5fa, 0x2a4e79], black: [0x111827, 0x04060d],
+    };
+    const linear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const srgb = (l: number) => (l <= 0.0031308 ? 12.92 * l : 1.055 * l ** (1 / 2.4) - 0.055);
+    const rule = (hex: number) =>
+      [16, 8, 0].reduce((out, s) => out | (Math.round(255 * srgb(0.2 * linear(((hex >> s) & 255) / 255))) << s), 0);
+    for (const [color, [lit, unlit]] of Object.entries(listed)) {
+      const view = buildComponent({ ...geom("pilot_light"), color } as ComponentGeometry, ctx);
+      const lamp = meshes(view.object).find((m) => m.userData.status)!;
+      expect(colorOf(lamp), color).toBe(unlit);
+      expect(rule(lit), color).toBe(unlit);
+      view.update({ lit: true });
+      expect(colorOf(lamp), color).toBe(lit);
+    }
+  });
+
+  it("a pressed pushbutton shows its color exactly; released, its cap is shaded paint", () => {
+    const view = buildComponent({ ...geom("pushbutton"), color: "green" } as ComponentGeometry, ctx);
+    const cap = view.pickable[0] as THREE.Mesh;
+    const paint = cap.material;
+    expect(paint).toBeInstanceOf(THREE.MeshStandardMaterial);
+    view.update({ pressed: true });
+    expect(cap.material).toBeInstanceOf(THREE.MeshBasicMaterial);
+    expect((cap.material as THREE.Material).toneMapped).toBe(false);
+    expect(colorOf(cap)).toBe(ISA101.running);
+    view.update({ pressed: false });
+    expect(cap.material).toBe(paint);
   });
 
   it("equipment that shows a status color only while active keeps its lit material otherwise", () => {

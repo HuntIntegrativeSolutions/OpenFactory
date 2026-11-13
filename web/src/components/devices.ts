@@ -6,7 +6,7 @@ import * as THREE from "three";
 import type { ComponentGeometry } from "../api";
 import { ISA101 } from "../isa101";
 import { PART_COLORS } from "../parts";
-import { NEUTRAL, asStatus, box, noShadow, num, placed, setColor, wireBox, zCylinder, type Builder, type DefaultHousing, type HousingPart } from "./types";
+import { NEUTRAL, asStatus, box, noShadow, num, placed, setColor, showStatus, wireBox, zCylinder, type Builder, type DefaultHousing, type HousingPart } from "./types";
 
 /** Photo eye: origin at the beam midpoint; the beam spans local z. */
 export const photoEye: Builder = (g) => {
@@ -143,14 +143,16 @@ const LAMP: Record<string, number> = {
   black: 0x111827,
 };
 
-/** A button cap or lamp lens: a status mesh (PLAN 4.14), drawn at its color's exact hex. */
+/** A lamp lens: a status mesh (PLAN 4.14), drawn at its color's exact hex. */
 function lens(color: number): THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial> {
   return asStatus(zCylinder(0.03, 0.025, color));
 }
 
 /**
  * An unlit lamp's lens (PLAN 4.14): a fifth of its lit color in linear light, so it reads as dark
- * glass of that color and never as a status color itself.
+ * glass of that color and never as a status color itself. One rule for every lamp color:
+ * unlit = sRGB(0.2 x linear(lit)) per channel (three converts the sRGB hex to linear and back);
+ * docs/components.md, "Status colors", lists the result for each color.
  */
 export function dimmed(color: number): number {
   return new THREE.Color(color).multiplyScalar(0.2).getHex();
@@ -161,7 +163,9 @@ export const pushbutton: Builder = (g) => {
   const group = placed(g);
   const plate = box([0.08, 0.08, 0.02], NEUTRAL.frame, [0, 0, -0.03]);
   group.add(plate);
-  const cap = lens(LAMP[String(g.color ?? "green")] ?? ISA101.running);
+  const color = LAMP[String(g.color ?? "green")] ?? ISA101.running;
+  // a lit (shaded) cap at rest; pressed, it shows its color exactly as a status (PLAN 4.14)
+  const cap = zCylinder(0.03, 0.025, color);
   cap.position.z = -0.0125;
   group.add(cap);
   return {
@@ -174,7 +178,9 @@ export const pushbutton: Builder = (g) => {
     // the enclosure and guard collar (PLAN 4.2); the cap, which shows the color and moves, stays
     defaultHousing: { model: "pushbutton", parts: [{ part: "panel", at: [0, 0, 0] }] },
     update(state) {
-      // the cap keeps its exact color (PLAN 4.14); a press shows as its 7.5 mm of travel
+      // a pressed button is a status indication: lit at its exact color, unlit and not tone
+      // mapped, at every quality level (PLAN 4.14, ruled 2026-11-12); 7.5 mm of travel as well
+      showStatus(cap, state.pressed ? color : null);
       cap.position.z = state.pressed ? -0.02 : -0.0125;
     },
   };

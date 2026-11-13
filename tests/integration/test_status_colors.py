@@ -3,8 +3,8 @@
 In headless Chromium (SwiftShader), at low, standard and high, the test samples the rendered
 pixels on a running belt and a stopped belt (sorting-by-height, CONV_01 forced on) and on a lit
 pilot light (``tests/scenes/operator-devices-only.yaml``, amber, and a copy of it with the lamp
-red), and finds each within ``TOLERANCE`` of its hex value in the style table
-(``web/src/isa101.ts``).
+red) and on a pressed green pushbutton (the same scene, ruled 2026-11-12), and finds each
+within ``TOLERANCE`` of its hex value in the style table (``web/src/isa101.ts``).
 
 The sample is the per-channel median of a 9 x 9 pixel patch around the projected point, so a
 belt slat line or an antialiased edge inside the patch does not decide it.
@@ -70,15 +70,19 @@ def _patch_median(png: Path, x: float, y: float, half: int = 4) -> tuple[int, in
     return tuple(int(statistics.median(p[i] for p in rows)) for i in range(3))  # type: ignore[return-value]
 
 
-def _sample(tmp_path: Path, scene: Path, forces: list[str], level: str, points: dict) -> dict:
-    """Run `scene` at `level`, wait for state frames, and sample each `points` entry
-    ({name: (component id, local point)}) as an RGB triple."""
+def _sample(
+    tmp_path: Path, scene: Path, forces: list[str], level: str, points: dict, before=None
+) -> dict:
+    """Run `scene` at `level`, wait for state frames, call `before(page)` if given, and sample
+    each `points` entry ({name: (component id, local point)}) as an RGB triple."""
     copy = tmp_path / scene.name  # `run` writes files next to the scene: run a copy
     copy.write_text(scene.read_text(encoding="utf-8"), encoding="utf-8")
     png = tmp_path / f"{scene.stem}-{level}.png"
     with screenshot.running_viewer(copy, forces=forces, quality=level) as (page, _port, console):
         screenshot.wait_for_viewer(page, console, seconds=1.0, min_sensor_events=0, timeout=60.0)
         assert page.evaluate("() => window.__openfactory.quality") == level
+        if before is not None:
+            before(page)
         page.wait_for_timeout(300)  # the last state frame painted
         where = {
             name: page.evaluate("([id, p]) => window.__openfactoryScreenOf(id, p)", [cid, local])
@@ -127,3 +131,37 @@ def test_a_lit_pilot_light_renders_its_exact_alarm_color(tmp_path, level, color,
     scene.write_text(text.replace("color: amber", f"color: {color}"), encoding="utf-8")
     measured = _sample(tmp_path, scene, ["PL_01_DO=1"], level, {"lamp": ("PL_01", [0.0, 0.0, 0.0])})
     _assert_exact(measured, {"lamp": hex_value}, level)
+
+
+def _press(page) -> None:
+    """Click PB_01's cap in the viewer (a maintained button stays pressed); wait for the state."""
+    x, y = page.evaluate("() => window.__openfactoryScreenOf('PB_01', [0, 0, 0])")
+    page.mouse.click(x, y)
+    for _ in range(100):
+        state = page.evaluate("() => fetch('/api/state').then((r) => r.json())")
+        if state["components"]["PB_01"].get("pressed") is True:
+            return
+        page.wait_for_timeout(100)
+    raise AssertionError("PB_01 did not report pressed after a click")
+
+
+@pytest.mark.parametrize("level", LEVELS)
+def test_a_pressed_pushbutton_renders_its_exact_status_color(tmp_path, level):
+    scene = tmp_path / "src" / DEVICES.name
+    scene.parent.mkdir()
+    text = DEVICES.read_text(encoding="utf-8")
+    assert "color: green\n" in text
+    # maintained, so one click holds it pressed for the screenshot (momentary lasts 300 ms)
+    scene.write_text(
+        text.replace("color: green\n", "color: green\n    mode: maintained\n"), encoding="utf-8"
+    )
+    point = {"button": ("PB_01", [0.0, 0.0, 0.0])}
+    released = _sample(tmp_path, scene, [], level, point)
+    pressed = _sample(tmp_path, scene, [], level, point, before=_press)
+    _assert_exact(pressed, {"button": RUNNING}, level)
+    # released, the cap is shaded paint, visibly not the status color
+    off = max(abs(a - b) for a, b in zip(released["button"], _rgb(RUNNING), strict=True))
+    print(f"{level:8s} released      {_hex(released['button'])} vs #{RUNNING:06X}: {off}")
+    assert off > TOLERANCE, (
+        f"{level}: a released button reads as pressed ({_hex(released['button'])})"
+    )

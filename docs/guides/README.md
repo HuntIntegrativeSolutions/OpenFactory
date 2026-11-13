@@ -103,7 +103,14 @@ three levels:
 `?quality=low`, `standard` or `high` in the address sets the level for that page only. A level
 chosen with the control is remembered by the browser. Status colors are the same at every level:
 running green, stopped grey and alarm colors are drawn at their exact ISA-101 values, and no
-shadow falls on them. An automated browser (Playwright, `tools/screenshot.py`) starts at low.
+shadow falls on them ([component reference](../components.md#conventions), "Status colors").
+
+With no level in the address and none chosen, a person's browser starts at standard and an
+automated browser at low, so CI, `tools/screenshot.py` and the Playwright tests keep their run
+times. "Automated" means exactly one thing: `navigator.webdriver` is `true`, the flag the
+WebDriver standard has a browser set while automation (Playwright, Selenium, Puppeteer) controls
+it. Headless mode, the user agent and the screen size are not looked at. The control's tooltip
+says the same; the check is `isAutomatedBrowser` in `web/src/quality.ts`.
 
 ## Record a run, replay it anywhere
 
