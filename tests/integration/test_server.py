@@ -70,6 +70,25 @@ def test_api_scene_returns_resolved_geometry(served):
         "length": 4.0,
         "width": 0.5,
         "description": "Infeed Belt Conveyor — Sorting Line",
+        # its ends as snap ports for the editor (PLAN 4.1d)
+        "snaps": [
+            {
+                "name": "infeed",
+                "kind": "load",
+                "position": [0.0, 0.0, 0.0],
+                "heading_deg": 180.0,
+                "width": 0.5,
+                "role": "in",
+            },
+            {
+                "name": "discharge",
+                "kind": "load",
+                "position": [4.0, 0.0, 0.0],
+                "heading_deg": 0.0,
+                "width": 0.5,
+                "role": "out",
+            },
+        ],  # fmt: skip
     }
     assert comps["PE_01"]["beam_length"] == 0.6 and comps["PE_01"]["position"] == [1.5, 0.3, 0.0]
     assert comps["CYL_01"]["stroke"] == 0.6 and comps["CYL_01"]["plate_width"] == 0.3
@@ -109,6 +128,12 @@ def test_state_websocket_streams_at_least_15_frames_per_second(served):
 
 def test_event_websocket_records_and_rejects(served):
     host, runtime = served
+    # the event below must land after the core's first tick, or core_tick is 0 (seen once on a
+    # loaded machine, 2026-11-13)
+    deadline = time.monotonic() + 5
+    while runtime.loaded.tick == 0:
+        assert time.monotonic() < deadline, "the core did not tick"
+        time.sleep(0.01)
     with connect(f"ws://{host}/ws/events") as ws:
         ws.send(json.dumps({"t": 1.0, "type": "sensor", "id": "PE_01", "value": True}))
         ws.send(json.dumps({"type": "sensor", "id": "NOPE_01", "value": True}))

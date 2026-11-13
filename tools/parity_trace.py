@@ -190,7 +190,7 @@ def trace(
             update={"scene": scene.scene.model_copy(update={"friction": friction})}
         )
     loaded = build(scene)
-    doc = Runtime(loaded).scene_document()  # same geometry the viewer gets from /api/scene
+    doc = Runtime(loaded).scene_document(snaps=False)  # the viewer's geometry; no editor ports
     for tag in loaded.io.tags() if schedule is None else ():
         if (
             tag.kind == "DO"
