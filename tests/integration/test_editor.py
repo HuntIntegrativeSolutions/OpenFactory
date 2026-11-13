@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextlib
 import difflib
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
@@ -84,7 +85,9 @@ def test_select_a_conveyor_change_its_speed_and_save_one_line(tmp_path):
             assert "1 unsaved change" in page.locator("#editor-findings").inner_text()
             assert scene.read_text(encoding="utf-8") == before  # a preview writes nothing
             page.screenshot(path=str(tmp_path / "editor.png"))
-            page.screenshot(path=str(REPO / "tools" / "screenshots" / "editor-4.1b.png"))
+            # in the test's own folder, or $OPENFACTORY_EDITOR_OUT to keep it (never the repository)
+            out = Path(os.environ.get("OPENFACTORY_EDITOR_OUT", tmp_path))
+            page.screenshot(path=str(out / "editor-4.1b.png"))
 
             page.locator("#editor-save").click()
             page.wait_for_function("() => window.__openfactory.editor.saves === 1")

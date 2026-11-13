@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
@@ -134,7 +135,9 @@ def test_add_move_turn_mesh_and_save_a_photo_eye_and_a_library_composite(tmp_pat
             page.wait_for_function("() => window.__openfactory.meshes?.loaded >= 1")
             assert page.evaluate("() => window.__openfactory.meshes.failed") == 0
             assert page.evaluate("() => window.__openfactory.editor.errors") == 0
-            page.screenshot(path=str(REPO / "tools" / "screenshots" / "editor-4.1c.png"))
+            # in the test's own folder, or $OPENFACTORY_EDITOR_OUT to keep it (never the repository)
+            out = Path(os.environ.get("OPENFACTORY_EDITOR_OUT", tmp_path))
+            page.screenshot(path=str(out / "editor-4.1c.png"))
 
             # a binding written as a mapping is edited as YAML (read-only in 4.1b)
             page.evaluate("() => window.__openfactoryEditorSelect('CONV_01')")
