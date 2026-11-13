@@ -2900,6 +2900,16 @@ runs the sorting program against it; a box visibly gets pushed.
         SwiftShader, because PBR environment shading is rasterised on the CPU. High adds the
         shadow pass (260 draw calls) for about 2.2 times. A GPU decides the default (the owner's
         reading, 2.9).
+      - **Unchanged outputs and CI (item 7).** The full `tools/ci_local.sh` ran on a fresh clone of
+        `4788d86` (12th Gen Intel Core i7-1260P, 8 threads, WSL): CI OK, 14 steps in 1012 s.
+        - pytest: 1142 passed, 1 warning (Starlette's `httpx` test-client deprecation), no
+          skips.
+        - `npm test`: 102 passed.
+        - Parity traces are current (`parity_trace.py --check`).
+        - All 11 kits are current with their recordings (`build_kit.py --check`).
+        - The tick-cost gate is ok: load-200 +4.1 %, queue-200 +10.7 %, tank-level-pid -8.8 %
+          against the baseline. The core is untouched here.
+        - The working tree was unchanged after the run.
 
 ---
 
