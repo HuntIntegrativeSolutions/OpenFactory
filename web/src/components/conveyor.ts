@@ -6,7 +6,7 @@
 import * as THREE from "three";
 import type { ComponentGeometry } from "../api";
 import { ISA101 } from "../isa101";
-import { NEUTRAL, box, num, placed, setColor, zCylinder, type BuildContext, type Builder, type DefaultHousing, type HousingPart } from "./types";
+import { NEUTRAL, asStatus, box, noShadow, num, placed, setColor, showStatus, zCylinder, type BuildContext, type Builder, type DefaultHousing, type HousingPart } from "./types";
 
 const BELT_T = 0.02;
 const RAIL_H = 0.08;
@@ -17,7 +17,7 @@ export const beltConveyor: Builder = (g, ctx) => {
   const width = num(g, "width", 0.5);
   const group = placed(g);
 
-  const belt = box([length, BELT_T, width], ISA101.stopped, [length / 2, -BELT_T / 2, 0]);
+  const belt = asStatus(box([length, BELT_T, width], ISA101.stopped, [length / 2, -BELT_T / 2, 0]));
   belt.name = "belt";
   group.add(belt);
   const frame = railsAndLegs(g, ctx, length, width);
@@ -78,10 +78,11 @@ function directionArrow(g: ComponentGeometry, length: number, width: number) {
   shape.lineTo(-0.04, 0);
   shape.lineTo(-0.08, -0.07);
   shape.closePath();
-  const arrow = new THREE.Mesh(
+  // a flat decal on the belt edge: a status mesh that casts no shadow (PLAN 4.14)
+  const arrow = noShadow(asStatus(new THREE.Mesh(
     new THREE.ShapeGeometry(shape),
     new THREE.MeshStandardMaterial({ color: ISA101.stopped, side: THREE.DoubleSide }),
-  );
+  )));
   arrow.name = "direction";
   arrow.rotation.x = -Math.PI / 2; // lie flat, the shape's +y toward -z
   arrow.position.set(length / 2, 0.03, width / 2 + 0.015);
@@ -178,11 +179,11 @@ export const rollerConveyor: Builder = (g, ctx) => {
   const group = placed(g);
   const frame = railsAndLegs(g, ctx, length, width);
   group.add(...frame);
-  const rollers: ReturnType<typeof zCylinder>[] = [];
+  const rollers: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshBasicMaterial>[] = [];
   const count = Math.max(2, Math.floor(length / pitch) + 1);
   for (let i = 0; i < count; i++) {
     const x = Math.min(length, i * pitch);
-    const roller = zCylinder(ROLLER_R, width, ISA101.stopped, [x, -ROLLER_R, 0]);
+    const roller = asStatus(zCylinder(ROLLER_R, width, ISA101.stopped, [x, -ROLLER_R, 0]));
     // a dark stripe along each roller makes its rotation visible
     roller.add(box([0.006, width * 0.98, 0.006], NEUTRAL.slat, [ROLLER_R, 0, 0]));
     rollers.push(roller);
@@ -220,10 +221,10 @@ export const turntable: Builder = (g, ctx) => {
   const width = num(g, "width", 0.5);
   const group = placed(g);
   const radius = Math.hypot(length, width) / 2 + 0.03;
-  const platform = new THREE.Mesh(
+  const platform = asStatus(new THREE.Mesh(
     new THREE.CylinderGeometry(radius, radius, 0.04, 40),
     new THREE.MeshStandardMaterial({ color: ISA101.stopped, roughness: 0.7 }),
-  );
+  ));
   platform.name = "platform";
   platform.position.y = -RAIL_H - 0.02;
   group.add(platform);
@@ -234,7 +235,7 @@ export const turntable: Builder = (g, ctx) => {
   const deck = new THREE.Group();
   deck.name = "deck";
   group.add(deck);
-  const belt = box([length, BELT_T, width], ISA101.stopped, [0, -BELT_T / 2, 0]);
+  const belt = asStatus(box([length, BELT_T, width], ISA101.stopped, [0, -BELT_T / 2, 0]));
   belt.name = "belt";
   deck.add(belt);
   for (const side of [-1, 1]) {
@@ -294,7 +295,7 @@ export const lift: Builder = (g, ctx) => {
   const deck = new THREE.Group();
   deck.name = "deck";
   group.add(deck);
-  const belt = box([length, BELT_T, width], ISA101.stopped, [length / 2, -BELT_T / 2, 0]);
+  const belt = asStatus(box([length, BELT_T, width], ISA101.stopped, [length / 2, -BELT_T / 2, 0]));
   belt.name = "belt";
   deck.add(belt);
   for (const side of [-1, 1]) {
@@ -317,7 +318,7 @@ export const lift: Builder = (g, ctx) => {
     update(state) {
       deck.position.y = typeof state.height_m === "number" ? state.height_m : 0;
       setColor(belt, state.running ? ISA101.running : ISA101.stopped);
-      for (const post of posts) setColor(post, state.moving ? ISA101.running : NEUTRAL.frame);
+      for (const post of posts) showStatus(post, state.moving ? ISA101.running : null);
       const travel = typeof state.travel_m === "number" ? state.travel_m : 0;
       const phase = ((travel % SLAT_PITCH) + SLAT_PITCH) % SLAT_PITCH;
       slats.forEach((slat, i) => {

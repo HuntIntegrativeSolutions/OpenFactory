@@ -90,6 +90,31 @@ draws one AI tag's last ten minutes, sampled at 2 Hz of simulated time, from
 tag's range is in the caption), so a 2 cm dip reads on a 2 m transmitter. A replay has no
 history.
 
+## Viewer quality
+
+The control at the bottom left of the viewer sets how the plant is lit (PLAN 4.14). There are
+three levels:
+
+- **low:** the original flat lighting, the lightest on a slow machine.
+- **standard:** filmic tone mapping and a studio environment, so painted steel and parts have
+  form.
+- **high:** standard plus soft shadows that ground the plant on the floor.
+
+`?quality=low`, `standard` or `high` in the address sets the level for that page only. A level
+chosen with the control is remembered by the browser. Status colors are the same at every level:
+running green, stopped grey and alarm colors are drawn at their exact ISA-101 values, and no
+shadow falls on them ([component reference](../components.md#conventions), "Status colors").
+
+With no level in the address and none chosen, a person's browser starts at standard and an
+automated browser at low. "Automated" means exactly one thing: `navigator.webdriver` is `true`,
+the flag the WebDriver standard has a browser set while automation controls it (verified under
+Playwright's Chromium only). Headless mode, the user agent and the screen size are not looked
+at. `tools/screenshot.py` always puts `?quality=` in the address (default low), so the address
+decides there; the Playwright tests and tools that open the viewer without it (the instructor,
+multi-viewer, editor, exam, reconnect, trend, comms-menu and replay tests, and
+`tools/tick_drift.py`) start at low through this check. The control's tooltip
+says the same; the check is `isAutomatedBrowser` in `web/src/quality.ts`.
+
 ## Record a run, replay it anywhere
 
 `--record` on `run` or `test` writes the whole run, scene included, to one file; anyone can replay

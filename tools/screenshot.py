@@ -5,6 +5,7 @@ Usage::
     uv run python tools/screenshot.py SCENE [--seconds N] [--out PNG] [--force TAG=VALUE ...]
                                             [--script F.py | --bundled-script]
                                             [--size 1280x720] [--build]
+                                            [--quality low|standard|high]
 
 What it does:
 
@@ -13,7 +14,9 @@ What it does:
    ``--force TAG=VALUE`` and ``--script F.py`` (a stand-in PLC, PLAN 2.10) through, so a scene can
    be shown running without a PLC. SCENE may be a ``.ofz`` bundle (PLAN 2.18); ``--bundled-script``
    runs the script it carries.
-3. Opens the viewer in Playwright's headless Chromium with SwiftShader WebGL and waits until the
+3. Opens the viewer at ``--quality`` (default low, PLAN 4.14: the lighting before 4.14, with exact
+   status colors, so run times stay as they were) in Playwright's headless Chromium with
+   SwiftShader WebGL and waits until the
    viewer reports ``window.__openfactory.ready``, a simulation time of at least ``--seconds``, and
    (with ``--min-sensor-events N``) at least N photo-eye events sent from its Rapier physics to the
    core (it waits on the viewer's own flags, never on a fixed sleep). With ``--min-meshes N`` it
@@ -186,9 +189,11 @@ def running_viewer(
     size: tuple[int, int] = (1280, 720),
     script: Path | None = None,
     bundled_script: bool = False,
+    quality: str = "low",
 ) -> Iterator[tuple[Any, int, list[str]]]:
     """Start ``openfactory run SCENE`` on free loopback ports and open its viewer in headless
-    Chromium (SwiftShader WebGL). Yields ``(page, web_port, console)``; stops both on exit.
+    Chromium (SwiftShader WebGL) at viewer quality ``quality`` (PLAN 4.14). Yields
+    ``(page, web_port, console)``; stops both on exit.
     Shared with ``tools/parity_trace.py --live``."""
     from playwright.sync_api import sync_playwright
 
@@ -216,7 +221,7 @@ def running_viewer(
             console: list[str] = []
             page.on("console", lambda m: console.append(f"{m.type}: {m.text}"))
             page.on("pageerror", lambda e: console.append(f"pageerror: {e}"))
-            page.goto(f"http://127.0.0.1:{web_port}/")
+            page.goto(f"http://127.0.0.1:{web_port}/?quality={quality}")
             yield page, web_port, console
             browser.close()
     finally:
@@ -268,9 +273,15 @@ def screenshot(
     min_meshes: int = 0,
     housings: tuple[str, ...] = (),
     bundled_script: bool = False,
+    quality: str = "low",
 ) -> dict[str, object]:
     with running_viewer(
-        scene, forces=forces, size=size, script=script, bundled_script=bundled_script
+        scene,
+        forces=forces,
+        size=size,
+        script=script,
+        bundled_script=bundled_script,
+        quality=quality,
     ) as (
         page,
         web_port,
@@ -311,6 +322,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--size", default="1280x720", help="viewport WIDTHxHEIGHT")
     parser.add_argument("--build", action="store_true", help="run npm run build first")
+    parser.add_argument(
+        "--quality",
+        choices=("low", "standard", "high"),
+        default="low",
+        help="viewer quality level (PLAN 4.14); low keeps run times as they were",
+    )
     parser.add_argument(
         "--max-tilt-deg",
         type=float,
@@ -368,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
         housings=tuple(t for t in args.housings.split(",") if t),
         script=args.script.resolve() if args.script else None,
         bundled_script=args.bundled_script,
+        quality=args.quality,
     )
     ok, summary = check_image(out)
     status = result["status"]

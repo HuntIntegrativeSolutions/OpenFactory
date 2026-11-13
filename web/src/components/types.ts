@@ -107,19 +107,76 @@ export function zCylinder(
   return mesh;
 }
 
+/**
+ * A status material (PLAN 4.14, ruled 2026-11-11): unlit, and left out of tone mapping, so a
+ * surface that shows an ISA-101 status color renders at that color's hex at every quality level.
+ * Three applies `scene.environment` only to standard, Lambert and Phong materials, so an unlit
+ * material takes no environment reflection either. It receives no shadow (an unlit material
+ * cannot), so a shadow never reads as a status change.
+ */
+export function statusMaterial(
+  color: number,
+  options: { side?: THREE.Side; transparent?: boolean; opacity?: number } = {},
+): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({ color, toneMapped: false, ...options });
+}
+
+/** Give `mesh` a status material of its current color and mark it as a status mesh (PLAN 4.14). */
+export function asStatus<G extends THREE.BufferGeometry>(
+  mesh: THREE.Mesh<G, THREE.Material>,
+): THREE.Mesh<G, THREE.MeshBasicMaterial> {
+  const old = mesh.material as THREE.MeshStandardMaterial;
+  mesh.material = statusMaterial(old.color.getHex(), {
+    side: old.side,
+    transparent: old.transparent,
+    opacity: old.opacity,
+  });
+  old.dispose();
+  mesh.userData.status = true;
+  return mesh as THREE.Mesh<G, THREE.MeshBasicMaterial>;
+}
+
+/**
+ * For equipment that shows a status color only while active (a lift's posts while it moves, a
+ * supply's stub while it delivers, a tank's liquid while it overflows): `color` puts a status
+ * material of that color on the mesh, `null` puts its own lit material back (PLAN 4.14). The
+ * status color is exact; the rest of the time the part keeps its shading.
+ */
+export function showStatus(mesh: THREE.Mesh, color: number | null): void {
+  const data = mesh.userData as { lit?: THREE.Material; statusMaterial?: THREE.MeshBasicMaterial };
+  data.lit ??= mesh.material as THREE.Material;
+  if (color === null) {
+    mesh.material = data.lit;
+    return;
+  }
+  data.statusMaterial ??= statusMaterial(color);
+  data.statusMaterial.color.setHex(color);
+  mesh.material = data.statusMaterial;
+}
+
+/**
+ * Mark an object that must neither cast nor receive a shadow (PLAN 4.14): sensor beams, flat
+ * decals, outline volumes. Its children inherit the mark (lighting.ts, applyShadowRoles).
+ */
+export function noShadow<T extends THREE.Object3D>(object: T): T {
+  object.userData.noShadow = true;
+  return object;
+}
+
+/** An outline volume in a status color: a faint fill and its edges, neither tone mapped (PLAN 4.14). */
 export function wireBox(size: [number, number, number], color: number, opacity = 0.12): THREE.Group {
   const group = new THREE.Group();
   const geometry = new THREE.BoxGeometry(...size);
   const fill = new THREE.Mesh(
     geometry,
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false }),
   );
   const edges = new THREE.LineSegments(
     new THREE.EdgesGeometry(geometry),
-    new THREE.LineBasicMaterial({ color }),
+    new THREE.LineBasicMaterial({ color, toneMapped: false }),
   );
   group.add(fill, edges);
-  return group;
+  return noShadow(group);
 }
 
 export function setColor(object: THREE.Object3D, color: number): void {

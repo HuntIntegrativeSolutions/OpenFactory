@@ -4,7 +4,7 @@
 // greys, running green, the liquid a muted blue, overflow in alarm yellow.
 import * as THREE from "three";
 import { ISA101 } from "../isa101";
-import { box, type Builder, NEUTRAL, num, placed, setColor } from "./types";
+import { asStatus, box, type Builder, NEUTRAL, num, placed, setColor, showStatus } from "./types";
 
 /** The liquid's colour: a muted blue, so it reads as liquid without competing with status. */
 export const LIQUID = 0x4a6fa5;
@@ -89,7 +89,7 @@ export const tank: Builder = (g, ctx) => {
     pickable: [body],
     update(state) {
       showLevel(Number(state.level_m ?? 0));
-      setColor(liquid, state.overflowing ? ISA101.alarmMedium : LIQUID);
+      showStatus(liquid, state.overflowing ? ISA101.alarmMedium : null); // opaque and exact while it overflows (PLAN 4.14)
     },
   };
 };
@@ -109,6 +109,7 @@ function stub(color: number): THREE.Group {
 export const supply: Builder = (g) => {
   const group = placed(g);
   const body = stub(NEUTRAL.structure);
+  const pipe = body.children[0] as THREE.Mesh;
   group.add(body);
   return {
     id: g.id,
@@ -117,7 +118,7 @@ export const supply: Builder = (g) => {
     labelAnchor: new THREE.Vector3(0, 0.15, 0),
     pickable: [],
     update(state) {
-      setColor(body.children[0], Number(state.flow_m3h ?? 0) > 1e-6 ? ISA101.running : NEUTRAL.structure);
+      showStatus(pipe, Number(state.flow_m3h ?? 0) > 1e-6 ? ISA101.running : null);
     },
   };
 };
@@ -126,6 +127,7 @@ export const supply: Builder = (g) => {
 export const drain: Builder = (g) => {
   const group = placed(g);
   const body = stub(NEUTRAL.structure);
+  const pipe = body.children[0] as THREE.Mesh;
   const funnel = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.05, 0.14, 24, 1, true), new THREE.MeshStandardMaterial({ color: NEUTRAL.frame, side: THREE.DoubleSide, roughness: 0.6 }));
   funnel.position.y = 0.07;
   group.add(body, funnel);
@@ -136,7 +138,7 @@ export const drain: Builder = (g) => {
     labelAnchor: new THREE.Vector3(0, 0.25, 0),
     pickable: [],
     update(state) {
-      setColor(body.children[0], Number(state.flow_m3h ?? 0) > 1e-6 ? ISA101.running : NEUTRAL.structure);
+      showStatus(pipe, Number(state.flow_m3h ?? 0) > 1e-6 ? ISA101.running : null);
     },
   };
 };
@@ -201,7 +203,7 @@ function valve(g: Parameters<Builder>[0], actuator: number): { group: THREE.Grou
   body.name = "body";
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, actuator, 16), new THREE.MeshStandardMaterial({ color: NEUTRAL.frame, roughness: 0.6 }));
   stem.position.set(g.position[0], g.position[1] + 0.06 + actuator / 2, g.position[2]);
-  const handle = box([0.2, 0.02, 0.04], ISA101.stopped, [g.position[0], g.position[1] + 0.07 + actuator, g.position[2]]);
+  const handle = asStatus(box([0.2, 0.02, 0.04], ISA101.stopped, [g.position[0], g.position[1] + 0.07 + actuator, g.position[2]]));
   handle.name = "handle";
   group.add(body, stem, handle);
   return {
@@ -256,7 +258,7 @@ export const pump: Builder = (g) => {
   group.name = g.id;
   runs(group, linkPoints(g), 0.03);
   const at = new THREE.Vector3(g.position[0], g.position[1], g.position[2]);
-  const volute = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.1, 24), new THREE.MeshStandardMaterial({ color: ISA101.stopped, roughness: 0.5, metalness: 0.3 }));
+  const volute = asStatus(new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.1, 24), new THREE.MeshStandardMaterial({ color: ISA101.stopped, roughness: 0.5, metalness: 0.3 })));
   volute.name = "volute";
   volute.rotation.x = Math.PI / 2;
   volute.position.copy(at);
@@ -283,7 +285,7 @@ export const pump: Builder = (g) => {
 /** Heater: origin at the element's centre; a coiled element, green while it heats (ISA-101: running). */
 export const heater: Builder = (g) => {
   const group = placed(g);
-  const element = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.02, 8, 24), new THREE.MeshStandardMaterial({ color: ISA101.stopped, roughness: 0.4, metalness: 0.4 }));
+  const element = asStatus(new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.02, 8, 24), new THREE.MeshStandardMaterial({ color: ISA101.stopped, roughness: 0.4, metalness: 0.4 })));
   element.name = "element";
   element.rotation.x = Math.PI / 2;
   group.add(element);
@@ -314,7 +316,7 @@ export const transmitter: Builder = (g) => {
 export const vfdMotor: Builder = (g) => {
   const group = placed(g);
   const cabinet = box([0.4, 0.8, 0.3], NEUTRAL.frame, [0, 0.4, 0]);
-  const door = box([0.3, 0.5, 0.02], ISA101.stopped, [0, 0.45, 0.16]);
+  const door = asStatus(box([0.3, 0.5, 0.02], ISA101.stopped, [0, 0.45, 0.16]));
   door.name = "door";
   group.add(cabinet, door);
   return {

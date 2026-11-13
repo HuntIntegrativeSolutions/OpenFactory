@@ -23,6 +23,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { BELT_TYPES, EventLink, fetchScene, streamInstructor, streamState, type PartState, type SceneDocument, type StateFrame, type Vec3 } from "./api";
 import { loadRapier, offDeck, PlantPhysics, tiltDeg, type Rapier } from "./physics";
@@ -40,6 +41,17 @@ import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
 import { framedBounds, framePose } from "./framing";
+import { applyShadowRoles, buildStage, editOverlay, Lighting } from "./lighting";
+import { initialQuality, isAutomatedBrowser, QUALITIES, QUALITY_TOOLTIP, readStored, remember, type Quality } from "./quality";
+
+/** localStorage, or null where reading it throws (blocked site data). */
+function storage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 window.__openfactory = {
   ready: false,
@@ -99,10 +111,35 @@ app.appendChild(hud);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(ISA101.background);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 1.6));
-const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-sun.position.set(3, 8, 5);
-scene.add(sun);
+// Lighting by quality level (PLAN 4.14, web/src/lighting.ts). The environment is three's own
+// RoomEnvironment (MIT, in the three package), prefiltered once, the first time a level needs it.
+const lighting = new Lighting(renderer, scene, () => {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const texture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
+  return texture;
+});
+let quality: Quality = initialQuality(window.location.search, readStored(storage()), isAutomatedBrowser(navigator));
+lighting.apply(quality);
+window.__openfactory.quality = quality;
+
+/** The quality control (PLAN 4.14): low, standard, high; a choice made here is remembered. */
+const qualityControl = document.createElement("select");
+qualityControl.id = "quality";
+qualityControl.title = QUALITY_TOOLTIP;
+qualityControl.style.cssText =
+  // bottom left: the exam and editor panels hold the top right, the trend panel the bottom right
+  `position:absolute;bottom:12px;left:16px;font:12px Arial,sans-serif;color:${cssColor("normalText")};` +
+  "background:#1f2937;border:1px solid #4b5563;border-radius:3px;padding:2px 4px";
+for (const level of QUALITIES) qualityControl.add(new Option(`quality: ${level}`, level));
+qualityControl.value = quality;
+qualityControl.addEventListener("change", () => {
+  quality = qualityControl.value as Quality;
+  remember(storage(), quality);
+  lighting.apply(quality);
+  window.__openfactory.quality = quality;
+});
+app.appendChild(qualityControl);
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -203,18 +240,16 @@ function buildScene(doc: SceneDocument, frame = true): void {
     tag.position.copy(view.labelAnchor);
     view.object.add(tag);
     labelsById.set(view.id, { label: tag, fault: null });
+    applyShadowRoles(view.object);
   }
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(40, 40),
-    new THREE.MeshStandardMaterial({ color: 0x18222d, roughness: 1 }),
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = floorY - 0.001;
-  const grid = new THREE.GridHelper(40, 80, 0x324152, 0x253240);
-  grid.position.y = floorY;
+  const { floor, grid } = buildStage(floorY);
   scene.add(floor, grid);
   plant = [...views.map((v) => v.object), floor, grid];
-  if (frame) frameCamera(framedBounds(views.map((v) => v.object)));
+  const bounds = framedBounds(views.map((v) => v.object));
+  if (frame) frameCamera(bounds);
+  // the shadow camera covers the plant down to the floor its shadows land on (PLAN 4.14), after
+  // every rebuild, edits included, even when the camera stays where the user left it
+  lighting.fit(bounds.clone().expandByPoint(bounds.getCenter(new THREE.Vector3()).setY(floorY)));
 }
 
 /** Next selector position on a click: a -> b -> a, or a -> center -> b -> a with 3 positions. */
@@ -440,7 +475,7 @@ function frameLine(): string {
   if (mean === null || p95 === null) return "frame: measuring";
   return `frame ${mean.toFixed(1)} ms (${(1000 / mean).toFixed(0)} fps), p95 ${p95.toFixed(1)} ms   ` +
     `render ${frameStats.renderMs.toFixed(1)} ms   state ${stateCost.renderMs.toFixed(1)} ms   ` +
-    `draw calls ${renderer.info.render.calls}`;
+    `draw calls ${renderer.info.render.calls}   quality ${quality}`;
 }
 
 /**
@@ -479,6 +514,8 @@ async function applyScene(next: SceneDocument): Promise<void> {
     status.meshes = await attachMeshes(views, specs);
     // default models (PLAN 4.2) for every other component whose type has one
     status.housings = await attachHousings(views, new Set(specs.keys()));
+    // housings and custom meshes arrived after buildScene set the roles: set them again (PLAN 4.14)
+    for (const view of views) applyShadowRoles(view.object);
     status.scene = doc.scene.name;
     status.components = doc.components.length;
   }
@@ -516,11 +553,13 @@ function pickComponent(clientX: number, clientY: number): { id: string; type: st
   return null;
 }
 
-/** Where a component's origin is on screen, in CSS pixels (for tools/screenshot.py). */
-function screenOf(id: string): [number, number] | null {
+/** Where a component's origin, or `local` in its frame (PLAN 4.14 pixel test), is on screen, in
+ * CSS pixels (for tools/screenshot.py and the integration tests). */
+function screenOf(id: string, local?: [number, number, number]): [number, number] | null {
   const view = views.find((v) => v.id === id);
   if (!view) return null;
-  const p = view.object.getWorldPosition(new THREE.Vector3()).project(camera);
+  const world = local ? view.object.localToWorld(new THREE.Vector3(...local)) : view.object.getWorldPosition(new THREE.Vector3());
+  const p = world.project(camera);
   return [((p.x + 1) / 2) * window.innerWidth, ((1 - p.y) / 2) * window.innerHeight];
 }
 
@@ -591,7 +630,7 @@ async function startEditor(): Promise<void> {
   const handle = new THREE.Object3D();
   scene.add(handle);
   const gizmo = new TransformControls(camera, renderer.domElement);
-  scene.add(gizmo.getHelper());
+  scene.add(editOverlay(gizmo.getHelper())); // no shadows from the gizmo (PLAN 4.14)
   const GRID_M = 0.05;
   const GRID_RAD = THREE.MathUtils.degToRad(15);
   const snap = (on: boolean) => {
@@ -627,9 +666,11 @@ async function startEditor(): Promise<void> {
     const drawn = selectedId ? viewsOf(selectedId) : [];
     const data = selectedId ? panel.componentData(selectedId) : null;
     if (!drawn.length) return;
-    outline = drawn.length === 1
+    outline = editOverlay(drawn.length === 1
       ? new THREE.BoxHelper(drawn[0].object, new THREE.Color(cssColor("highlight")))
-      : new THREE.Box3Helper(boundsOf(drawn.map((v) => v.object)), new THREE.Color(cssColor("highlight")));
+      : new THREE.Box3Helper(boundsOf(drawn.map((v) => v.object)), new THREE.Color(cssColor("highlight"))));
+    // ISA-101 highlight at its exact color at every quality level; a line casts no shadow (PLAN 4.14)
+    (outline.material as THREE.LineBasicMaterial).toneMapped = false;
     scene.add(outline);
     const position = data?.position as number[] | undefined;
     if (!position || drawn.some((v) => v.type === "pipe")) return; // a pipe is drawn from its path

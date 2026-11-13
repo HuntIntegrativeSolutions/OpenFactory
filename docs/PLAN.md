@@ -1320,7 +1320,9 @@ runs the sorting program against it; a box visibly gets pushed.
       calls) and a static merge come next.
       *Same visit (added 2026-11-11):* once 4.14 is built, read the same frame line at each of
       its quality levels (low, standard, high). One visit settles this reading and 4.14's
-      default level.
+      default level. 4.14 is built (merged into main 2026-11-12): open the viewer with
+      `?quality=low`, `?quality=standard` and `?quality=high` in turn, or use the control at the
+      bottom left. The frame line names the level it was read at.
       **Physics engine check:** Jolt (MIT) compiled to multi-threaded WASM supports true conveyor
       surface velocity through its contact listener, which Rapier JS lacks (`libraries.md`). Build a
       spike branch swapping Rapier for `jolt-physics` on the sorter, compare parity trace, frame time at
@@ -2323,6 +2325,8 @@ runs the sorting program against it; a box visibly gets pushed.
     it would have caught `batch-mix-heat`'s `STEP`, an IEC 61131-3 keyword).
   - The Ignition 8.3 MQTT Engine test of 3.5 (`docs/ignition.md`, "Test with Ignition").
   - The OPC UA and Ignition checks of 2.4 against a running gateway.
+  - Recapture the README image `docs/media/sorting-by-height-openplc.png` and the video it links
+    from an OpenPLC run at viewer quality standard (PLAN 4.14, ruled 2026-11-12).
 - [x] 3.8 Process demo kit (`kits/tank-level-pid/`) built with 2.14, including PlantPAx L5X and
       Perspective faceplates from 3.4.
       *Amended (ruled 2026-11-09):* the Perspective faceplates move here from 3.4. *Done when:*
@@ -2883,6 +2887,167 @@ runs the sorting program against it; a box visibly gets pushed.
         from facts the core already has (CONTEXT.md, 2.19).
       - Live checks in the viewer during a run: the scene's `checks:` (2.11) shown as they pass or
         fail, not only at the end of `openfactory test`.
+
+      *Progress (2026-11-11), built on branch `viewer-lighting-4.14`, not ticked (waits for the
+      owner's GPU reading).* *Accepted 2026-11-12 as built at `57c25df`* (the reviewer sampled
+      the six screenshots: running green, stopped grey, lit and unlit amber exact, soft
+      shadows, a pressed pushbutton reads as lit) and merged into main; still unticked until
+      the GPU reading, and the default level stays open.
+      *Merged with 4.1c (2026-11-12):* both behaviours kept in `web/src/main.ts`: a rebuild
+      during editing keeps the camera where the user left it and still refits the shadow
+      camera; a selection outline around one view or a composite instance stays at the exact
+      highlight color. Edit mode's overlays are marked with `editOverlay` (`web/src/lighting.ts`):
+      the move and turn gizmo and both selection outlines cast and receive nothing, also when the
+      roles are set over the whole scene (`web/src/lighting.test.ts`; the test fails only when
+      both `editOverlay` and the transparent-material rule are removed). The palette adds through
+      a select and a button, with no drag preview, and the grid snap draws no markers, so there
+      is nothing else to mark. `tests/integration/test_status_colors.py` runs edit mode at low,
+      standard and high: edit mode never starts the simulation, so stopped grey is the only
+      status color it can show, and both of the sorter's belts read `#9CA3AF`, off by 0, at
+      every level. The quality control (x 16 to 148 at the bottom left) and the editor panel
+      (from x 920 at 1280 px, from x 280 at 640 px) do not overlap; both screenshots looked at
+      (`tools/screenshots/4.14-editor-1280.png`, `4.14-editor-640.png`).
+      - **Status materials (item 1).** `statusMaterial` and `asStatus` in
+        `web/src/components/types.ts` give each status surface a `MeshBasicMaterial` with
+        `toneMapped: false`. In r186 `scene.environment` reaches only standard, Lambert and Phong
+        materials, and an unlit material receives no shadow.
+        - Status meshes: belts, rollers, the turntable platform, pusher plates, stopper blades,
+          diverter paddles, gripper pads, sensor beams, lamp lenses, counter segments,
+          valve handles, pump volutes, heater elements, drive doors, the fallback marker and
+          direction arrows.
+        - Outline volumes and the edit-mode selection box are not tone mapped.
+        - Equipment that shows a status color only while active switches to a status material
+          for it (`showStatus`) and keeps its lit material otherwise: lift posts, supply and
+          drain stubs, a tank's liquid while it overflows (then opaque), and a pushbutton's cap
+          while pressed.
+        - Behaviour changes (*ruled 2026-11-12*):
+          - An unlit pilot lamp is a dark tint of its color, one rule for every lamp color:
+            unlit = sRGB(0.2 x linear(lit)) per channel. Accepted provisionally; the reviewer
+            looks at the screenshot. The rule and each color's result are in
+            `docs/components.md`, "Status colors" (the repository has no separate style
+            document; `web/src/isa101.ts`, the style table, points there), and a unit test holds
+            the code to that table.
+          - A pressed pushbutton shows as lit: its cap takes the status material while pressed
+            (`showStatus`, as above) and moves its 7.5 mm. Released, it is shaded paint. (Built
+            first without the lit state; ruled back: a lit button is a status indication, and
+            the travel cannot be seen from a plant view.)
+          - Pipes, posts and liquid keep their shading except while showing a status: accepted.
+
+        `tests/integration/test_status_colors.py` samples the per-channel median of a 9 x 9
+        patch, at low, standard and high, on CONV_01 forced running and CONV_02 stopped
+        (sorting-by-height), on the lit lamp of `tests/scenes/operator-devices-only.yaml`, and
+        on that scene's green pushbutton pressed (a copy set `maintained` and clicked in the
+        viewer). The lamp is amber (`alarmMedium`), not red, so the test also samples a copy
+        recolored red (`alarmHigh`); accepted 2026-11-12. The scene itself is unchanged.
+        **Tolerance: 2 levels of 255 per channel.** An unlit, untone-mapped material differs
+        from its hex only by color management: sRGB to linear on the CPU, the sRGB output
+        transform in the shader, then 8-bit quantisation, which can move a channel by 1. One
+        more level covers SwiftShader's float precision. Measured: all 12 samples (2 belts and
+        2 lamps, each at 3 levels) were off by 0; the pressed button (2026-11-12) was off by 0
+        at all 3 levels, and the released cap read `#137C3A` at low and `#6CD17C` at standard
+        and high (73 and 74 levels away), so a released button never reads as pressed.
+      - **Shadow roles (item 2).** `applyShadowRoles` in `web/src/lighting.ts` sets the roles:
+        - Solid equipment casts and receives shadows.
+        - Status meshes cast but do not receive.
+        - Outline volumes (transparent) cast and receive nothing, nor do beams and decals
+          (`noShadow`), lines, labels, the grid or the selection box.
+        - Parts opt in in `web/src/parts.ts`.
+
+        `web/src/lighting.test.ts` walks a scene graph holding every component type (idle and
+        active), a part, the floor, the grid and a selection box. Six deliberate breaks each
+        fail it: a belt left lit, a beam allowed to cast, outlines allowed to cast, a fixed
+        shadow camera, parts not opting in, and the environment rebuilt per level change.
+      - **Soft, fitted shadows (item 3).** `PCFShadowMap` with `shadow.radius` 4 on a 2048
+        square map. r186's PCF filter spreads its samples by the radius; `PCFSoftShadowMap` is
+        removed in r186. The camera is fitted to the bounding sphere of the framed bounds
+        extended to the floor, plus 0.5 m. A unit test shows it covers a small cell and a 40 m
+        line, and that the reverted spike's fixed 12 m box misses the line.
+        Screenshots at high, each looked at (git-ignored, `tools/screenshots/`):
+        - `4.14-sorting-by-height-high.png`
+        - `4.14-palletizer-lite-high.png`
+        - `4.14-tank-level-pid-high.png`
+        - `4.14-operator-devices-only-high.png` (lamp lit, button released)
+        - `4.14-operator-devices-pressed-lit-high.png` (button pressed, lamp lit; 2026-11-12)
+        - `4.14-operator-devices-unlit-high.png` (lamp unlit, for the provisional tint;
+          2026-11-12)
+        Retaken on 2026-11-12 after the pushbutton change.
+      - **Quality setting (item 4).** `web/src/quality.ts`; the control sits at the bottom left
+        (the top right and bottom right are taken by the exam, editor and trend panels).
+        - Precedence: `?quality=` in the URL (that page only), then the remembered control
+          choice, then low in an automated browser, else `DEFAULT_QUALITY`, which is standard.
+        - *Ruled 2026-11-12:* the automatic level is accepted on condition that the detection
+          lives in one function, is documented, and has a test per branch. It is
+          `isAutomatedBrowser` in `web/src/quality.ts`, and it detects exactly one thing:
+          `navigator.webdriver` is the boolean `true` (the WebDriver standard's flag for a
+          browser under automation; verified only under Playwright's Chromium: with no
+          `?quality=` and nothing stored, the flag read `true` and the viewer started at low).
+          False, missing, a non-boolean value or no navigator count as a person; headless mode,
+          the user agent and the screen size are not looked at. `tools/screenshot.py` (and so
+          `test_status_colors.py` and `parity_trace.py --live`) always passes `?quality=`, so
+          the address decides there; the check decides for the Playwright tests and tools that
+          open the viewer without it: `test_instructor_view`, `test_multi_viewer`,
+          `test_editor`, `test_exam_mode`, `test_viewer_reconnect`, `test_trend_panel`,
+          `test_comms_menu`, `test_replay` and `tools/tick_drift.py`. Documented in `docs/guides/README.md`, "Viewer quality", and
+          in the control's tooltip (`QUALITY_TOOLTIP`). `web/src/quality.test.ts` has one test
+          per branch and one tying the tooltip to it.
+        - The HUD's frame line names the level.
+        - `tools/screenshot.py --quality`, default low.
+        - Documented in `docs/guides/README.md`, "Viewer quality".
+
+        Image checks that changed, measured with the exact CI step (`tools/screenshot.py`
+        sorting-by-height, 20 s under the stand-in):
+
+        | | Non-background | Near-black | Colour bins | Draw calls |
+        |-|----------------|------------|-------------|------------|
+        | Before (`origin/main`) | 12.8 % | 0.0 % | 294 | 33 |
+        | After (low) | 13.0 % | 0.0 % | 450 | 33 |
+
+        The verdict is OK both times, and the thresholds (at least 2 % foreground, at most 90 %
+        near-black) are unchanged. The bins rise with the flat exact belt colors and the new
+        control. No check samples a belt pixel.
+        The README capture `docs/media/sorting-by-height-openplc.png` (with the `.webm` it
+        links) was made with OpenPLC on 2026-10-25 and is not regenerated here: a faithful one
+        needs an OpenPLC run. *Ruled 2026-11-12:* left as is; recapturing both is a Docker item.
+      - **Environment and bundle (item 5).** three's `RoomEnvironment`, prefiltered once by
+        `PMREMGenerator` the first time standard or high is chosen; low never builds it. No HDR
+        file, dependency or binary.
+
+        | Bundle | `origin/main` | This branch |
+        |--------|---------------|-------------|
+        | `index` | 744,456 bytes (193.63 kB gzip) | 752,293 bytes (195.90 kB gzip) |
+        | Rapier | 4,335,104 bytes | unchanged |
+
+        `index` grows by 7,837 bytes, 2.27 kB gzipped.
+      - **Software-renderer performance (item 6).** Method:
+        - `tests/scenes/load-200.yaml` with every DO forced, at 200 parts, 1280 x 720, headless
+          Chromium with SwiftShader.
+        - Read from `window.__openfactory` 30 s after the viewer reached 200 parts, so the
+          120-frame window holds only 200-part frames.
+        - Two rounds in opposite order. The machine was shared with another active session, so
+          compare levels within this table, not with 2.9's 2026-11-04 numbers.
+
+        | Level | Frame ms | p95 ms | Render ms | State ms | Draw calls |
+        |-------|----------|--------|-----------|----------|------------|
+        | Before (`origin/main`) | 329.0-344.4 | 600-667 | 6.3-8.6 | 9.3-13.6 | 502 |
+        | Low | 308.5-339.7 | 583-667 | 6.5-8.0 | 10.4-14.7 | 502 |
+        | Standard | 590.7-592.9 | 1400-1533 | 15.0-22.4 | 14.2-14.9 | 502 |
+        | High | 718.5-727.1 | 1850-1883 | 22.7-22.8 | 13.0-14.6 | 762 |
+
+        The before row was measured on a baseline worktree of `origin/main`, removed after these
+        numbers were recorded (ruled 2026-11-12). Low is within run-to-run spread of before. Standard costs about 1.8 times the frame on
+        SwiftShader, because PBR environment shading is rasterised on the CPU. High adds the
+        shadow pass (260 draw calls) for about 2.2 times. A GPU decides the default (the owner's
+        reading, 2.9).
+      - **Unchanged outputs and CI (item 7).** The full `tools/ci_local.sh` ran on a fresh clone of
+        `4788d86` (12th Gen Intel Core i7-1260P, 8 threads, WSL): CI OK, 14 steps in 1012 s.
+        - pytest: 1142 passed, 1 warning (Starlette's `httpx` test-client deprecation), no
+          skips.
+        - `npm test`: 102 passed.
+        - Parity traces are current (`parity_trace.py --check`).
+        - All 11 kits are current with their recordings (`build_kit.py --check`).
+        - The tick-cost gate is ok: load-200 +4.1 %, queue-200 +10.7 %, tank-level-pid -8.8 %
+          against the baseline. The core is untouched here.
+        - The working tree was unchanged after the run.
 
 ---
 

@@ -33,6 +33,25 @@ OpenFactory is a training and demo tool. It is not a safety-rated simulation.
 - **Sized defaults.** Some heights default to sizes taken from the scene at load time (the tallest
   part any `box_emitter` can spawn, or the belt a component stands on). `openfactory lint` warns
   (W206) when a plate, blade, or arm top set by hand is below an emitted part's centre of mass.
+- **Status colors (PLAN 4.14).** A surface that shows a status (a running or stopped belt, a lit
+  lamp, a pressed button, a sensor's beam, an alarm) is drawn in its ISA-101 color
+  (`web/src/isa101.ts`) at that color's exact hex, at every viewer quality level: it is unlit,
+  not tone mapped, and no shadow falls on it. Equipment that shows a status only while active (a
+  pressed pushbutton's cap, a lift's posts while moving, a supply's stub while delivering, an
+  overflowing tank's liquid) is shaded like other equipment the rest of the time. An unlit
+  `pilot_light` lens follows one rule for every lamp color: each channel is a fifth of the lit
+  color in linear light, unlit = sRGB(0.2 x linear(lit)), using the sRGB transfer function
+  (`dimmed` in `web/src/components/devices.ts`). It is dark glass of the lamp's color and never
+  a status color itself:
+
+  | Lamp `color` | Lit | Unlit |
+  |---|---|---|
+  | `green` | `#22C55E` | `#0B5E29` |
+  | `red` | `#EF4444` | `#731C1C` |
+  | `amber` | `#FACC15` | `#796105` |
+  | `white` | `#E5E7EB` | `#6E6F71` |
+  | `blue` | `#60A5FA` | `#2A4E79` |
+  | `black` | `#111827` | `#04060D` |
 - **Faults (PLAN 2.6).** Every component has `fault_inject(kind, **params)` and `clear_fault()`;
   each section lists the kinds its type supports. One fault per component at a time: injecting
   replaces the current one. Inject from the viewer (right-click a component, or long-press it on a
@@ -498,7 +517,9 @@ Faults: none.
 
 ### `pushbutton`
 
-Origin: the button face. A viewer click presses it.
+Origin: the button face. A viewer click presses it. Pressed, the cap shows its color exactly
+as a status and moves in 7.5 mm; released, it is shaded like the panel (Conventions, "Status
+colors").
 
 | Parameter | Default | Meaning |
 |---|---|---|
@@ -513,7 +534,8 @@ Faults: `stuck_on`, `stuck_off`.
 
 ### `pilot_light`
 
-Origin: the lens centre. Lit while `on` is true; viewer only.
+Origin: the lens centre. Lit while `on` is true; viewer only. Lit, the lens is its color's exact
+hex; unlit, it is the dark tint in Conventions, "Status colors".
 
 | Parameter | Default | Meaning |
 |---|---|---|
