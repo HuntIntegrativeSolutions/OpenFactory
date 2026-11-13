@@ -7,9 +7,8 @@ Thank you for helping build an open simulator for the automation community.
 OpenFactory is an original work. It contains no code, models, textures, scene files, documentation
 text, names, layouts or other assets from any commercial product. Interoperability with controllers
 and vendor software is built from public documentation and vendor SDK documentation. Vendor SDKs,
-vendor binaries and vendor-specific code are not part of this repository. The internals of Factory
-I/O and other commercial 3D simulators have not been examined for this project and nothing derived
-from them is accepted.
+vendor binaries and vendor-specific code are not part of this repository. Nothing derived from the
+internals of any commercial 3D simulator is accepted into this project.
 
 Every contributor confirms, for each contribution:
 
@@ -17,9 +16,8 @@ Every contributor confirms, for each contribution:
    "Licensing of Contributions").
 2. It **copies nothing from a commercial product**: no code, 3D models, textures, scene files,
    documentation text, names, layouts or other assets.
-3. It **includes nothing derived from the internals of a commercial 3D simulator** (including but
-   not limited to Factory I/O): nothing obtained by decompiling, disassembling, extracting or
-   studying its internal files.
+3. It **includes nothing derived from the internals of a commercial 3D simulator**: nothing
+   obtained by decompiling, disassembling, extracting or studying its internal files.
 4. Interoperability code is built from public documentation (protocol specifications, open
    standards such as IEC 61131, ISA-5.1 and ISA-101, published vendor manuals) and vendor SDK
    documentation. It does not add a vendor SDK, a vendor binary or vendor-specific code to this

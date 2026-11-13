@@ -190,3 +190,30 @@ def test_the_old_term_check_allows_only_dated_history():
     assert _old_term_hits("docs/PLAN.md", section) == [3]
     assert _old_term_hits("README.md", "An original,\n" + "clean\nroom" + " work.") == [2]
     assert _old_term_hits("docs/research/landscape.md", f"{old} reminder") == []
+
+
+#: The owner's original-work statement (2026-11-12, corrected the same day), sentence by sentence.
+STATEMENT = (
+    "OpenFactory is an original work.",
+    "It contains no code, models, textures, scene files, documentation text, names, layouts or "
+    "other assets from any commercial product.",
+    "Interoperability with controllers and vendor software is built from public documentation "
+    "and vendor SDK documentation.",
+    "Vendor SDKs, vendor binaries and vendor-specific code are not part of this repository.",
+    "Nothing derived from the internals of any commercial 3D simulator is accepted into this "
+    "project",
+)
+PUBLIC = ("README.md", "CONTRIBUTING.md", "docs/index.md", "docs/what-openfactory-is-not.md")
+
+
+def test_every_public_page_carries_the_statement_and_no_claim_of_what_was_examined():
+    """PLAN §9 rule 12: the statement is a policy. The corrected sentence names no product and
+    says nothing about what anyone has examined; the one it replaced over-claimed."""
+    for name in PUBLIC:
+        text = " ".join((REPO / name).read_text(encoding="utf-8").split())
+        assert "OpenFactory is an original work" in text, name
+        for sentence in STATEMENT[1:]:
+            assert sentence in text, (name, sentence)
+    for name in (*PUBLIC, "CLAUDE.md", ".github/pull_request_template.md"):
+        text = " ".join((REPO / name).read_text(encoding="utf-8").split())
+        assert "been examined" not in text, name

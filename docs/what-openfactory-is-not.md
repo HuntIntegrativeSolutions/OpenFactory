@@ -59,10 +59,9 @@ before any client or production use.
 
 ## Not a copy of a commercial simulator
 
-OpenFactory is an original work, inspired by the category of 3D PLC trainers and not by any
-product. It contains no code, models, textures, scene files, documentation text, names, layouts or
-other assets from any commercial product. Interoperability with controllers and vendor software is
-built from public documentation and vendor SDK documentation. Vendor SDKs, vendor binaries and
-vendor-specific code are not part of this repository. The internals of Factory I/O and other
-commercial 3D simulators have not been examined for this project and nothing derived from them is
-accepted (CONTRIBUTING.md, "Original Work Policy").
+OpenFactory is an original work, inspired by the category of 3D PLC trainers and not by any product.
+It contains no code, models, textures, scene files, documentation text, names, layouts or other
+assets from any commercial product. Interoperability with controllers and vendor software is built
+from public documentation and vendor SDK documentation. Vendor SDKs, vendor binaries and
+vendor-specific code are not part of this repository. Nothing derived from the internals of any
+commercial 3D simulator is accepted into this project (CONTRIBUTING.md, "Original Work Policy").

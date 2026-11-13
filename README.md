@@ -45,11 +45,9 @@ a simulator where:
 OpenFactory is an original work. It contains no code, models, textures, scene files, documentation
 text, names, layouts or other assets from any commercial product. Interoperability with controllers
 and vendor software is built from public documentation and vendor SDK documentation. Vendor SDKs,
-vendor binaries and vendor-specific code are not part of this repository. The internals of Factory
-I/O and other commercial 3D simulators have not been examined for this project and nothing derived
-from them is accepted.
-The terms every contributor confirms are in [`CONTRIBUTING.md`](CONTRIBUTING.md), "Original Work
-Policy".
+vendor binaries and vendor-specific code are not part of this repository. Nothing derived from the
+internals of any commercial 3D simulator is accepted into this project. The terms every contributor
+confirms are in [`CONTRIBUTING.md`](CONTRIBUTING.md), "Original Work Policy".
 
 ## License
 

@@ -3114,6 +3114,9 @@ runs the sorting program against it; a box visibly gets pushed.
    `tests/unit/test_docs_site.py` fails if the old term appears outside PLAN's dated history
    entries and `docs/research/`. **The wording is the owner's draft and has not had legal
    review** (owner's open items).
+   *Corrected 2026-11-12:* the sentence about what had not been examined over-claimed; it is
+   replaced by a policy that names no product ("Nothing derived from the internals of any
+   commercial 3D simulator is accepted into this project.").
 
 ---
 

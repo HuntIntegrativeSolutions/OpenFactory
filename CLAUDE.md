@@ -50,8 +50,10 @@ What still holds, and why:
   findings, internal paths, recovered contracts or security findings about vendor software in
   this repository.
 - **Nothing derived from the internals of Factory I/O or another commercial 3D simulator**
-  enters this repository; the public statement says they have not been examined for this
-  project. Do not examine them for it.
+  enters this repository, and sessions do not examine them for this project. The public
+  statement is a policy and names no product: "Nothing derived from the internals of any
+  commercial 3D simulator is accepted into this project." Public text never says what anyone
+  has or has not examined (ruled 2026-11-12).
 - **One wording everywhere.** README, CONTRIBUTING.md, the docs site, the issue and PR templates
   and PLAN use the original-work statement; `tests/unit/test_docs_site.py` fails if the old
   term returns outside PLAN's dated history entries and `docs/research/`.
