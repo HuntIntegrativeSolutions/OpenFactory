@@ -106,10 +106,13 @@ running green, stopped grey and alarm colors are drawn at their exact ISA-101 va
 shadow falls on them ([component reference](../components.md#conventions), "Status colors").
 
 With no level in the address and none chosen, a person's browser starts at standard and an
-automated browser at low, so CI, `tools/screenshot.py` and the Playwright tests keep their run
-times. "Automated" means exactly one thing: `navigator.webdriver` is `true`, the flag the
-WebDriver standard has a browser set while automation (Playwright, Selenium, Puppeteer) controls
-it. Headless mode, the user agent and the screen size are not looked at. The control's tooltip
+automated browser at low. "Automated" means exactly one thing: `navigator.webdriver` is `true`,
+the flag the WebDriver standard has a browser set while automation controls it (verified under
+Playwright's Chromium only). Headless mode, the user agent and the screen size are not looked
+at. `tools/screenshot.py` always puts `?quality=` in the address (default low), so the address
+decides there; the Playwright tests and tools that open the viewer without it (the instructor,
+multi-viewer, editor, exam, reconnect, trend, comms-menu and replay tests, and
+`tools/tick_drift.py`) start at low through this check. The control's tooltip
 says the same; the check is `isAutomatedBrowser` in `web/src/quality.ts`.
 
 ## Record a run, replay it anywhere

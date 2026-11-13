@@ -29,8 +29,7 @@ export function isQuality(value: unknown): value is Quality {
  * Whether the page runs in an automated browser (PLAN 4.14, ruled 2026-11-12). This is the only
  * place that decides it. It detects exactly one thing: `navigator.webdriver` is the boolean
  * `true`. The WebDriver standard has a browser set that flag while automation controls it;
- * Chromium sets it under Playwright (CI, tools/screenshot.py, the integration tests), Selenium
- * and Puppeteer. Anything else (the flag false or missing, a non-boolean value, no navigator)
+ * verified here under Playwright's Chromium only (2026-11-12). Anything else (the flag false or missing, a non-boolean value, no navigator)
  * counts as a person. It does not look at headless mode, the user agent or screen size.
  */
 export function isAutomatedBrowser(nav: { webdriver?: unknown } | null | undefined): boolean {

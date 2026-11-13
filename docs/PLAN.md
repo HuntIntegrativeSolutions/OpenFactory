@@ -2819,7 +2819,9 @@ runs the sorting program against it; a box visibly gets pushed.
           - An unlit pilot lamp is a dark tint of its color, one rule for every lamp color:
             unlit = sRGB(0.2 x linear(lit)) per channel. Accepted provisionally; the reviewer
             looks at the screenshot. The rule and each color's result are in
-            `docs/components.md`, "Status colors", and a unit test holds the code to that table.
+            `docs/components.md`, "Status colors" (the repository has no separate style
+            document; `web/src/isa101.ts`, the style table, points there), and a unit test holds
+            the code to that table.
           - A pressed pushbutton shows as lit: its cap takes the status material while pressed
             (`showStatus`, as above) and moves its 7.5 mm. Released, it is shaded paint. (Built
             first without the lit state; ruled back: a lit button is a status indication, and
@@ -2871,10 +2873,16 @@ runs the sorting program against it; a box visibly gets pushed.
         - *Ruled 2026-11-12:* the automatic level is accepted on condition that the detection
           lives in one function, is documented, and has a test per branch. It is
           `isAutomatedBrowser` in `web/src/quality.ts`, and it detects exactly one thing:
-          `navigator.webdriver` is the boolean `true` (the WebDriver standard's flag, set by
-          Chromium under Playwright, Selenium and Puppeteer). False, missing, a non-boolean
-          value or no navigator count as a person; headless mode, the user agent and the screen
-          size are not looked at. Documented in `docs/guides/README.md`, "Viewer quality", and
+          `navigator.webdriver` is the boolean `true` (the WebDriver standard's flag for a
+          browser under automation; verified only under Playwright's Chromium: with no
+          `?quality=` and nothing stored, the flag read `true` and the viewer started at low).
+          False, missing, a non-boolean value or no navigator count as a person; headless mode,
+          the user agent and the screen size are not looked at. `tools/screenshot.py` (and so
+          `test_status_colors.py` and `parity_trace.py --live`) always passes `?quality=`, so
+          the address decides there; the check decides for the Playwright tests and tools that
+          open the viewer without it: `test_instructor_view`, `test_multi_viewer`,
+          `test_editor`, `test_exam_mode`, `test_viewer_reconnect`, `test_trend_panel`,
+          `test_comms_menu`, `test_replay` and `tools/tick_drift.py`. Documented in `docs/guides/README.md`, "Viewer quality", and
           in the control's tooltip (`QUALITY_TOOLTIP`). `web/src/quality.test.ts` has one test
           per branch and one tying the tooltip to it.
         - The HUD's frame line names the level.
