@@ -168,6 +168,7 @@ def test_add_move_turn_mesh_and_save_a_photo_eye_and_a_library_composite(tmp_pat
     assert comps["PE_02"]["position"] == eye["position"]
     assert comps["PE_02"]["rotation_deg"] == eye["rotation_deg"]
     assert comps["ACC_01"]["position"] == acc["position"]
+    assert comps["ACC_01"]["rotation_deg"] == acc["rotation_deg"] != 0  # turned, as saved
     assert comps["ACC_01"]["io"]["release"] == "ACC_01_RELEASE_DO"
     assert comps["CYL_01"]["mesh"] == {"file": "models/pusher-housing.glb"}
     assert "PB_01" not in comps
