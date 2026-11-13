@@ -2310,6 +2310,10 @@ runs the sorting program against it; a box visibly gets pushed.
 - **Owner's open items** (collected 2026-11-12):
   - Legal review of the original-work statement and contributor terms (§9 rule 12): the wording
     is the owner's draft.
+- **Housekeeping** (collected 2026-11-12):
+  - A stale worktree of an implementer session of 2026-11-09 (detached at `080f744`, in that
+    session's scratch folder) holds an uncommitted PLAN edit already in main (`530f1ce`); the
+    owner removes it.
 - **Docker items** (waiting for Docker; collected 2026-11-09):
   - Each process scene under OpenPLC for 60 s and 300 s (`tank-level-onoff`, `tank-level-pid`,
     `two-tank-cascade`, `batch-mix-heat`, and `plantpax-tank-level`'s OpenPLC program), with
