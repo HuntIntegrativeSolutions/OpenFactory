@@ -2487,11 +2487,35 @@ runs the sorting program against it; a box visibly gets pushed.
         *Not done:* renaming a component, and deleting the references to a deleted one with it
         (a referenced component's delete shows the load error); a new component is placed at
         the centre of the view even if that overlaps the plant (the lint's W205 says so).
+        *Review of 2026-11-12, ruled:* 4.1a to 4.1c stand as ticked (the reviewer read the edit
+        server: it writes only the one scene file, refuses a stale save, serves only declared
+        meshes), with seven fixes, one commit each: (1) the library conveyor's turn checked in
+        the saved file; (2) gizmo colors outside the ISA-101 table, more than 40 levels from
+        each (`web/src/editor/gizmo.ts`, `docs/editor.md`); (3) the status lines wrap clear of
+        the panel at 640 px; (4) tests write screenshots to their own folder; (5) library
+        composites looked up no higher than the project root (`composite.library_folders`);
+        (6) writes from another site's page refused: Origin checked (403), JSON only (415), no
+        CORS headers; (7) a mesh outside the scene's folder refused at preview (E104 for a
+        symlink out; `..` and absolute paths were already E100). *Ruled the same day:* 4.1c was
+        ticked by its implementing session before the reviewer saw it; from now on a task that
+        another session ticks is reported to the reviewer before anything is built on it.
+        Its two open items became 4.1e and 4.1f below.
   - [ ] 4.1d Snap ports: ports declared in Python and published, snapping in the editor, the
         new lint checks, the ports in `docs/components.md`.
         *Done when:* a Playwright test drags a conveyor near another's discharge and it snaps
         (ends within 1 mm, headings equal), the connection is added, and the lint is clean; each
         new lint code has a test that fails without it.
+  - [ ] 4.1e Free placement on Add (added 2026-11-12, from 4.1c's open items): a new component
+        is placed at the nearest free spot to the centre of the view, so it does not overlap the
+        plant. *Done when:* adding each palette type to a sorter whose view centre is covered by
+        a conveyor gives no W205 (or other overlap finding) on the preview, and a Playwright test
+        adds one there and finds it clear of the plant.
+  - [ ] 4.1f Delete with its references (added 2026-11-12, from 4.1c's open items): Delete
+        removes or flags every reference to the deleted component (connections, links, composite
+        parts, checks), and the preview lists what it will remove before Save. *Done when:* for
+        each kind of reference a test deletes a referenced component and the scene still loads
+        with that reference removed (or the preview names the reference left to fix), and a
+        Playwright test shows the preview's list before Save.
 - [x] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
       *Defined (ruled 2026-11-07):* models authored by our own scripts or taken from CC0/CC-BY
       sources with attribution, each under the 1 MB rule with a license sidecar, drawn through
