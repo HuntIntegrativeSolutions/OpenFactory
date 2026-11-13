@@ -56,7 +56,8 @@ What still holds, and why:
   has or has not examined (ruled 2026-11-12).
 - **One wording everywhere.** README, CONTRIBUTING.md, the docs site, the issue and PR templates
   and PLAN use the original-work statement; `tests/unit/test_docs_site.py` fails if the old
-  term returns outside PLAN's dated history entries and `docs/research/`.
+  term returns outside PLAN's dated history entries, `docs/research/` and the generated
+  CHANGELOG.md.
 - `E:\Hyper-V VMs` and `E:\VirtualBox-VMs` are off-limits on this drive (the drive's own rule): do
   not open or list them. Open `E:\04_Software\` only at a path the owner names.
 - **Never run `find`, `ls -R`, `grep -r` or any other walk above the repository root or your

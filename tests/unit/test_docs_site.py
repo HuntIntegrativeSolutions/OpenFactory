@@ -150,6 +150,10 @@ def _old_term_hits(path: str, text: str) -> list[int]:
     """Line numbers of the old term in `text` that are not allowed history."""
     if path.startswith("docs/research/"):
         return []
+    if path == "CHANGELOG.md":
+        # generated history of commit subjects (tools/changelog.py): subjects written before
+        # 2026-11-12 stay as they were (ruled 2026-11-12: never rewrite commit subjects)
+        return []
     lines = text.splitlines()
     hits = []
     for match in OLD_TERM.finditer(text):
@@ -162,7 +166,8 @@ def _old_term_hits(path: str, text: str) -> list[int]:
 
 def test_the_old_description_appears_only_in_dated_plan_history_and_research():
     """PLAN §9 rule 12 (owner, 2026-11-12): every page the public reads uses the original-work
-    statement. The old term may stay only in PLAN's dated history entries and docs/research/."""
+    statement. The old term may stay only in PLAN's dated history entries, docs/research/ and
+    CHANGELOG.md (generated from commit subjects)."""
     import subprocess
 
     files = subprocess.run(
@@ -190,6 +195,7 @@ def test_the_old_term_check_allows_only_dated_history():
     assert _old_term_hits("docs/PLAN.md", section) == [3]
     assert _old_term_hits("README.md", "An original,\n" + "clean\nroom" + " work.") == [2]
     assert _old_term_hits("docs/research/landscape.md", f"{old} reminder") == []
+    assert _old_term_hits("CHANGELOG.md", f"- docs: {old} rule lifted (`957f7ad`)") == []
 
 
 #: The owner's original-work statement (2026-11-12, corrected the same day), sentence by sentence.

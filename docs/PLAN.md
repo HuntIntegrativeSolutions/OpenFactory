@@ -3117,6 +3117,8 @@ runs the sorting program against it; a box visibly gets pushed.
    *Corrected 2026-11-12:* the sentence about what had not been examined over-claimed; it is
    replaced by a policy that names no product ("Nothing derived from the internals of any
    commercial 3D simulator is accepted into this project.").
+   *Ruled 2026-11-12:* CHANGELOG.md is exempt from the check: it is generated from commit
+   subjects (`tools/changelog.py`), and commit subjects are not rewritten.
 
 ---
 
