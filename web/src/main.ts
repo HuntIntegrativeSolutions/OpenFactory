@@ -36,6 +36,7 @@ import { TrendPanel } from "./trend";
 import { FaultMenu } from "./faultmenu";
 import { faultOf, isInstructorPath, tokenFromHash } from "./instructor";
 import { EditorPanel } from "./editor/panel";
+import { recolorGizmo } from "./editor/gizmo";
 import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
@@ -630,6 +631,7 @@ async function startEditor(): Promise<void> {
   const handle = new THREE.Object3D();
   scene.add(handle);
   const gizmo = new TransformControls(camera, renderer.domElement);
+  recolorGizmo(gizmo); // no status color on any handle (PLAN 4.1c fix 2, editor/gizmo.ts)
   scene.add(editOverlay(gizmo.getHelper())); // no shadows from the gizmo (PLAN 4.14)
   const GRID_M = 0.05;
   const GRID_RAD = THREE.MathUtils.degToRad(15);

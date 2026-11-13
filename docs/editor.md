@@ -47,6 +47,22 @@ one line of YAML.
   in the file. A component that other components name (a connection, a pipe end) leaves the
   scene unloadable; the preview says which reference to fix.
 
+### Gizmo colors
+
+The move and turn handles use colors outside the ISA-101 status table, so a handle never reads
+as running, stopped, an alarm or the selection highlight. Each differs from every color in that
+table by more than 40 levels (of 255) in at least one channel; `web/src/editor/gizmo.test.ts`
+checks every handle against every status color.
+
+| Handle | Color |
+|---|---|
+| Move along the floor's x axis | `#D946EF` (fuchsia) |
+| Turn about the vertical axis | `#A78BFA` (violet) |
+| Move along the floor's z axis | `#22D3EE` (cyan) |
+| A handle under the pointer or being dragged | `#F0ABFC` (light pink) |
+| Neutral handles (centre, free move) | `#C4B5FD` (lavender) |
+| The turn gizmo's background disc | `#7C6F9F` (grey violet) |
+
 ## Meshes
 
 The **mesh** box in the form lists the `.glb` files in the scene's folder and up to two folders
