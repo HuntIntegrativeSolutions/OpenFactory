@@ -206,6 +206,7 @@ components:
 
 
 def test_a_library_composite_is_found_beside_the_scene_or_above_it(tmp_path):
+    (tmp_path / "openfactory.toml").write_text("", encoding="utf-8")  # the project root
     (tmp_path / "_library").mkdir()
     shutil.copy(LIBRARY, tmp_path / "_library")
     deep = tmp_path / "a" / "b"
@@ -264,3 +265,69 @@ def test_a_bundle_missing_its_library_is_refused_not_resolved_outside(tmp_path, 
     ):
         pass
     assert not any(unpack.iterdir())  # refused before anything was written
+
+
+def test_the_library_search_stops_at_the_project_root(tmp_path, monkeypatch):
+    """PLAN 4.1c fix 5: a ``_library/`` above the project root is never used, by the loader or
+    by the editor's palette; with no project root, only the scene's own folder is searched."""
+    from openfactory.core.composite import library_folders, project_root
+    from openfactory.core.templates import _library_files
+
+    outside = tmp_path / "_library"  # above the project
+    outside.mkdir()
+    shutil.copy(LIBRARY, outside)
+    project = tmp_path / "plant"
+    scenes = project / "scenes"
+    scenes.mkdir(parents=True)
+    (project / ".git").mkdir()  # a repository's root
+    assert project_root(scenes) == project.resolve()
+    assert library_folders(scenes) == [scenes.resolve(), project.resolve()]
+    with pytest.raises(ValidationError, match="within its project"):
+        parse_scene(USES, scenes)
+    assert _library_files(scenes) == {}
+
+    # inside the project it is found, by both
+    (project / "_library").mkdir()
+    shutil.copy(LIBRARY, project / "_library")
+    assert parse_scene(USES, scenes).library_files() == [
+        (project / "_library" / LIBRARY.name).resolve()
+    ]
+    assert list(_library_files(scenes)) == ["accumulation_conveyor"]
+
+    # no project root: the scene's own folder only, so the folder above is not searched
+    loose = tmp_path / "loose" / "scene"
+    loose.mkdir(parents=True)
+    (tmp_path / "loose" / "_library").mkdir()
+    shutil.copy(LIBRARY, tmp_path / "loose" / "_library")
+    # a folder above the temporary one may itself be a repository, so the case with no project
+    # root looks for a marker name that exists nowhere
+    import openfactory.core.composite as composite
+
+    monkeypatch.setattr(composite, "PROJECT_MARKERS", ("no-such-marker-4.1c-fix-5",))
+    assert project_root(loose) is None
+    assert library_folders(loose) == [loose.resolve()]
+    with pytest.raises(ValidationError, match="no _library/accumulation_conveyor.yaml"):
+        parse_scene(USES, loose)
+    assert _library_files(loose) == {}
+
+
+def test_every_shipped_scene_resolves_its_library():
+    """The bound keeps every shipped scene loading: each one that names a library composite
+    finds it inside the repository (kits carry theirs beside the scene, tests/integration/
+    test_demo_kit.py)."""
+    import yaml
+
+    from openfactory.core.composite import find_library
+
+    uses = 0
+    for path in sorted((REPO / "scenes").rglob("*.yaml")):
+        if ".modbus" in path.name or "_library" in path.parts:
+            continue
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for entry in (data or {}).get("composites") or []:
+            if isinstance(entry, dict) and "library" in entry:
+                found = find_library(entry["library"], path.parent)
+                assert found is not None, (path, entry)
+                assert REPO.resolve() in found.parents, found
+                uses += 1
+    assert uses >= 1  # accumulation-demo uses one

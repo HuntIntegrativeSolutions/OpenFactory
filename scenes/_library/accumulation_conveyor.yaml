@@ -1,6 +1,7 @@
 # OpenFactory library composite (PLAN 2.5b): a zero-pressure accumulation conveyor, four zones.
 # Use it from a scene with `composites: [{library: accumulation_conveyor}]`; the file is found in
-# _library/ beside the scene or in a folder above it. Training and demo use only. Not a
+# _library/ beside the scene or in a folder above it, up to the project root (the nearest folder
+# holding openfactory.toml or .git). Training and demo use only. Not a
 # safety-rated simulation.
 openfactory: "0.1"
 composite:

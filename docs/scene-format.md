@@ -349,7 +349,11 @@ A composite can carry its own control, join its own conveyors, and live in a sha
   `<ID>_<A> -> <ID>_<B>` to the scene's connections.
 - **Library composites.** `composites: [{library: accumulation_conveyor}]` loads
   `_library/accumulation_conveyor.yaml` from the scene's folder or the nearest folder above it
-  that has one. The file holds `openfactory: "0.1"` and one `composite:` definition whose type is
+  that has one, **no higher than the scene's project root**: the nearest folder at or above the
+  scene that holds `openfactory.toml` or `.git`. A scene with no project root (for example one in
+  a temporary folder) uses only the `_library/` beside it. So a `_library/` somewhere above your
+  project is never picked up by accident. The scene editor's palette lists libraries from the
+  same folders (PLAN 4.1c fix 5). The file holds `openfactory: "0.1"` and one `composite:` definition whose type is
   the file's name. A bundle (`openfactory bundle`) carries every library file the scene uses, as
   `_library/<name>.yaml` beside the scene.
 - **The first library entry**, `scenes/_library/accumulation_conveyor.yaml`: a zero-pressure

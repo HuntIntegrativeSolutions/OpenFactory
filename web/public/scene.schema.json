@@ -2131,7 +2131,7 @@
     },
     "LibraryComposite": {
       "additionalProperties": false,
-      "description": "A composite type loaded by name from ``_library/<name>.yaml`` beside the scene or in a\nfolder above it (PLAN 2.5b).",
+      "description": "A composite type loaded by name from ``_library/<name>.yaml`` beside the scene or in a\nfolder above it, up to the project root (PLAN 2.5b, 4.1c fix 5).",
       "properties": {
         "library": {
           "description": "Type name; the file _library/<name>.yaml defines it.",

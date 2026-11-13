@@ -1518,7 +1518,7 @@ class CompositeDef(StrictModel):
 
 class LibraryComposite(StrictModel):
     """A composite type loaded by name from ``_library/<name>.yaml`` beside the scene or in a
-    folder above it (PLAN 2.5b)."""
+    folder above it, up to the project root (PLAN 2.5b, 4.1c fix 5)."""
 
     library: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=64)] = Field(
         description="Type name; the file _library/<name>.yaml defines it."

@@ -29,7 +29,8 @@ one line of YAML.
 
 - **Add:** pick a type in the palette and press **Add**. The palette lists every built-in type,
   the composite types the scene declares, and every library composite in a `_library/` folder
-  beside the scene or above it. The new component is placed on the floor at the centre of the
+  beside the scene or above it, up to the project root (the rule is in
+  [the scene format](scene-format.md), "Library composites"). The new component is placed on the floor at the centre of the
   view and selected.
   - Its id is the type's prefix and the next free number (`PE_02`). Every required I/O port gets
     a proposed tag (`PE_02_DI`, `CONV_03_RUN_DO`), which you can rename in the form.

@@ -41,7 +41,9 @@ Additions of PLAN 2.5b:
   scene's connections (``z1 -> z2`` becomes ``ACC_Z1 -> ACC_Z2``).
 - ``composites: [{library: name}]`` loads ``_library/<name>.yaml`` (``openfactory: "0.1"`` and a
   ``composite:`` definition whose type is ``name``) from the scene's folder or the nearest folder
-  above it that has one; the files used are listed for bundles (PLAN 2.18).
+  above it that has one, no higher than the project root (the nearest folder holding
+  ``openfactory.toml`` or ``.git``; with none, the scene's folder only; :func:`library_folders`,
+  PLAN 4.1c fix 5); the files used are listed for bundles (PLAN 2.18).
 
 Load errors, each naming what is wrong: an unknown or duplicate type, a type that shadows a
 built-in, a recursive definition (the cycle is named, ``a -> b -> a``), nesting more than one
@@ -332,10 +334,36 @@ def _check_connections(d: CompositeDef) -> None:
                 )
 
 
-def find_library(name: str, scene_dir: Path) -> Path | None:
-    """``_library/<name>.yaml`` in ``scene_dir`` or the nearest folder above it, or None."""
+#: A folder holding one of these is a project root (PLAN 4.1c fix 5, ruled 2026-11-12).
+PROJECT_MARKERS = ("openfactory.toml", ".git")
+
+
+def project_root(scene_dir: Path) -> Path | None:
+    """The nearest folder at or above ``scene_dir`` that holds ``openfactory.toml`` or ``.git``,
+    or None. Only those two names are checked in each folder; nothing is listed."""
     folder = Path(scene_dir).resolve()
     for candidate in (folder, *folder.parents):
+        if any((candidate / marker).exists() for marker in PROJECT_MARKERS):
+            return candidate
+    return None
+
+
+def library_folders(scene_dir: Path) -> list[Path]:
+    """The folders whose ``_library/`` a scene in ``scene_dir`` may use, nearest first: from
+    ``scene_dir`` up to its project root (:func:`project_root`) and no further, or ``scene_dir``
+    alone when there is no project root (PLAN 4.1c fix 5). The loader (:func:`find_library`) and
+    the editor's palette (``templates._library_files``) both search exactly these."""
+    folder = Path(scene_dir).resolve()
+    root = project_root(folder)
+    if root is None:
+        return [folder]
+    chain = [folder, *folder.parents]
+    return chain[: chain.index(root) + 1]
+
+
+def find_library(name: str, scene_dir: Path) -> Path | None:
+    """``_library/<name>.yaml`` in the nearest of :func:`library_folders`, or None."""
+    for candidate in library_folders(scene_dir):
         path = candidate / LIBRARY_DIR / f"{name}.yaml"
         if path.is_file():
             return path
@@ -354,7 +382,7 @@ def _library(name: str, scene_dir: Path | None) -> tuple[CompositeDef, Path]:
     if path is None:
         raise ValueError(
             f"library composite {name!r}: no {LIBRARY_DIR}/{name}.yaml in {scene_dir} or a folder "
-            "above it"
+            "above it within its project (the nearest folder holding openfactory.toml or .git)"
         )
     data = yaml.load(path.read_text(encoding="utf-8"), Loader=_SceneYamlLoader)  # noqa: S506
     if not isinstance(data, dict) or set(data) != {"openfactory", "composite"}:

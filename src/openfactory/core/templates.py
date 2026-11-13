@@ -4,8 +4,9 @@ Behavior spec
 -------------
 :func:`palette` lists what the editor can place in a scene: every built-in component type, the
 composite types the scene's own ``composites:`` block declares, and every library composite in a
-``_library/`` folder beside the scene or in a folder above it (the loader's own search, PLAN
-2.5b). Each entry names the fields a new one still needs filled in by hand (``needs``: a pipe's
+``_library/`` folder beside the scene or in a folder above it up to the project root (the
+loader's own search, :func:`openfactory.core.composite.library_folders`, PLAN 2.5b and 4.1c fix
+5). Each entry names the fields a new one still needs filled in by hand (``needs``: a pipe's
 ``from`` and ``to``, a heater's ``tank`` when the scene has no tank to propose).
 
 :func:`new_component` builds one new component as a mapping the ``add`` edit operation writes
@@ -147,13 +148,13 @@ def propose_tag(comp_id: str, port: str, kind: str, single: bool) -> str:
 
 
 def _library_files(scene_dir: Path) -> dict[str, Path]:
-    """Library composite name -> file: ``_library/*.yaml`` beside the scene or above it, the
+    """Library composite name -> file: ``_library/*.yaml`` in the scene's library folders
+    (:func:`openfactory.core.composite.library_folders`, bounded at the project root), the
     nearest one winning, as :func:`openfactory.core.composite.find_library` resolves a name."""
-    from openfactory.core.composite import LIBRARY_DIR
+    from openfactory.core.composite import LIBRARY_DIR, library_folders
 
     found: dict[str, Path] = {}
-    folder = Path(scene_dir).resolve()
-    for candidate in (folder, *folder.parents):
+    for candidate in library_folders(scene_dir):
         lib = candidate / LIBRARY_DIR
         if lib.is_dir():
             for path in sorted(lib.glob("*.yaml")):
