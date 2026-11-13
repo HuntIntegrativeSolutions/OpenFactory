@@ -40,10 +40,21 @@ a simulator where:
 | Export | I/O list CSV | Ignition tag JSON, L5X tag stubs, GRAFCET sequence doc |
 | PLC examples | OpenPLC Structured Text | Studio 5000 L5X, CODESYS |
 
+## Original work
+
+OpenFactory is an original work. It contains no code, models, textures, scene files, documentation
+text, names, layouts or other assets from any commercial product. Interoperability with controllers
+and vendor software is built from public documentation and vendor SDK documentation. Vendor SDKs,
+vendor binaries and vendor-specific code are not part of this repository. The internals of Factory
+I/O and other commercial 3D simulators have not been examined for this project and nothing derived
+from them is accepted.
+The terms every contributor confirms are in [`CONTRIBUTING.md`](CONTRIBUTING.md), "Original Work
+Policy".
+
 ## License
 
 Code is Apache-2.0. Models, textures, and documentation are CC-BY-4.0. See [`LICENSE`](LICENSE) and
-[`CONTRIBUTING.md`](CONTRIBUTING.md), including the clean-room policy. Participation follows the
+[`CONTRIBUTING.md`](CONTRIBUTING.md), including the original-work policy. Participation follows the
 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md); report security problems privately as
 [`SECURITY.md`](SECURITY.md) describes. Changes are listed in [`CHANGELOG.md`](CHANGELOG.md).
 

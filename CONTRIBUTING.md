@@ -2,22 +2,34 @@
 
 Thank you for helping build an open simulator for the automation community.
 
-## Clean-Room Policy
+## Original Work Policy
 
-OpenFactory is an original, independently developed work. To keep it that way, every contributor agrees:
+OpenFactory is an original work. It contains no code, models, textures, scene files, documentation
+text, names, layouts or other assets from any commercial product. Interoperability with controllers
+and vendor software is built from public documentation and vendor SDK documentation. Vendor SDKs,
+vendor binaries and vendor-specific code are not part of this repository. The internals of Factory
+I/O and other commercial 3D simulators have not been examined for this project and nothing derived
+from them is accepted.
 
-1. You have **not** decompiled, disassembled, extracted assets from, or studied the internal files of any
-   commercial 3D PLC simulator (including but not limited to Factory I/O) for the purpose of contributing
-   here.
-2. You will **not** submit 3D models, textures, scene layouts, component names, UI designs, or
-   documentation text derived from a commercial product.
-3. You **may** use public knowledge: protocol specifications, open standards (IEC 61131, ISA-5.1,
-   ISA-101), open-source libraries, textbooks, and your own engineering experience.
-4. If you are unsure whether something is clean, open an issue and ask before writing code.
-5. Search only inside the repository (and your own scratch folder). Never run `find`, `ls -R`,
+Every contributor confirms, for each contribution:
+
+1. The work is **your own** (or already under a compatible license, recorded as described under
+   "Licensing of Contributions").
+2. It **copies nothing from a commercial product**: no code, 3D models, textures, scene files,
+   documentation text, names, layouts or other assets.
+3. It **includes nothing derived from the internals of a commercial 3D simulator** (including but
+   not limited to Factory I/O): nothing obtained by decompiling, disassembling, extracting or
+   studying its internal files.
+4. Interoperability code is built from public documentation (protocol specifications, open
+   standards such as IEC 61131, ISA-5.1 and ISA-101, published vendor manuals) and vendor SDK
+   documentation. It does not add a vendor SDK, a vendor binary or vendor-specific code to this
+   repository. Open-source libraries, textbooks and your own engineering experience are welcome.
+5. If you are unsure whether something meets this policy, open an issue and ask before writing
+   code.
+6. Search only inside the repository (and your own scratch folder). Never run `find`, `ls -R`,
    `grep -r` or any other walk from above the repository root: on a shared drive it can cross
-   folders this policy keeps you out of (vendor software, virtual machines). If you need a file
-   from outside the repository, ask the maintainer for it.
+   folders you must not open (vendor software, virtual machines). If you need a file from
+   outside the repository, ask the maintainer for it.
 
 Contributions that violate this policy will be removed, and the contributor may be blocked.
 

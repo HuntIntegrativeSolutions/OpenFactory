@@ -28,9 +28,11 @@ research and reasoning behind every architectural choice. `docs/research/` holds
 ## Original Work and Vendor Material
 
 OpenFactory is an original work. It is inspired by the *category* of 3D PLC simulators, not by any
-specific product's code or assets.
+specific product's code or assets. The public statement (the owner's wording, 2026-11-12) is in
+CONTRIBUTING.md, "Original Work Policy", and the README.
 
-**The clean-room rule is lifted for sessions (owner ruling, 2026-11-11).** A session may read vendor
+**Sessions may read vendor material (owner ruling, 2026-11-11, replacing the earlier rule that
+kept sessions away from it).** A session may read vendor
 documentation, installed vendor software, SDK documentation, installation media the owner names
 (including a named path under `E:\04_Software\`), and HIS reverse-engineering studies such as the
 FactoryTalk Logix Echo study, to learn how to interoperate. Having read them no longer stops work.
@@ -47,9 +49,12 @@ What still holds, and why:
   publication number or URL) or "the vendor SDK documentation". Never put reverse-engineering
   findings, internal paths, recovered contracts or security findings about vendor software in
   this repository.
-- **Until the owner rules on the public wording,** nothing derived from the internals of
-  Factory I/O or another commercial 3D simulator enters this repository: CONTRIBUTING.md, the
-  docs site and the issue and PR templates still describe OpenFactory as a clean-room work.
+- **Nothing derived from the internals of Factory I/O or another commercial 3D simulator**
+  enters this repository; the public statement says they have not been examined for this
+  project. Do not examine them for it.
+- **One wording everywhere.** README, CONTRIBUTING.md, the docs site, the issue and PR templates
+  and PLAN use the original-work statement; `tests/unit/test_docs_site.py` fails if the old
+  term returns outside PLAN's dated history entries and `docs/research/`.
 - `E:\Hyper-V VMs` and `E:\VirtualBox-VMs` are off-limits on this drive (the drive's own rule): do
   not open or list them. Open `E:\04_Software\` only at a path the owner names.
 - **Never run `find`, `ls -R`, `grep -r` or any other walk above the repository root or your

@@ -18,7 +18,8 @@ PLAN task:
 - [ ] The PLAN checkbox is ticked in the same commit that closes a task
 - [ ] Every commit is signed off (`git commit -s`, DCO 1.1)
 - [ ] No binary file over 1 MB is added
-- [ ] Nothing here comes from a commercial simulator's files, names, layouts, or assets
-      (CONTRIBUTING.md, "Clean-Room Policy")
+- [ ] This is my own work, copies nothing from a commercial product, and includes nothing
+      derived from the internals of a commercial 3D simulator (CONTRIBUTING.md, "Original Work
+      Policy")
 
 OpenFactory is a training and demo tool, not a safety-rated simulation.

@@ -24,10 +24,10 @@ body:
       label: PLAN task
       description: The docs/PLAN.md task this belongs to, if one exists.
   - type: checkboxes
-    id: clean-room
+    id: original-work
     attributes:
-      label: Clean-room policy
-      description: OpenFactory is an original work (CONTRIBUTING.md, "Clean-Room Policy").
+      label: Original work
+      description: OpenFactory is an original work (CONTRIBUTING.md, "Original Work Policy").
       options:
-        - label: This request does not copy a commercial simulator's component names, scene names, UI layout, or assets.
+        - label: This request copies nothing from a commercial product (code, models, textures, scene files, documentation text, names, layouts or other assets) and relies on nothing derived from the internals of a commercial 3D simulator.
           required: true

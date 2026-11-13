@@ -2307,6 +2307,9 @@ runs the sorting program against it; a box visibly gets pushed.
       nothing to refuse). `docs/scene-format.md` says so. Tests: a `units: mH2O` label on a
       level in m shows in the CSV and CONTEXT.md, while the tag, the Ignition `engUnit` and the
       L5X description keep `m`.
+- **Owner's open items** (collected 2026-11-12):
+  - Legal review of the original-work statement and contributor terms (§9 rule 12): the wording
+    is the owner's draft.
 - **Docker items** (waiting for Docker; collected 2026-11-09):
   - Each process scene under OpenPLC for 60 s and 300 s (`tank-level-onoff`, `tank-level-pid`,
     `two-tank-cascade`, `batch-mix-heat`, and `plantpax-tank-level`'s OpenPLC program), with
@@ -2706,7 +2709,8 @@ runs the sorting program against it; a box visibly gets pushed.
       - `CODE_OF_CONDUCT.md`: the Contributor Covenant 2.1, its official text, contact filled in.
       - Issue forms (bug report, feature request with a clean-room checkbox, blank issues off,
         security reports pointed at SECURITY.md) and a pull-request template with the CI,
-        scene, screenshot, PLAN-tick, DCO, 1 MB and clean-room checks.
+        scene, screenshot, PLAN-tick, DCO, 1 MB and clean-room checks. *Renamed 2026-11-12:*
+        both checks are now "Original work" (§9 rule 12).
       - `CHANGELOG.md` from `tools/changelog.py`: every commit since the first under 0.2.0,
         grouped by the milestone of the PLAN task it names; a commit that names none follows
         the one before; a milestone with no ticked task, such as 3, is never assigned.
@@ -2887,7 +2891,7 @@ runs the sorting program against it; a box visibly gets pushed.
 | Scope creep in component library | Milestones slip | Table in §5 is the list. New types need an issue and a PLAN edit first |
 | LGPL in asyncua | License questions from adopters | `THIRD_PARTY.md` explains dynamic import; offer `open62541` binding as alternative later |
 | Performance with many parts | Demo looks bad | Cap parts at 200; instanced meshes; profile in 2.9 |
-| Clean-room doubt | Legal exposure | CONTRIBUTING policy, DCO sign-off; nothing copied from a commercial product, and no vendor SDK, binary or vendor-specific code in this repository (CLAUDE.md, ruled 2026-11-11) |
+| Doubt that OpenFactory is an original work | Legal exposure | The original-work statement (README, CONTRIBUTING.md "Original Work Policy", docs site) and its contributor terms, DCO sign-off; nothing copied from a commercial product, nothing derived from a commercial 3D simulator's internals, and no vendor SDK, binary or vendor-specific code in this repository (CLAUDE.md, ruled 2026-11-11; wording 2026-11-12, not yet legally reviewed) |
 | Scene format freezes at public release | Breaking changes after 4.5 strand users' scenes | Schema versioning and `migrate` (4.7) before release |
 | Physics or protocol library API churn | Parity or Modbus binding silently breaks on upgrade | Pinned minors; quarterly upgrade task (4.9) reruns parity and round-trip tests |
 | Users mistake it for virtual commissioning or safety validation | Reputational and liability exposure | "What OpenFactory is not" statement (4.8) in README, docs site, and every scene header |
@@ -2908,8 +2912,9 @@ runs the sorting program against it; a box visibly gets pushed.
 6. **When stuck for more than two attempts**, write the blocker under the task and move on. Do not loop.
 7. **New decisions get an ADR.** Short is fine: context, decision, consequences.
 8. **Never touch** `E:\Hyper-V VMs` or `E:\VirtualBox-VMs`, and open `E:\04_Software` only at a
-   path the owner names (the clean-room rule for sessions was lifted 2026-11-11; what still
-   holds is in CLAUDE.md, "Original Work and Vendor Material"). **Never run
+   path the owner names (the earlier rule that kept sessions away from vendor material was
+   replaced on 2026-11-11; what holds now is in CLAUDE.md, "Original Work and Vendor
+   Material"). **Never run
    `find`, `ls -R`, `grep -r` or any other walk above the repository root or the session's scratch
    folder** (ruled 2026-11-10): a walk from `/` or `/mnt/e` crosses all three. A file needed from
    outside is asked of the owner.
@@ -2917,6 +2922,8 @@ runs the sorting program against it; a box visibly gets pushed.
    ran `find / -iname "*rm013*"`, which walked `/mnt/e` including `04_Software`, `Hyper-V VMs` and
    `VirtualBox-VMs`; it was stopped within two minutes, printed no path and opened no file. The
    manual was fetched again from the public mirror instead, and the walk rule above was added.
+   *Replaced 2026-11-11:* the vendor-material rule this note was written under was replaced by
+   CLAUDE.md, "Original Work and Vendor Material" (the walk rule stands).
 9. **A parity trace that does not gate carries a PLAN note** (added 2026-10-27). A trace with
    `gate=False` in `tools/parity_trace.py` is reported but not held to its tolerance; it needs a
    note under the task that added it giving the measured worst delta, the model difference that
@@ -2929,6 +2936,15 @@ runs the sorting program against it; a box visibly gets pushed.
    hardware-learning app (`docs/research/viewer-rendering-notes.md`) left task 4.14 and two parked
    ideas, its lighting spike was reverted uncommitted, and nothing of that app's code, text, names
    or assets is used.
+12. **One public statement of original work** (owner's draft, 2026-11-12). README,
+   CONTRIBUTING.md ("Original Work Policy", with the contributor terms: the work is the
+   contributor's own, copies nothing from a commercial product, and includes nothing derived
+   from the internals of a commercial 3D simulator; the DCO stays), the docs site and the issue
+   and PR templates use it, and it replaces the earlier description of OpenFactory everywhere
+   the public reads. Dated entries above keep their wording as history.
+   `tests/unit/test_docs_site.py` fails if the old term appears outside PLAN's dated history
+   entries and `docs/research/`. **The wording is the owner's draft and has not had legal
+   review** (owner's open items).
 
 ---
 

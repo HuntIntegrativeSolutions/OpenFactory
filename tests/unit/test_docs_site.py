@@ -124,3 +124,69 @@ def test_pages_cite_the_component_reference_by_link_not_by_file_name():
             continue
         text = (REPO / "docs" / page).read_text(encoding="utf-8")
         assert "`docs/components.md`" not in text, f"{page}: link the component reference"
+
+
+#: The old description of OpenFactory, replaced on 2026-11-12 by the original-work statement
+#: (PLAN §9 rule 12). Spelled as a pattern so this file does not contain it.
+OLD_TERM = re.compile(r"clean[-\s]?room", re.IGNORECASE)
+#: An italic dated label, such as ``*Done (2026-11-06):*`` or ``*Ruled 2026-11-10:*``.
+DATED = re.compile(r"\*[^*\n]*\b20\d\d-\d\d-\d\d\b[^*\n]*\*")
+TASK = re.compile(r"^- \[[ x]\] ")
+
+
+def _in_dated_plan_entry(lines: list[str], index: int) -> bool:
+    """True when line `index` of docs/PLAN.md is inside a task's body, below a dated label of
+    that task: a dated history entry."""
+    for start in range(index, -1, -1):
+        line = lines[start]
+        if TASK.match(line):
+            return bool(DATED.search("\n".join(lines[start : index + 1])))
+        if start < index and line and not line[0].isspace():
+            return False  # left the task body: a heading, table row or section text
+    return False
+
+
+def _old_term_hits(path: str, text: str) -> list[int]:
+    """Line numbers of the old term in `text` that are not allowed history."""
+    if path.startswith("docs/research/"):
+        return []
+    lines = text.splitlines()
+    hits = []
+    for match in OLD_TERM.finditer(text):
+        index = text.count("\n", 0, match.start())
+        if path == "docs/PLAN.md" and _in_dated_plan_entry(lines, index):
+            continue
+        hits.append(index + 1)
+    return hits
+
+
+def test_the_old_description_appears_only_in_dated_plan_history_and_research():
+    """PLAN §9 rule 12 (owner, 2026-11-12): every page the public reads uses the original-work
+    statement. The old term may stay only in PLAN's dated history entries and docs/research/."""
+    import subprocess
+
+    files = subprocess.run(
+        ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout.split()
+    found = {}
+    for name in files:
+        try:
+            text = (REPO / name).read_text(encoding="utf-8")
+        except (UnicodeDecodeError, FileNotFoundError, IsADirectoryError):
+            continue
+        hits = _old_term_hits(name, text)
+        if hits:
+            found[name] = hits
+    assert not found, f"the old description of OpenFactory, outside dated history: {found}"
+
+
+def test_the_old_term_check_allows_only_dated_history():
+    old = "clean" + "-room"  # built from pieces so this file does not contain it
+    task = f"- [x] 4.8 Release files\n      *Part 1 (2026-11-06):*\n      - a {old} checkbox\n"
+    assert _old_term_hits("docs/PLAN.md", task) == []
+    undated = f"- [x] 4.8 Release files\n      - a {old} checkbox\n"
+    assert _old_term_hits("docs/PLAN.md", undated) == [2]
+    section = "## 9. Working Agreement\n\n8. *Ruled 2026-11-10:* the " + "Clean" + " Room rule\n"
+    assert _old_term_hits("docs/PLAN.md", section) == [3]
+    assert _old_term_hits("README.md", "An original,\n" + "clean\nroom" + " work.") == [2]
+    assert _old_term_hits("docs/research/landscape.md", f"{old} reminder") == []

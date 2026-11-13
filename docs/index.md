@@ -37,9 +37,15 @@ scene from the [scene guides](guides/README.md).
 
 ## Contributing
 
-OpenFactory is an original, clean-room work under Apache-2.0 (code) and CC-BY-4.0 (models and
-documentation). See
+OpenFactory is an original work. It contains no code, models, textures, scene files, documentation
+text, names, layouts or other assets from any commercial product. Interoperability with controllers
+and vendor software is built from public documentation and vendor SDK documentation. Vendor SDKs,
+vendor binaries and vendor-specific code are not part of this repository. The internals of Factory
+I/O and other commercial 3D simulators have not been examined for this project and nothing derived
+from them is accepted.
+
+Code is under Apache-2.0, models and documentation under CC-BY-4.0. See
 [CONTRIBUTING.md](https://github.com/HuntIntegrativeSolutions/OpenFactory/blob/main/CONTRIBUTING.md),
-including the clean-room policy, and report security problems as
+including the original-work policy, and report security problems as
 [SECURITY.md](https://github.com/HuntIntegrativeSolutions/OpenFactory/blob/main/SECURITY.md)
 describes.
