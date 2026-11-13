@@ -105,3 +105,43 @@ def test_select_a_conveyor_change_its_speed_and_save_one_line(tmp_path):
     old, new = changed[0][1:], changed[1][1:]
     assert "speed_mps: 0.5" in old and new == old.replace("speed_mps: 0.5", "speed_mps: 0.6")
     assert {p: p.read_bytes() for p in locks} == locks  # the lockfiles are never written
+
+
+@pytest.mark.parametrize("width", [1280, 640])
+def test_the_status_lines_stay_clear_of_the_editor_panel(tmp_path, width):
+    """PLAN 4.1c fix 3: with the panel open, the HUD's status lines wrap within the part of the
+    window the panel does not cover, and the quality control (PLAN 4.14) does not meet it."""
+    from playwright.sync_api import sync_playwright
+
+    for f in (REPO / "scenes").glob("sorting-by-height*"):
+        shutil.copy(f, tmp_path / f.name)
+    web = screenshot.free_port()
+    scene = tmp_path / "sorting-by-height.yaml"
+    cmd = [sys.executable, "-m", "openfactory", "edit", str(scene), "-q", "--web-port", str(web)]
+    proc = subprocess.Popen(cmd, cwd=REPO, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        screenshot.wait_for_api(web, proc, timeout=60)
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(args=screenshot.CHROMIUM_ARGS)
+            page = browser.new_page(viewport={"width": width, "height": 720})
+            page.goto(f"http://127.0.0.1:{web}/")
+            page.wait_for_function("() => window.__openfactory && window.__openfactory.ready")
+            page.wait_for_function("() => window.__openfactory.editor?.file !== undefined")
+            page.wait_for_function(
+                "() => document.getElementById('hud').textContent.includes('frame')"
+            )
+            rect = (
+                "(id) => { const r = document.getElementById(id).getBoundingClientRect();"
+                " return [r.left, r.top, r.right, r.bottom]; }"
+            )
+            hud = page.evaluate(rect, "hud")
+            panel = page.evaluate(rect, "editor-panel")
+            quality = page.evaluate(rect, "quality")
+            page.screenshot(path=str(tmp_path / f"editor-{width}.png"))
+            browser.close()
+    finally:
+        proc.terminate()
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            proc.wait(10)
+    assert hud[2] <= panel[0], f"status lines {hud} run under the panel {panel}"
+    assert quality[2] <= panel[0], f"quality control {quality} meets the panel {panel}"

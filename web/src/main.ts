@@ -163,6 +163,17 @@ function fitCamera(): void {
   if (p) camera.setViewOffset(w + p, h, p, 0, w, h);
   else camera.clearViewOffset();
   camera.updateProjectionMatrix();
+  fitHud();
+}
+
+/** Keep the status lines clear of the editor panel (PLAN 4.1c fix 3): with the panel open they
+ * wrap within the uncovered part of the window instead of running under it. */
+function fitHud(): void {
+  const panel = document.getElementById("editor-panel");
+  const covered = panel ? panel.offsetWidth : 0;
+  hud.style.maxWidth = covered ? `${Math.max(120, window.innerWidth - covered - 32)}px` : "";
+  hud.style.whiteSpace = covered ? "pre-wrap" : "pre";
+  hud.style.overflowWrap = covered ? "anywhere" : "";
 }
 
 window.addEventListener("resize", () => {
