@@ -252,7 +252,10 @@ Any component may draw its own model in the viewer in place of its fixed housing
   and only from the scene's folder.
 - **Missing or broken file.** A file that is not there, leaves the scene's folder through a
   symlink, or is not a sound `.glb` gives one warning line at load, and the viewer draws the
-  primitive. A replay (`openfactory replay`) always draws the primitives: a recording does not
+  primitive. `openfactory lint` reports a file that leaves the scene's folder through a symlink
+  as an error (E104), so the scene editor's preview names it and its Save refuses it (PLAN 4.1c
+  fix 7). The scene's folder lies inside its project root (see "Library composites"), so a mesh
+  is always inside the project. A replay (`openfactory replay`) always draws the primitives: a recording does not
   carry mesh files.
 - **Size and license.** The 1 MB rule for binaries in git covers meshes, so meshes shipped in
   this repository stay small (the example, `tests/scenes/models/pusher-housing.glb`, made by
@@ -260,7 +263,7 @@ Any component may draw its own model in the viewer in place of its fixed housing
   Every mesh in the repository has a sidecar `<file>.license.txt` (`Author:`, `License:`,
   `Source:` lines) and a row in `THIRD_PARTY.md` (`tools/third_party.py --models` writes it).
   `openfactory lint` warns (W209) on a scene mesh with neither a sidecar nor a `THIRD_PARTY.md`
-  entry naming it, in the mesh's folder or any folder above.
+  entry naming it, in the mesh's folder or any folder above it up to the project root.
 - OBJ or `.gltf` with separate buffers is not read; convert to `.glb` in a 3D tool first.
 
 ## `composites:`: new equipment from existing parts (PLAN 2.16)

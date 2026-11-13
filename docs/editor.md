@@ -68,8 +68,10 @@ checks every handle against every status color.
 
 The **mesh** box in the form lists the `.glb` files in the scene's folder and up to two folders
 below it. Picking one sets `mesh.file`, and the custom housing is drawn at once; its scale, offset
-and rotation can then be set. Picking "(none)" removes the mesh. See `mesh` in
-[the scene format](scene-format.md).
+and rotation can then be set. Picking "(none)" removes the mesh. A mesh must be a file inside
+the scene's folder: a path with `..` or an absolute path does not load (E100), and a name that is
+a symlink to a file outside is refused (E104). Either way the preview says why, Save stays
+refused, and the file is never served. See `mesh` in [the scene format](scene-format.md).
 
 ## Save, Revert, Download YAML
 

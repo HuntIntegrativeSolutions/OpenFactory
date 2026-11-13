@@ -13,6 +13,11 @@ Errors (``openfactory lint`` exits 1):
   9; the default ``bottom`` and ``top`` may stay unused).
 - ``E103`` a part of the flow network with no node of known head (no tank, supply or open drain):
   its heads are undefined and nothing can flow in it.
+- ``E104`` a component ``mesh`` (PLAN 2.15) whose file resolves outside the scene's folder once
+  symlinks are followed (``../``, an absolute path, or a link out). The loader never reads such a
+  file and the editor never serves it; this makes the editor's preview say so and its save refuse
+  it (PLAN 4.1c fix 7). The scene's folder lies within its project root (PLAN 4.1c fix 5), so a
+  mesh is always inside the project.
 
 Warnings (exit 0 unless there are errors):
 
@@ -41,7 +46,8 @@ centre line, and the plate height after the loader's default.
 
 - ``W209`` a component ``mesh`` (PLAN 2.15) whose file has no license record: neither a sidecar
   ``<file>.license.txt`` beside it nor an entry in a ``THIRD_PARTY.md`` in the mesh's folder or
-  any folder above it that names the mesh's path relative to that file. A mesh in a scene is a
+  any folder above it, up to the scene's project root, that names the mesh's path relative to
+  that file. A mesh in a scene is a
   third-party asset until someone says whose it is and under what terms.
 
 - ``W210`` a pump whose design head is below the static lift it faces (PLAN 3.2, ADR-0005
@@ -72,6 +78,7 @@ from typing import Any, get_args
 from pydantic import ValidationError
 
 from openfactory.components.pusher import beyond_path, push_depth, push_path
+from openfactory.core.composite import project_root
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.loader import build
 from openfactory.core.loader import lint as loader_lint
@@ -253,9 +260,17 @@ def lint_scene(
                         "such as `run: {to: belt.run}`")
             )  # fmt: skip
     findings += _flow_findings(loaded)
+    root = Path(scene_dir).resolve()
     for comp in (c for c in scene.components if c.mesh is not None):
         mesh = scene_dir / comp.mesh.file
-        if not has_license_record(mesh):
+        if not mesh.resolve().is_relative_to(root):
+            findings.append(
+                Finding("error", "E104", f"{comp.id}: mesh {comp.mesh.file} resolves outside the "
+                        f"scene's folder ({mesh.resolve()}); a mesh must be a file inside "
+                        f"{root.name}/ or a folder below it")
+            )  # fmt: skip
+            continue
+        if not has_license_record(mesh, stop=project_root(root) or root):
             findings.append(
                 Finding("warning", "W209", f"{comp.id}: mesh {comp.mesh.file} has no license "
                         f"record; add {mesh.name}.license.txt beside it (who made it, the license, "
@@ -352,13 +367,17 @@ def _reach(net: Any, link: Any, end: tuple[Any, str | None]) -> tuple[Any, str |
     return end
 
 
-def has_license_record(mesh: Path) -> bool:
+def has_license_record(mesh: Path, stop: Path | None = None) -> bool:
     """A ``<file>.license.txt`` sidecar, or a ``THIRD_PARTY.md`` at or above the mesh's folder
-    that names the mesh's path relative to it (W209)."""
+    that names the mesh's path relative to it (W209), looking no higher than ``stop`` (the
+    scene's project root, PLAN 4.1c fix 5; None looks up to the filesystem root)."""
     if mesh.with_name(mesh.name + ".license.txt").is_file():
         return True
     mesh = mesh.resolve()
-    for folder in mesh.parents:
+    folders = list(mesh.parents)
+    if stop is not None and stop.resolve() in folders:
+        folders = folders[: folders.index(stop.resolve()) + 1]
+    for folder in folders:
         record = folder / "THIRD_PARTY.md"
         if record.is_file():
             rel = mesh.relative_to(folder).as_posix()
