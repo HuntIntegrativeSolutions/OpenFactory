@@ -81,6 +81,22 @@ and rotation can then be set. Picking "(none)" removes the mesh. See `mesh` in
 The editor never writes the Modbus lockfiles (`*.modbus.yaml`). New tags get their addresses the
 next time you `run` or `export` the scene ([ADR-0004](adr/ADR-0004-modbus-address-lockfile.md)).
 
+## Other web pages cannot change your scene
+
+The editor server writes only the one scene file it was opened on, refuses a save when the file
+changed on disk since you opened it, and listens on loopback only. A web page from another site
+open in the same browser cannot use it to change the scene (PLAN 4.1c fix 6):
+
+- No response carries CORS headers, so a page from another origin cannot read any answer.
+- Every request that changes something (`POST /api/edit/preview`, `/save`, `/new`, `/palette`,
+  and in a run `POST` or `DELETE /api/fault` and `POST /api/exam`) is refused with **403** when
+  its `Origin` header is not the server's own (the scheme, host and port the browser addressed).
+- A `POST` whose body is not `application/json` is refused with **415**. A page on another site
+  can send a form or a `text/plain` body without the browser asking first, but not JSON.
+
+Scripts and tools that send no `Origin` header (curl, Python) are not a browser on another site
+and are served as before. `tests/unit/test_cross_origin.py` checks each of these.
+
 ## Not yet
 
 Renaming a component, and deleting the references to a deleted one with it, are not in the

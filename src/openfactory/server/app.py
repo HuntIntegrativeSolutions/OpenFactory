@@ -61,6 +61,15 @@ Behavior spec
 - ``WS /ws/events``: receives viewer events as JSON objects (see
   :meth:`Runtime.apply_event`). An invalid event is answered with ``{"error": "..."}`` and the
   socket stays open.
+- **Browsers on other sites** (PLAN 4.1c fix 6, ruled 2026-11-12): no response carries CORS
+  headers, so a page from another origin cannot read any answer. Every request that changes
+  something (``POST``, ``PUT``, ``PATCH`` or ``DELETE`` under ``/api/``: the editor's preview,
+  save, palette and new, ``/api/fault`` and ``/api/exam``) is refused with **403** when it has an
+  ``Origin`` header that is not this server's own origin (the scheme and the ``Host`` the request
+  was sent to), and a ``POST`` whose content type is not ``application/json`` is refused with
+  **415**, so a cross-site form or a ``text/plain`` fetch, which a browser sends without asking
+  first, never reaches a handler. A request with no ``Origin`` (curl, Python, the tests) is not
+  a browser on another site and passes.
 - ``/``: the built viewer from ``web/dist`` (``npm run build``), when present. Without a build,
   ``/`` returns a short page saying how to build it; the API still works.
 
@@ -82,8 +91,8 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -185,6 +194,26 @@ _NO_BUILD = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 The API is up: <a style="color:#60A5FA" href="/api/scene">/api/scene</a>.</p></body></html>"""
 
 
+#: Methods that change something; only these are checked for their origin.
+CHANGING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+def write_refusal(
+    method: str, scheme: str, host: str | None, origin: str | None, content_type: str | None
+) -> tuple[int, str] | None:
+    """Why a changing ``/api/`` request is refused, as ``(status, reason)``, or None (PLAN 4.1c
+    fix 6). A browser sends ``Origin`` with every cross-origin write; it must be this server's
+    own, ``scheme://host`` as the request addressed it. A POST must be JSON: a browser sends a
+    form or ``text/plain`` to another site without asking, but never ``application/json``."""
+    if origin is not None and origin != f"{scheme}://{host}":
+        return 403, f"refused: a request from {origin} is not from this server's own pages"
+    if method == "POST":
+        mime = (content_type or "").split(";", 1)[0].strip().lower()
+        if mime != "application/json":
+            return 415, "refused: send the request body as application/json"
+    return None
+
+
 def create_app(
     runtime: Runtime,
     web_dist: Path | None = WEB_DIST,
@@ -198,6 +227,22 @@ def create_app(
     app = FastAPI(title="OpenFactory", version=__version__, docs_url="/api/docs")
     app.state.runtime = runtime
     faults_open = is_loopback(bind)
+
+    @app.middleware("http")
+    async def same_origin_writes(request: Request, call_next: Any) -> Any:
+        """Refuse a change from a page on another site (see the module docstring)."""
+        if request.method in CHANGING and request.url.path.startswith("/api/"):
+            refusal = write_refusal(
+                request.method,
+                request.url.scheme,
+                request.headers.get("host"),
+                request.headers.get("origin"),
+                request.headers.get("content-type"),
+            )
+            if refusal is not None:
+                return JSONResponse({"detail": refusal[1]}, status_code=refusal[0])
+        return await call_next(request)
+
     expected = fault_token.encode() if fault_token else None
 
     def fault_access(
