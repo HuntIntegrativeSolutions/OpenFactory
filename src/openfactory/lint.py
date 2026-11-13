@@ -24,7 +24,7 @@ Warnings (exit 0 unless there are errors):
 - ``W201`` a DO/AO tag that no PLC side can write: it is in none of the scene's lockfiles (so no
   Modbus PLC has an address for it) and no ``--script`` writes it.
 - ``W202`` a DI/AI tag that nothing reads: in no lockfile and read by no ``--script``.
-- ``W203`` conveyors that touch end to end with no connection (the loader's Milestone 1 check).
+- ``W203`` retired 2026-11-12: replaced by W212 (PLAN 4.1d, ruled 2026-11-10 decision 7).
 - ``W204`` a component outside the floor, the viewer's 40 m × 40 m plane centred on the origin
   (``|x|`` or ``|z|`` over 20 m).
 - ``W205`` two conveyors whose footprints overlap at the same belt height (within 5 cm). Conveyors
@@ -60,6 +60,16 @@ centre line, and the plate height after the loader's default.
   level, is under 10 ticks of 50 Hz. The explicit level update stays stable, but the level jumps
   tick to tick; make the tank larger or its connection tighter.
 
+- ``W212`` two conveyor ends that meet with no connection (PLAN 4.1d; it replaces W203): an end
+  that parts leave and an end that parts arrive at, from the conveyors' ``load`` snap ports
+  (:mod:`openfactory.core.snaps`), within 2 cm in the floor plane and in height, at any heading
+  (as W203: a handoff through a turn needs a connection too). A turntable counts at rest and
+  turned; a lift at the bottom and the top.
+- ``W213`` a connection whose ends do not meet: the ``from`` conveyor's nearest end that parts
+  leave and the ``to`` conveyor's end they arrive at are more than 1 cm apart in the floor plane
+  or in height, or more than 1 degree from facing each other (PLAN 4.1d). The kinematic model
+  hands parts across any gap; this says the scene may not mean one.
+
 - ``W208`` a composite type (PLAN 2.16) that exposes no I/O: its ``io:`` block is empty, so no
   PLC can command or read any instance of it.
 
@@ -81,9 +91,9 @@ from openfactory.components.pusher import beyond_path, push_depth, push_path
 from openfactory.core.composite import project_root
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.loader import build
-from openfactory.core.loader import lint as loader_lint
 from openfactory.core.schema import CARRIER_TYPES, PLC_WRITES, load_scene, parse_scene
 from openfactory.core.sizing import belt_under, emitted_parts
+from openfactory.core.snaps import misjoined, unjoined
 from openfactory.protocols.modbus import (
     AddressError,
     Encoding,
@@ -175,7 +185,8 @@ def lint_scene(
                 Finding("warning", "W202", f"{where}: nothing reads it (in no lockfile, read by "
                         "no --script)")
             )  # fmt: skip
-    findings += [Finding("warning", "W203", w) for w in loader_lint(scene)]
+    findings += [Finding("warning", "W212", w) for w in unjoined(scene)]
+    findings += [Finding("warning", "W213", w) for w in misjoined(scene)]
     for comp in scene.components:
         x, _, z = comp.position
         if abs(x) > FLOOR_HALF_M or abs(z) > FLOOR_HALF_M:

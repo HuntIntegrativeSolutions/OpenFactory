@@ -99,7 +99,24 @@ open in the same browser cannot use it to change the scene (PLAN 4.1c fix 6):
 Scripts and tools that send no `Origin` header (curl, Python) are not a browser on another site
 and are served as before. `tests/unit/test_cross_origin.py` checks each of these.
 
+## Snapping conveyor ends together
+
+Each conveyor (`belt_conveyor`, `roller_conveyor`, `turntable`, `lift`) has two **snap ports**,
+its ends, listed in [the component reference](components.md). While you **Move** a conveyor, an
+end that comes within **0.15 m** of another conveyor's end it can join (a discharge to an infeed,
+at the same height) is marked: a ring on the end it will meet and a dot on your conveyor's end,
+in the gizmo's light pink, never a status color. Release there and the conveyor is placed so the
+two ends meet within 1 mm and face each other within 0.1 degrees (it is turned if it was a
+little off), and the connection `{from: A, to: B}` is added to the scene's `connections:`. The
+preview shows both, and Save writes them. Away from any end, a move stays on the 0.05 m grid.
+
+The lint checks the same ports: **W212** warns when two ends meet (within 2 cm, at any heading)
+and no connection joins them, and **W213** when a connection's ends are more than 1 cm apart, out
+of level, or more than 1 degree from facing. A scene snapped in the editor has neither.
+
 ## Not yet
 
 Renaming a component, and deleting the references to a deleted one with it, are not in the
-editor yet. Snapping conveyor ends together is PLAN 4.1d.
+editor yet (PLAN 4.1f), and a new component is placed at the centre of the view even over the
+plant (PLAN 4.1e). Snap ports for pipes and for devices mounted on a conveyor's side are PLAN
+4.1g.

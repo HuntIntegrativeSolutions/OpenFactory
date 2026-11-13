@@ -180,6 +180,10 @@ belt runs. Example: `tests/scenes/demo-reversing.yaml`.
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the belt at once and `running` still
 follows `run`; stuck faults act on `running`).
 
+**Snap ports** (PLAN 4.1d, `load`): `infeed` at the origin and `discharge` `length` along
+local +x, both at belt-top height; the editor snaps a conveyor's end to another's, and the lint
+checks them (W212, W213). On a `bidirectional` belt both ends both send and receive.
+
 ### `roller_conveyor`
 
 Driven rollers. Same origin, ports, and speed behavior as `belt_conveyor`.
@@ -204,6 +208,8 @@ Parts on it accelerate at its own `friction` × 9.81 m/s² (9 ticks to 0.5 m/s a
 at μ 0.8), in the headless model and in the viewer alike.
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (as `belt_conveyor`).
+
+**Snap ports** (PLAN 4.1d, `load`): `infeed` and `discharge`, as `belt_conveyor`.
 
 ### `turntable`
 
@@ -243,6 +249,10 @@ origin is not the infeed end.
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the deck belt and the turn; stuck
 faults act on `running`, `at_0`, `at_90`).
+
+**Snap ports** (PLAN 4.1d, `load`): `infeed` and `discharge` at -`length`/2 and +`length`/2
+from the deck centre at rest, and `infeed_turned` and `discharge_turned` with the deck at
+`turn_deg`.
 
 ### `lift`
 
@@ -284,6 +294,9 @@ Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed stops the deck belt an
 runs both at half speed; stuck faults act on `running`, `at_top`, `at_bottom`).
 
 ## Actuators
+
+**Snap ports** (PLAN 4.1d, `load`): `infeed` and `discharge` with the deck at the bottom, as
+`belt_conveyor`, and `infeed_top` and `discharge_top` `lift_height` above.
 
 ### `pusher`
 

@@ -77,8 +77,10 @@ def test_validate_reports_warnings_and_lockfile_conflicts(tmp_path, scene_copy, 
         )
     )
     result = runner.invoke(app, ["validate", str(two)])
-    assert result.exit_code == 0 and "warning: conveyors CONV_01 and CONV_02 touch" in strip_ansi(
-        result.output
+    assert (
+        result.exit_code == 0
+        and "warning: conveyors CONV_01 (discharge) and CONV_02 (infeed) meet"
+        in strip_ansi(result.output)
     )
     lock = lockfile_path(scene_copy, "float32")
     lock.write_text("encoding: int16_scaled\n", encoding="utf-8")

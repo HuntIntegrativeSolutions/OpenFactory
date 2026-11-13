@@ -52,6 +52,10 @@ export interface EditorStatus {
   undescribed: string[];
   palette: string[];
   mode: "move" | "turn";
+  /** The last snap a drag made (PLAN 4.1d): the ends that met and the connection it added. */
+  snap: { id: string; mine: string; theirs: string; port: string; connection: { from: string; to: string } } | null;
+  /** A snap candidate while dragging, or null. */
+  snapping: string | null;
 }
 
 export interface PaletteItem {
@@ -117,7 +121,7 @@ export class EditorPanel {
     this.host = host;
     this.status = {
       file: "", selected: null, ops: 0, previews: 0, saves: 0, downloads: 0, errors: 0, findings: [],
-      message: "", added: [], undescribed: [], palette: [], mode: "move",
+      message: "", added: [], undescribed: [], palette: [], mode: "move", snap: null, snapping: null,
     };
     this.element = document.createElement("div");
     this.element.id = "editor-panel";
@@ -239,6 +243,14 @@ export class EditorPanel {
   componentData(id: string): Record<string, unknown> | null {
     const list = this.data?.components ?? [];
     return (list.find((c) => c.id === id) as Record<string, unknown> | undefined) ?? null;
+  }
+
+  /** A drag ended on a snap (PLAN 4.1d): the snapped pose and the connection it makes. */
+  snapTo(id: string, position: [number, number, number], rotationDeg: number, connection: { from: string; to: string }): void {
+    this.ops.change({ op: "set", path: ["components", id, "position"], value: position });
+    this.ops.change({ op: "set", path: ["components", id, "rotation_deg"], value: rotationDeg });
+    this.ops.connect(connection.from, connection.to);
+    void this.preview();
   }
 
   /** A drag in the plant ended (main.ts): the new position and, after a turn, rotation. */

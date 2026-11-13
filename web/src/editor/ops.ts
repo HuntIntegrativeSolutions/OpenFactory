@@ -61,11 +61,17 @@ export class EditOps {
     this.undescribed.add(id);
   }
 
+  /** A connection a snap made (PLAN 4.1d): `from`'s discharge feeds `to`'s infeed. */
+  connect(from: string, to: string): void {
+    this.ops.set(`connect\u0000${from}\u0000${to}`, { op: "connect", from, to });
+  }
+
   /** Delete a component: drop everything pending for it, and send a `delete` only for one
    * that is in the file. */
   remove(id: string): void {
     for (const [key, op] of this.ops) {
       if ("path" in op && op.path[0] === "components" && op.path[1] === id) this.ops.delete(key);
+      if (op.op === "connect" && (op.from === id || op.to === id)) this.ops.delete(key);
     }
     const added = this.added.get(id);
     if (added) {

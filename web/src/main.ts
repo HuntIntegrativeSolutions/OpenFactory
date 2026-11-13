@@ -37,6 +37,8 @@ import { FaultMenu } from "./faultmenu";
 import { faultOf, isInstructorPath, tokenFromHash } from "./instructor";
 import { EditorPanel } from "./editor/panel";
 import { recolorGizmo } from "./editor/gizmo";
+import { SnapMarker } from "./editor/markers";
+import { findSnap, localPort, worldPort, type Snap, type SnapPort } from "./editor/snap";
 import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
@@ -672,6 +674,22 @@ async function startEditor(): Promise<void> {
       return (g?.composite as { id?: string } | undefined)?.id === id;
     });
   let dragStart: { handle: THREE.Matrix4; objects: [THREE.Object3D, THREE.Matrix4][] } | null = null;
+  // snap ports (PLAN 4.1d): a conveyor dragged near another's end snaps to it on release
+  const marker = new SnapMarker();
+  scene.add(marker.object);
+  let candidate: Snap | null = null;
+  const snapFor = (): Snap | null => {
+    if (!selectedId || !doc || gizmo.mode !== "translate") return null;
+    const mine = doc.components.find((c) => c.id === selectedId);
+    const ports = mine?.snaps as SnapPort[] | undefined;
+    if (!mine || !ports?.length) return null; // not a conveyor (a composite instance moves as one)
+    const others = doc.components
+      .filter((c) => c.id !== selectedId && Array.isArray(c.snaps) && (c.snaps as SnapPort[]).length)
+      .map((c) => ({ id: c.id, ports: c.snaps as SnapPort[] }));
+    const published = { position: mine.position as [number, number, number], rotation_deg: mine.rotation_deg };
+    const now = { position: [handle.position.x, handle.position.y, handle.position.z] as [number, number, number], rotation_deg: THREE.MathUtils.radToDeg(handle.rotation.y) };
+    return findSnap(selectedId, ports, published, now, others);
+  };
   const highlight = () => {
     if (outline) scene.remove(outline);
     outline = null;
@@ -727,6 +745,18 @@ async function startEditor(): Promise<void> {
     suppressClick = true; // the click that ends a drag does not change the selection
     if (!selectedId || !dragStart) return;
     dragStart = null;
+    marker.hide();
+    panel.status.snapping = null;
+    const snapped = candidate;
+    candidate = null;
+    if (snapped) {
+      // the ends meet within 1 mm and face within 0.1 degrees: keep 0.1 mm and 0.0001 degrees
+      const at = snapped.pose.position.map((v) => Number(v.toFixed(4))) as [number, number, number];
+      const deg = Number(snapped.pose.rotation_deg.toFixed(4));
+      panel.status.snap = { id: selectedId, mine: snapped.mine, theirs: snapped.theirs.id, port: snapped.theirs.port, connection: snapped.connection };
+      panel.snapTo(selectedId, at, deg, snapped.connection);
+      return;
+    }
     const p = handle.position;
     const position: [number, number, number] = [p.x, p.y, p.z].map((v) => Number(v.toFixed(3))) as [number, number, number];
     let deg = THREE.MathUtils.radToDeg(handle.rotation.y);
@@ -745,6 +775,16 @@ async function startEditor(): Promise<void> {
     }
     if (outline instanceof THREE.BoxHelper) outline.update();
     else if (outline) outline.box.copy(boundsOf(dragStart.objects.map(([o]) => o)));
+    candidate = snapFor();
+    panel.status.snapping = candidate ? `${candidate.mine} -> ${candidate.theirs.id}.${candidate.theirs.port}` : null;
+    if (!candidate) {
+      marker.hide();
+      return;
+    }
+    const mine = doc!.components.find((c) => c.id === selectedId)!;
+    const local = localPort((mine.snaps as SnapPort[]).find((p) => p.name === candidate!.mine)!, { position: mine.position as [number, number, number], rotation_deg: mine.rotation_deg });
+    const now = worldPort(local, { position: [handle.position.x, handle.position.y, handle.position.z], rotation_deg: THREE.MathUtils.radToDeg(handle.rotation.y) });
+    marker.show(candidate.theirs.position, now.position);
   });
   renderer.domElement.addEventListener("click", (e) => {
     if (suppressClick) {

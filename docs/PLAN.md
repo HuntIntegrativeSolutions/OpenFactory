@@ -278,8 +278,9 @@ Rules:
   conveyors, a conveyor cannot feed itself, and each conveyor feeds at most one other; several may
   feed the same conveyor (a merge), and loops (recirculation) are allowed. Collinear conveyors that
   touch still need a connection for the headless model to hand parts across; the loader warns (it
-  never infers the connection) when one conveyor's discharge end is within 5 mm of another's infeed
-  and no connection joins them.
+  never infers the connection) when one conveyor's discharge end is within 2 cm of another's
+  infeed, at any heading, and no connection joins them (W212 from the conveyors' snap ports,
+  PLAN 4.1d; until 2026-11-12 W203 at 5 mm), and when a connection's ends do not meet (W213).
 - Optional keys not shown in the example:
   - `scene.friction` (default 0.8, μ between belts and parts): the viewer gives belt and part
     colliders this friction. The headless model caps a carried part's acceleration at μ × 9.81 m/s²
@@ -2500,11 +2501,45 @@ runs the sorting program against it; a box visibly gets pushed.
         ticked by its implementing session before the reviewer saw it; from now on a task that
         another session ticks is reported to the reviewer before anything is built on it.
         Its two open items became 4.1e and 4.1f below.
-  - [ ] 4.1d Snap ports: ports declared in Python and published, snapping in the editor, the
+  - [x] 4.1d Snap ports: ports declared in Python and published, snapping in the editor, the
         new lint checks, the ports in `docs/components.md`.
         *Done when:* a Playwright test drags a conveyor near another's discharge and it snaps
         (ends within 1 mm, headings equal), the connection is added, and the lint is clean; each
         new lint code has a test that fails without it.
+        *Scope (ruled 2026-11-12):* `load` ports now; `pipe` and `mount` ports move to 4.1g.
+        *Done (2026-11-12):* `src/openfactory/core/snaps.py`: each conveyor's two ends as `load`
+        ports (`infeed`, `discharge`; a lift's also at the top, a turntable's also turned), at
+        belt-top height, facing out, with a role (`in`, `out`, `both` on a reversible belt).
+        `/api/scene` publishes them as `snaps` on each conveyor; recordings leave them out, so
+        recordings and kits are unchanged. Editor (`web/src/editor/snap.ts`, pure maths): while
+        a conveyor is moved, an end within 0.15 m of an end it can join, at the same height, is
+        marked (`web/src/editor/markers.ts`: a ring and a dot, edit overlays, the gizmo's light
+        pink); on release the conveyor is placed so the ends meet and face exactly, written to
+        0.1 mm and 0.0001 degrees, and a new edit operation, `connect`, adds `{from, to}` to
+        `connections:` (a new block at the end of the file if there is none). Lint: W212 (two
+        ends within 2 cm with no connection) replaces W203, and W213 (a connection whose ends
+        are more than 1 cm apart, out of level, or more than 1 degree from facing) is new. *One
+        departure from the 2026-11-10 wording:* W212 compares distance and height only, not
+        headings, as W203 did, because a handoff through a turn (an end on a perpendicular
+        conveyor's infeed) needs a connection too and W203 had a test for it; facing still
+        decides W213 and the editor's snap. No shipped or test scene (32) has a W212 or W213,
+        before or after. Tests: `tests/integration/test_editor_snap.py` (two belts 0.3 m
+        apart, CONV_02 dragged back by real mouse moves on the gizmo: the marker shows, it
+        snaps, the ends meet within 1 mm and face within 0.1 degrees, `{from: CONV_01, to:
+        CONV_02}` is added, Save, the lint is empty before and after; screenshots looked at);
+        `tests/unit/test_snaps.py` (22: the ports of each type, `/api/scene` publishes them and
+        a recording does not, W212 and W213 cases; without W212 three fail, without W213
+        five); `web/src/editor/snap.test.ts` (5), `markers.test.ts` (no shadows, no status
+        color); `tests/unit/test_sceneedit.py` (+2, `connect` and its inverse);
+        `tests/unit/test_component_reference.py` (each conveyor's section lists its snap ports).
+        Documented in `docs/editor.md` and `docs/components.md`.
+  - [ ] 4.1g Pipe and mount snap ports (added 2026-11-12, split from 4.1d): `pipe` ports (a
+        tank's nozzles, a pump's suction and discharge, a valve's and a pipe's ends; snapping
+        fills a link's `from`/`to`) and `mount` ports (a conveyor's side rails: a sensor, pusher,
+        stopper or diverter takes the rail's height and faces across the belt), with a lint check
+        that a mounted device's beam or plate reaches across its belt. Nozzles have only a height
+        in the scene today, so `pipe` ports first need nozzle positions (a scene format change,
+        with `migrate`). *Done when:* to be set with the owner before it starts.
   - [ ] 4.1e Free placement on Add (added 2026-11-12, from 4.1c's open items): a new component
         is placed at the nearest free spot to the centre of the view, so it does not overlap the
         plant. *Done when:* adding each palette type to a sorter whose view centre is covered by

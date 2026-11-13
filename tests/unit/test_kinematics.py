@@ -439,7 +439,7 @@ def test_touching_conveyors_without_connection_warn(caplog):
         loaded = scene(conveyor("CONV_01", (0, 0, 0)), conveyor("CONV_02", (2, 0, 0)))
     assert len(loaded.warnings) == 1
     message = loaded.warnings[0]
-    assert "CONV_01 and CONV_02 touch end to end but no connection joins them" in message
+    assert "CONV_01 (discharge) and CONV_02 (infeed) meet end to end but no connection" in message
     assert "{from: CONV_01, to: CONV_02}" in message
     assert message in caplog.text
     print(f"warning: {message}")
@@ -455,7 +455,9 @@ def test_touching_through_a_turn_and_within_5_mm_also_warns():
         conveyor("CONV_01", (0, 0, 0)),
         conveyor("CONV_02", (2.004, 0, 0), rotation=90),
     )
-    assert [w.split(" touch")[0] for w in loaded.warnings] == ["conveyors CONV_01 and CONV_02"]
+    assert [w.split(" meet")[0] for w in loaded.warnings] == [
+        "conveyors CONV_01 (discharge) and CONV_02 (infeed)"
+    ]
 
 
 @pytest.mark.parametrize(

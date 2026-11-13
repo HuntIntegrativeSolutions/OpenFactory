@@ -27,6 +27,9 @@ Operations (JSON objects). A ``path`` is a list of keys from the top of the scen
 - ``{"op": "use_library", "name": "accumulation_conveyor"}``: adds ``{library: name}`` to the
   ``composites:`` block (PLAN 4.1c), creating the block just above ``components:`` if the scene
   has none; nothing if the scene already uses it.
+- ``{"op": "connect", "from": "CONV_01", "to": "CONV_02"}``: adds ``{from: A, to: B}`` to the
+  ``connections:`` list (PLAN 4.1d, what a snap adds), as a new ``connections:`` block at the end
+  of the file if the scene has none; nothing if the scene already has that connection.
 - ``{"op": "splice", "at": i, "remove": n, "insert": "text"}``: a raw text splice, only what an
   inverse uses to put a deleted component back exactly.
 
@@ -180,6 +183,41 @@ def _use_library(doc: Document, name: str) -> Op:
     return _inserted(doc.splice(at, at, lead + block))
 
 
+_COMPONENT_ID = re.compile(r"^[A-Z][A-Z0-9_]{0,39}$")
+
+
+def _connect(doc: Document, up: str, down: str) -> Op:
+    """Add ``{from: up, to: down}`` to ``connections:`` unless it is there: after the last entry,
+    or as a new ``connections:`` block at the end of the file."""
+    for name in (up, down):
+        if not _COMPONENT_ID.match(name):
+            raise ValueError(f"{name!r} is not a component id")
+    if up == down:
+        raise ValueError(f"{up} cannot feed itself")
+    entry = f"{{from: {up}, to: {down}}}"
+    if doc.has(("connections",)):
+        _, node = doc.find(("connections",))
+        if not isinstance(node, yaml.SequenceNode):
+            raise ValueError("connections: not a list")
+        for item in node.value:
+            if isinstance(item, yaml.MappingNode):
+                pair = {k.value: v.value for k, v in item.value}
+                if pair.get("from") == up and pair.get("to") == down:
+                    return {"op": "batch", "ops": []}  # already joined
+        if node.flow_style:
+            if node.value:
+                at = doc._leaf_end(node.value[-1])
+                return _inserted(doc.splice(at, at, f", {entry}"))
+            at = node.start_mark.index + 1
+            return _inserted(doc.splice(at, at, entry))
+        if node.value:
+            return _inserted(doc.append_item(("connections",), [f"- {entry}"]))
+        raise ValueError("connections: an empty block list")
+    at = len(doc.text)
+    lead = "" if doc.text.endswith("\n") or not doc.text else "\n"
+    return _inserted(doc.splice(at, at, f"{lead}connections:\n  - {entry}\n"))
+
+
 def _apply(doc: Document, op: Op) -> Op:
     kind = op.get("op")
     if kind == "set":
@@ -208,6 +246,8 @@ def _apply(doc: Document, op: Op) -> Op:
         return {"op": "splice", "at": start, "remove": 0, "insert": old}
     if kind == "use_library":
         return _use_library(doc, str(op["name"]))
+    if kind == "connect":
+        return _connect(doc, str(op["from"]), str(op["to"]))
     if kind == "splice":
         at, remove = int(op["at"]), int(op.get("remove", 0))
         start, end, old = doc.splice(at, at + remove, str(op.get("insert", "")))

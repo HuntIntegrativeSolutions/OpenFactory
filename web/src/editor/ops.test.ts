@@ -49,4 +49,20 @@ describe("EditOps (PLAN 4.1c)", () => {
       { op: "delete", id: "PE_01" },
     ]);
   });
+
+  it("keeps one connect per pair a snap made, and drops it with either end (PLAN 4.1d)", () => {
+    const ops = new EditOps();
+    ops.connect("CONV_01", "CONV_02");
+    ops.connect("CONV_01", "CONV_02");
+    ops.connect("CONV_02", "CONV_03");
+    expect(ops.list()).toEqual([
+      { op: "connect", from: "CONV_01", to: "CONV_02" },
+      { op: "connect", from: "CONV_02", to: "CONV_03" },
+    ]);
+    ops.remove("CONV_03");
+    expect(ops.list()).toEqual([
+      { op: "connect", from: "CONV_01", to: "CONV_02" },
+      { op: "delete", id: "CONV_03" },
+    ]);
+  });
 });

@@ -179,3 +179,47 @@ def test_the_emitter_writes_the_shipped_scenes_style():
     for value in (0.5, True, [1.0, 0, -2.5], "yes", "a: b", {"tag": "X_DI", "address": 3}):
         assert yaml.safe_load(f"k: {emit(value)}")["k"] == value
     assert not re.search(r"\s$", emit("x"))
+
+
+# --- connect (PLAN 4.1d): what a snap in the editor adds ------------------------------------------
+
+
+def _two_belts(connections: str = "") -> str:
+    belts = "".join(
+        f"  - id: {cid}\n    type: belt_conveyor\n    description: Belt {cid}\n"
+        f"    position: [{x}, 0, 0]\n    length: 2\n    width: 0.5\n    speed_mps: 0.5\n"
+        f"    io: {{run: {cid}_RUN_DO}}\n"
+        for cid, x in (("CONV_01", 0), ("CONV_02", 2), ("CONV_03", 4))
+    )
+    return (
+        'openfactory: "0.1"\nscene: {name: two-belts, description: x, author: x}\n'
+        "plc: {protocol: none}\n# the belts\ncomponents:\n" + belts + connections
+    )
+
+
+@pytest.mark.parametrize(
+    "connections",
+    [
+        "",  # none yet: a new block at the end
+        "connections:\n  - {from: CONV_02, to: CONV_03}\n",  # a block list
+        "connections: [{from: CONV_02, to: CONV_03}]\n",  # a flow list
+        "connections: []\n",  # an empty flow list
+    ],
+)
+def test_connect_adds_the_connection_and_its_inverse_restores_the_bytes(connections):
+    text = _two_belts(connections)
+    new, inverses = apply_ops(text, [{"op": "connect", "from": "CONV_01", "to": "CONV_02"}])
+    pairs = {(c.from_, c.to) for c in parse_scene(new).connections}
+    assert ("CONV_01", "CONV_02") in pairs
+    assert len(pairs) == (2 if "CONV_03" in connections else 1)
+    assert "# the belts" in new  # comments kept
+    assert undo(new, inverses) == text
+    again, _ = apply_ops(new, [{"op": "connect", "from": "CONV_01", "to": "CONV_02"}])
+    assert again == new  # already joined: nothing
+
+
+def test_connect_refuses_a_bad_id_or_a_conveyor_feeding_itself():
+    with pytest.raises(ValueError, match=r"op 1 \(connect\).*not a component id"):
+        apply_ops(_two_belts(), [{"op": "connect", "from": "conv 1", "to": "CONV_02"}])
+    with pytest.raises(ValueError, match="cannot feed itself"):
+        apply_ops(_two_belts(), [{"op": "connect", "from": "CONV_01", "to": "CONV_01"}])

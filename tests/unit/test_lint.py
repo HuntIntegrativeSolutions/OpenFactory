@@ -80,7 +80,7 @@ def test_tags_no_plc_side_writes_or_reads_are_warnings_a_script_clears(tmp_path)
 
 def test_touching_conveyors_outside_floor_and_overlaps_warn(tmp_path, sorter, strip_ansi):
     conv2 = next(c for c in sorter["components"] if c["id"] == "CONV_02")
-    conv2["position"] = [4.0, 0, 0]  # touches CONV_01's discharge, no connection: W203
+    conv2["position"] = [4.0, 0, 0]  # meets CONV_01's discharge, no connection: W212
     far = copy.deepcopy(conv2)
     far.update(id="CONV_09", position=[25.0, 0, 0], description="Far Conveyor")  # W204
     far["io"] = {"run": "CONV_09_RUN_DO"}
@@ -95,7 +95,7 @@ def test_touching_conveyors_outside_floor_and_overlaps_warn(tmp_path, sorter, st
     # no lockfile next to this copy, so every tag also gets W201/W202; look at the rest
     findings = [f for f in lint_scene(path) if f.code not in ("W201", "W202")]
     print("\n".join(map(str, findings)))
-    assert codes(findings) == ["W203", "W204", "W205"]
+    assert codes(findings) == ["W212", "W204", "W205"]
     assert "CONV_01 and CONV_08" in findings[2].message
     result = runner.invoke(app, ["lint", str(path)])
     assert result.exit_code == 0 and "0 error(s)" in strip_ansi(result.output)

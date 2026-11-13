@@ -50,3 +50,17 @@ def test_each_section_lists_exactly_the_faults_its_type_supports():
         if listed != expected:
             wrong.append(f"{type_name}: docs {listed}, code {expected}")
     assert not wrong, f"docs/components.md fault lists differ: {wrong}"
+
+
+def test_each_conveyor_section_lists_its_snap_ports():
+    """PLAN 4.1d: the component reference lists each type's snap ports (core/snaps.py)."""
+    from openfactory.core.snaps import PORT_NAMES
+
+    found = sections()
+    missing = [
+        f"{type_name}: {name}"
+        for type_name, names in PORT_NAMES.items()
+        for name in names
+        if "**Snap ports**" not in found[type_name] or f"`{name}`" not in found[type_name]
+    ]
+    assert not missing, f"docs/components.md does not list the snap ports: {missing}"

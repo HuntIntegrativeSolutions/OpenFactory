@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import importlib
 import logging
-import math
 import struct
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,21 +41,17 @@ from pathlib import Path
 import openfactory.components  # noqa: F401 - registers the built-in types and their defaults
 from openfactory.core.component import REGISTRY, Component, ComponentRegistry
 from openfactory.core.flownet import Network
-from openfactory.core.geometry import to_world
 from openfactory.core.heartbeat import HEARTBEAT_TAG, heartbeat_tag, heartbeat_value
 from openfactory.core.iotable import IOTable, Tag, Writer
 from openfactory.core.kinematics import KinematicModel
 from openfactory.core.logic import LogicStage
 from openfactory.core.process_watch import ProcessWatch
-from openfactory.core.schema import CARRIER_TYPES, TURNING_TYPES, Scene, load_scene
+from openfactory.core.schema import CARRIER_TYPES, Scene, load_scene
 from openfactory.core.sizing import resolve_defaults
 from openfactory.core.transforms import TransformStage
 from openfactory.core.world import World
 
 log = logging.getLogger(__name__)
-
-#: Discharge-to-infeed distance under which two conveyors count as touching end to end.
-TOUCH_M = 0.005
 
 
 @dataclass
@@ -153,25 +148,13 @@ def build_iotable(scene: Scene) -> IOTable:
 
 
 def lint(scene: Scene) -> list[str]:
-    """Warnings for a valid scene that is probably not what its author meant."""
-    # a turntable's connections depend on its angle, so it is left out of the touching check
-    carriers = [
-        c for c in scene.components if c.type in CARRIER_TYPES and c.type not in TURNING_TYPES
-    ]
-    joined = {(c.from_, c.to) for c in scene.connections}
-    out = []
-    for up in carriers:
-        end = to_world(up.position, up.rotation_deg, (up.length, 0.0, 0.0))  # type: ignore[attr-defined]
-        for down in carriers:
-            if down.id == up.id or (up.id, down.id) in joined:
-                continue
-            if math.dist(end, down.position) <= TOUCH_M:
-                out.append(
-                    f"conveyors {up.id} and {down.id} touch end to end but no connection joins "
-                    f"them; parts will fall off {up.id}'s discharge. Add "
-                    f"'{{from: {up.id}, to: {down.id}}}' to connections if {up.id} feeds {down.id}"
-                )
-    return out
+    """Warnings for a valid scene that is probably not what its author meant: conveyor ends that
+    meet with no connection, and connections whose ends do not meet, from the conveyors' snap
+    ports (PLAN 4.1d, :mod:`openfactory.core.snaps`; ``openfactory lint`` reports them as W212
+    and W213)."""
+    from openfactory.core.snaps import misjoined, unjoined
+
+    return unjoined(scene) + misjoined(scene)
 
 
 def glb_problem(path: Path) -> str | None:

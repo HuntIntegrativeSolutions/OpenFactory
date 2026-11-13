@@ -651,7 +651,8 @@ def _simulate(
             "openfactory": __version__,
             "scene_yaml": scene.read_text(encoding="utf-8"),
             # no mesh URLs: a replay serves no /models/ and draws the primitives (PLAN 2.15)
-            "scene": runtime.scene_document(meshes=False),
+            # nor snap ports: they are for the editor, and recordings stay as they were (4.1d)
+            "scene": runtime.scene_document(meshes=False, snaps=False),
             "dt": runtime.scheduler.dt,
             "encoding": encoding or parsed.plc.analog_encoding,
             "frame_every": FRAME_EVERY,

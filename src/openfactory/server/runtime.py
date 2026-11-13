@@ -253,7 +253,7 @@ class Runtime:
 
     # -- static scene description ----------------------------------------------------------------
 
-    def scene_document(self, *, meshes: bool = True) -> dict[str, Any]:
+    def scene_document(self, *, meshes: bool = True, snaps: bool = True) -> dict[str, Any]:
         """The resolved scene for ``GET /api/scene``: metadata, geometry, connections, tags.
 
         A component whose custom mesh resolved (PLAN 2.15) gets a ``mesh`` entry with the URL the
@@ -261,6 +261,11 @@ class Runtime:
         meshes keep their exact document. ``meshes=False`` leaves every ``mesh`` out (recordings).
         A component expanded from a composite (PLAN 2.16) carries ``composite: {id, type}``, its
         instance; no other component has the key.
+
+        A conveyor carries ``snaps``, its ``load`` snap ports (PLAN 4.1d,
+        :mod:`openfactory.core.snaps`): ``[{name, kind, position, heading_deg, width, role}]``, for
+        the editor. ``snaps=False`` leaves them out (recordings, which stay byte for byte as
+        before).
         """
         scene = self.loaded.scene
         descriptions = {c.id: c.description for c in scene.components}
@@ -279,6 +284,12 @@ class Runtime:
                 }
             }
 
+        def snap(comp_id: str) -> dict[str, Any]:
+            from openfactory.core.snaps import snap_ports
+
+            ports = snap_ports(config[comp_id]) if snaps else []
+            return {"snaps": [p.document() for p in ports]} if ports else {}
+
         def composite(comp_id: str) -> dict[str, Any]:
             inst = scene.composite_of(comp_id)
             return {"composite": {"id": inst, "type": scene.instance_type(inst)}} if inst else {}
@@ -289,7 +300,13 @@ class Runtime:
             "plc": {"protocol": scene.plc.protocol, "role": scene.plc.role},
             "dt": self.scheduler.dt,
             "components": [
-                {**c.geometry(), "description": descriptions[c.id], **mesh(c.id), **composite(c.id)}
+                {
+                    **c.geometry(),
+                    "description": descriptions[c.id],
+                    **mesh(c.id),
+                    **composite(c.id),
+                    **snap(c.id),
+                }
                 for c in self.loaded.components
             ],
             "connections": [{"from": c.from_, "to": c.to} for c in scene.connections],
