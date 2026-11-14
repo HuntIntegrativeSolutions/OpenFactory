@@ -106,7 +106,10 @@ def test_the_instructor_sees_faults_and_switches_but_cannot_turn_them(tmp_path):
             box = label.bounding_box()
             assert box and box["x"] >= 0 and box["y"] >= 0
             assert box["x"] + box["width"] <= 640 and box["y"] + box["height"] <= 360
-            for cover in ("#exam-panel", "#hud"):  # neither box overlaps the label's
+            # the live checks panel (PLAN 4.1i) folds to one line there as well
+            teacher.wait_for_selector("#checks-panel-header")
+            assert teacher.locator("#checks-panel-header").inner_text().startswith("▸")
+            for cover in ("#exam-panel", "#hud", "#checks-panel"):  # no box overlaps the label
                 other = teacher.locator(cover).bounding_box()
                 assert other is not None
                 apart = (

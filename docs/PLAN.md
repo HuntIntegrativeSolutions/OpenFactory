@@ -2650,7 +2650,7 @@ runs the sorting program against it; a box visibly gets pushed.
         `web/src/checks.test.ts` (2), `tests/integration/test_checks_panel.py` (2, real time: the
         sorter with a 20 s `duration_s` goes pending to PASS in the viewer and the instructor
         view; a program that never pushes shows FAIL in red at about 11 s, the rest pending).
-        Screenshots `checks-4.1i-passed.png`, `checks-4.1i-failed.png` looked at.
+        Screenshots `checks-4.1i-passed.png`, `checks-4.1i-failed.png` looked at. The instructor page starts it folded to one line below 900 px, as the exam panel (fresh-clone CI caught it covering a fault label at 640 px; `test_instructor_view.py` now checks it).
 - [x] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
       *Defined (ruled 2026-11-07):* models authored by our own scripts or taken from CC0/CC-BY
       sources with attribution, each under the 1 MB rule with a license sidecar, drawn through

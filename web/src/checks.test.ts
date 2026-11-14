@@ -1,6 +1,6 @@
 // PLAN 4.1i: the live checks panel's states, colors and header.
 import { describe, expect, it } from "vitest";
-import { STATE_STYLE, summary, type CheckStatus } from "./checks";
+import { folded, STATE_STYLE, summary, type CheckStatus } from "./checks";
 import { cssColor, ISA101 } from "./isa101";
 
 const status = (graded: boolean, states: ("pending" | "passed" | "failed")[]): CheckStatus => ({
@@ -28,5 +28,11 @@ describe("live checks panel (PLAN 4.1i)", () => {
       "Checks: 0 passed, 1 failed, 2 pending · graded at 60 s (t = 12 s)",
     );
     expect(summary(status(true, ["passed", "passed"]))).toBe("Checks: 2 passed, 0 failed, 0 pending · graded at 60 s");
+  });
+
+  it("folds to one short line", () => {
+    expect(folded(status(false, ["pending", "failed"]))).toBe("Checks: 1 failed");
+    expect(folded(status(false, ["pending", "passed"]))).toBe("Checks: 1 pending");
+    expect(folded(status(true, ["passed", "passed"]))).toBe("Checks: 2 passed");
   });
 });

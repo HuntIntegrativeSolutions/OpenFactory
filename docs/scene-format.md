@@ -122,8 +122,8 @@ At `duration_s` of simulated time the run is graded exactly as `openfactory test
 and the panel keeps that result for the rest of the run (to grade again, start the run
 again). Each row also shows the detail line
 `test` prints. A passed check is not green: in ISA-101 color marks what is abnormal, so only a
-failure is colored. The panel is read-only (its header folds it); the instructor view shows the
-same panel. A scene with no `checks:` and a replay show none.
+failure is colored. The panel is read-only (its header folds it to one line); the instructor view
+shows the same panel, folded below 900 px as the exam panel is, so fault labels stay visible. A scene with no `checks:` and a replay show none.
 
 What the scene names is checked when it loads, so a typo fails loudly instead of grading wrong:
 a `parts_reached` key must be a `part_remover` in the scene, each part name must be one some

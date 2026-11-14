@@ -2,12 +2,14 @@
 // passed or failed, read from GET /api/checks once a second (core/checks.py `live`). A check is
 // failed as soon as running longer cannot make it pass, and at `duration_s` the panel shows the
 // graded result, as `openfactory test` grades the run, which then stays. Read-only: the panel
-// has nothing to press but its header, which folds it. The instructor view shows the same panel.
+// has nothing to press but its header, which folds it. The instructor view shows the same panel,
+// folded below 900 px as the exam panel is, so the fault labels stay visible.
 //
 // Colors (ISA-101, the palette in isa101.ts): color marks what is abnormal. A failed check is
 // alarm red; a pending one is the stopped grey; a passed one is the normal text color, brighter
 // than pending, never green, so good and bad are never green against red (HIS ISA-101 rule).
 // Each row also says PASS, FAIL or a dash, so color is never the only cue.
+import { startsCollapsed } from "./exampanel";
 import { cssColor, type Isa101Color } from "./isa101";
 
 export type CheckState = "pending" | "passed" | "failed";
@@ -44,12 +46,25 @@ export function summary(status: CheckStatus): string {
   return `Checks: ${counts} · ${when}`;
 }
 
-function readFolded(key: string): boolean {
+/** Whether the panel starts folded: as the exam panel (ruled 2026-11-10), what this browser
+ * chose last time on this kind of page, else folded on the instructor page below 900 px, so its
+ * fault labels stay visible, and open everywhere else. */
+/** The folded panel's one line: the failures, if any, else how many checks are pending. */
+export function folded(status: CheckStatus): string {
+  const failed = status.checks.filter((c) => c.state === "failed").length;
+  if (failed) return `Checks: ${failed} failed`;
+  const pending = status.checks.filter((c) => c.state === "pending").length;
+  return pending ? `Checks: ${pending} pending` : `Checks: ${status.checks.length} passed`;
+}
+
+function readFolded(key: string, instructor: boolean): boolean {
+  let stored: string | null = null;
   try {
-    return window.localStorage.getItem(key) === "1";
+    stored = window.localStorage.getItem(key);
   } catch {
-    return false; // storage blocked: start open
+    // storage blocked: the default applies
   }
+  return startsCollapsed(stored, instructor, window.innerWidth);
 }
 
 function writeFolded(key: string, folded: boolean): void {
@@ -70,7 +85,7 @@ export class ChecksPanel {
 
   constructor(instructor = false) {
     this.storageKey = `openfactory.checksPanel.folded.${instructor ? "instructor" : "viewer"}`;
-    this.folded = readFolded(this.storageKey);
+    this.folded = readFolded(this.storageKey, instructor);
     this.element = document.createElement("div");
     this.element.id = "checks-panel";
     this.element.style.cssText =
@@ -123,7 +138,9 @@ export class ChecksPanel {
     head.style.cssText = "font-weight:700;cursor:pointer;user-select:none";
     const failed = status.checks.some((c) => c.state === "failed");
     head.style.color = failed ? cssColor("alarmHigh") : cssColor("normalText");
-    head.textContent = `${this.folded ? "▸" : "▾"} ${summary(status)}`;
+    // folded, the panel is one short line, as narrow as its text, so it covers no labels
+    head.textContent = this.folded ? `▸ ${folded(status)}` : `▾ ${summary(status)}`;
+    this.element.style.width = this.folded ? "auto" : "min(340px,calc(100vw - 32px))";
     const fold = () => {
       this.folded = !this.folded;
       writeFolded(this.storageKey, this.folded);
