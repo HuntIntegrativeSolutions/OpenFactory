@@ -30,8 +30,19 @@ one line of YAML.
 - **Add:** pick a type in the palette and press **Add**. The palette lists every built-in type,
   the composite types the scene declares, and every library composite in a `_library/` folder
   beside the scene or above it, up to the project root (the rule is in
-  [the scene format](scene-format.md), "Library composites"). The new component is placed on the floor at the centre of the
-  view and selected.
+  [the scene format](scene-format.md), "Library composites"). The new component is dropped on the floor at the centre of the
+  view, drawn, then placed (PLAN 4.1e):
+  - Where its drawn footprint, with 5 cm around it, overlaps nothing, it stays there. Otherwise
+    it moves to the nearest spot on the floor (searched in 0.1 m steps up to 15 m away, never
+    past the floor's 20 m edge) where it overlaps nothing. The view does not move.
+  - A conveyor whose end lands within **1 m** of an open end of another conveyor (an end no
+    other conveyor's end meets) snaps to it as a drag does (see "Snapping conveyor ends
+    together" below): the ends meet and face, the new conveyor takes that end's height, and the
+    connection is added. If that place is blocked by anything but the conveyor it joins, it is
+    placed clear instead.
+  - A component that cannot be drawn yet (a pipe without its ends, a heater without a tank) is
+    placed when a later change first lets it be drawn. A pipe is never moved: it runs between
+    its ends.
   - Its id is the type's prefix and the next free number (`PE_02`). Every required I/O port gets
     a proposed tag (`PE_02_DI`, `CONV_03_RUN_DO`), which you can rename in the form.
   - A library composite also adds `{library: name}` to the scene's `composites:` block.
@@ -123,6 +134,5 @@ of level, or more than 1 degree from facing. A scene snapped in the editor has n
 ## Not yet
 
 Renaming a component, and deleting the references to a deleted one with it, are not in the
-editor yet (PLAN 4.1f), and a new component is placed at the centre of the view even over the
-plant (PLAN 4.1e). Snap ports for pipes and for devices mounted on a conveyor's side are PLAN
+editor yet (PLAN 4.1f). Snap ports for pipes and for devices mounted on a conveyor's side are PLAN
 4.1g.

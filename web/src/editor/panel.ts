@@ -23,6 +23,7 @@ import {
   type JsonSchema,
 } from "./forms";
 import { EditOps } from "./ops";
+import type { Placement } from "./place";
 
 interface Finding {
   level: string;
@@ -56,6 +57,8 @@ export interface EditorStatus {
   snap: { id: string; mine: string; theirs: string; port: string; connection: { from: string; to: string } } | null;
   /** A snap candidate while dragging, or null. */
   snapping: string | null;
+  /** Where the last Add put its component (PLAN 4.1e): moved off the drop point, or snapped. */
+  placed: { id: string; dropped: [number, number, number]; position: [number, number, number]; moved_m: number; snapped: string | null; waiting: boolean } | null;
 }
 
 export interface PaletteItem {
@@ -70,14 +73,19 @@ export interface PaletteItem {
 
 /** What the panel asks of the viewer around it (main.ts). */
 export interface PanelHost {
-  /** Draw a previewed scene document. */
-  onScene(doc: SceneDocument): void;
+  /** Draw a previewed scene document; resolves once it is drawn. */
+  onScene(doc: SceneDocument): Promise<void>;
   /** Select a component the panel chose (one just added, or none after a delete). */
   onSelect(id: string | null): void;
   /** Where a new component goes: the floor point at the centre of the view. */
   placement(): [number, number, number];
   /** What dragging the selection does. */
   setMode(mode: "move" | "turn"): void;
+  /** Where a component just added and drawn should go instead (PLAN 4.1e): clear of the plant,
+   * or snapped to an open conveyor end; null to leave it where it was dropped. */
+  settle(id: string, position: [number, number, number], rotationDeg: number): Placement | null;
+  /** Whether a component is drawn in the plant now. */
+  drawn(id: string): boolean;
 }
 
 const TEXT = cssColor("normalText");
@@ -101,6 +109,8 @@ export class EditorPanel {
   private base = "";
   private data: Preview["data"] = null;
   private readonly ops = new EditOps();
+  /** Added components still waiting to be drawn and placed (PLAN 4.1e). */
+  private readonly unplaced = new Set<string>();
   private selected: string | null = null;
   private findings: Finding[] = [];
   private errors = 0;
@@ -122,6 +132,7 @@ export class EditorPanel {
     this.status = {
       file: "", selected: null, ops: 0, previews: 0, saves: 0, downloads: 0, errors: 0, findings: [],
       message: "", added: [], undescribed: [], palette: [], mode: "move", snap: null, snapping: null,
+      placed: null,
     };
     this.element = document.createElement("div");
     this.element.id = "editor-panel";
@@ -269,8 +280,43 @@ export class EditorPanel {
     }
     const made = (await res.json()) as { component: Record<string, unknown>; library: string | null };
     this.ops.add(made.component, made.library);
+    // PLAN 4.1e: once it is drawn, preview() moves it clear of the plant or snaps it to an open
+    // end; one that cannot be drawn yet (a reference to fill in) is placed when it first is
+    const id = String(made.component.id);
+    const dropped = made.component.position as [number, number, number];
+    this.unplaced.add(id);
     await this.preview();
-    this.host.onSelect(String(made.component.id));
+    if (this.unplaced.has(id)) {
+      this.status.placed = { id, dropped, position: dropped, moved_m: 0, snapped: null, waiting: true };
+    }
+    this.host.onSelect(id);
+  }
+
+  /** Components added and drawn but not yet placed (PLAN 4.1e): settle each, once. */
+  private async placeAdded(): Promise<void> {
+    for (const id of [...this.unplaced]) {
+      if (!this.componentData(id)) {
+        this.unplaced.delete(id); // deleted before it could be placed
+        continue;
+      }
+      if (!this.host.drawn(id)) continue;
+      this.unplaced.delete(id);
+      const dropped = this.componentData(id)?.position as [number, number, number];
+      const turned = Number(this.componentData(id)?.rotation_deg ?? 0);
+      const placed = this.host.settle(id, dropped, turned);
+      if (placed) {
+        this.ops.change({ op: "set", path: ["components", id, "position"], value: placed.position });
+        if (Math.abs(placed.rotation_deg - turned) > 1e-9) {
+          this.ops.change({ op: "set", path: ["components", id, "rotation_deg"], value: placed.rotation_deg });
+        }
+        if (placed.connection) this.ops.connect(placed.connection.from, placed.connection.to);
+      }
+      if (placed) await this.preview();
+      // last: a test waiting for it sees the preview with the component in place
+      this.status.placed = {
+        id, dropped, position: placed?.position ?? dropped, moved_m: placed?.moved_m ?? 0, snapped: placed?.snapped ?? null, waiting: false,
+      };
+    }
   }
 
   async deleteSelected(): Promise<void> {
@@ -599,9 +645,10 @@ export class EditorPanel {
     this.findings = p.findings;
     this.errors = p.errors;
     this.data = p.data ?? this.data;
-    if (p.scene) this.host.onScene(p.scene);
+    if (p.scene) await this.host.onScene(p.scene);
     this.renderFindings(`${this.ops.size} unsaved change${this.ops.size === 1 ? "" : "s"}`);
     this.renderForm();
+    if (p.scene && this.unplaced.size) await this.placeAdded();
   }
 
   private async save(): Promise<void> {
@@ -625,6 +672,7 @@ export class EditorPanel {
 
   private async revert(): Promise<void> {
     this.ops.clear();
+    this.unplaced.clear();
     this.findings = [];
     this.errors = 0;
     await this.loadSource();

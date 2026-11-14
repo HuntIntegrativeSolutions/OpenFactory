@@ -2540,11 +2540,29 @@ runs the sorting program against it; a box visibly gets pushed.
         that a mounted device's beam or plate reaches across its belt. Nozzles have only a height
         in the scene today, so `pipe` ports first need nozzle positions (a scene format change,
         with `migrate`). *Done when:* to be set with the owner before it starts.
-  - [ ] 4.1e Free placement on Add (added 2026-11-12, from 4.1c's open items): a new component
+  - [x] 4.1e Free placement on Add (added 2026-11-12, from 4.1c's open items): a new component
         is placed at the nearest free spot to the centre of the view, so it does not overlap the
         plant. *Done when:* adding each palette type to a sorter whose view centre is covered by
         a conveyor gives no W205 (or other overlap finding) on the preview, and a Playwright test
-        adds one there and finds it clear of the plant.
+        adds one there and finds it clear of the plant. *Added 2026-11-13 (owner):* a new
+        conveyor dropped near an open end snaps to it with the 4.1d ports.
+        *Done (2026-11-13):* `web/src/editor/place.ts` (pure maths): once the new component is
+        drawn, its footprint (the x-z box of what the viewer drew) with 5 cm around it is
+        tested against every other component's; if it overlaps, it moves to the nearest clear
+        spot (0.1 m steps, up to 15 m, never past the floor's 20 m edge). A conveyor with an end
+        within 1 m of an *open* end (no other end within 2 cm) snaps to it at that end's height
+        and the connection is added, unless anything but the conveyor it joins is in the way.
+        A component the preview cannot draw yet (it needs a reference) is placed on the first
+        preview that draws it; a pipe is never moved. *Decisions:* footprints come from the
+        drawn objects, not a Python table, so housings, meshes and composites count as drawn;
+        a sensor's beam counts as its footprint, so a new photo eye lands beside a belt, not
+        across it; the drop-snap reach is 1 m (a drag's is 0.15 m) because Add has no drag.
+        Tests: `tests/integration/test_editor_add.py` (the sorter with the view centred on
+        CONV_01's belt: all 29 palette types added in turn, no W205/W212/W213 on any preview,
+        each of the 21 drawn clear of every other drawn footprint, the 8 process types that
+        need a tank or pipe wait for a reference; a belt dropped 0.67 m past an open discharge
+        snaps on at [4, 0, 0] with no W212); `web/src/editor/place.test.ts` (9). Screenshots
+        `editor-4.1e-added.png`, `editor-4.1e-snapped.png` looked at.
   - [ ] 4.1f Delete with its references (added 2026-11-12, from 4.1c's open items): Delete
         removes or flags every reference to the deleted component (connections, links, composite
         parts, checks), and the preview lists what it will remove before Save. *Done when:* for

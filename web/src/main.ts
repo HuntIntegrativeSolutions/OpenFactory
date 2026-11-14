@@ -39,6 +39,7 @@ import { EditorPanel } from "./editor/panel";
 import { recolorGizmo } from "./editor/gizmo";
 import { SnapMarker } from "./editor/markers";
 import { findSnap, localPort, worldPort, type Snap, type SnapPort } from "./editor/snap";
+import { placeNew, type Rect } from "./editor/place";
 import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
@@ -715,19 +716,63 @@ async function startEditor(): Promise<void> {
     panel.select(id);
     highlight();
   };
+  /** The floor point (y 0, the plant's datum) at the centre of the uncovered view. */
+  const viewCentre = (): THREE.Vector3 => {
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(-viewShiftPx / window.innerWidth, 0), camera);
+    const hit = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    return hit ?? controls.target.clone();
+  };
+  const placement = (): [number, number, number] => {
+    const at = viewCentre();
+    const round = (v: number) => Math.round(v / GRID_M) * GRID_M;
+    return [Number(round(at.x).toFixed(3)), 0, Number(round(at.z).toFixed(3))];
+  };
+  /** Each file component's drawn footprint in the floor plane (a composite's parts as one). */
+  const footprints = (): Record<string, Rect> => {
+    const out: Record<string, Rect> = {};
+    for (const v of views) {
+      const g = doc?.components.find((c) => c.id === v.id);
+      const id = (g?.composite as { id?: string } | undefined)?.id ?? v.id;
+      const box = boundsOf([v.object]);
+      if (!Number.isFinite(box.min.x)) continue;
+      const r = out[id];
+      out[id] = r
+        ? { minX: Math.min(r.minX, box.min.x), minZ: Math.min(r.minZ, box.min.z), maxX: Math.max(r.maxX, box.max.x), maxZ: Math.max(r.maxZ, box.max.z) }
+        : { minX: box.min.x, minZ: box.min.z, maxX: box.max.x, maxZ: box.max.z };
+    }
+    return out;
+  };
   const panel = new EditorPanel({
-    onScene: (next) => void applyScene(next).then(highlight),
+    onScene: (next) => applyScene(next).then(highlight),
     onSelect: select,
-    placement: () => {
-      // the floor point (y 0, the plant's datum) at the centre of the uncovered view
-      const ray = new THREE.Raycaster();
-      ray.setFromCamera(new THREE.Vector2(-viewShiftPx / window.innerWidth, 0), camera);
-      const hit = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
-      const at = hit ?? controls.target.clone();
-      const round = (v: number) => Math.round(v / GRID_M) * GRID_M;
-      return [Number(round(at.x).toFixed(3)), 0, Number(round(at.z).toFixed(3))];
-    },
+    placement,
     setMode,
+    drawn: (id) => viewsOf(id).length > 0,
+    settle: (id, position, rotationDeg) => {
+      // PLAN 4.1e: the footprints (x, z) of what is drawn: the new component's, and every
+      // other's, each with the id in the file it belongs to (a composite part's instance)
+      const mine = viewsOf(id);
+      if (!mine.length || !doc || mine.some((v) => v.type === "pipe")) return null; // a pipe runs from its ends
+      const rectOf = (box: THREE.Box3): Rect => ({ minX: box.min.x, minZ: box.min.z, maxX: box.max.x, maxZ: box.max.z });
+      const fileId = (viewId: string) => {
+        const g = doc?.components.find((c) => c.id === viewId);
+        return (g?.composite as { id?: string } | undefined)?.id ?? viewId;
+      };
+      const obstacles = views
+        .filter((v) => !mine.includes(v))
+        .map((v) => ({ id: fileId(v.id), rect: rectOf(boundsOf([v.object])) }))
+        .filter((o) => Number.isFinite(o.rect.minX));
+      const geometry = doc.components.find((c) => c.id === id);
+      const conveyors = doc.components
+        .filter((c) => c.id !== id && Array.isArray(c.snaps) && (c.snaps as SnapPort[]).length)
+        .map((c) => ({ id: c.id, ports: c.snaps as SnapPort[] }));
+      return placeNew(
+        { id, position, rotation_deg: rotationDeg, rect: rectOf(boundsOf(mine.map((v) => v.object))), ports: (geometry?.snaps as SnapPort[] | undefined) ?? [] },
+        obstacles,
+        conveyors,
+      );
+    },
   });
   window.__openfactory.editor = panel.status;
   window.__openfactory.physics = "off: edit";
@@ -802,6 +847,17 @@ async function startEditor(): Promise<void> {
     if (!typing && e.key === "Delete") void panel.deleteSelected();
   });
   Object.assign(window, {
+    /** Pan the view so Add drops at floor point (x, z) (tests, PLAN 4.1e). */
+    __openfactoryEditorLook: (x: number, z: number) => {
+      const at = viewCentre();
+      const shift = new THREE.Vector3(x - at.x, 0, z - at.z);
+      camera.position.add(shift);
+      controls.target.add(shift);
+      controls.update();
+      return placement();
+    },
+    /** Each component's drawn footprint (tests, PLAN 4.1e). */
+    __openfactoryEditorFootprints: footprints,
     /** A component's values as the file with pending edits has them (tests, PLAN 4.1c). */
     __openfactoryEditorData: (id: string) => panel.componentData(id),
     /** Select a component as a click on it would (tests, PLAN 4.1c). */
