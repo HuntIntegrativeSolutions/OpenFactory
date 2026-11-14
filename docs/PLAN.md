@@ -2647,7 +2647,7 @@ runs the sorting program against it; a box visibly gets pushed.
         a replay and a scene with no checks show no panel. Tests: `tests/unit/test_live_checks.py`
         (3: pending, then graded and frozen, agreeing with `evaluate`; a tall box at the wrong
         remover fails live before 30 s; `/api/checks` is GET only and empty with no checks),
-        `web/src/checks.test.ts` (2), `tests/integration/test_live_checks.py` (2, real time: the
+        `web/src/checks.test.ts` (2), `tests/integration/test_checks_panel.py` (2, real time: the
         sorter with a 20 s `duration_s` goes pending to PASS in the viewer and the instructor
         view; a program that never pushes shows FAIL in red at about 11 s, the rest pending).
         Screenshots `checks-4.1i-passed.png`, `checks-4.1i-failed.png` looked at.
