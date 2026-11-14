@@ -69,7 +69,13 @@ Behavior spec
   was sent to), and a ``POST`` whose content type is not ``application/json`` is refused with
   **415**, so a cross-site form or a ``text/plain`` fetch, which a browser sends without asking
   first, never reaches a handler. A request with no ``Origin`` (curl, Python, the tests) is not
-  a browser on another site and passes.
+  a browser on another site and passes. ``WS /ws/events`` is refused the same way (closed before
+  it is accepted, an HTTP 403) when its ``Origin`` is not this server's own.
+- **DNS rebinding** (ruled 2026-11-13): a server bound to loopback answers only requests and
+  sockets whose ``Host`` is a loopback name or address (``localhost``, ``127.0.0.0/8``, ``[::1]``,
+  any port); anything else gets 421 (a socket is closed before it is accepted). A page on a site
+  whose name is re-pointed at 127.0.0.1 sends its own name as ``Host`` and is refused. A server
+  bound beyond loopback (``--bind 0.0.0.0``) does not check ``Host``.
 - ``/``: the built viewer from ``web/dist`` (``npm run build``), when present. Without a build,
   ``/`` returns a short page saying how to build it; the API still works.
 
@@ -214,6 +220,54 @@ def write_refusal(
     return None
 
 
+def host_refusal(host: str | None) -> str | None:
+    """Why a request to a loopback-bound server is refused for its ``Host`` header, or None
+    (DNS rebinding). A missing ``Host`` passes: only an HTTP/1.0 client omits it, never a
+    browser."""
+    if host is None:
+        return None
+    name = host.strip()
+    if name.startswith("["):  # [::1]:8080
+        name = name[1 : name.find("]")] if "]" in name else name
+    elif name.count(":") == 1:
+        name = name.split(":", 1)[0]
+    if is_loopback(name.lower()):
+        return None
+    return f"refused: Host {host!r} is not a loopback name or address"
+
+
+def ws_origin_refusal(scheme: str, host: str | None, origin: str | None) -> str | None:
+    """Why a websocket is refused for its ``Origin``, or None. A browser sends ``http(s)://``
+    origins for ``ws(s)://`` sockets; no ``Origin`` (a script) passes."""
+    if origin is None:
+        return None
+    own = f"{'https' if scheme in ('wss', 'https') else 'http'}://{host}"
+    if origin != own:
+        return f"refused: a socket from {origin} is not from this server's own pages"
+    return None
+
+
+class LoopbackHostOnly:
+    """ASGI middleware: refuse any HTTP request or websocket whose ``Host`` fails
+    :func:`host_refusal` (421, or a socket closed before it is accepted)."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] in ("http", "websocket"):
+            headers = {k.decode("latin-1"): v.decode("latin-1") for k, v in scope["headers"]}
+            refusal = host_refusal(headers.get("host"))
+            if refusal is not None:
+                log.warning("%s", refusal)
+                if scope["type"] == "http":
+                    await JSONResponse({"detail": refusal}, status_code=421)(scope, receive, send)
+                else:
+                    await send({"type": "websocket.close", "code": 1008})
+                return
+        await self.app(scope, receive, send)
+
+
 def create_app(
     runtime: Runtime,
     web_dist: Path | None = WEB_DIST,
@@ -227,6 +281,8 @@ def create_app(
     app = FastAPI(title="OpenFactory", version=__version__, docs_url="/api/docs")
     app.state.runtime = runtime
     faults_open = is_loopback(bind)
+    if faults_open:
+        app.add_middleware(LoopbackHostOnly)
 
     @app.middleware("http")
     async def same_origin_writes(request: Request, call_next: Any) -> Any:
@@ -540,6 +596,11 @@ def create_app(
 
     @app.websocket("/ws/events")
     async def ws_events(ws: WebSocket) -> None:
+        refusal = ws_origin_refusal(ws.url.scheme, ws.headers.get("host"), ws.headers.get("origin"))
+        if refusal is not None:
+            log.warning("%s", refusal)
+            await ws.close(code=1008)
+            return
         await ws.accept()
         try:
             while True:

@@ -19,7 +19,7 @@ from openfactory.server.editor import EditSession
 from openfactory.server.runtime import Runtime
 
 REPO = Path(__file__).resolve().parents[2]
-OWN = "http://testserver"  # TestClient's own origin: scheme and Host
+OWN = "http://127.0.0.1"  # the tests' TestClient origin: scheme and Host
 EVIL = "https://example.invalid"
 EDIT_POSTS = ("/api/edit/preview", "/api/edit/save", "/api/edit/new", "/api/edit/palette")
 
@@ -30,7 +30,9 @@ def editing(tmp_path):
         shutil.copy(f, tmp_path / f.name)
     scene = tmp_path / "sorting-by-height.yaml"
     runtime = Runtime(build(load_scene(scene), base_dir=tmp_path), realtime=False)
-    client = TestClient(create_app(runtime, web_dist=None, edit=EditSession(scene)))
+    client = TestClient(
+        create_app(runtime, web_dist=None, edit=EditSession(scene)), base_url="http://127.0.0.1"
+    )
     return scene, client
 
 
@@ -63,7 +65,7 @@ def test_an_edit_post_from_another_origin_is_refused_with_403(editing, path):
     before = scene.read_text(encoding="utf-8")
     res = client.post(path, json=_body(client, path), headers={"Origin": EVIL})
     assert res.status_code == 403 and EVIL in res.json()["detail"]
-    for origin in ("null", "http://testserver:9999", "https://testserver"):  # port, scheme
+    for origin in ("null", "http://127.0.0.1:9999", "https://127.0.0.1"):  # port, scheme
         assert (
             client.post(path, json=_body(client, path), headers={"Origin": origin}).status_code
             == 403
@@ -108,7 +110,9 @@ def _running() -> TestClient:
     scene = REPO / "scenes" / "sorting-by-height.yaml"
     loaded = build(load_scene(scene), base_dir=scene.parent)
     loaded.enable_exam()  # so POST /api/exam has a switch to turn
-    return TestClient(create_app(Runtime(loaded, realtime=False), web_dist=None))
+    return TestClient(
+        create_app(Runtime(loaded, realtime=False), web_dist=None), base_url="http://127.0.0.1"
+    )
 
 
 @pytest.mark.parametrize(

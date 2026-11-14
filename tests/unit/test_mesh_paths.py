@@ -42,7 +42,9 @@ def project(tmp_path):
     shutil.copy(GLB, tmp_path / "above.glb")
     scene = scenes / "sorting-by-height.yaml"
     runtime = Runtime(build(load_scene(scene), base_dir=scenes), realtime=False)
-    client = TestClient(create_app(runtime, web_dist=None, edit=EditSession(scene)))
+    client = TestClient(
+        create_app(runtime, web_dist=None, edit=EditSession(scene)), base_url="http://127.0.0.1"
+    )
     return scene, client, tmp_path
 
 

@@ -64,7 +64,7 @@ def runtime(exam: bool) -> Runtime:
 
 def test_api_exam_lists_and_turns_switches_and_frames_hide_faults():
     rt = runtime(exam=True)
-    http = TestClient(create_app(rt, web_dist=None))
+    http = TestClient(create_app(rt, web_dist=None), base_url="http://127.0.0.1")
     listed = http.get("/api/exam").json()
     assert listed == {
         "enabled": True,
@@ -93,7 +93,7 @@ def test_api_exam_lists_and_turns_switches_and_frames_hide_faults():
 
 def test_without_exam_mode_the_api_says_so_and_frames_keep_fault_markers():
     rt = runtime(exam=False)
-    http = TestClient(create_app(rt, web_dist=None))
+    http = TestClient(create_app(rt, web_dist=None), base_url="http://127.0.0.1")
     assert http.get("/api/exam").json() == {"enabled": False, "switches": []}
     assert http.post("/api/exam", json={"tag": "PE_01_DI", "on": True}).status_code == 404
     http.post("/api/fault", json={"id": "PE_01", "kind": "stuck_on"})
@@ -103,10 +103,13 @@ def test_without_exam_mode_the_api_says_so_and_frames_keep_fault_markers():
 
 def test_post_api_exam_is_guarded_beyond_loopback():
     rt = runtime(exam=True)
-    off = TestClient(create_app(rt, web_dist=None, bind="0.0.0.0"))
+    off = TestClient(create_app(rt, web_dist=None, bind="0.0.0.0"), base_url="http://127.0.0.1")
     assert off.post("/api/exam", json={"tag": "PE_01_DI", "on": True}).status_code == 403
     assert off.get("/api/exam").status_code == 200  # the switch list is not a secret
-    guarded = TestClient(create_app(rt, web_dist=None, bind="0.0.0.0", fault_token="s3cret"))
+    guarded = TestClient(
+        create_app(rt, web_dist=None, bind="0.0.0.0", fault_token="s3cret"),
+        base_url="http://127.0.0.1",
+    )
     body = {"tag": "PE_01_DI", "on": True}
     assert guarded.post("/api/exam", json=body).status_code == 401
     ok = guarded.post("/api/exam", json=body, headers={"X-OpenFactory-Fault-Token": "s3cret"})

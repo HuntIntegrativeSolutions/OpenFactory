@@ -57,7 +57,11 @@ def test_an_idle_run_reports_zeros_and_api_stats_serves_the_report():
     runtime = Runtime(loaded, realtime=False)
     for _ in range(50):
         runtime._step(0.02)  # the scheduler's tick, without a thread
-    report = TestClient(create_app(runtime, web_dist=None)).get("/api/stats").json()
+    report = (
+        TestClient(create_app(runtime, web_dist=None), base_url="http://127.0.0.1")
+        .get("/api/stats")
+        .json()
+    )
     print(report)
     assert report["sim_time_s"] == 1.0
     assert report["utilization_pct"] == {"CONV_01": 0.0}  # nothing commands the belt

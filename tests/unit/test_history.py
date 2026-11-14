@@ -56,7 +56,7 @@ def test_the_endpoint_serves_the_level_the_plc_reads(tmp_path):
     runtime = pid_runtime()
     for _ in range(1500):  # 30 s: the load step at 20 s included
         runtime._step(0.02)
-    http = TestClient(create_app(runtime, web_dist=None))
+    http = TestClient(create_app(runtime, web_dist=None), base_url="http://127.0.0.1")
     body = http.get("/api/history", params={"tag": "TK_01_LT_AI"}).json()
     assert (body["tag"], body["units"], body["range"]) == ("TK_01_LT_AI", "m", [0.0, 2.0])
     assert (body["period_s"], body["window_s"]) == (0.5, 600.0)
@@ -78,7 +78,7 @@ def test_the_endpoint_serves_the_level_the_plc_reads(tmp_path):
     ],
 )
 def test_bad_requests_say_why(params, status, detail):
-    http = TestClient(create_app(pid_runtime(), web_dist=None))
+    http = TestClient(create_app(pid_runtime(), web_dist=None), base_url="http://127.0.0.1")
     res = http.get("/api/history", params=params)
     assert res.status_code == status
     if detail is not None:

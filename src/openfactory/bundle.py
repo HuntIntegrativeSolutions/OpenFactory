@@ -14,7 +14,8 @@ Behavior spec
 - every library composite the scene uses (PLAN 2.5b), as ``_library/<name>.yaml`` beside the
   scene, where the loader finds it when the bundle is opened;
 - the stand-in PLC script (PLAN 2.10), if any: ``--script F.py``, else ``<scene>.py`` beside the
-  scene, else ``examples/pyplc/<scene>.py`` in the nearest folder above the scene that has one;
+  scene, else ``examples/pyplc/<scene>.py`` in the nearest folder from the scene's up to its
+  project root (``core.composite.library_folders``, the same bound as library composites);
   ``--no-script`` leaves it out. It is stored as ``scripts/<file>``;
 - ``manifest.json``: the format name, bundle version, the scene's schema version
   (``openfactory: "0.1"``), the scene and script paths, and every file with its role, size and
@@ -125,12 +126,15 @@ def is_bundle(path: str | Path) -> bool:
 
 
 def find_script(scene_path: Path) -> Path | None:
-    """``<stem>.py`` beside the scene, else ``examples/pyplc/<stem>.py`` in the nearest folder at
-    or above the scene's folder that has one."""
+    """``<stem>.py`` beside the scene, else ``examples/pyplc/<stem>.py`` in the nearest of the
+    scene folder's :func:`~openfactory.core.composite.library_folders` (up to the project root
+    and no further; the scene's folder alone without one)."""
+    from openfactory.core.composite import library_folders
+
     beside = scene_path.with_suffix(".py")
     if beside.is_file():
         return beside
-    for folder in scene_path.resolve().parents:
+    for folder in library_folders(scene_path.resolve().parent):
         candidate = folder / "examples" / "pyplc" / f"{scene_path.stem}.py"
         if candidate.is_file():
             return candidate

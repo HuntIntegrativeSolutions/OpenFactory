@@ -104,7 +104,7 @@ def test_a_recording_cut_short_still_replays(tmp_path):
 def test_replay_serves_frames_and_refuses_to_simulate(tmp_path):
     rec = read_recording(record(tmp_path, "a", seconds=4))
     runtime = ReplayRuntime(rec, speed=50.0)
-    http = TestClient(create_app(runtime, web_dist=None))
+    http = TestClient(create_app(runtime, web_dist=None), base_url="http://127.0.0.1")
     assert http.get("/api/scene").json()["mode"] == "replay"
     runtime.start()
     runtime._thread.join(5)

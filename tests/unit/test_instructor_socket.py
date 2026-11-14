@@ -29,7 +29,7 @@ def exam_runtime() -> Runtime:
 
 
 def refused(client: TestClient, first: object) -> str:
-    with client.websocket_connect("/ws/instructor") as ws:
+    with client.websocket_connect("ws://127.0.0.1/ws/instructor") as ws:
         ws.send_text(json.dumps(first))
         message = json.loads(ws.receive_text())
         assert message["refused"] is True
@@ -40,7 +40,9 @@ def refused(client: TestClient, first: object) -> str:
 
 
 def test_a_wrong_or_missing_token_is_refused_even_on_loopback():
-    client = TestClient(create_app(exam_runtime(), web_dist=None, fault_token="s3cret"))
+    client = TestClient(
+        create_app(exam_runtime(), web_dist=None, fault_token="s3cret"), base_url="http://127.0.0.1"
+    )
     assert "wrong fault token" in refused(client, {"token": "nope"})
     assert "wrong fault token" in refused(client, {"token": None})
     assert "wrong fault token" in refused(client, "not an object")
@@ -48,25 +50,27 @@ def test_a_wrong_or_missing_token_is_refused_even_on_loopback():
 
 
 def test_with_no_token_it_is_open_on_loopback_and_refused_beyond_it():
-    open_client = TestClient(create_app(exam_runtime(), web_dist=None))
-    with open_client.websocket_connect("/ws/instructor") as ws:
+    open_client = TestClient(create_app(exam_runtime(), web_dist=None), base_url="http://127.0.0.1")
+    with open_client.websocket_connect("ws://127.0.0.1/ws/instructor") as ws:
         ws.send_text(json.dumps({"token": None}))
         assert json.loads(ws.receive_text())["instructor"] is True
-    lan = TestClient(create_app(exam_runtime(), web_dist=None, bind="0.0.0.0"))
+    lan = TestClient(
+        create_app(exam_runtime(), web_dist=None, bind="0.0.0.0"), base_url="http://127.0.0.1"
+    )
     assert "bound beyond loopback" in refused(lan, {"token": "anything"})
 
 
 def test_the_instructor_frame_lists_faults_that_the_exam_mode_trainee_frame_hides():
     app = create_app(exam_runtime(), web_dist=None, fault_token="s3cret")
-    client = TestClient(app)
-    with client.websocket_connect("/ws/instructor") as ws:
+    client = TestClient(app, base_url="http://127.0.0.1")
+    with client.websocket_connect("ws://127.0.0.1/ws/instructor") as ws:
         ws.send_text(json.dumps({"token": "s3cret"}))
         frame = json.loads(ws.receive_text())
         assert frame["instructor"] is True and frame["faults"] == {"CYL_01": "jammed"}
         assert "fault" not in frame["components"]["CYL_01"]  # the same snapshot underneath
         status = client.get("/api/status").json()
         assert (status["instructors"], status["viewers"]) == (1, 1)
-    with client.websocket_connect("/ws/state") as ws:
+    with client.websocket_connect("ws://127.0.0.1/ws/state") as ws:
         trainee = json.loads(ws.receive_text())
         assert "faults" not in trainee and "instructor" not in trainee
         assert "fault" not in trainee["components"]["CYL_01"]
@@ -81,13 +85,15 @@ def test_the_instructor_sees_a_misaligned_eye_where_it_points_and_the_trainee_do
     real = runtime.loaded.component("PE_01").state()["beam_offset_m"]
     assert real != 0
     assert runtime.exam_hidden() == {"PE_01": {"beam_offset_m": real}}
-    client = TestClient(create_app(runtime, web_dist=None, fault_token="s3cret"))
-    with client.websocket_connect("/ws/instructor") as ws:
+    client = TestClient(
+        create_app(runtime, web_dist=None, fault_token="s3cret"), base_url="http://127.0.0.1"
+    )
+    with client.websocket_connect("ws://127.0.0.1/ws/instructor") as ws:
         ws.send_text(json.dumps({"token": "s3cret"}))
         frame = json.loads(ws.receive_text())
         assert frame["components"]["PE_01"]["beam_offset_m"] == real
         assert frame["faults"]["PE_01"] == "misaligned"
-    with client.websocket_connect("/ws/state") as ws:
+    with client.websocket_connect("ws://127.0.0.1/ws/state") as ws:
         assert json.loads(ws.receive_text())["components"]["PE_01"]["beam_offset_m"] == 0.0
 
 

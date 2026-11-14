@@ -62,8 +62,9 @@ def test_every_viewer_gets_the_same_text_serialized_once():
     """PLAN 4.3: one broadcaster serializes each frame once and sends that text to every viewer."""
     runtime = Runtime(load(SORTER), realtime=False)
     app = create_app(runtime, web_dist=None)
-    client = TestClient(app)
-    with client.websocket_connect("/ws/state") as a, client.websocket_connect("/ws/state") as b:
+    client = TestClient(app, base_url="http://127.0.0.1")
+    url = "ws://127.0.0.1/ws/state"
+    with client.websocket_connect(url) as a, client.websocket_connect(url) as b:
         # frames sent before the second viewer joined say "viewers": 1; read to the first that
         # both received, the broadcast both were in
         first_a = next(t for t in iter(a.receive_text, None) if '"viewers":2' in t)
@@ -115,9 +116,10 @@ def test_a_failed_broadcaster_restarts_while_viewers_stay(caplog, monkeypatch):
             return super().snapshot
 
     runtime = Flaky(load(SORTER), realtime=False)
-    client = TestClient(create_app(runtime, web_dist=None))
-    with client.websocket_connect("/ws/state") as viewer:
+    client = TestClient(create_app(runtime, web_dist=None), base_url="http://127.0.0.1")
+    with client.websocket_connect("ws://127.0.0.1/ws/state") as viewer:
         assert '"tick"' in receive_within(viewer)  # the same viewer, after two failures
     assert caplog.text.count("state broadcaster failed") == 2  # once per failure
-    with client.websocket_connect("/ws/state") as second:  # and a later viewer is served too
+    # and a later viewer is served too
+    with client.websocket_connect("ws://127.0.0.1/ws/state") as second:
         assert '"tick"' in receive_within(second)

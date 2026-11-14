@@ -26,7 +26,9 @@ def editing(tmp_path):
         shutil.copy(f, tmp_path / f.name)  # the scene and its lockfiles
     scene = tmp_path / "sorting-by-height.yaml"
     runtime = Runtime(build(load_scene(scene), base_dir=tmp_path), realtime=False)
-    client = TestClient(create_app(runtime, web_dist=None, edit=EditSession(scene)))
+    client = TestClient(
+        create_app(runtime, web_dist=None, edit=EditSession(scene)), base_url="http://127.0.0.1"
+    )
     return scene, client
 
 
@@ -106,7 +108,7 @@ def test_a_save_with_lint_errors_or_a_bad_op_writes_nothing(editing):
 
 def test_the_run_api_has_no_edit_routes():
     runtime = Runtime(build(load_scene(REPO / "scenes" / "sorting-by-height.yaml")), realtime=False)
-    client = TestClient(create_app(runtime, web_dist=None))
+    client = TestClient(create_app(runtime, web_dist=None), base_url="http://127.0.0.1")
     assert client.get("/api/edit/source").status_code == 404
     assert "mode" not in client.get("/api/scene").json()
 
@@ -144,7 +146,9 @@ def test_a_mesh_set_in_a_preview_is_served_before_save(tmp_path):
     shutil.copy(REPO / "tests" / "scenes" / "models" / "pusher-housing.glb", tmp_path / "models")
     scene = tmp_path / "sorting-by-height.yaml"
     runtime = Runtime(build(load_scene(scene), base_dir=tmp_path), realtime=False)
-    client = TestClient(create_app(runtime, web_dist=None, edit=EditSession(scene)))
+    client = TestClient(
+        create_app(runtime, web_dist=None, edit=EditSession(scene)), base_url="http://127.0.0.1"
+    )
     base = client.get("/api/edit/source").json()["base"]
     assert client.get("/models/CYL_01.glb").status_code == 404
     pal = client.post("/api/edit/palette", json={"base": base, "ops": []}).json()

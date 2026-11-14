@@ -93,7 +93,7 @@ def test_a_resolved_mesh_is_in_the_scene_document_and_served_by_id():
     }  # fmt: skip
     assert all("mesh" not in c for c in doc["components"] if c["id"] != "CYL_01")
     assert all("mesh" not in c for c in runtime.scene_document(meshes=False)["components"])
-    client = TestClient(create_app(runtime, web_dist=None))
+    client = TestClient(create_app(runtime, web_dist=None), base_url="http://127.0.0.1")
     res = client.get("/models/CYL_01.glb")
     assert res.status_code == 200 and res.content == GLB.read_bytes()
     assert res.headers["content-type"] == "model/gltf-binary"

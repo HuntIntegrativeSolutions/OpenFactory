@@ -1031,7 +1031,7 @@ def bundle(
         Path | None,
         typer.Option(
             help="Stand-in PLC script to carry (default: <scene>.py beside the scene, else "
-            "examples/pyplc/<scene>.py above it)."
+            "examples/pyplc/<scene>.py above it, up to the project root)."
         ),
     ] = None,
     no_script: Annotated[

@@ -96,6 +96,12 @@ open in the same browser cannot use it to change the scene (PLAN 4.1c fix 6):
 - A `POST` whose body is not `application/json` is refused with **415**. A page on another site
   can send a form or a `text/plain` body without the browser asking first, but not JSON.
 
+- The viewer's event socket (`/ws/events`, buttons and sensor events in a run) is refused when its
+  `Origin` is not the server's own.
+- A server bound to loopback answers only when the browser addressed it by a loopback name or
+  address (`localhost`, `127.0.0.1`, `[::1]`): a request or socket with any other `Host` gets
+  **421**. This stops DNS rebinding, where another site re-points its own name at 127.0.0.1.
+
 Scripts and tools that send no `Origin` header (curl, Python) are not a browser on another site
 and are served as before. `tests/unit/test_cross_origin.py` checks each of these.
 

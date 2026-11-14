@@ -8,7 +8,8 @@ instead of reverse-engineering the YAML and the lockfiles:
 - the scene's name, description, schema version, PLC protocol, analog encoding and seed;
 - the commands to validate, lint, test, run, export and bundle it, written to be run from the
   folder that holds the scene, with the stand-in script found the way ``bundle`` finds it
-  (``<scene>.py`` beside the scene, else ``examples/pyplc/<scene>.py`` above it);
+  (``<scene>.py`` beside the scene, else ``examples/pyplc/<scene>.py`` above it, up to the
+  project root);
 - every tag, in Modbus register-map order: kind, component and port, description, transform
   (PLAN 2.17), units and range, and its Modbus address in both analog encodings (ADR-0004), read
   from each lockfile when it exists and otherwise computed as ``run`` would first write it; then

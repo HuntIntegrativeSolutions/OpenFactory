@@ -19,7 +19,7 @@ JAM = {"id": "CYL_01", "kind": "jammed"}
 
 def client(bind: str, token: str | None = None) -> TestClient:
     app = create_app(Runtime(load(SORTER)), web_dist=None, bind=bind, fault_token=token)
-    return TestClient(app)
+    return TestClient(app, base_url="http://127.0.0.1")
 
 
 def calls(http: TestClient, headers: dict[str, str] | None = None) -> list[int]:

@@ -95,7 +95,11 @@ def test_types_that_are_not_conveyors_have_no_ports():
 def test_api_scene_publishes_the_ports_and_a_recording_does_not():
     path = REPO / "scenes" / "two-lane-merge.yaml"
     runtime = Runtime(build(load_scene(path), base_dir=path.parent), realtime=False)
-    doc = TestClient(create_app(runtime, web_dist=None)).get("/api/scene").json()
+    doc = (
+        TestClient(create_app(runtime, web_dist=None), base_url="http://127.0.0.1")
+        .get("/api/scene")
+        .json()
+    )
     tt = next(c for c in doc["components"] if c["type"] == "turntable")
     assert [p["name"] for p in tt["snaps"]][:2] == ["infeed", "discharge"]
     assert set(tt["snaps"][0]) == {"name", "kind", "position", "heading_deg", "width", "role"}

@@ -36,6 +36,7 @@ def sorter_copy(root: Path) -> Path:
     """The shipped sorter, its lockfiles and its script, in the repository's layout."""
     (root / "scenes").mkdir(parents=True)
     (root / "examples" / "pyplc").mkdir(parents=True)
+    (root / "openfactory.toml").write_text("", encoding="utf-8")  # the project root
     for path in (REPO / "scenes").glob("sorting-by-height.*"):
         shutil.copy(path, root / "scenes" / path.name)
     shutil.copy(REPO / "examples/pyplc/sorting-by-height.py", root / "examples/pyplc")
@@ -166,6 +167,15 @@ def test_script_discovery(tmp_path):
     beside.write_text("def step(io, t):\n    pass\n", encoding="utf-8")
     assert find_script(scene) == beside
     assert collect(scene, no_script=True).script is None
+
+
+def test_script_search_stops_at_the_project_root(tmp_path):
+    """examples/pyplc/<scene>.py above the project root is never used (ruled 2026-11-13; the
+    same bound as library composites, PLAN 4.1c fix 5)."""
+    project = tmp_path / "project"
+    scene = sorter_copy(project)
+    (project / "examples").rename(tmp_path / "examples")  # the script now sits above the root
+    assert find_script(scene) is None
 
 
 # --- opening an untrusted bundle --------------------------------------------------------------
