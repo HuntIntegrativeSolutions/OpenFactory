@@ -108,6 +108,22 @@ Two failure rules close the easy passes:
   ruled (2026-11-09): the 300 s run is the grading run for `max_reversals`, as PLAN §9 rule 10
   makes it for every check; the 10 % deadband stays fixed, and there is no per-minute limit.
 
+**Live in the viewer (PLAN 4.1i).** While a scene runs (`openfactory run`), the viewer's checks
+panel, at the top right, lists every check with its state, updated once a second from
+`GET /api/checks`:
+
+| State | Shown as | When |
+|---|---|---|
+| pending | `—`, grey (ISA-101 stopped) | Not decided yet: the run has not reached `duration_s`, and nothing has happened that makes the check fail whatever comes next |
+| failed | `FAIL`, red (ISA-101 alarm) | At once, when running longer cannot make it pass: a part reached the wrong remover, a part was lost, a part took (or has already taken) longer than `max_cycle_s`, a level or batch left its band after `after_s`, a tank overflowed, a pump ran dry or started too often, a command reversed too often. Also when graded |
+| passed | `PASS`, the normal text color | When graded |
+
+At `duration_s` of simulated time the run is graded exactly as `openfactory test` grades it,
+and the panel keeps that result for the rest of the run. Each row also shows the detail line
+`test` prints. A passed check is not green: in ISA-101 color marks what is abnormal, so only a
+failure is colored. The panel is read-only (its header folds it); the instructor view shows the
+same panel. A scene with no `checks:` and a replay show none.
+
 What the scene names is checked when it loads, so a typo fails loudly instead of grading wrong:
 a `parts_reached` key must be a `part_remover` in the scene, each part name must be one some
 `box_emitter` makes, and a name may appear under only one remover.

@@ -130,6 +130,9 @@ class Runtime:
         self.sensor_edges: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
         #: Ten minutes of every AI tag at 2 Hz of simulated time, for the trend panel (PLAN 3.6).
         self.tag_history = TagHistory(loaded.io)
+        #: The scene's checks graded at ``duration_s`` (PLAN 4.1i), as ``openfactory test`` would
+        #: grade them; None before then or with no ``checks:``.
+        self.graded: list[Any] | None = None
 
     # -- simulation thread -----------------------------------------------------------------------
 
@@ -161,6 +164,7 @@ class Runtime:
                     self.scheduler.stop()
                     return
             self.loaded.step(dt)
+            self._grade()
             self.scene_stats.observe()
             self.tag_history.observe(self.loaded.time)
             for eye in self._eyes:
@@ -478,6 +482,30 @@ class Runtime:
             self.event_counts[f"exam:{tag}"] += 1
             self._snapshot = self._take_snapshot()
             return {"tag": tag, "on": bool(on)}
+
+    def _grade(self) -> None:
+        """Grade the checks once, on the tick the run reaches ``duration_s`` (PLAN 4.1i)."""
+        checks = self.loaded.scene.checks
+        if checks is None or self.graded is not None:
+            return
+        if self.loaded.time >= checks.duration_s - 1e-9:
+            from openfactory.checks import evaluate
+
+            self.graded = evaluate(checks, self.loaded)
+
+    def check_status(self) -> dict[str, Any]:
+        """The scene's checks as the viewer's live panel shows them (PLAN 4.1i,
+        :func:`openfactory.checks.live`), as ``GET /api/checks`` serves them."""
+        from openfactory.checks import live
+
+        with self.lock:
+            checks = self.loaded.scene.checks
+            return {
+                "t": self.loaded.time,
+                "duration_s": checks.duration_s if checks is not None else None,
+                "graded": self.graded is not None,
+                "checks": [] if checks is None else live(checks, self.loaded, self.graded),
+            }
 
     def statistics(self) -> dict[str, Any]:
         """The run's statistics so far (PLAN 2.11), as ``GET /api/stats`` serves them."""

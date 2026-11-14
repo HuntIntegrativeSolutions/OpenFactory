@@ -266,6 +266,10 @@ class ReplayRuntime:
     def statistics(self) -> dict[str, Any]:
         return dict((self.recording.end or {}).get("statistics", {}))
 
+    def check_status(self) -> dict[str, Any]:
+        """A replay grades nothing live: no checks panel (PLAN 4.1i)."""
+        return {"t": 0.0, "duration_s": None, "graded": False, "checks": [], "replay": True}
+
     def history(self, tag: str, seconds: float | None = None) -> dict[str, Any]:
         raise KeyError("replay: a recording has no tag history (PLAN 3.6); run the scene")
 

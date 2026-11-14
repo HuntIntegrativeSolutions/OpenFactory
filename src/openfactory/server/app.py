@@ -34,6 +34,12 @@ Behavior spec
   fault markers.
 - ``GET /api/stats``: the run's statistics so far (PLAN 2.11, :mod:`openfactory.core.stats`):
   throughput per remover, conveyor utilization, actuator cycles, part dwell, and losses.
+- ``GET /api/checks`` (PLAN 4.1i): the scene's ``checks:`` as the viewer's live panel shows them,
+  ``{t, duration_s, graded, checks: [{name, state, detail}]}``: ``state`` is ``failed`` as soon
+  as running longer cannot make a check pass, the graded ``passed`` or ``failed`` once the run
+  reaches ``duration_s`` (as ``openfactory test`` grades it; it then stays), else ``pending``
+  (:func:`openfactory.checks.live`). Read-only; an empty list for a scene with no checks and in
+  a replay.
 - ``GET /api/history?tag=TAG[&seconds=S]``: one AI tag's history for the trend panel (PLAN 3.6,
   :mod:`openfactory.core.history`): the last ten minutes (or ``S`` seconds) sampled at 2 Hz of
   simulated time, ``{tag, units, range, period_s, window_s, t: [s], v: [value]}``. 404 for a tag
@@ -436,6 +442,11 @@ def create_app(
     @app.get("/api/stats")
     def stats() -> dict[str, Any]:
         return runtime.statistics()
+
+    @app.get("/api/checks")
+    def checks() -> dict[str, Any]:
+        """The scene's checks, live (PLAN 4.1i): pending, passed or failed."""
+        return runtime.check_status()
 
     @app.get("/api/history")
     def history(tag: str, seconds: float | None = None) -> dict[str, Any]:

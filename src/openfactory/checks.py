@@ -34,6 +34,15 @@ Process checks (PLAN 3.3, ADR-0005 decision 10), from the run's
   tank fails both: it holds no batch to grade.
 
 ``duration_s`` is not a check; it is how long ``openfactory test`` runs.
+
+Live (PLAN 4.1i, 2026-11-13): each result also says whether a failure is ``settled``, that is,
+running longer cannot undo it (a part reached the wrong remover, a part was lost, a part took or
+has already taken longer than ``max_cycle_s``, a level left its band after ``after_s``, a tank
+overflowed, a pump ran dry or started too often, a command reversed too often, a batch tank
+emptied or left its band). :func:`live` turns that into what the viewer's checks panel shows
+while a scene runs: ``failed`` as soon as a failure is settled, ``pending`` otherwise, and at
+``duration_s`` (when ``openfactory test`` would grade the run) the graded result, ``passed`` or
+``failed``, which then stays.
 """
 
 from __future__ import annotations
@@ -50,6 +59,8 @@ class CheckResult:
     name: str
     passed: bool
     detail: str
+    #: A failure that running longer cannot undo (see the module docstring).
+    settled: bool = False
 
 
 def tick_s(loaded: Any) -> float:
@@ -75,12 +86,13 @@ def evaluate(checks: Checks, loaded: Any) -> list[CheckResult]:
             else:
                 wrong = ", ".join(f"{v} to {k}" for k, v in sorted(elsewhere.items()))
                 detail = f"{here} reached {remover}, but {wrong}"
-            results.append(CheckResult(f"parts_reached {remover}: {name}", passed, detail))
+            results.append(
+                CheckResult(f"parts_reached {remover}: {name}", passed, detail, bool(elsewhere))
+            )
     if checks.none_lost:
         lost = dict(world.lost)
-        results.append(
-            CheckResult("none_lost", not lost, f"lost {lost}" if lost else "no part lost")
-        )
+        detail = f"lost {lost}" if lost else "no part lost"
+        results.append(CheckResult("none_lost", not lost, detail, bool(lost)))
     if checks.max_cycle_s is not None:
         limit = checks.max_cycle_s
         dwell = [(r.tick - r.spawn_tick) * dt for r in world.removals]
@@ -91,7 +103,8 @@ def evaluate(checks: Checks, loaded: Any) -> list[CheckResult]:
             f"longest spawn-to-remover {worst_dwell:.2f} s over {len(dwell)} parts; oldest part "
             f"still in the scene {oldest:.2f} s; limit {limit:g} s"
         )
-        results.append(CheckResult(f"max_cycle_s {limit:g}", passed, detail))
+        # a part over the limit, removed or not, can only fail: it only gets older
+        results.append(CheckResult(f"max_cycle_s {limit:g}", passed, detail, not passed))
     results += _process(checks, loaded)
     return results
 
@@ -110,15 +123,15 @@ def _process(checks: Checks, loaded: Any) -> list[CheckResult]:
             out.append(CheckResult(name, False, f"the run ended before {spec.after_s:g} s"))
             continue
         passed = lo - 1e-9 <= band.lo and band.hi <= hi + 1e-9
-        out.append(CheckResult(name, passed, f"level {band.lo:.3f} to {band.hi:.3f} m"))
+        out.append(CheckResult(name, passed, f"level {band.lo:.3f} to {band.hi:.3f} m", not passed))
     for tid in checks.never_overflow:
         spilled = loaded.component(tid).node.overflow
         detail = f"overflowed {spilled * 1000:.1f} L" if spilled else "never overflowed"
-        out.append(CheckResult(f"never_overflow {tid}", spilled == 0, detail))
+        out.append(CheckResult(f"never_overflow {tid}", spilled == 0, detail, spilled != 0))
     for pid in checks.never_dry:
         ticks = watch.dry_ticks[pid]
         detail = f"ran dry {ticks * tick_s(loaded):.2f} s" if ticks else "never ran dry"
-        out.append(CheckResult(f"never_dry {pid}", ticks == 0, detail))
+        out.append(CheckResult(f"never_dry {pid}", ticks == 0, detail, ticks != 0))
     for pid, limit in checks.max_starts.items():
         starts = watch.starts[pid]
         detail = (
@@ -126,7 +139,9 @@ def _process(checks: Checks, loaded: Any) -> list[CheckResult]:
             if starts
             else ("never started")
         )
-        out.append(CheckResult(f"max_starts {pid}: {limit}", 1 <= starts <= limit, detail))
+        out.append(
+            CheckResult(f"max_starts {pid}: {limit}", 1 <= starts <= limit, detail, starts > limit)
+        )
     for cid, limit in checks.max_reversals.items():
         rev = watch.reversals[cid]
         detail = (
@@ -135,7 +150,7 @@ def _process(checks: Checks, loaded: Any) -> list[CheckResult]:
             else "the command never moved"
         )
         passed = rev.moved and rev.count <= limit
-        out.append(CheckResult(f"max_reversals {cid}: {limit}", passed, detail))
+        out.append(CheckResult(f"max_reversals {cid}: {limit}", passed, detail, rev.count > limit))
     for tid, fspec in checks.fractions_within.items():
         recipe = watch.fractions[tid]
         wanted = ", ".join(f"{n} {lo:g} to {hi:g} %" for n, (lo, hi) in fspec.fractions.items())
@@ -154,14 +169,33 @@ def _recipe(
     if not recipe.reached:
         return CheckResult(name, False, f"the run ended before {recipe.after_s:g} s")
     if recipe.empty_at is not None:
-        return CheckResult(name, False, f"the tank was empty at {recipe.empty_at:.2f} s")
+        return CheckResult(name, False, f"the tank was empty at {recipe.empty_at:.2f} s", True)
     parts, passed = [], True
     for key, (lo, hi) in bands.items():
         seen = recipe.bands[key]
         passed &= lo - 1e-9 <= seen.lo and seen.hi <= hi + 1e-9
         label = "" if key == "temperature" else f"{key} "
         parts.append(f"{label}{seen.lo:.2f} to {seen.hi:.2f} {unit}")
-    return CheckResult(name, passed, "; ".join(parts))
+    return CheckResult(name, passed, "; ".join(parts), not passed)
+
+
+def live(checks: Checks, loaded: Any, graded: list[CheckResult] | None) -> list[dict[str, Any]]:
+    """Each check's state for the viewer's live panel: the graded results once the run reached
+    ``duration_s`` (``graded``), else ``failed`` for a settled failure and ``pending`` for the
+    rest, each with ``evaluate``'s detail as of now."""
+    if graded is not None:
+        return [
+            {"name": r.name, "state": "passed" if r.passed else "failed", "detail": r.detail}
+            for r in graded
+        ]
+    return [
+        {
+            "name": r.name,
+            "state": "failed" if r.settled and not r.passed else "pending",
+            "detail": r.detail,
+        }
+        for r in evaluate(checks, loaded)
+    ]
 
 
 def format_results(results: list[CheckResult]) -> str:

@@ -2625,6 +2625,29 @@ runs the sorting program against it; a box visibly gets pushed.
         `io:`. Also (6): list values are shown in YAML flow style. Tests:
         `tests/unit/test_templates.py` (+2), `test_sceneedit.py` (+2), `ops.test.ts` (+1),
         `forms.test.ts` (+1), `tests/integration/test_shipped_scenes.py` (the new scene).
+  - [x] 4.1i Live checks in the viewer (owner, 2026-11-13): while a scene runs, a panel shows
+        each of the scene's checks as pending, passed or failed, updating live, in the ISA-101
+        status colors already in the palette; read-only for a trainee, visible in the
+        instructor view too. *Done when:* a Playwright test sees a check go from pending to
+        passed when the run is graded and another fail live before it is, in the trainee's view
+        and the instructor's.
+        *Done (2026-11-14):* `openfactory.checks.evaluate` now marks a failure `settled` when
+        running longer cannot undo it; `checks.live` gives each check `failed` as soon as it
+        is settled, `pending` otherwise, and the graded result from `duration_s` on (the
+        runtime grades once, on the tick the run reaches it, exactly as `openfactory test`
+        does). `GET /api/checks` serves it; `web/src/checks.ts` polls it once a second and
+        draws the panel at the top right (below the exam panel when that is shown). *Decisions:*
+        "passed" is shown only when graded, never mid-run, so the panel never shows a pass that
+        later turns to a fail; failed is alarm red, pending the stopped grey, passed the normal
+        text color (not green: the HIS ISA-101 rule keeps green and red from meaning good and
+        bad side by side), and each row says PASS, FAIL or a dash so color is not the only cue;
+        a replay and a scene with no checks show no panel. Tests: `tests/unit/test_live_checks.py`
+        (3: pending, then graded and frozen, agreeing with `evaluate`; a tall box at the wrong
+        remover fails live before 30 s; `/api/checks` is GET only and empty with no checks),
+        `web/src/checks.test.ts` (2), `tests/integration/test_live_checks.py` (2, real time: the
+        sorter with a 20 s `duration_s` goes pending to PASS in the viewer and the instructor
+        view; a program that never pushes shows FAIL in red at about 11 s, the rest pending).
+        Screenshots `checks-4.1i-passed.png`, `checks-4.1i-failed.png` looked at.
 - [x] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
       *Defined (ruled 2026-11-07):* models authored by our own scripts or taken from CC0/CC-BY
       sources with attribution, each under the 1 MB rule with a license sidecar, drawn through

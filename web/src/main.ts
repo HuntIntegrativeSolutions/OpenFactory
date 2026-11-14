@@ -31,7 +31,8 @@ import { buildComponent, floorFor, type ComponentView } from "./components";
 import { attachHousings } from "./housings";
 import { attachMeshes } from "./meshes";
 import { cssColor, ISA101 } from "./isa101";
-import { ExamPanel } from "./exampanel";
+import { ExamPanel, examPanelTop } from "./exampanel";
+import { ChecksPanel } from "./checks";
 import { TrendPanel } from "./trend";
 import { FaultMenu } from "./faultmenu";
 import { faultOf, isInstructorPath, tokenFromHash } from "./instructor";
@@ -470,12 +471,25 @@ function onFrame(frame: StateFrame): void {
     `running: ${running.map((v) => v.id).join(", ") || "none"}\n` +
     frameLine();
   examPanel?.avoid(hud); // below the status lines on a narrow screen
+  placeChecks();
   stateCost.frame(start, performance.now() - start);
   status.stateMs = stateCost.renderMs; // main-thread ms per state frame: scene updates and physics
 }
 
 const stateCost = new FrameStats(40);
 let examPanel: ExamPanel | null = null; // set in start(); synced from every state frame
+let checksPanel: ChecksPanel | null = null; // the live checks (PLAN 4.1i), set in start()
+
+/** The checks panel at the top right: below the exam panel when that is shown, else below the
+ * status lines on a narrow screen, as the exam panel is placed. */
+function placeChecks(): void {
+  if (!checksPanel || checksPanel.element.style.display === "none") return;
+  const exam = examPanel?.element;
+  const top = exam && exam.style.display !== "none"
+    ? exam.getBoundingClientRect().bottom + 8
+    : examPanelTop(hud.getBoundingClientRect(), checksPanel.element.offsetWidth, window.innerWidth);
+  checksPanel.placeAt(top);
+}
 
 const frameStats = new FrameStats();
 
@@ -609,6 +623,10 @@ async function start(): Promise<void> {
     streamState(onFrame, () => void 0);
     return;
   }
+  // live checks (PLAN 4.1i): read-only, the trainee's view and the instructor's alike
+  checksPanel = new ChecksPanel(INSTRUCTOR);
+  checksPanel.start();
+  Object.assign(window, { __openfactoryChecks: checksPanel });
   try {
     rapier = await loadRapier();
     if (doc && !replaying()) physics = new PlantPhysics(rapier, { components: doc.components, connections: doc.connections, friction: doc.scene.friction, dt: doc.dt });
