@@ -1,6 +1,6 @@
 """OpenFactory example stand-in PLC for scenes/inline-reject.yaml (PLAN 2.10).
 
-The scene was built in the scene editor from `openfactory new`, with no YAML written by hand
+The scene was built in the scene editor from `openfactory new`, without the file being opened
 (tests/integration/test_editor_build.py rebuilds it). Run it with no PLC at all:
 
     uv run openfactory run scenes/inline-reject.yaml --script examples/pyplc/inline-reject.py

@@ -2590,41 +2590,44 @@ runs the sorting program against it; a box visibly gets pushed.
         looked at.
   - [x] 4.1h A shipped scene built only with the editor (owner, 2026-11-13): start from New and
         build a scene without hand-editing YAML: at least two conveyors joined by snapping, a
-        sensor, a pusher and a bin, with a stand-in script and checks that pass; write down what
-        was awkward, fix the worst three, ship the scene and add it to the docs gallery with a
-        screenshot. *Done when:* the scene is shipped like any other (lockfiles, OpenPLC
-        program, stand-in script, guide, checks passing at 60 s and 300 s) and a test rebuilds
-        it in the browser from `openfactory new` and saves the same values.
-        *Done (2026-11-13):* `scenes/inline-reject.yaml`: two 3 m belts (CONV_02 snapped onto
-        CONV_01's discharge on Add, connection added), a box source (good 0.2 m, oversize
-        0.4 m), a photo eye above the good boxes, a pusher that pushes oversize boxes off the
-        side into a reject bin, and a bin at the end. Its checks pass at 60 s and 300 s under
-        `examples/pyplc/inline-reject.py` (longest 11.8 s, limit 15 s); `examples/openplc/
-        inline-reject.st` is its OpenPLC port; `docs/guides/inline-reject.md` with
-        `docs/media/inline-reject.png` (looked at). `tests/integration/test_editor_build.py`
-        runs the whole session in Chromium (`openfactory new`, then palette, Add, form fields,
-        Use buttons, scene settings, Save) and compares the saved file's values with the
-        shipped file's; the shipped file is that session's output. The lockfiles and
-        CONTEXT.md came from `openfactory export`. The 60 s run under OpenPLC was not recorded
-        (no OpenPLC container on this machine).
-        *Awkward, in the order met:* (1) there was no way to start a scene: `edit` opens only a
-        scene that loads, and a scene needs a component; (2) the scene's own settings and its
-        `checks:` could not be edited at all; (3) optional ports (a belt's `running`, a
-        pusher's `extended`, an emitter's `enable`) had to be typed by hand, and the emitter,
-        with no `io:` yet, showed "not set" and no way to bind one; (4) a sensor, pusher or bin
-        lands clear of the plant (4.1e) and then needs world coordinates typed: there is no
-        "on that belt" (mount ports, 4.1g); (5) the view stays framed on the starter belt as
-        the plant grows, with no fit-view button; (6) list values (the emitter's `parts`) are
-        one line of YAML, shown as JSON; (7) the editor writes no comments (the shipped
-        scenes' "measured 11.8 s" note) and no lockfiles, so lint warns W201/W202 until
-        `openfactory export` runs once per encoding; (8) typing the value a field already has
-        gives no sign it was taken. *Fixed, the worst three:* (1) `openfactory new` (one belt,
-        placeholders that hold Save); (2) the scene settings form (`scene:` and `checks:` from
-        the schema; a first check creates the block above `components:`); (3) every port
-        listed, a **Use TAG** button with the conventional tag, and a first binding creating
-        `io:`. Also (6): list values are shown in YAML flow style. Tests:
-        `tests/unit/test_templates.py` (+2), `test_sceneedit.py` (+2), `ops.test.ts` (+1),
-        `forms.test.ts` (+1), `tests/integration/test_shipped_scenes.py` (the new scene).
+        sensor, a pusher and a bin, with a stand-in script and checks that pass; write down what was
+        awkward, fix the worst three, ship the scene and add it to the docs gallery with a
+        screenshot. *Done when:* the scene is shipped like any other (lockfiles, OpenPLC program,
+        stand-in script, guide, checks passing at 60 s and 300 s) and a test rebuilds it in the
+        browser from `openfactory new` and saves the same values. *Done (2026-11-13):*
+        `scenes/inline-reject.yaml`: two 3 m belts (CONV_02 snapped onto CONV_01's discharge on Add,
+        connection added), a box source (good 0.2 m, oversize 0.4 m), a photo eye above the good
+        boxes, a pusher that pushes oversize boxes off the side into a reject bin, and a bin at the
+        end. Its checks pass at 60 s and 300 s under `examples/pyplc/inline-reject.py` (longest 11.8
+        s, limit 15 s); `examples/openplc/inline-reject.st` is its OpenPLC port;
+        `docs/guides/inline-reject.md` with `docs/media/inline-reject.png` (looked at).
+        `tests/integration/test_editor_build.py` runs the whole session in Chromium (`openfactory
+        new`, then palette, Add, form fields, Use buttons, scene settings, Save) and compares the
+        saved file's values with the shipped file's; the shipped file is that session's output. The
+        file was never opened, but two values were typed as one line of YAML in the form (the
+        emitter's `parts`, the `parts_reached` check): the form has no list or mapping control.
+        `openfactory new` did not exist when the task began; it had to be built first. The lockfiles
+        and CONTEXT.md came from `openfactory export`, and `kits/inline-reject/` from
+        `tools/build_kit.py`. The 60 s run under OpenPLC was not recorded (no OpenPLC container on
+        this machine). *Awkward, in the order met:* (1) there was no way to start a scene: `edit`
+        opens only a scene that loads, and a scene needs a component; (2) the scene's own settings
+        and its `checks:` could not be edited at all, and a list or mapping value (the emitter's
+        `parts`, `parts_reached`) can only be typed as one line of YAML; (3) optional ports (a
+        belt's `running`, a pusher's `extended`, an emitter's `enable`) had to be typed by hand, and
+        the emitter, with no `io:` yet, showed "not set" and no way to bind one; (4) a sensor,
+        pusher or bin lands clear of the plant (4.1e) and then needs world coordinates typed: there
+        is no "on that belt" (mount ports, 4.1g); (5) the view stays framed on the starter belt as
+        the plant grows, with no fit-view button; (6) list values (the emitter's `parts`) are one
+        line of YAML, shown as JSON; (7) the editor writes no comments (the shipped scenes'
+        "measured 11.8 s" note) and no lockfiles, so lint warns W201/W202 until `openfactory export`
+        runs once per encoding; (8) typing the value a field already has gives no sign it was taken.
+        *Fixed, the worst three:* (1) `openfactory new` (one belt, placeholders that hold Save); (2)
+        the scene settings form (`scene:` and `checks:` from the schema; a first check creates the
+        block above `components:`); (3) every port listed, a **Use TAG** button with the
+        conventional tag, and a first binding creating `io:`. Also (6): list values are shown in
+        YAML flow style. Tests: `tests/unit/test_templates.py` (+2), `test_sceneedit.py` (+2),
+        `ops.test.ts` (+1), `forms.test.ts` (+1), `tests/integration/test_shipped_scenes.py` (the
+        new scene).
   - [x] 4.1i Live checks in the viewer (owner, 2026-11-13): while a scene runs, a panel shows
         each of the scene's checks as pending, passed or failed, updating live, in the ISA-101
         status colors already in the palette; read-only for a trainee, visible in the

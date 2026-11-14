@@ -5,7 +5,7 @@
 
   Training and demo use only. Not a safety-rated program and not a safety-rated simulation.
 
-  The scene was built in the scene editor from `openfactory new`, with no YAML written by hand
+  The scene was built in the scene editor from `openfactory new`, without the file being opened
   (docs/guides/inline-reject.md). This program is a line-for-line port of the stand-in script,
   examples/pyplc/inline-reject.py.
 

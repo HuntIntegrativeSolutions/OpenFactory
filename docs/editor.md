@@ -24,7 +24,7 @@ usual header, a Modbus TCP server `plc:` block and one belt conveyor, `CONV_01`,
 scene's description and the conveyor's are placeholders (`New scene`, `New belt conveyor`), and
 Save stays disabled until each has its own. `new` never overwrites a file.
 
-`scenes/inline-reject.yaml` was built this way, with no YAML written by hand
+`scenes/inline-reject.yaml` was built this way, without the file ever being opened
 ([its guide](guides/inline-reject.md)).
 
 ## Selecting and changing values

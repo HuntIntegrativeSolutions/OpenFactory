@@ -119,7 +119,8 @@ panel, at the top right, lists every check with its state, updated once a second
 | passed | `PASS`, the normal text color | When graded |
 
 At `duration_s` of simulated time the run is graded exactly as `openfactory test` grades it,
-and the panel keeps that result for the rest of the run. Each row also shows the detail line
+and the panel keeps that result for the rest of the run (to grade again, start the run
+again). Each row also shows the detail line
 `test` prints. A passed check is not green: in ISA-101 color marks what is abnormal, so only a
 failure is colored. The panel is read-only (its header folds it); the instructor view shows the
 same panel. A scene with no `checks:` and a replay show none.

@@ -1,7 +1,9 @@
 """A shipped scene built only with the editor (owner, 2026-11-13): `openfactory new`, then the
-editor in a browser, with no YAML written by hand. This test does what a user does, click by
-click and field by field, and checks the saved file holds exactly what the shipped
-scenes/inline-reject.yaml holds (the same values; the shipped file is this session's output).
+editor in a browser, without the file ever being opened (two values, the emitter's parts list
+and the parts_reached check, are typed as one line of YAML in the form, which has no list or
+mapping control). This test does what a user does, click by click and field by field, and checks
+the saved file holds exactly what the shipped scenes/inline-reject.yaml holds (the same values;
+the shipped file is this session's output).
 
 Set OPENFACTORY_BUILD_SCENE=<path> to write the saved file there (how the shipped one was made).
 """

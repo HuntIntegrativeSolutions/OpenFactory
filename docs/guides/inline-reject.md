@@ -3,8 +3,10 @@
 `scenes/inline-reject.yaml` is an inspection line: two belts in line, a photo eye above the
 good boxes, and a pusher that knocks each oversize box off the side of the line into a reject
 bin. It is the first shipped scene **built only in the scene editor**: started with
-`openfactory new`, then every component, field, connection and check set in the browser, with
-no YAML written by hand. `tests/integration/test_editor_build.py` repeats that session click by
+`openfactory new`, then every component, field, connection and check set in the browser,
+without the file ever being opened. Two values were typed as one line of YAML in the editor's
+form, the emitter's `parts` list and the `parts_reached` check, because the form has no list or
+mapping control yet. `tests/integration/test_editor_build.py` repeats that session click by
 click and checks that the file it saves holds what the shipped file holds.
 
 Training and demo use only. Not a safety-rated simulation, and the program is not a safety-rated
