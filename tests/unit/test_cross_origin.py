@@ -21,7 +21,13 @@ from openfactory.server.runtime import Runtime
 REPO = Path(__file__).resolve().parents[2]
 OWN = "http://127.0.0.1"  # the tests' TestClient origin: scheme and Host
 EVIL = "https://example.invalid"
-EDIT_POSTS = ("/api/edit/preview", "/api/edit/save", "/api/edit/new", "/api/edit/palette")
+EDIT_POSTS = (
+    "/api/edit/preview",
+    "/api/edit/save",
+    "/api/edit/new",
+    "/api/edit/palette",
+    "/api/edit/references",
+)
 
 
 @pytest.fixture
@@ -42,6 +48,8 @@ def _body(client: TestClient, path: str) -> dict:
     body: dict = {"base": base, "ops": [op]}
     if path == "/api/edit/new":
         body |= {"type": "photo_eye", "position": [1.0, 0.0, 0.0]}
+    if path == "/api/edit/references":
+        body |= {"id": "REM_02"}
     return body
 
 

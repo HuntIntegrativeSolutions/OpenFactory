@@ -66,6 +66,11 @@ export class EditOps {
     this.ops.set(`connect\u0000${from}\u0000${to}`, { op: "connect", from, to });
   }
 
+  /** Remove the connections and checks that name `ids` (PLAN 4.1f), after their delete. */
+  unreference(ids: string[]): void {
+    this.ops.set(`unref\u0000${ids.join("\u0000")}`, { op: "unreference", ids });
+  }
+
   /** Delete a component: drop everything pending for it, and send a `delete` only for one
    * that is in the file. */
   remove(id: string): void {

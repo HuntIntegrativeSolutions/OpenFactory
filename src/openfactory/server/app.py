@@ -61,16 +61,16 @@ Behavior spec
 - ``WS /ws/events``: receives viewer events as JSON objects (see
   :meth:`Runtime.apply_event`). An invalid event is answered with ``{"error": "..."}`` and the
   socket stays open.
-- **Browsers on other sites** (PLAN 4.1c fix 6, ruled 2026-11-12): no response carries CORS
-  headers, so a page from another origin cannot read any answer. Every request that changes
-  something (``POST``, ``PUT``, ``PATCH`` or ``DELETE`` under ``/api/``: the editor's preview,
-  save, palette and new, ``/api/fault`` and ``/api/exam``) is refused with **403** when it has an
+- **Browsers on other sites** (PLAN 4.1c fix 6, ruled 2026-11-12): no response carries CORS headers,
+  so a page from another origin cannot read any answer. Every request that changes something
+  (``POST``, ``PUT``, ``PATCH`` or ``DELETE`` under ``/api/``: the editor's preview, save, palette,
+  new and references, ``/api/fault`` and ``/api/exam``) is refused with **403** when it has an
   ``Origin`` header that is not this server's own origin (the scheme and the ``Host`` the request
   was sent to), and a ``POST`` whose content type is not ``application/json`` is refused with
   **415**, so a cross-site form or a ``text/plain`` fetch, which a browser sends without asking
-  first, never reaches a handler. A request with no ``Origin`` (curl, Python, the tests) is not
-  a browser on another site and passes. ``WS /ws/events`` is refused the same way (closed before
-  it is accepted, an HTTP 403) when its ``Origin`` is not this server's own.
+  first, never reaches a handler. A request with no ``Origin`` (curl, Python, the tests) is not a
+  browser on another site and passes. ``WS /ws/events`` is refused the same way (closed before it is
+  accepted, an HTTP 403) when its ``Origin`` is not this server's own.
 - **DNS rebinding** (ruled 2026-11-13): a server bound to loopback answers only requests and
   sockets whose ``Host`` is a loopback name or address (``localhost``, ``127.0.0.0/8``, ``[::1]``,
   any port); anything else gets 421 (a socket is closed before it is accepted). A page on a site
@@ -170,6 +170,12 @@ class NewComponentRequest(EditRequest):
 
     type: str
     position: tuple[float, float, float] = (0.0, 0.0, 0.0)
+
+
+class ReferencesRequest(EditRequest):
+    """What deleting one component takes with it (PLAN 4.1f)."""
+
+    id: str
 
 
 class FaultRequest(BaseModel):
@@ -352,6 +358,10 @@ def create_app(
         @app.post("/api/edit/new")
         def edit_new(body: NewComponentRequest) -> dict[str, Any]:
             return run_edit(lambda base, ops: edit.new(base, ops, body.type, body.position), body)
+
+        @app.post("/api/edit/references")
+        def edit_references(body: ReferencesRequest) -> dict[str, Any]:
+            return run_edit(lambda base, ops: edit.references(base, ops, body.id), body)
 
     @app.get("/models/{name}")
     def model(name: str) -> FileResponse:

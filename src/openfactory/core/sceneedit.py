@@ -30,6 +30,10 @@ Operations (JSON objects). A ``path`` is a list of keys from the top of the scen
 - ``{"op": "connect", "from": "CONV_01", "to": "CONV_02"}``: adds ``{from: A, to: B}`` to the
   ``connections:`` list (PLAN 4.1d, what a snap adds), as a new ``connections:`` block at the end
   of the file if the scene has none; nothing if the scene already has that connection.
+- ``{"op": "unreference", "ids": ["TK_01", ...]}``: removes every ``connections:`` and
+  ``checks:`` entry naming one of the ids (PLAN 4.1f, :mod:`openfactory.core.references`); the
+  editor sends it with a ``delete``. References a component cannot work without (a pipe's end, a
+  heater's tank) are not touched: the preview names them.
 - ``{"op": "splice", "at": i, "remove": n, "insert": "text"}``: a raw text splice, only what an
   inverse uses to put a deleted component back exactly.
 
@@ -244,6 +248,13 @@ def _apply(doc: Document, op: Op) -> Op:
     if kind == "delete":
         start, _, old = doc.delete_item(("components",), _index_of(doc, op["id"]))
         return {"op": "splice", "at": start, "remove": 0, "insert": old}
+    if kind == "unreference":
+        from openfactory.core.references import remove_references
+
+        ids = op["ids"]
+        if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+            raise ValueError("unreference: ids is a list of component ids")
+        return {"op": "batch", "ops": [_inserted(s) for s in remove_references(doc, ids)]}
     if kind == "use_library":
         return _use_library(doc, str(op["name"]))
     if kind == "connect":

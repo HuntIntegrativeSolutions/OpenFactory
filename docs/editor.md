@@ -56,8 +56,17 @@ one line of YAML.
   grid and turns to 15°; hold **Shift** while dragging for free placement. A composite instance
   moves as one.
 - **Delete** (or the Delete key) removes the selection, with the comment lines directly above it
-  in the file. A component that other components name (a connection, a pipe end) leaves the
-  scene unloadable; the preview says which reference to fix.
+  in the file (PLAN 4.1f). When anything else in the scene names it, the panel first lists what
+  goes with it and what is left to fix, and nothing changes until you press **Delete ID** (or
+  **Cancel**):
+  - **Removed with it:** each `connections:` entry naming it, and each `checks:` entry naming
+    it (a `parts_reached` remover, a tank's `level_within`, a pump in `never_dry`...). A check
+    left empty goes too, and so does `checks:` or `connections:` when nothing is left in it. A
+    composite instance takes the references to its parts (`BUF_BELT`) with it.
+  - **Left for you to fix:** references a component cannot work without: a pipe's, valve's or
+    pump's `from`/`to`, a heater's `tank`, a transmitter's `measures`, a VFD's `drives`, and a
+    `from` entry of an I/O binding that combines its port. They stay as written; the preview
+    says the scene does not load and names each one, and Save stays refused until you change it.
 
 ### Gizmo colors
 
@@ -133,6 +142,5 @@ of level, or more than 1 degree from facing. A scene snapped in the editor has n
 
 ## Not yet
 
-Renaming a component, and deleting the references to a deleted one with it, are not in the
-editor yet (PLAN 4.1f). Snap ports for pipes and for devices mounted on a conveyor's side are PLAN
+Renaming a component is not in the editor yet. Snap ports for pipes and for devices mounted on a conveyor's side are PLAN
 4.1g.

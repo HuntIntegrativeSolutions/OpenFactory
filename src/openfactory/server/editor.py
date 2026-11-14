@@ -25,6 +25,12 @@ the session applies them to the text, never the browser (ruled 2026-11-10):
 - ``POST /api/edit/new`` ``{base, ops, type, position}``: a new component of that type
   (:func:`openfactory.core.templates.new_component`): the editor adds it with an ``add``
   operation, after a ``use_library`` one when ``library`` is set.
+- ``POST /api/edit/references`` ``{base, ops, id}`` (PLAN 4.1f): what deleting ``id`` takes
+  with it, against the text with the operations applied: ``ids`` (the component and, for a
+  composite instance, its parts), ``remove`` (the connections and checks an ``unreference``
+  operation removes) and ``fix`` (references left for the user to change), each a list of
+  ``{path, action, text}`` (:mod:`openfactory.core.references`). The editor lists them and
+  sends ``delete`` and ``unreference`` only when the user confirms.
 - ``GET /models/<id>.glb`` serves the mesh of the scene as last previewed, so a mesh set in the
   form is drawn before Save.
 
@@ -118,6 +124,25 @@ class EditSession:
 
         data = _data(self._applied(base, ops))
         return new_component(type_name, data, self.path.parent, position)
+
+    def references(self, base: str, ops: list[dict[str, Any]], comp_id: str) -> dict[str, Any]:
+        from openfactory.core.references import names_of, references
+
+        text = self._applied(base, ops)
+        data = _data(text)
+        if not any(
+            isinstance(c, dict) and c.get("id") == comp_id
+            for c in (data or {}).get("components") or []
+        ):
+            raise ValueError(f"no component {comp_id!r} in the scene")
+        ids = names_of(text, self.path.parent, comp_id)
+        found = [r.document() for r in references(data, ids)]
+        return {
+            "id": comp_id,
+            "ids": ids,
+            "remove": [r for r in found if r["action"] == "remove"],
+            "fix": [r for r in found if r["action"] == "fix"],
+        }
 
     def source(self) -> dict[str, Any]:
         """The text, its base, and ``data``: the file's values as written (YAML parsed, no

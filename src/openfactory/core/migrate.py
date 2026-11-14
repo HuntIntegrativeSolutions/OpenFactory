@@ -199,6 +199,29 @@ class Document:
         at = self._line_end(self._leaf_end(last))
         return self.splice(at, at, "".join("\n" + pad + line for line in lines))
 
+    def remove_item(self, seq_path: Path_, index: int) -> tuple[int, int, str]:
+        """Remove a sequence item: :meth:`delete_item` in a block sequence, the item and one
+        comma (with the spaces after it) in a flow sequence (PLAN 4.1f)."""
+        _, node = self.find(seq_path)
+        if not isinstance(node, yaml.SequenceNode):
+            raise ValueError(f"{'.'.join(map(str, seq_path))}: not a sequence")
+        if not node.flow_style:
+            return self.delete_item(seq_path, index)
+        if not 0 <= index < len(node.value):
+            raise IndexError(index)
+        item = node.value[index]
+        start, end = item.start_mark.index, self._leaf_end(item)
+        after = self.text[end:]
+        stripped = after.lstrip(" ")
+        if stripped.startswith(","):
+            end += len(after) - len(stripped) + 1
+            end += len(self.text[end:]) - len(self.text[end:].lstrip(" "))
+        else:
+            before = self.text[:start].rstrip(" ")
+            if before.endswith(","):
+                start = len(before) - 1
+        return self.splice(start, end, "")
+
     def delete_item(self, seq_path: Path_, index: int) -> tuple[int, int, str]:
         """Remove a block sequence item, with the comment lines directly above it (no blank
         line between), which belong to it (ruled 2026-11-10)."""

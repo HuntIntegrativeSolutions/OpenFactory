@@ -57,6 +57,10 @@ export interface EditorStatus {
   snap: { id: string; mine: string; theirs: string; port: string; connection: { from: string; to: string } } | null;
   /** A snap candidate while dragging, or null. */
   snapping: string | null;
+  /** A Delete waiting for the user (PLAN 4.1f): what it removes and what it leaves to fix. */
+  confirm: { id: string; remove: string[]; fix: string[] } | null;
+  /** Deletes done. */
+  deletes: number;
   /** Where the last Add put its component (PLAN 4.1e): moved off the drop point, or snapped. */
   placed: { id: string; dropped: [number, number, number]; position: [number, number, number]; moved_m: number; snapped: string | null; waiting: boolean } | null;
 }
@@ -124,6 +128,7 @@ export class EditorPanel {
   private downloadButton: HTMLButtonElement;
   private paletteSelect: HTMLSelectElement;
   private tools: HTMLDivElement;
+  private confirmBox: HTMLDivElement;
   private moveButton: HTMLButtonElement;
   private turnButton: HTMLButtonElement;
 
@@ -132,7 +137,7 @@ export class EditorPanel {
     this.status = {
       file: "", selected: null, ops: 0, previews: 0, saves: 0, downloads: 0, errors: 0, findings: [],
       message: "", added: [], undescribed: [], palette: [], mode: "move", snap: null, snapping: null,
-      placed: null,
+      placed: null, confirm: null, deletes: 0,
     };
     this.element = document.createElement("div");
     this.element.id = "editor-panel";
@@ -177,7 +182,11 @@ export class EditorPanel {
     this.footer = document.createElement("div");
     this.footer.id = "editor-findings";
     this.footer.style.cssText = "margin-top:12px;font-size:12px";
-    this.element.append(head, buttons, add, this.tools, this.body, this.footer);
+    // PLAN 4.1f: what a Delete takes with it, shown until the user confirms or cancels
+    this.confirmBox = document.createElement("div");
+    this.confirmBox.id = "editor-confirm";
+    this.confirmBox.style.cssText = `display:none;margin:0 0 10px;padding:8px;border:1px solid ${WARN};font-size:12px`;
+    this.element.append(head, buttons, add, this.tools, this.confirmBox, this.body, this.footer);
     this.setMode("move");
     document.body.appendChild(this.element);
     this.refreshButtons();
@@ -322,9 +331,72 @@ export class EditorPanel {
   async deleteSelected(): Promise<void> {
     const id = this.selected;
     if (!id || !this.componentData(id)) return;
+    if (this.ops.isAdded(id)) {
+      await this.deleteNow(id, []); // not in the file: nothing there names it
+      return;
+    }
+    // PLAN 4.1f: list what goes with it, and what is left to fix, before anything changes
+    const res = await this.post("/api/edit/references", { id });
+    if (!res.ok) {
+      this.renderFindings(`Not deleted (${res.status}): ${String((await res.json()).detail)}`);
+      return;
+    }
+    const refs = (await res.json()) as { ids: string[]; remove: { text: string }[]; fix: { text: string }[] };
+    if (!refs.remove.length && !refs.fix.length) {
+      await this.deleteNow(id, []);
+      return;
+    }
+    this.askDelete(id, refs.ids, refs.remove.map((r) => r.text), refs.fix.map((r) => r.text));
+  }
+
+  private askDelete(id: string, ids: string[], remove: string[], fix: string[]): void {
+    this.status.confirm = { id, remove, fix };
+    this.confirmBox.replaceChildren();
+    const title = document.createElement("div");
+    title.style.cssText = "font-weight:700;margin-bottom:4px";
+    title.textContent = `Delete ${id}?`;
+    this.confirmBox.append(title);
+    const list = (heading: string, items: string[], listId: string) => {
+      if (!items.length) return;
+      const h = document.createElement("div");
+      h.textContent = heading;
+      h.style.cssText = "margin-top:4px";
+      const ul = document.createElement("ul");
+      ul.id = listId;
+      ul.style.cssText = "margin:2px 0 4px 18px;padding:0";
+      for (const text of items) {
+        const li = document.createElement("li");
+        li.textContent = text;
+        ul.append(li);
+      }
+      this.confirmBox.append(h, ul);
+    };
+    list("It also removes:", remove, "editor-confirm-remove");
+    list("Left for you to fix (the scene will not load until you do):", fix, "editor-confirm-fix");
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;gap:8px;margin-top:6px";
+    const yes = this.button(`Delete ${id}`, () => void this.deleteNow(id, remove.length ? ids : []));
+    yes.id = "editor-confirm-delete";
+    const no = this.button("Cancel", () => this.closeConfirm());
+    no.id = "editor-confirm-cancel";
+    row.append(yes, no);
+    this.confirmBox.append(row);
+    this.confirmBox.style.display = "block";
+  }
+
+  private closeConfirm(): void {
+    this.status.confirm = null;
+    this.confirmBox.style.display = "none";
+    this.confirmBox.replaceChildren();
+  }
+
+  private async deleteNow(id: string, unreference: string[]): Promise<void> {
+    this.closeConfirm();
     this.ops.remove(id);
+    if (unreference.length) this.ops.unreference(unreference);
     await this.preview();
     this.host.onSelect(null);
+    this.status.deletes += 1;
   }
 
   private async download(): Promise<void> {
@@ -354,6 +426,7 @@ export class EditorPanel {
   }
 
   select(id: string | null): void {
+    if (this.status.confirm && this.status.confirm.id !== id) this.closeConfirm();
     this.selected = id;
     this.status.selected = id;
     this.renderForm();
@@ -673,6 +746,7 @@ export class EditorPanel {
   private async revert(): Promise<void> {
     this.ops.clear();
     this.unplaced.clear();
+    this.closeConfirm();
     this.findings = [];
     this.errors = 0;
     await this.loadSource();

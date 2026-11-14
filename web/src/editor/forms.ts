@@ -217,7 +217,8 @@ export type EditOp =
   | { op: "add"; component: Record<string, unknown> }
   | { op: "delete"; id: string }
   | { op: "use_library"; name: string }
-  | { op: "connect"; from: string; to: string };
+  | { op: "connect"; from: string; to: string }
+  | { op: "unreference"; ids: string[] };
 
 export type PathOp = Extract<EditOp, { path: Path }>;
 

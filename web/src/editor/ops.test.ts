@@ -65,4 +65,14 @@ describe("EditOps (PLAN 4.1c)", () => {
       { op: "delete", id: "CONV_03" },
     ]);
   });
+
+  it("sends unreference after the delete it goes with (PLAN 4.1f)", () => {
+    const ops = new EditOps();
+    ops.remove("TK_01");
+    ops.unreference(["TK_01"]);
+    expect(ops.list()).toEqual([
+      { op: "delete", id: "TK_01" },
+      { op: "unreference", ids: ["TK_01"] },
+    ]);
+  });
 });

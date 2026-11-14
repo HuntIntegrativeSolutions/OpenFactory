@@ -2563,12 +2563,31 @@ runs the sorting program against it; a box visibly gets pushed.
         need a tank or pipe wait for a reference; a belt dropped 0.67 m past an open discharge
         snaps on at [4, 0, 0] with no W212); `web/src/editor/place.test.ts` (9). Screenshots
         `editor-4.1e-added.png`, `editor-4.1e-snapped.png` looked at.
-  - [ ] 4.1f Delete with its references (added 2026-11-12, from 4.1c's open items): Delete
+  - [x] 4.1f Delete with its references (added 2026-11-12, from 4.1c's open items): Delete
         removes or flags every reference to the deleted component (connections, links, composite
         parts, checks), and the preview lists what it will remove before Save. *Done when:* for
         each kind of reference a test deletes a referenced component and the scene still loads
         with that reference removed (or the preview names the reference left to fix), and a
         Playwright test shows the preview's list before Save.
+        *Done (2026-11-13):* `src/openfactory/core/references.py` lists every reference to a
+        component (and, for a composite instance, to its parts); `POST /api/edit/references`
+        serves the list; a new edit operation, `unreference`, removes the `connections:` and
+        `checks:` entries (an emptied check, `checks:` or `connections:` goes too), splice by
+        splice, so the rest of the file stays byte for byte and the inverse restores it. The
+        panel shows "It also removes" and "Left for you to fix" before anything changes; Delete
+        ID sends `delete` + `unreference`, Cancel nothing. *Decision:* references a component
+        cannot work without (link ends, a heater's tank, a transmitter's `measures`, a VFD's
+        `drives`, a combined DI's `from` entry) are listed, not removed or cascaded: deleting a
+        tank does not silently delete the pipes, valves and pumps chained to it, and the load
+        error names each until it is changed. Tests: `tests/unit/test_references.py` (10: a
+        connection, the last connection, a composite's parts, `parts_reached`, an emptied check,
+        a tank's four checks and its pipes, heater and transmitter left to fix, a flow-list
+        item, a pump's `never_dry`, a VFD and a combined DI; each delete undone byte for byte);
+        `tests/integration/test_editor_delete.py` (the sorter: REM_02's list shown, Cancel
+        changes nothing, Delete and Save, the saved scene loads with `parts_reached` on REM_01
+        only; batch-mix-heat: TK_01's fix list shown, the preview's E100 names TK_01, Save
+        refused); `web/src/editor/ops.test.ts` (+1). Screenshot `editor-4.1f-confirm.png`
+        looked at.
 - [x] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
       *Defined (ruled 2026-11-07):* models authored by our own scripts or taken from CC0/CC-BY
       sources with attribution, each under the 1 MB rule with a license sidecar, drawn through
