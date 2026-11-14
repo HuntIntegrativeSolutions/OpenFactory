@@ -162,3 +162,40 @@ def test_use_library_appends_to_flow_and_block_lists(block, expected):
 
 def test_mesh_files_lists_glb_files_beside_the_scene():
     assert mesh_files(REPO / "tests" / "scenes") == ["models/pusher-housing.glb"]
+
+
+def test_new_scene_loads_and_holds_placeholders(tmp_path):
+    """`openfactory new` (2026-11-13): one belt conveyor at the origin, placeholder descriptions
+    the editor holds Save on, a Modbus server block; it loads and lints with no errors."""
+    from openfactory.core.schema import parse_scene
+    from openfactory.core.templates import new_scene
+
+    text = new_scene(tmp_path / "my-line.yaml")
+    assert text.startswith("# my-line: built in the OpenFactory scene editor.\n")
+    assert "Not a safety-rated simulation" in text
+    scene = parse_scene(text, tmp_path)
+    assert scene.scene.name == "my-line" and scene.scene.description == "New scene"
+    (conv,) = scene.components
+    assert (conv.id, conv.type) == ("CONV_01", "belt_conveyor")
+    assert conv.description == "New belt conveyor"
+    assert scene.plc.protocol == "modbus_tcp"
+    assert "photo_eye" in new_scene(tmp_path / "eye.yaml", "photo_eye")
+    with pytest.raises(ValueError, match="lower case"):
+        new_scene(tmp_path / "My Line.yaml")
+    with pytest.raises(ValueError, match="needs another component"):
+        new_scene(tmp_path / "heat.yaml", "heater")  # a heater names a tank
+
+
+def test_new_cli_never_overwrites(tmp_path):
+    from typer.testing import CliRunner
+
+    from openfactory.cli import app
+
+    path = tmp_path / "line-a.yaml"
+    runner = CliRunner()
+    first = runner.invoke(app, ["new", str(path), "--no-edit"])
+    assert first.exit_code == 0, first.output
+    before = path.read_text(encoding="utf-8")
+    again = runner.invoke(app, ["new", str(path), "--no-edit"])
+    assert again.exit_code == 1 and "exists" in again.output
+    assert path.read_text(encoding="utf-8") == before

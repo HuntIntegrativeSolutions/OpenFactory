@@ -287,6 +287,43 @@ def new_component(
     return {"component": comp, "library": use}
 
 
+#: The scene name ``openfactory new`` takes from a file name (lower case, digits, hyphens).
+_SCENE_NAME_OK = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def new_scene(path: Path, first: str = "belt_conveyor") -> str:
+    """The text of a new scene for ``openfactory new`` (PLAN 4.1, 2026-11-13): the header every
+    shipped scene carries, ``scene:`` named after the file with a placeholder description, a
+    Modbus TCP server ``plc:`` block, and one ``first`` component at the origin made as the
+    palette makes it (:func:`new_component`). A scene needs at least one component to load,
+    and the editor opens only a scene that loads; the component's placeholder description holds
+    Save until it has its own, as for any new one. ValueError for a file name that is not a
+    scene name or a type the palette cannot place without a reference."""
+    from openfactory.core.sceneedit import emit, emit_item
+
+    name = path.stem
+    if not _SCENE_NAME_OK.match(name) or len(name) > 64:
+        raise ValueError(f"{path.name}: a scene name is lower case letters, digits and hyphens")
+    made = new_component(first, {"components": []}, path.parent)
+    comp = made["component"]
+    if made["library"] or any(v == "" for v in comp.values()):
+        raise ValueError(f"{first}: needs another component first; start from a belt_conveyor")
+    lines = [
+        f"# {name}: built in the OpenFactory scene editor.",
+        "# Training and demo use only. Not a safety-rated simulation.",
+        'openfactory: "0.1"',
+        "scene:",
+        f"  name: {name}",
+        f"  description: {emit(placeholder('scene'))}",
+        "plc:",
+        "  protocol: modbus_tcp",
+        "  role: server",
+        "components:",
+        *("  " + line for line in emit_item(comp)),
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def mesh_files(scene_dir: Path, limit: int = 200) -> list[str]:
     """``.glb`` files a scene can name in ``mesh.file`` (relative, no ``..``): in the scene's
     folder and up to two folders below it, sorted, at most ``limit``."""

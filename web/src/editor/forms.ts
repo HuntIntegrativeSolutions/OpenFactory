@@ -222,9 +222,12 @@ export type EditOp =
 
 export type PathOp = Extract<EditOp, { path: Path }>;
 
-/** The operation that writes an accepted value (null for an optional clears the key). */
-export function opFor(componentId: string, field: Field, value: unknown): PathOp {
-  const path: Path = ["components", componentId, ...field.path];
+/** The operation that writes an accepted value (null for an optional clears the key). The
+ * target is a component id, or the path of the block the form edits (`["scene"]`, `["checks"]`,
+ * the scene settings form). */
+export function opFor(target: string | Path, field: Field, value: unknown): PathOp {
+  const root: Path = typeof target === "string" ? ["components", target] : target;
+  const path: Path = [...root, ...field.path];
   if (field.kind === "yaml") return { op: "set_raw", path, literal: String(value) };
   if (field.kind === "optional" && value === null) return { op: "unset", path };
   return { op: "set", path, value };

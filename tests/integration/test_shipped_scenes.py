@@ -33,6 +33,7 @@ EXPECTED: dict[str, dict[str, dict[str, int]]] = {
     "two-tank-cascade": {},
     "batch-mix-heat": {},
     "plantpax-tank-level": {},
+    "inline-reject": {"REM_01": {"oversize": 2}, "REM_02": {"good": 14}},
 }
 #: The sorter's guide is the OpenPLC quickstart (PLAN 1.14).
 GUIDES = {"sorting-by-height": "openplc-quickstart.md"}

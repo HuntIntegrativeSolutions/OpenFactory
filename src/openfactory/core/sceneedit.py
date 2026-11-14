@@ -15,6 +15,10 @@ Operations (JSON objects). A ``path`` is a list of keys from the top of the scen
 - ``{"op": "set", "path": [...], "value": V}``: sets a scalar or a flow value (a position
   ``[x, y, z]``, a binding ``{tag: X}``), or adds the key as the mapping's last if it is not there.
   A block mapping is set key by key.
+  A key under a component mapping it does not have yet (``io`` on a type with no required
+  port) adds the mapping in flow style, ``io: {enable: EMT_01_ENABLE_DO}``. A key under
+  ``checks`` when the scene has no ``checks:`` creates the block just above
+  ``components:`` (the scene settings form).
 - ``{"op": "set_raw", "path": [...], "literal": "text"}``: the same with YAML source text, as the
   inverse of a set uses to restore the exact original spelling.
 - ``{"op": "unset", "path": [...]}``: removes the key (its whole lines).
@@ -134,9 +138,28 @@ def _index_of(doc: Document, comp_id: str) -> int:
     return _resolve(doc, ["components", comp_id])[-1]
 
 
+#: Top-level blocks the editor may create when a set names a key under one that is not there
+#: (the scene settings form, 2026-11-13); each goes just above ``components:``.
+_NEW_BLOCKS = ("checks",)
+
+
 def _set(doc: Document, path: list[Any], literal: str) -> Op:
     """Set (or add) the value at ``path``; returns the inverse."""
+    if len(path) == 2 and path[0] in _NEW_BLOCKS and not doc.has((path[0],)):
+        block = f"{path[0]}:\n  {emit_key(path[1])}: {literal}\n"
+        if doc.has(("components",)):
+            key, _ = doc.find(("components",))
+            assert key is not None
+            at = doc._line_start(key.start_mark.index)
+        else:
+            at = len(doc.text)
+        return _inserted(doc.splice(at, at, block))
     resolved = _resolve(doc, path[:-1]) + (path[-1],)
+    if len(path) >= 4 and not doc.has(resolved[:-1]) and doc.has(resolved[:-2]):
+        # the first key under a mapping the component does not have yet (a first `io` binding
+        # on a type with no required port): the mapping is added in flow style
+        doc.add_key(resolved[:-2], emit_key(path[-2]), f"{{{emit_key(path[-1])}: {literal}}}")
+        return {"op": "unset", "path": path[:-1]}
     if doc.has(resolved):
         start, end, old = doc.set_node(resolved, literal)
         return {"op": "set_raw", "path": path, "literal": old}

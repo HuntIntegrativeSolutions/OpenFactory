@@ -70,6 +70,7 @@ nav:
       - guides/two-tank-cascade.md
       - guides/batch-mix-heat.md
       - guides/plantpax-tank-level.md
+      - guides/inline-reject.md
   - Reference:
       - scene-format.md
       - editor.md

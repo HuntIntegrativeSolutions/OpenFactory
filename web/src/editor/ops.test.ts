@@ -75,4 +75,19 @@ describe("EditOps (PLAN 4.1c)", () => {
       { op: "unreference", ids: ["TK_01"] },
     ]);
   });
+
+  it("holds a placeholder description from the file until it is replaced (2026-11-13)", () => {
+    const ops = new EditOps();
+    ops.holdPlaceholder("CONV_01", "New belt conveyor");
+    ops.holdPlaceholder("scene", "New scene");
+    expect([...ops.undescribed]).toEqual(["CONV_01", "scene"]);
+    ops.change({ op: "set", path: ["components", "CONV_01", "description"], value: "New belt conveyor" });
+    expect(ops.undescribed.has("CONV_01")).toBe(true);
+    ops.change({ op: "set", path: ["components", "CONV_01", "description"], value: "Infeed Belt Conveyor" });
+    ops.change({ op: "set", path: ["scene", "description"], value: "A line" });
+    expect([...ops.undescribed]).toEqual([]);
+    ops.holdPlaceholder("PE_01", "New photo eye");
+    ops.remove("PE_01"); // deleted: nothing left to describe
+    expect([...ops.undescribed]).toEqual([]);
+  });
 });

@@ -11,6 +11,22 @@ uv run openfactory edit scenes/sorting-by-height.yaml      # then open http://12
 
 Training and demo use only. Not a safety-rated simulation.
 
+## Starting a new scene
+
+```bash
+uv run openfactory new scenes/my-line.yaml                 # writes it, then opens the editor
+uv run openfactory new scenes/my-line.yaml --no-edit       # only writes it
+```
+
+`new` writes a scene named after the file (lower case letters, digits and hyphens) with the
+usual header, a Modbus TCP server `plc:` block and one belt conveyor, `CONV_01`, at the origin
+(`--first TYPE` starts with another type). A scene needs at least one component to load. The
+scene's description and the conveyor's are placeholders (`New scene`, `New belt conveyor`), and
+Save stays disabled until each has its own. `new` never overwrites a file.
+
+`scenes/inline-reject.yaml` was built this way, with no YAML written by hand
+([its guide](guides/inline-reject.md)).
+
 ## Selecting and changing values
 
 Click a component to select it; it is outlined in blue and its properties appear in the panel on
@@ -23,7 +39,21 @@ was when you opened it, runs `openfactory lint` on the result, and the plant is 
 The lint's findings are listed under the form. Nothing is written until you press **Save**.
 
 An I/O binding written as a mapping (`speed: {tag: CONV_01_SPD_AO, initial: 100}`) is edited as
-one line of YAML.
+one line of YAML, and so is any value the form has no control for (an emitter's `parts` list), in
+the scenes' flow style.
+
+Every I/O port is listed, bound or not. An optional port that is not bound (a conveyor's
+`running` feedback, a pusher's `extended` limit, an emitter's `enable`) has a **Use TAG** button
+with the tag the palette would propose (`CONV_01_RUNNING_DI`; `ID_KIND` for a type with one
+port, `EMT_01_DO`): one click binds it. Type another name in the field instead to use that. The
+first binding on a component with no `io:` adds `io: {port: TAG}`.
+
+## The scene's own settings and checks
+
+With nothing selected, the panel shows the scene's settings (`scene:` name, description, author,
+seed, friction) and its [`checks:`](scene-format.md) (`parts_reached`, `none_lost`,
+`max_cycle_s`, the process checks), as forms like a component's. A check set in a scene with no
+`checks:` block adds one just above `components:`.
 
 ## Adding, moving, turning and deleting
 

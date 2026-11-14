@@ -1,0 +1,71 @@
+# inline-reject: built in the OpenFactory scene editor.
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: inline-reject
+  description: "Inline inspection: oversize boxes pushed off into a reject bin."
+  author: HIS Controls
+  seed: 7
+plc:
+  protocol: modbus_tcp
+  role: server
+checks:
+  parts_reached: {REM_01: oversize, REM_02: good}
+  none_lost: true
+  max_cycle_s: 15
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: "Infeed Belt Conveyor — Inspection Line"
+    position: [0.0, 0.0, 0.0]
+    length: 3
+    speed_mps: 0.5
+    width: 0.5
+    io:
+      run: CONV_01_RUN_DO
+      running: CONV_01_RUNNING_DI
+  - id: CONV_02
+    type: belt_conveyor
+    description: "Outfeed Belt Conveyor — Reject Station"
+    position: [3, 0, 0]
+    length: 3
+    speed_mps: 0.5
+    width: 0.5
+    io:
+      run: CONV_02_RUN_DO
+      running: CONV_02_RUNNING_DI
+  - id: EMT_01
+    type: box_emitter
+    description: "Infeed Box Source — Good and Oversize"
+    position: [0.2, 0.3, 0]
+    interval_s: 3
+    parts: [{name: oversize, size: [0.3, 0.4, 0.3], weight: 0.3}, {name: good, size: [0.3, 0.2, 0.3], weight: 0.7}]
+    io: {enable: EMT_01_DO}
+  - id: PE_01
+    type: photo_eye
+    description: Oversize Box Photo Eye
+    position: [3.5, 0.3, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_01_DI
+  - id: CYL_01
+    type: pusher
+    description: Oversize Box Reject Pusher
+    position: [4.5, 0.175, -0.3]
+    extend_time_s: 0.4
+    stroke: 0.6
+    io:
+      extend: CYL_01_EXTEND_DO
+      extended: CYL_01_EXTENDED_DI
+  - id: REM_01
+    type: part_remover
+    description: Reject Bin Part Remover
+    position: [4.5, 0, 0.55]
+    size: [0.6, 1, 0.6]
+  - id: REM_02
+    type: part_remover
+    description: Good Box Discharge Part Remover
+    position: [6.15, 0, 0]
+    size: [0.3, 1, 1]
+connections:
+  - {from: CONV_01, to: CONV_02}

@@ -22,6 +22,7 @@ programs is a safety-rated program.
 | `two-tank-cascade` | [Two tanks in series, cascade](two-tank-cascade.md) | Cascade level control: an outer PI on the lower tank sets an inner PI on the upper tank, across a load step | supply, control valve, two tanks, gravity line, transmitters, consumer |
 | `batch-mix-heat` | [Batch mix and heat](batch-mix-heat.md) | A batch sequence: water and a warm syrup filled to a level each, heated to 50 °C and held, graded on the recipe and the temperature | two supplies, on/off valves, tank, level and temperature transmitters, heater, pilot light |
 | `plantpax-tank-level` | [PlantPAx tank level](plantpax-tank-level.md) | The PlantPAx demo plant: `tank-level-pid`'s loop plus a transfer pump started as the load step, controlled by OpenPLC or by `P_AIn`, `P_PIDE`, `P_ValveC` and `P_Motor` ([the L5X](../plantpax.md)) | supply, control valve, tank, level transmitter, consumer, transfer pump |
+| `inline-reject` | [Inline reject](inline-reject.md) | Built only in the scene editor: two belts snapped end to end, a photo eye above good boxes, and a pusher that knocks oversize ones off the side into a reject bin | belt conveyors, photo eye, pusher, emitter, removers |
 
 Every scene runs the same three ways:
 

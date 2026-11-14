@@ -966,6 +966,38 @@ def edit(
 
 
 @app.command()
+def new(
+    scene: Annotated[Path, typer.Argument(help="The scene file to create.", metavar="SCENE")],
+    first: Annotated[
+        str, typer.Option(help="The type of the one component it starts with.")
+    ] = "belt_conveyor",
+    open_editor: Annotated[
+        bool, typer.Option("--edit/--no-edit", help="Open the editor on it (the default).")
+    ] = True,
+    web_port: Annotated[int | None, typer.Option(help="Viewer port (default 8000).")] = None,
+    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings and errors only.")] = False,
+) -> None:
+    """Start a new scene and open it in the editor (PLAN 4.1): one component (a belt conveyor
+    unless --first says otherwise) at the origin, a placeholder scene description, a Modbus TCP
+    server block. Never overwrites a file."""
+    from openfactory.core.templates import new_scene
+
+    if scene.exists():
+        typer.echo(f"error: {scene} exists; `openfactory edit {scene}` opens it", err=True)
+        raise typer.Exit(1)
+    try:
+        text = new_scene(scene, first)
+    except ValueError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(1) from None
+    scene.parent.mkdir(parents=True, exist_ok=True)
+    scene.write_text(text, encoding="utf-8")
+    typer.echo(f"wrote {scene}")
+    if open_editor:
+        edit(scene, web_port=web_port, quiet=quiet)
+
+
+@app.command()
 def migrate(
     scenes: Annotated[
         list[Path],

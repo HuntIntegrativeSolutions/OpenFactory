@@ -75,6 +75,8 @@ describe("the property form (PLAN 4.1b)", () => {
     expect(opFor("CONV_01", speed, 0.6)).toEqual({ op: "set", path: ["components", "CONV_01", "speed_mps"], value: 0.6 });
     const mesh = flatten(form.fields).find((f) => f.key === "mesh")!;
     expect(opFor("CONV_01", mesh, null)).toEqual({ op: "unset", path: ["components", "CONV_01", "mesh"] });
+    // the scene settings form edits a top-level block (2026-11-13)
+    expect(opFor(["checks"], speed, 0.6)).toEqual({ op: "set", path: ["checks", "speed_mps"], value: 0.6 });
     const yaml = fieldFor(schema, ["parts"], "parts", { type: "array", items: { type: "object" } }, false);
     expect(opFor("EMT_01", yaml, "[{name: a}]")).toEqual({ op: "set_raw", path: ["components", "EMT_01", "parts"], literal: "[{name: a}]" });
   });

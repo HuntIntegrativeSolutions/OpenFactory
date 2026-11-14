@@ -223,3 +223,28 @@ def test_connect_refuses_a_bad_id_or_a_conveyor_feeding_itself():
         apply_ops(_two_belts(), [{"op": "connect", "from": "conv 1", "to": "CONV_02"}])
     with pytest.raises(ValueError, match="cannot feed itself"):
         apply_ops(_two_belts(), [{"op": "connect", "from": "CONV_01", "to": "CONV_01"}])
+
+
+def test_a_first_check_creates_the_checks_block_above_components():
+    """The scene settings form (2026-11-13): a set under checks: in a scene without one."""
+    text = (REPO / "scenes" / "sorting-by-height.yaml").read_text(encoding="utf-8")
+    start = text.index("checks:")
+    bare = text[:start] + text[text.index("components:") :]
+    ops = [
+        {"op": "set", "path": ["checks", "none_lost"], "value": True},
+        {"op": "set_raw", "path": ["checks", "parts_reached"], "literal": "{REM_01: short}"},
+    ]
+    edited, inverses = apply_ops(bare, ops)
+    assert "checks:\n  none_lost: true\n  parts_reached: {REM_01: short}\ncomponents:" in edited
+    assert undo(edited, inverses) == bare
+
+
+def test_a_first_io_binding_adds_the_mapping_in_flow_style():
+    text = (REPO / "scenes" / "sorting-by-height.yaml").read_text(encoding="utf-8")
+    ops = [
+        {"op": "set", "path": ["components", "REM_01", "io", "a"], "value": "X_DI"},
+        {"op": "set", "path": ["components", "REM_01", "io", "b"], "value": "Y_DI"},
+    ]
+    edited, inverses = apply_ops(text, ops)
+    assert "size: [0.3, 1.0, 1.0]\n    io: {a: X_DI, b: Y_DI}\n" in edited
+    assert undo(edited, inverses) == text

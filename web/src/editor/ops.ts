@@ -17,6 +17,7 @@ interface Added {
 export class EditOps {
   private ops = new Map<string, EditOp>();
   private added = new Map<string, Added>();
+  private placeholders = new Map<string, string>();
   /** New components whose description is still the placeholder: nothing is saved until each
    * has its own (ruled 2026-11-10, decision 5). */
   readonly undescribed = new Set<string>();
@@ -38,16 +39,26 @@ export class EditOps {
     return this.added.has(id);
   }
 
-  /** A change to one value (set, set_raw, unset) of a component. */
+  /** A component in the file (or the scene, as "scene") whose description is still the
+   * placeholder `openfactory new` or the palette wrote: held like a new one (2026-11-13). */
+  holdPlaceholder(id: string, placeholder: string): void {
+    this.placeholders.set(id, placeholder);
+    this.undescribed.add(id);
+  }
+
+  /** A change to one value (set, set_raw, unset) of a component, or of the scene. */
   change(op: PathOp): void {
     this.ops.set(pathKey(op.path), op);
     const [top, id, key] = op.path;
-    const added = typeof id === "string" ? this.added.get(id) : undefined;
-    if (top === "components" && key === "description" && added && op.path.length === 3) {
-      const value = op.op === "set" ? op.value : null;
-      if (typeof value === "string" && value.trim() && value !== added.placeholder) this.undescribed.delete(id as string);
-      else this.undescribed.add(id as string);
-    }
+    // the description a change writes, and whose: a component's, or the scene's own
+    const owner = top === "components" && key === "description" && op.path.length === 3 ? String(id)
+      : top === "scene" && id === "description" && op.path.length === 2 ? "scene" : null;
+    if (owner === null) return;
+    const placeholder = this.added.get(owner)?.placeholder ?? this.placeholders.get(owner);
+    if (placeholder === undefined) return;
+    const value = op.op === "set" ? op.value : null;
+    if (typeof value === "string" && value.trim() && value !== placeholder) this.undescribed.delete(owner);
+    else this.undescribed.add(owner);
   }
 
   /** A new component; `library` when the scene must first add `{library: name}`. */
@@ -78,6 +89,8 @@ export class EditOps {
       if ("path" in op && op.path[0] === "components" && op.path[1] === id) this.ops.delete(key);
       if (op.op === "connect" && (op.from === id || op.to === id)) this.ops.delete(key);
     }
+    this.placeholders.delete(id);
+    if (!this.added.has(id)) this.undescribed.delete(id);
     const added = this.added.get(id);
     if (added) {
       this.ops.delete(`add\u0000${id}`);
@@ -93,6 +106,7 @@ export class EditOps {
   clear(): void {
     this.ops.clear();
     this.added.clear();
+    this.placeholders.clear();
     this.undescribed.clear();
   }
 }

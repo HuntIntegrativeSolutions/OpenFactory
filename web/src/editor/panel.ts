@@ -97,6 +97,15 @@ const MUTED = "#9CA3AF";
 const ALARM = cssColor("alarmHigh");
 const WARN = cssColor("alarmMedium");
 
+/** A value as one line of YAML flow text in the scenes' style: unquoted keys and plain
+ * tag-like strings (`{name: good, size: [0.3, 0.2, 0.3]}`), not JSON. */
+export function flowYaml(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/"([A-Za-z_][A-Za-z0-9_]*)":/g, "$1: ")
+    .replace(/"([A-Za-z][A-Za-z0-9_]*)"/g, "$1")
+    .replace(/,/g, ", ");
+}
+
 function getAt(obj: unknown, path: (string | number)[]): unknown {
   let cur: unknown = obj;
   for (const step of path) {
@@ -115,6 +124,8 @@ export class EditorPanel {
   private readonly ops = new EditOps();
   /** Added components still waiting to be drawn and placed (PLAN 4.1e). */
   private readonly unplaced = new Set<string>();
+  /** The block the form being built edits: `["components", id]`, `["scene"]` or `["checks"]`. */
+  private root: (string | number)[] = [];
   private selected: string | null = null;
   private findings: Finding[] = [];
   private errors = 0;
@@ -422,6 +433,13 @@ export class EditorPanel {
     this.base = src.base;
     this.data = src.data;
     this.status.file = src.name;
+    // a description still the placeholder `openfactory new` or the palette wrote holds Save
+    for (const c of (this.data?.components ?? []) as Record<string, unknown>[]) {
+      const placeholder = `New ${String(c.type).replace(/_/g, " ")}`;
+      if (c.description === placeholder && !this.ops.undescribed.has(String(c.id))) this.ops.holdPlaceholder(String(c.id), placeholder);
+    }
+    const scene = (this.data as { scene?: { description?: unknown } } | null)?.scene;
+    if (scene?.description === "New scene") this.ops.holdPlaceholder("scene", "New scene");
     (this.element.querySelector("#editor-head") as HTMLDivElement).textContent = `EDIT MODE · ${src.name}`;
   }
 
@@ -445,10 +463,12 @@ export class EditorPanel {
       hint.style.color = MUTED;
       hint.textContent = this.selected
         ? `${this.selected} is not in the file (a composite's part: select its instance)`
-        : "Click a component to edit its properties.";
+        : "Click a component to edit its properties. With nothing selected, the scene's own settings and checks:";
       this.body.appendChild(hint);
+      if (!this.selected) this.renderSceneSettings();
       return;
     }
+    this.root = ["components", String(comp.id)];
     const form = buildForm(this.schema, defForType(this.schema, String(comp.type)));
     const title = document.createElement("div");
     title.id = "editor-selected";
@@ -465,6 +485,37 @@ export class EditorPanel {
     for (const field of form.fields) this.body.appendChild(this.control(form, comp, field));
   }
 
+  /** The scene's own settings (2026-11-13): `scene:` (name, description, author, seed...) and
+   * `checks:` (PLAN 2.11), as forms from the schema like a component's. */
+  private renderSceneSettings(): void {
+    const data = (this.data ?? {}) as Record<string, unknown>;
+    const sections: [string, string, Record<string, unknown>][] = [
+      ["scene", "SceneMeta", (data.scene ?? {}) as Record<string, unknown>],
+      ["checks", "Checks", (data.checks ?? {}) as Record<string, unknown>],
+    ];
+    for (const [key, def, values] of sections) {
+      if (!this.schema.$defs?.[def]) continue;
+      const box = document.createElement("fieldset");
+      box.id = `editor-${key}`;
+      box.style.cssText = "border:1px solid #374151;margin:8px 0;padding:4px 8px";
+      const legend = document.createElement("legend");
+      legend.textContent = key;
+      legend.style.cssText = "font-weight:700";
+      box.appendChild(legend);
+      if (key === "scene" && this.ops.undescribed.has("scene")) {
+        const ask = document.createElement("div");
+        ask.style.cssText = `color:${WARN};margin:0 0 6px`;
+        ask.textContent = "New: write the scene's description before saving.";
+        box.appendChild(ask);
+      }
+      this.root = [key];
+      const form = buildForm(this.schema, def);
+      for (const field of form.fields) box.appendChild(this.control(form, values, field));
+      this.body.appendChild(box);
+    }
+    this.root = [];
+  }
+
   private row(field: Field, input: HTMLElement): HTMLDivElement {
     const row = document.createElement("label");
     row.style.cssText = "display:block;margin:6px 0";
@@ -476,7 +527,9 @@ export class EditorPanel {
     error.className = "editor-error";
     error.style.cssText = `color:${ALARM};font-size:11px`;
     row.append(name, input, error);
-    row.dataset.field = field.path.join(".");
+    // a scene setting is named with its block (`scene.name`, `checks.duration_s`)
+    const block = this.root[0] === "components" ? [] : this.root;
+    row.dataset.field = [...block, ...field.path].join(".");
     return row as unknown as HTMLDivElement;
   }
 
@@ -493,13 +546,13 @@ export class EditorPanel {
   /** One field's control; on change it checks the value and, if it is good, records the op. */
   private control(form: Form, comp: Record<string, unknown>, field: Field): HTMLElement {
     const current = getAt(comp, field.path);
-    const id = String(comp.id);
+    const root = this.root;
     const commit = (row: HTMLElement, value: unknown) => {
       const error = checkField(field, value);
       const shown = error === null ? "" : error.startsWith("must") ? error : `must be ${error}`;
       (row.querySelector(".editor-error") as HTMLElement).textContent = shown;
       if (error) return;
-      this.ops.change(opFor(id, field, value));
+      this.ops.change(opFor(root, field, value));
       void this.preview();
     };
     if (field.key === "mesh" && field.path.length === 1) return this.meshControl(form, comp, field, current);
@@ -510,12 +563,13 @@ export class EditorPanel {
       legend.textContent = field.key;
       legend.style.color = MUTED;
       box.appendChild(legend);
-      if (current === undefined || current === null) {
+      if ((current === undefined || current === null) && field.key !== "io") {
         const none = document.createElement("div");
         none.style.color = MUTED;
         none.textContent = "not set";
         box.appendChild(none);
       } else {
+        // `io` with nothing bound yet still lists its ports, to bind one (2026-11-13)
         for (const f of field.fields) box.appendChild(this.control(form, comp, f));
       }
       return box;
@@ -588,7 +642,7 @@ export class EditorPanel {
     }
     if (inner.kind === "yaml") {
       const t = document.createElement("textarea");
-      t.value = current === undefined ? "" : JSON.stringify(current);
+      t.value = current === undefined ? "" : flowYaml(current);
       t.rows = 2;
       t.style.cssText = `width:100%;box-sizing:border-box;background:#0b1220;color:${TEXT};border:1px solid #4b5563;font:12px monospace`;
       const row = this.row(field, t);
@@ -603,10 +657,7 @@ export class EditorPanel {
       // a binding with options ({tag, range, initial, ...}): edited as one YAML flow mapping
       const t = document.createElement("textarea");
       // YAML flow text in the scenes' style: unquoted keys and plain tag-like strings
-      t.value = JSON.stringify(current)
-        .replace(/"([a-z_]+)":/g, "$1: ")
-        .replace(/"([A-Za-z][A-Za-z0-9_]*)"/g, "$1")
-        .replace(/,/g, ", ");
+      t.value = flowYaml(current);
       t.rows = 2;
       t.style.cssText = `width:100%;box-sizing:border-box;background:#0b1220;color:${TEXT};border:1px solid #4b5563;font:12px monospace`;
       const mapped = this.row(field, t);
@@ -615,7 +666,7 @@ export class EditorPanel {
         const error = checkField(asYaml, t.value);
         (mapped.querySelector(".editor-error") as HTMLElement).textContent = error ? `must be ${error}` : "";
         if (error) return;
-        this.ops.change(opFor(id, asYaml, t.value));
+        this.ops.change(opFor(root, asYaml, t.value));
         void this.preview();
       });
       return mapped;
@@ -624,7 +675,31 @@ export class EditorPanel {
       if (i.value === "" && field.kind === "optional") return commit(row, null);
       commit(row, i.value);
     });
+    // an unbound optional port (a feedback, a limit, an enable): offer the conventional tag
+    // with one click instead of typing it (2026-11-13, from building inline-reject)
+    const proposal = inner.kind === "tag" && !field.required && (shown === undefined || shown === null || shown === "")
+      ? this.proposeTag(form, field, inner.ioKind) : null;
+    if (proposal) {
+      i.placeholder = proposal;
+      const use = this.button(`Use ${proposal}`, () => commit(row, proposal));
+      use.className = "editor-use-tag";
+      use.style.cssText += ";margin-top:3px;padding:2px 8px;font-size:12px";
+      row.insertBefore(use, row.querySelector(".editor-error"));
+    }
     return row;
+  }
+
+  /** The tag the palette would propose for an I/O port (core/templates.py `propose_tag`):
+   * `ID_KIND` for a type with one port, else `ID_PORT_KIND`, at most 40 characters. */
+  private proposeTag(form: Form, field: Field, kind: string | undefined): string | null {
+    if (this.root[0] !== "components" || field.path[0] !== "io" || field.path.length !== 2) return null;
+    if (!kind || !["DI", "DO", "AI", "AO"].includes(kind)) return null;
+    const id = String(this.root[1]);
+    const io = form.fields.find((f) => f.key === "io" && (f.kind === "group" || f.kind === "optional"));
+    const ports = io?.kind === "group" ? io.fields : io?.kind === "optional" && io.inner.kind === "group" ? io.inner.fields : [];
+    let tag = ports.length === 1 ? `${id}_${kind}` : `${id}_${String(field.path[1]).toUpperCase()}_${kind}`;
+    if (tag.length > 40) tag = `${tag.slice(0, 40 - kind.length - 1).replace(/_+$/, "")}_${kind}`;
+    return tag;
   }
 
   /** `mesh` (PLAN 2.15): a .glb beside the scene, or none; when set, its other fields. */
