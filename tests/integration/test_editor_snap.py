@@ -89,7 +89,8 @@ def test_a_conveyor_dragged_near_anothers_discharge_snaps_and_connects(tmp_path)
             page.wait_for_function("() => window.__openfactory.editor?.file !== undefined")
             doc = page.evaluate("() => fetch('/api/scene').then((r) => r.json())")
             ports = {c["id"]: c.get("snaps") for c in doc["components"]}
-            assert [p["name"] for p in ports["CONV_01"]] == ["infeed", "discharge"]
+            loads = [p["name"] for p in ports["CONV_01"] if p["kind"] == "load"]
+            assert loads == ["infeed", "discharge"]  # and its rails, mount ports (4.1g1)
 
             page.evaluate("() => window.__openfactoryEditorSelect('CONV_02')")
             page.wait_for_function("() => window.__openfactory.editor.selected === 'CONV_02'")

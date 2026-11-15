@@ -59,6 +59,10 @@ export interface EditorStatus {
   snap: { id: string; mine: string; theirs: string; port: string; connection: { from: string; to: string } } | null;
   /** A snap candidate while dragging, or null. */
   snapping: string | null;
+  /** A rail a dragged device would drop on (PLAN 4.1g1), or null. */
+  mounting: string | null;
+  /** The last drop on a rail: the rail and distance the editor chose and the server's placement. */
+  mount: { id: string; conveyor: string; rail: string; along: number; position: number[]; rotation_deg: number; swing_deg?: number } | null;
   /** A Delete waiting for the user (PLAN 4.1f): what it removes and what it leaves to fix. */
   confirm: { id: string; remove: string[]; fix: string[] } | null;
   /** Deletes done. */
@@ -162,7 +166,7 @@ export class EditorPanel {
     this.status = {
       file: "", selected: null, ops: 0, previews: 0, saves: 0, downloads: 0, errors: 0, findings: [],
       message: "", added: [], undescribed: [], palette: [], mode: "move", snap: null, snapping: null,
-      placed: null, confirm: null, deletes: 0, acks: 0, ack: null, fits: 0, fit: null,
+      placed: null, confirm: null, deletes: 0, acks: 0, ack: null, fits: 0, fit: null, mounting: null, mount: null,
     };
     this.element = document.createElement("div");
     this.element.id = "editor-panel";
@@ -307,6 +311,23 @@ export class EditorPanel {
     this.ops.change({ op: "set", path: ["components", id, "rotation_deg"], value: rotationDeg });
     this.ops.connect(connection.from, connection.to);
     void this.preview();
+  }
+
+  /** A device dropped on a rail (PLAN 4.1g1): the editor chose the rail and the distance along
+   * it; the server places it by the one copy of the drop rules (POST /api/edit/mount). */
+  async mountTo(id: string, drop: { conveyor: string; rail: string; along: number }): Promise<void> {
+    const res = await this.post("/api/edit/mount", { id, conveyor: drop.conveyor, rail: drop.rail, along: drop.along });
+    if (!res.ok) {
+      this.renderFindings(`Not placed on ${drop.conveyor} (${res.status}): ${String((await res.json()).detail)}`);
+      await this.preview(); // redrawn where it was
+      return;
+    }
+    const placed = (await res.json()) as { position: [number, number, number]; rotation_deg: number; swing_deg?: number };
+    this.ops.change({ op: "set", path: ["components", id, "position"], value: placed.position });
+    this.ops.change({ op: "set", path: ["components", id, "rotation_deg"], value: placed.rotation_deg });
+    if (placed.swing_deg !== undefined) this.ops.change({ op: "set", path: ["components", id, "swing_deg"], value: placed.swing_deg });
+    await this.preview();
+    this.status.mount = { id, conveyor: drop.conveyor, rail: drop.rail, along: drop.along, ...placed }; // last: tests wait on it
   }
 
   /** A drag in the plant ended (main.ts): the new position and, after a turn, rotation. */

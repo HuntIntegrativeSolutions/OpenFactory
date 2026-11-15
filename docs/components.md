@@ -184,6 +184,12 @@ follows `run`; stuck faults act on `running`).
 local +x, both at belt-top height; the editor snaps a conveyor's end to another's, and the lint
 checks them (W212, W213). On a `bidirectional` belt both ends both send and receive.
 
+**Mount ports** (PLAN 4.1g1, `mount`): `rail_left` and `rail_right`, its side rails seen looking
+along the flow (local z = -`width`/2 and +`width`/2), at belt-top height from the infeed end for
+`length`, each facing in across the belt. A sensor, pusher, stopper or diverter dropped on one in
+the editor is placed by its type's rule ([the editor guide](editor.md), "Dropping a device on a
+rail"); the lint checks that an eye, stopper or diverter reaches across (W214).
+
 ### `roller_conveyor`
 
 Driven rollers. Same origin, ports, and speed behavior as `belt_conveyor`.
@@ -210,6 +216,8 @@ at μ 0.8), in the headless model and in the viewer alike.
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (as `belt_conveyor`).
 
 **Snap ports** (PLAN 4.1d, `load`): `infeed` and `discharge`, as `belt_conveyor`.
+
+**Mount ports** (PLAN 4.1g1, `mount`): `rail_left` and `rail_right`, as `belt_conveyor`.
 
 ### `turntable`
 
@@ -327,6 +335,10 @@ fully on CONV_02").
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes the plate where it is, with honest
 limits; stuck faults act on the limit switches).
 
+Dropped on a rail in the editor (PLAN 4.1g1), its retracted face goes 0.05 m outside the rail,
+extending across the belt, with the plate's bottom 0.05 m above the belt; W207, not W214, checks
+its stroke.
+
 ### `stopper`
 
 A blade that rises out of the belt to hold parts. Origin: centre of the blade's upstream face at
@@ -357,6 +369,9 @@ belt-top height; the blade spans local z and stops flow along local +x.
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes the blade, so a blade jammed
 partly up still holds parts).
 
+Lint: (W214, PLAN 4.1g1) warns when it stands on a belt or roller conveyor and its blade (`width`, or the belt's) stops more than 1 mm short of either rail.
+Dropped on a rail in the editor, it goes on the centre line at belt-top height.
+
 ### `diverter_arm`
 
 A paddle on a pivot at the edge of a belt. Origin: the pivot at belt-top height; at rest the arm
@@ -384,6 +399,10 @@ stays square to the world axes as in the headless model; the `parity-diverter` t
 1 tick.
 
 Faults: `stuck_on`, `stuck_off`, `jammed`, `slow` (jammed freezes the arm at its current angle).
+
+Lint: (W214, PLAN 4.1g1) warns when it stands on a belt or roller conveyor and its tip at `swing_deg` stops more than 1 mm short of the rail across from its
+pivot (it swings off the belt, or not far enough). Dropped on a rail in the editor, its pivot
+goes on the rail, at rest along the flow, and `swing_deg` is signed to swing over the belt.
 
 ### `pick_and_place`
 
@@ -439,6 +458,9 @@ A through-beam photo eye. Origin: the beam midpoint; the beam spans local z.
 
 Faults: `stuck_on`, `stuck_off`, `misaligned`, `noisy` (misaligned moves the beam `offset_m` along
 the flow; positive sees late).
+
+Lint: (W214, PLAN 4.1g1) warns when it stands on a belt or roller conveyor and its beam, across the belt, stops more than 1 mm short of either rail. Dropped on a
+rail in the editor, its beam midpoint goes over the centre line, across the belt.
 
 ### `distance_sensor`
 

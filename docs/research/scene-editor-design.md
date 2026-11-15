@@ -261,7 +261,7 @@ drawn to the same point.
 
 **Version and `migrate` (decision 2).** Under [the versioning policy](../versioning.md) this adds an optional form and
 changes no existing meaning, so **the format stays `0.1`**, `MIGRATIONS` stays empty, and
-`openfactory migrate` leaves every shipped scene byte for byte (all 13, the library composite
+`openfactory migrate` leaves every shipped scene byte for byte (all 12, the library composite
 and the example scene; `migrate --check scenes` stays clean in CI). Nothing about any shipped
 scene's drawing or hydraulics changes.
 
@@ -388,7 +388,7 @@ far short it is and which rail. Pushers are not in W214: W207 already checks tha
 reaches the far edge (or the belt beyond), from the same `push_path`. Turntable and lift decks are
 not checked (10.1).
 
-**Shipped scenes that would raise it today:** none. Measured on 33 scenes (the 13 shipped, the
+**Shipped scenes that would raise it today:** none. Measured on 33 scenes (the 12 shipped, the
 example, and the test scenes in `tests/scenes/`, composites expanded): 44 photo eyes, stoppers
 and diverters on belt or roller conveyors, every eye's beam 0.6 m on a 0.5 m belt except `sorting-by-color`'s PE_RED, whose 0.5 m beam equals its
 0.5 m belt and passes on the boundary; every stopper's blade unset (the belt's width); both
@@ -423,6 +423,17 @@ deliberate and commented in the scene, which is why decks are left out.
   link partner dangling is listed under "Left for you to fix" before Save; screenshots looked at.
 
 ## 12. Decisions needed from the owner
+
+*Ruled by the owner, 2026-11-14 (recorded in PLAN under 4.1g):* 1 to 5, 7 and 8 as recommended;
+6 as written, **amended**: the drop rules are implemented in Python beside the snap ports
+(`src/openfactory/core/mounts.py`), as a pure function of the device type, its parameters, the
+conveyor, the rail and the distance along it, giving `position`, `rotation_deg` and a diverter's
+swing sign, unit tested there; the editor chooses only the rail and the distance and asks the
+server for the placement, because Milestone 5 places devices from a drawing takeoff with the same
+rules and there must be one copy. On 7, a stored `mounted_on` is looked at again in Milestone 5.
+9: 4.1g1, then 4.1g2; 4.1g3 (pipe snapping in the editor) is parked until after Milestone 5's
+Phase B.
+
 
 1. **Nozzle positions in the format:** a nozzle value may be a height or
    `{height, bearing_deg}`, and `bottom` may be listed to fix its bearing (recommended); or a

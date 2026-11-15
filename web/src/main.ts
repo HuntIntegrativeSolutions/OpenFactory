@@ -39,7 +39,8 @@ import { faultOf, isInstructorPath, tokenFromHash } from "./instructor";
 import { EditorPanel } from "./editor/panel";
 import { recolorGizmo } from "./editor/gizmo";
 import { SnapMarker } from "./editor/markers";
-import { findSnap, localPort, worldPort, type Snap, type SnapPort } from "./editor/snap";
+import { findSnap, loadPorts, localPort, worldPort, type Snap } from "./editor/snap";
+import { findRail, MOUNT_TYPES, railsOf, type RailDrop } from "./editor/mount";
 import { placeNew, type Rect } from "./editor/place";
 import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
@@ -672,8 +673,9 @@ async function startEditor(): Promise<void> {
     gizmo.setRotationSnap(on ? GRID_RAD : null);
   };
   snap(true);
-  window.addEventListener("keydown", (e) => e.key === "Shift" && snap(false));
-  window.addEventListener("keyup", (e) => e.key === "Shift" && snap(true));
+  let free = false; // Shift held: no grid, along a rail too
+  window.addEventListener("keydown", (e) => e.key === "Shift" && ((free = true), snap(false)));
+  window.addEventListener("keyup", (e) => e.key === "Shift" && ((free = false), snap(true)));
   const setMode = (mode: "move" | "turn") => {
     gizmo.setMode(mode === "move" ? "translate" : "rotate");
     gizmo.showX = mode === "move";
@@ -697,14 +699,26 @@ async function startEditor(): Promise<void> {
   const marker = new SnapMarker();
   scene.add(marker.object);
   let candidate: Snap | null = null;
+  // mount ports (PLAN 4.1g1): a sensor, pusher, stopper or diverter dragged over a belt or
+  // beside it drops on its nearer rail; the server places it (core/mounts.py, ruling 6)
+  let railDrop: RailDrop | null = null;
+  const railFor = (): RailDrop | null => {
+    if (!selectedId || !doc || gizmo.mode !== "translate") return null;
+    const mine = doc.components.find((c) => c.id === selectedId);
+    if (!mine || !MOUNT_TYPES.includes(mine.type) || mine.composite) return null;
+    const conveyors = doc.components
+      .filter((c) => railsOf(c.snaps as never).length)
+      .map((c) => ({ id: c.id, ports: railsOf(c.snaps as never) }));
+    return findRail([handle.position.x, handle.position.y, handle.position.z], conveyors, !free);
+  };
   const snapFor = (): Snap | null => {
     if (!selectedId || !doc || gizmo.mode !== "translate") return null;
     const mine = doc.components.find((c) => c.id === selectedId);
-    const ports = mine?.snaps as SnapPort[] | undefined;
-    if (!mine || !ports?.length) return null; // not a conveyor (a composite instance moves as one)
+    const ports = loadPorts(mine?.snaps);
+    if (!mine || !ports.length) return null; // not a conveyor (a composite instance moves as one)
     const others = doc.components
-      .filter((c) => c.id !== selectedId && Array.isArray(c.snaps) && (c.snaps as SnapPort[]).length)
-      .map((c) => ({ id: c.id, ports: c.snaps as SnapPort[] }));
+      .filter((c) => c.id !== selectedId && loadPorts(c.snaps).length)
+      .map((c) => ({ id: c.id, ports: loadPorts(c.snaps) }));
     const published = { position: mine.position as [number, number, number], rotation_deg: mine.rotation_deg };
     const now = { position: [handle.position.x, handle.position.y, handle.position.z] as [number, number, number], rotation_deg: THREE.MathUtils.radToDeg(handle.rotation.y) };
     return findSnap(selectedId, ports, published, now, others);
@@ -797,10 +811,10 @@ async function startEditor(): Promise<void> {
         .filter((o) => Number.isFinite(o.rect.minX));
       const geometry = doc.components.find((c) => c.id === id);
       const conveyors = doc.components
-        .filter((c) => c.id !== id && Array.isArray(c.snaps) && (c.snaps as SnapPort[]).length)
-        .map((c) => ({ id: c.id, ports: c.snaps as SnapPort[] }));
+        .filter((c) => c.id !== id && loadPorts(c.snaps).length)
+        .map((c) => ({ id: c.id, ports: loadPorts(c.snaps) }));
       return placeNew(
-        { id, position, rotation_deg: rotationDeg, rect: rectOf(boundsOf(mine.map((v) => v.object))), ports: (geometry?.snaps as SnapPort[] | undefined) ?? [] },
+        { id, position, rotation_deg: rotationDeg, rect: rectOf(boundsOf(mine.map((v) => v.object))), ports: loadPorts(geometry?.snaps) },
         obstacles,
         conveyors,
       );
@@ -824,8 +838,15 @@ async function startEditor(): Promise<void> {
     dragStart = null;
     marker.hide();
     panel.status.snapping = null;
+    panel.status.mounting = null;
     const snapped = candidate;
     candidate = null;
+    const dropped = railDrop;
+    railDrop = null;
+    if (dropped) {
+      void panel.mountTo(selectedId, dropped);
+      return;
+    }
     if (snapped) {
       // the ends meet within 1 mm and face within 0.1 degrees: keep 0.1 mm and 0.0001 degrees
       const at = snapped.pose.position.map((v) => Number(v.toFixed(4))) as [number, number, number];
@@ -854,12 +875,18 @@ async function startEditor(): Promise<void> {
     else if (outline) outline.box.copy(boundsOf(dragStart.objects.map(([o]) => o)));
     candidate = snapFor();
     panel.status.snapping = candidate ? `${candidate.mine} -> ${candidate.theirs.id}.${candidate.theirs.port}` : null;
+    railDrop = candidate ? null : railFor();
+    panel.status.mounting = railDrop ? `${railDrop.conveyor}.${railDrop.rail} at ${railDrop.along} m` : null;
+    if (railDrop) {
+      marker.show(railDrop.point, [handle.position.x, railDrop.point[1], handle.position.z]);
+      return;
+    }
     if (!candidate) {
       marker.hide();
       return;
     }
     const mine = doc!.components.find((c) => c.id === selectedId)!;
-    const local = localPort((mine.snaps as SnapPort[]).find((p) => p.name === candidate!.mine)!, { position: mine.position as [number, number, number], rotation_deg: mine.rotation_deg });
+    const local = localPort(loadPorts(mine.snaps).find((p) => p.name === candidate!.mine)!, { position: mine.position as [number, number, number], rotation_deg: mine.rotation_deg });
     const now = worldPort(local, { position: [handle.position.x, handle.position.y, handle.position.z], rotation_deg: THREE.MathUtils.radToDeg(handle.rotation.y) });
     marker.show(candidate.theirs.position, now.position);
   });

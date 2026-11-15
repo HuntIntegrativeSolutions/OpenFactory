@@ -102,7 +102,16 @@ def test_api_scene_publishes_the_ports_and_a_recording_does_not():
     )
     tt = next(c for c in doc["components"] if c["type"] == "turntable")
     assert [p["name"] for p in tt["snaps"]][:2] == ["infeed", "discharge"]
-    assert set(tt["snaps"][0]) == {"name", "kind", "position", "heading_deg", "width", "role"}
+    keys = {"name", "kind", "position", "heading_deg", "width", "role", "length"}  # 4.1g1: length
+    assert set(tt["snaps"][0]) == keys
+    assert {p["kind"] for p in tt["snaps"]} == {"load"}  # a deck has no rails (ruling 5)
+    belt = next(c for c in doc["components"] if c["type"] == "belt_conveyor")
+    assert [(p["name"], p["kind"]) for p in belt["snaps"]] == [
+        ("infeed", "load"),
+        ("discharge", "load"),
+        ("rail_left", "mount"),
+        ("rail_right", "mount"),
+    ]
     assert not [c for c in doc["components"] if c["type"] == "photo_eye" and "snaps" in c]
     recorded = runtime.scene_document(meshes=False, snaps=False)
     assert not [c for c in recorded["components"] if "snaps" in c]

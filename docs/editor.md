@@ -196,7 +196,35 @@ The lint checks the same ports: **W212** warns when two ends meet (within 2 cm, 
 and no connection joins them, and **W213** when a connection's ends are more than 1 cm apart, out
 of level, or more than 1 degree from facing. A scene snapped in the editor has neither.
 
+## Dropping a device on a rail
+
+A belt or roller conveyor has two side rails, `rail_left` and `rail_right` seen looking along the
+flow ([the component reference](components.md)); a turntable's or a lift's deck has none. While
+you **Move** a photo eye, distance or color sensor, pusher, stopper or diverter arm over a belt or
+within **0.15 m** beside it, the nearer rail is marked (a ring where it will go, in the gizmo's
+light pink). Release there and it is placed on that rail, where you dropped it along the belt (on
+the 0.05 m grid from the infeed end; **Shift** for free), by one rule per type (PLAN 4.1g1):
+
+| Type | Placed |
+|---|---|
+| `photo_eye` | the beam's midpoint over the centre line, the beam across the belt; its height above the belt kept if 0.02 to 1 m, else 0.1 m |
+| `distance_sensor` (looking across) | its face 0.05 m outside the rail, facing across; height kept as an eye's |
+| `color_sensor`, `distance_sensor` (looking down) | over the centre line, height kept as an eye's |
+| `pusher` | its retracted face 0.05 m outside the rail, extending across; the plate's bottom 0.05 m above the belt (with `plate_height` unset, at the height that makes the sized plate run from 0.05 m to 3/4 of the tallest part) |
+| `stopper` | on the centre line at belt-top height, stopping parts that move with the flow |
+| `diverter_arm` | its pivot on the rail at belt-top height, at rest along the flow; `swing_deg` changes sign if needed so it swings over the belt |
+
+The editor chooses only the rail and the distance along it; the placement comes from the server
+(`POST /api/edit/mount`), whose rules are the same ones a drawing takeoff will use. The move
+writes `position`, `rotation_deg` and, for a diverter, `swing_deg`; nothing about the mount is
+stored, and moving the belt later does not move its devices. A device dropped away from every
+belt stays where it was dropped, on the grid.
+
+The lint checks the result: **W214** warns when a photo eye's beam or a stopper's blade on a belt
+or roller conveyor stops more than 1 mm short of either rail, or a diverter's tip short of the
+rail across from its pivot. A pusher's stroke is W207's.
+
 ## Not yet
 
-Renaming a component is not in the editor yet. Snap ports for pipes and for devices mounted on a conveyor's side are PLAN
-4.1g.
+Renaming a component is not in the editor yet. Snapping a pipe's ends to a tank's nozzles and to
+other links (PLAN 4.1g3) is parked.

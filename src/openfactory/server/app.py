@@ -184,6 +184,16 @@ class ReferencesRequest(EditRequest):
     id: str
 
 
+class MountRequest(EditRequest):
+    """Where a device dropped on a conveyor's rail goes (PLAN 4.1g1): the rail and the distance
+    along it are the editor's; the placement is the server's (core/mounts.py, ruling 6)."""
+
+    id: str
+    conveyor: str
+    rail: str
+    along: float
+
+
 class FaultRequest(BaseModel):
     """Body of ``POST /api/fault``: a component fault ``{id, kind, params}`` (PLAN 2.6) or a comms
     fault ``{comms: {drop, latency_ms}}`` (PLAN 2.13), not both."""
@@ -368,6 +378,15 @@ def create_app(
         @app.post("/api/edit/references")
         def edit_references(body: ReferencesRequest) -> dict[str, Any]:
             return run_edit(lambda base, ops: edit.references(base, ops, body.id), body)
+
+        @app.post("/api/edit/mount")
+        def edit_mount(body: MountRequest) -> dict[str, Any]:
+            return run_edit(
+                lambda base, ops: edit.mount(
+                    base, ops, body.id, body.conveyor, body.rail, body.along
+                ),
+                body,
+            )
 
     @app.get("/models/{name}")
     def model(name: str) -> FileResponse:

@@ -7,11 +7,20 @@
 
 export interface SnapPort {
   name: string;
-  kind: "load";
+  /** `load` (a conveyor's end) is what this module snaps; a belt's rails are `mount` ports
+   * (mount.ts), published in the same list (PLAN 4.1g1). */
+  kind: "load" | "mount" | "pipe";
   position: [number, number, number];
   heading_deg: number;
   width: number;
   role: "in" | "out" | "both";
+  /** A rail's run from `position`; 0 for a point port. */
+  length?: number;
+}
+
+/** A component's `load` ports among its published snap ports (its ends, if a conveyor). */
+export function loadPorts(snaps: unknown): SnapPort[] {
+  return Array.isArray(snaps) ? (snaps as SnapPort[]).filter((p) => p.kind === "load") : [];
 }
 
 /** Capture distance in the floor plane (decision 7). */

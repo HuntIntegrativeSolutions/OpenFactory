@@ -70,6 +70,15 @@ centre line, and the plate height after the loader's default.
   or in height, or more than 1 degree from facing each other (PLAN 4.1d). The kinematic model
   hands parts across any gap; this says the scene may not mean one.
 
+- ``W214`` a device on a belt or roller conveyor that does not reach across it (PLAN 4.1g1,
+  ruled 2026-11-14): a ``photo_eye``'s beam or a ``stopper``'s blade (its ``width``, or the
+  belt's when unset) that stops more than 1 mm short of either rail, or a ``diverter_arm``'s tip
+  at ``swing_deg`` short of the rail across from its pivot (it swings off the belt, or not far
+  enough). The belt is the highest whose footprint, widened by 0.1 m across the flow, holds the
+  device's origin with the belt top 0 to 1 m below it
+  (:func:`openfactory.core.mounts.short_of_belt`).
+  Turntable and lift decks are not checked; pushers are W207's.
+
 - ``W208`` a composite type (PLAN 2.16) that exposes no I/O: its ``io:`` block is empty, so no
   PLC can command or read any instance of it.
 
@@ -91,6 +100,7 @@ from openfactory.components.pusher import beyond_path, push_depth, push_path
 from openfactory.core.composite import project_root
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.loader import build
+from openfactory.core.mounts import short_of_belt
 from openfactory.core.schema import CARRIER_TYPES, PLC_WRITES, load_scene, parse_scene
 from openfactory.core.sizing import belt_under, emitted_parts
 from openfactory.core.snaps import misjoined, unjoined
@@ -263,6 +273,8 @@ def lint_scene(
                             "part low and can tip it. Raise height, or leave it unset to size it "
                             "from the parts")
                 )  # fmt: skip
+    for comp_id, message in short_of_belt([c.config for c in loaded.components]):  # W214
+        findings.append(Finding("warning", "W214", f"{named(comp_id)}: {message}"))
     for d in scene.composites:
         if hasattr(d, "io") and not d.io:  # a {library: name} entry was checked in its file
             findings.append(

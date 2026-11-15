@@ -64,3 +64,17 @@ def test_each_conveyor_section_lists_its_snap_ports():
         if "**Snap ports**" not in found[type_name] or f"`{name}`" not in found[type_name]
     ]
     assert not missing, f"docs/components.md does not list the snap ports: {missing}"
+
+
+def test_each_railed_conveyor_section_lists_its_mount_ports():
+    """PLAN 4.1g1: belt and roller conveyors list their rails (core/mounts.py)."""
+    from openfactory.core.mounts import RAIL_NAMES, RAIL_TYPES
+
+    found = sections()
+    missing = [
+        f"{type_name}: {name}"
+        for type_name in RAIL_TYPES
+        for name in RAIL_NAMES
+        if "**Mount ports**" not in found[type_name] or f"`{name}`" not in found[type_name]
+    ]
+    assert not missing, f"docs/components.md does not list the mount ports: {missing}"

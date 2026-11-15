@@ -4,9 +4,10 @@ lint and the component reference.
 
 Behavior spec
 -------------
-This module declares ``load`` ports only: the two ends of every conveyor (``belt_conveyor``,
-``roller_conveyor``, ``turntable``, ``lift``), at belt-top height. ``pipe`` and ``mount`` ports
-are PLAN 4.1g.
+This module declares ``load`` ports: the two ends of every conveyor (``belt_conveyor``,
+``roller_conveyor``, ``turntable``, ``lift``), at belt-top height. A belt's or roller conveyor's
+side rails, ``mount`` ports, are :mod:`openfactory.core.mounts` (PLAN 4.1g1), with the same
+:class:`SnapPort` and a ``length`` (the rail's run; 0 for a point port).
 
 A :class:`SnapPort` has a ``name``, its ``kind``, a world ``position`` (m), a ``heading_deg`` (the
 way the port faces outward, a rotation about +y as ``rotation_deg``: an end that discharges along
@@ -54,11 +55,12 @@ Role = Literal["in", "out", "both"]
 @dataclass(frozen=True)
 class SnapPort:
     name: str
-    kind: Literal["load"]
+    kind: Literal["load", "mount", "pipe"]
     position: Vec3
     heading_deg: float
     width: float
     role: Role
+    length: float = 0.0  # a rail's run from ``position`` (mount); 0 for a point port
 
     def document(self) -> dict[str, Any]:
         """The port as ``/api/scene`` publishes it (rounded to 0.1 mm and 0.001 degrees)."""

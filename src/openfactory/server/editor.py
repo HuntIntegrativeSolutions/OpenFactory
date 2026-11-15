@@ -31,6 +31,11 @@ the session applies them to the text, never the browser (ruled 2026-11-10):
   operation removes) and ``fix`` (references left for the user to change), each a list of
   ``{path, action, text}`` (:mod:`openfactory.core.references`). The editor lists them and
   sends ``delete`` and ``unreference`` only when the user confirms.
+- ``POST /api/edit/mount`` ``{base, ops, id, conveyor, rail, along}`` (PLAN 4.1g1): where a
+  device dropped on a belt's ``rail_left`` or ``rail_right``, ``along`` metres from its infeed
+  end, goes: ``position`` and ``rotation_deg`` by :func:`openfactory.core.mounts.place_on_rail`,
+  the one copy of the drop rules (ruled 2026-11-14), and ``swing_deg`` when a diverter's must
+  change sign to swing over the belt. The editor sends them as ``set`` operations.
 - ``GET /models/<id>.glb`` serves the mesh of the scene as last previewed, so a mesh set in the
   form is drawn before Save.
 
@@ -143,6 +148,52 @@ class EditSession:
             "remove": [r for r in found if r["action"] == "remove"],
             "fix": [r for r in found if r["action"] == "fix"],
         }
+
+    def mount(
+        self,
+        base: str,
+        ops: list[dict[str, Any]],
+        comp_id: str,
+        conveyor_id: str,
+        rail: str,
+        along: float,
+    ) -> dict[str, Any]:
+        """Where ``comp_id`` goes dropped on ``conveyor_id``'s ``rail``, ``along`` metres from its
+        infeed end (PLAN 4.1g1): :func:`openfactory.core.mounts.place_on_rail` on the text with
+        the operations applied. ``swing_deg`` is in the answer only when a diverter's must change
+        sign. ValueError for a component not in the file, a type that does not mount, or a
+        conveyor without rails."""
+        from openfactory.core.loader import build
+        from openfactory.core.mounts import place_on_rail
+        from openfactory.core.schema import parse_scene
+        from openfactory.core.sizing import tallest_part
+
+        text = self._applied(base, ops)
+        data = _data(text) or {}
+        raw = next(
+            (
+                c
+                for c in data.get("components") or []
+                if isinstance(c, dict) and c.get("id") == comp_id
+            ),
+            None,
+        )
+        if raw is None:
+            raise ValueError(f"no component {comp_id!r} in the scene")
+        scene = parse_scene(text, self.path.parent)
+        loaded = build(scene, base_dir=self.path.parent)
+        conveyor = next((c.config for c in loaded.components if c.id == conveyor_id), None)
+        if conveyor is None:
+            raise ValueError(f"no conveyor {conveyor_id!r} in the scene")
+        placed = place_on_rail(
+            str(raw.get("type")), raw, conveyor, rail, along, tallest_part(scene)
+        )
+        out: dict[str, Any] = {"id": comp_id, **placed.document()}
+        if placed.swing_sign is not None:
+            swing = float(raw.get("swing_deg", 45.0))
+            if swing * placed.swing_sign < 0:
+                out["swing_deg"] = -swing
+        return out
 
     def source(self) -> dict[str, Any]:
         """The text, its base, and ``data``: the file's values as written (YAML parsed, no

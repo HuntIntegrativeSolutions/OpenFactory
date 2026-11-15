@@ -2550,6 +2550,73 @@ runs the sorting program against it; a box visibly gets pushed.
         no shipped scene raises (two-lane-merge's deck eyes would, were decks checked). Proposed
         4.1g1 (mount and W214), 4.1g2 (nozzle bearings and pipe ports), 4.1g3 (pipe snapping),
         each with a Done-when, and nine decisions for the owner.
+        *Ruled 2026-11-14:* (1) a value in `nozzles:` is a height or `{height, bearing_deg}`;
+        `bottom` may be listed to fix its bearing; (2) additive: the format stays 0.1, no
+        migration, every shipped file byte for byte; (3) a link's ports sit at its origin, told
+        apart by role; (4) a re-snap that strands a link partner is listed under "Left for you to
+        fix"; (5) rails on belt and roller conveyors only, not turntable or lift decks; (6) the
+        drop rules of §10.2 as written, including the diverter's swing sign, *amended:* they are
+        implemented in Python beside the snap ports in `src/openfactory/core`, as a pure function
+        (device type, its parameters, the conveyor, the rail, the distance along it) giving
+        `position`, `rotation_deg` and, for a diverter, the swing sign, unit tested there; the
+        editor chooses only the rail and the distance and gets the placement from the server,
+        because Milestone 5 places devices from a drawing takeoff with the same rules and there
+        must be one copy; (7) the mount is not stored; a belt's devices do not follow a moved
+        belt in 4.1g; a stored `mounted_on` is looked at again in Milestone 5, not now; (8) W214:
+        a warning, 1 mm, photo eyes, stoppers and diverters, pushers staying with W207; (9)
+        4.1g1, then 4.1g2; 4.1g3 parked.
+  - [x] 4.1g1 Mount ports and W214 (§11 of the proposal, rulings above). *Done when:* a Playwright
+        test drops a photo eye, a pusher, a stopper and a diverter beside a belt and each lands by
+        §10.2's rule (positions within 1 mm, headings within 0.1 degrees, the diverter's swing
+        over the belt); the preview has no W214, W206 or W207; a unit test places both shipped
+        pushers at their committed positions by the Python function of ruling 6, and a test shows
+        the editor's placement and that function agree for a photo eye, a pusher, a stopper and a
+        diverter; each W214 case (beam short by 2 mm, stopper narrower than the belt, diverter
+        swinging off the belt, a turntable eye not flagged) has a test that fails without the
+        check; the 33 scenes have no W214; a screenshot of a marked rail is looked at.
+        *Done (2026-11-15):* `src/openfactory/core/mounts.py`: `rails(conveyor)` gives a belt's
+        or roller conveyor's `rail_left` and `rail_right` as `mount` `SnapPort`s (which gain a
+        `length`, the rail's run, 0 for a point port), published in `/api/scene` beside the
+        `load` ports; `place_on_rail(type, params, conveyor, rail, along, tallest_part)` is the
+        one copy of the drop rules (ruling 6), returning `position`, `rotation_deg` and a
+        diverter's swing sign; `short_of_belt` is W214. The server answers `POST
+        /api/edit/mount {base, ops, id, conveyor, rail, along}` with that function's placement
+        (and `swing_deg` when its sign must change); the editor (`web/src/editor/mount.ts`, pure
+        maths) finds the rail while a mountable device is dragged (over the belt or within 0.15 m
+        beside it, the nearer rail, along it on the 0.05 m grid, Shift for free), marks it, and
+        on release asks the server and sends the answer as `set` operations. The existing end
+        snapping now reads only `load` ports (`loadPorts`). *Decisions:* the pusher's unset
+        `plate_height` rule is written so the loader's sizing gives a plate from 0.05 m to 3/4 of
+        the tallest part, or its 0.15 m minimum from 0.05 m when the parts are short or none
+        (`pusher_height_above`, tested against the loader); a device's origin within the belt
+        widened by 0.15 m captures, so an eye or stopper over the belt, whose origin is on the
+        centre line, drops too; W214 finds its belt by footprint widened 0.1 m with the belt top
+        0 to 1 m below the origin, not `sizing.belt_under`, which wants the point within 1 cm of
+        the belt top. Tests: `tests/unit/test_mounts.py` (11: the rails and no deck rails; both
+        shipped pushers placed at their committed positions by `place_on_rail`; the loader sizing
+        a placed pusher's plate as the rule expects for 0.4, 0.6, 0.2 m and no parts; every type
+        on a belt turned 90 degrees; W214 for a beam 2 mm short, 1 mm and boundary passing, an
+        off-centre eye, a 0.4 m stopper, a diverter swinging off or not far enough, a turntable
+        eye not flagged where the same eye on a belt is; none in the 33 scenes; the endpoint
+        answering with the function's placement and the swing sign), each W214 case failing
+        without the check; `tests/integration/test_editor_mount.py` (four devices dragged by real
+        mouse moves on the gizmo from beside a belt turned 90 degrees onto its left rail: each
+        saved position and heading equal `place_on_rail`'s within 1 mm and 0.1 degrees and the
+        rules written out by hand, the diverter's -45 saved as +45, no W214, W206 or W207 on the
+        preview); `web/src/editor/mount.test.ts` (4); `test_snaps.py` (rails published, none on a
+        deck); `test_component_reference.py` (+1: each railed conveyor lists its mount ports).
+        Documented in `docs/components.md` and `docs/editor.md` ("Dropping a device on a rail").
+        Screenshots `editor-4.1g1-marked.png` and `editor-4.1g1-dropped.png` looked at.
+  - [ ] 4.1g2 Nozzle bearings and pipe ports (§9.2, §9.3; rulings 1 to 3). *Done when:* every
+        shipped scene loads, draws and runs exactly as before (its state frames and `checks:`
+        results equal before and after over a 60 s run; `migrate --check` clean); a tank with
+        `bottom: {height: 0, bearing_deg: 90}` draws its pipe end on the +90 degree wall within 1
+        mm and the pipe's default length follows; the ports of each process type are in
+        `/api/scene` and not in a recording; the scene format and the component reference
+        describe both; the editor's `nozzles` control takes a number or a `{height,
+        bearing_deg}` group per entry and never falls back to a line of YAML.
+  - [ ] 4.1g3 Pipe snapping in the editor (§9.4; ruling 4). *Parked 2026-11-14, after Milestone
+        5's Phase B.* Not to be built before then.
   - [x] 4.1e Free placement on Add (added 2026-11-12, from 4.1c's open items): a new component
         is placed at the nearest free spot to the centre of the view, so it does not overlap the
         plant. *Done when:* adding each palette type to a sorter whose view centre is covered by
