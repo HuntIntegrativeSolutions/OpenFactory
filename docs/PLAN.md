@@ -2540,6 +2540,16 @@ runs the sorting program against it; a box visibly gets pushed.
         that a mounted device's beam or plate reaches across its belt. Nozzles have only a height
         in the scene today, so `pipe` ports first need nozzle positions (a scene format change,
         with `migrate`). *Done when:* to be set with the owner before it starts.
+        *Design proposal (2026-11-14, for ruling, no code):* `docs/research/scene-editor-design.md`,
+        "Pipe and mount snap ports" (§9 to §12). In brief: a nozzle may be given a bearing
+        (`{height, bearing_deg}`), an optional form, so the format stays 0.1 and `migrate`
+        changes nothing (the 0.2 alternative and its migration of each shipped scene are set
+        out); pipe ports at nozzles and link origins, snapping by dragging a link's end handles;
+        side rails on belt and roller conveyors with a drop rule per device type; W214 (warning,
+        1 mm) for an eye's beam, a stopper's blade or a diverter's tip short of the far rail, which
+        no shipped scene raises (two-lane-merge's deck eyes would, were decks checked). Proposed
+        4.1g1 (mount and W214), 4.1g2 (nozzle bearings and pipe ports), 4.1g3 (pipe snapping),
+        each with a Done-when, and nine decisions for the owner.
   - [x] 4.1e Free placement on Add (added 2026-11-12, from 4.1c's open items): a new component
         is placed at the nearest free spot to the centre of the view, so it does not overlap the
         plant. *Done when:* adding each palette type to a sorter whose view centre is covered by
