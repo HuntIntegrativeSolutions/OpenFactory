@@ -79,6 +79,7 @@ def test_api_scene_returns_resolved_geometry(served):
                 "heading_deg": 180.0,
                 "width": 0.5,
                 "role": "in",
+                "length": 0.0,
             },
             {
                 "name": "discharge",
@@ -87,6 +88,26 @@ def test_api_scene_returns_resolved_geometry(served):
                 "heading_deg": 0.0,
                 "width": 0.5,
                 "role": "out",
+                "length": 0.0,
+            },
+            # its side rails as mount ports (PLAN 4.1g1), each facing in across the belt
+            {
+                "name": "rail_left",
+                "kind": "mount",
+                "position": [0.0, 0.0, -0.25],
+                "heading_deg": 270.0,
+                "width": 0.5,
+                "role": "both",
+                "length": 4.0,
+            },
+            {
+                "name": "rail_right",
+                "kind": "mount",
+                "position": [0.0, 0.0, 0.25],
+                "heading_deg": 90.0,
+                "width": 0.5,
+                "role": "both",
+                "length": 4.0,
             },
         ],  # fmt: skip
     }
