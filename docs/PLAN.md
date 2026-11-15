@@ -3382,6 +3382,133 @@ runs the sorting program against it; a box visibly gets pushed.
         - The working tree was unchanged after the run.
 
 
+### Milestone 5 — Plants from drawings (proposed 2026-11-14, for ruling)
+*Proposal, not ruled; no code until it is.* Given a plant's drawings (P&IDs, a general
+arrangement, an I/O list), an assistant builds a scene that looks like that plant, uses the
+plant's own tag names, runs against its PLC program, and is checked by a person before anyone
+trusts it.
+
+**Two rules that shape every task.**
+- A customer's drawings and the scenes made from them never enter this repository. They live in a
+  private project folder. The repository's tests use a drawing set we draw ourselves.
+- A new primitive is added only when no composite can produce the behaviour (§5).
+
+#### Phase A: find the real gaps (before any building)
+- [ ] 5.0 Pilot: one real drawing set, built by hand with an assistant, outside the repository:
+      one small area, with one P&ID, one layout and its I/O list.
+      *Done when:* the scene loads, lints, and passes checks written from the plant's sequence of
+      operations; every piece of equipment that had no component is listed; the "awkward" list is
+      written into PLAN in general terms (no customer name, no drawing content), as 4.1h did. The
+      list re-orders or cuts the tasks below.
+
+#### Phase B: what any drawing needs
+- [ ] 5.1 Takeoff file: the reviewed middle step. A `takeoff.yaml` between the drawing and the
+      scene: equipment (tag, type, size, sheet and grid reference), connections, I/O points, a
+      confidence mark and open questions per row. `openfactory takeoff check` validates it;
+      `openfactory takeoff scaffold` writes a scene skeleton from it and reports every row it
+      could not place. *Why:* reading a drawing is error-prone; a person must be able to check a
+      table against the drawing before a scene exists.
+      *Done when:* our own sample P&ID has a takeoff in the repository, `scaffold` turns it into a
+      scene that loads, and a row with an unknown type is reported, not dropped.
+- [ ] 5.2 Generic equipment. Something on the drawing has no component: it must still appear, with
+      its I/O and a simple behaviour (a delay, a first-order lag, a permissive). First test how far
+      a composite goes today (computed DIs exist, 2.16); add a `machine` primitive only for what a
+      composite cannot do.
+      *Done when:* a scene holds an item no primitive covers, with a mesh or a box, three ports and
+      a start delay, and its tags export like any other.
+      *What exists today (2026-11-15):* a composite type (2.16, `core/composite.py`) is built only
+      from built-in parts, which it expands into at load. Its `io` can pass a PLC command to a
+      part's DO or AO port (`to`, optionally `invert`), pass a part's DI or AI through (`from`),
+      or compute a DI from a boolean expression over the parts' DI and AI values (`from:
+      "<expression>"`, the `core/expr.py` grammar), with the binding's `invert`, `on_delay_s` and
+      `off_delay_s` (2.17, `core/transforms.py`): a start delay on a computed DI exists today.
+      2.5b added `command` io (a PLC tag no part receives, read only by `logic:`) and `logic:`,
+      which drives a part's DO port from such an expression, one tick behind. There is no
+      computed AI, no first-order lag or other state of the composite's own, and the instance has
+      no `mesh` key of its own: it is drawn as its parts, each as its built-in type. A composite
+      whose `io` is empty is W208.
+- [ ] 5.3 The plant's tag names. `plc_tag:` per binding (§6.2, named but not built), so a scene
+      port maps to the plant's tag or UDT member, and an area prefix per scene.
+      *Done when:* the I/O CSV, the L5X and the SCADA tag export carry the plant's names, the
+      lockfiles do not move, and lint flags a name outside the HIS pattern as a warning, not an
+      error.
+      *What exists today (2026-11-15):* a binding's tag must match `^[A-Z][A-Z0-9_]*_(DI|DO|AI|AO)$`
+      and be at most 40 characters (`core/schema.py`): any other name is a load error, not a
+      warning. §6.2 says the PLC tag name equals the scene's tag name by default, with an optional
+      `plc_tag:` per binding; that key is not in the schema (noted under 2.2: "`plc_tag:` per
+      binding ... is not built"), so the Logix path reads and writes the scene's names. The
+      exporters all use the scene's names: the I/O CSV one row per bound tag
+      (`export/io_list_csv.py`); the L5X stub one controller tag per CSV row, with an optional
+      `--prefix AREA1` that prepends `AREA1_` to every name and description and checks the Logix
+      name rule (`export/l5x_stub.py`); the SCADA tag JSON (2.4) one UDT instance per component,
+      named by the component id, in one area folder named by `--area` or the scene name in
+      capitals, its members named by port. The Modbus lockfiles map tag names
+      to addresses (ADR-0004), one per scene file and analog encoding.
+- [ ] 5.4 Plants in several files. `include:` so one plant is one file per area with shared
+      composites, one address map, and lint across areas.
+      *Done when:* a two-area sample runs as one plant, each area also runs alone, and the address
+      map is the same either way.
+      *What exists today (2026-11-15):* nothing like `include:`; a scene is one file, and its
+      model refuses unknown keys, so `include:` is a load error today. What is shared between
+      files is composite types: `composites: [{library: name}]` loads `_library/<name>.yaml` from
+      the scene's folder or the nearest folder above it, no higher than the project root
+      (`core/composite.py`). The address map is per scene file: one lockfile per scene and analog
+      encoding (`<scene>.<encoding>.modbus.yaml`, ADR-0004). Lint runs on one scene at a time
+      (`openfactory lint scenes` lints each file in turn). A bundle (`.ofz`, 2.18) carries one
+      scene with the library composites and meshes it uses.
+- [ ] 5.5 Layout from topology. A P&ID has no geometry. `openfactory layout` places equipment and
+      routes pipes when positions are missing; a general arrangement drawing overrides it.
+      Depends on 4.1g (nozzle positions).
+      *Done when:* the sample P&ID's scaffold, with no positions, lays out with no overlap finding,
+      and the screenshot is looked at.
+      *What exists today (2026-11-15):* every component needs a `position`. 4.1e's placement on
+      Add runs in the browser (`web/src/editor/place.ts`, pure maths over footprints taken from
+      what the viewer drew): a new component that overlaps the plant moves to the nearest clear
+      spot (0.1 m steps, up to 15 m, never past the 20 m floor edge), and a new conveyor near an
+      open end snaps onto it; nothing in Python looks for a free spot, and the overlap lint
+      (W205) covers conveyors only. 4.1g1 placed devices on a belt's rail in Python
+      (`core/mounts.py`, `place_on_rail`). 4.1g2 gave a tank's nozzle an optional fixed point on
+      the wall (`{height, bearing_deg}`, `core/snaps.py` `nozzle_wall`) and published pipe ports
+      for every process type; a nozzle without a bearing is still drawn facing its link. A pipe
+      is drawn as straight runs from its `from` end through its `path` points to its `to` end, a
+      valve or pump as a body at its origin with runs to its two ends; there is no pipe routing,
+      and a pipe's default length (its friction) is its drawn length.
+- [ ] 5.6 Review overlay. A top view of the scene drawn over the layout drawing, and a table of
+      takeoff rows against scene components, so the checker sees what was missed.
+      *Done when:* removing one item from the sample scene shows it in both.
+
+#### Phase C: equipment found in a plant (order set by 5.0)
+- [ ] 5.7 Bulk solids. ADR first: material as a mass flow, not as parts. Then hopper and silo
+      (level, load cell), screw conveyor, bucket elevator, rotary airlock, a belt carrying bulk.
+- [ ] 5.8 Air and heat. ADR first: temperature added to the flow network. Then fan or blower,
+      damper, heat exchanger, dryer, burner. A simulated burner is a training picture only: no
+      burner management, no flame safety, and the scene says so.
+- [ ] 5.9 Process fill-ins. Check valve, relief valve, agitator, filter, and flow, pressure and
+      temperature kinds of transmitter where missing.
+- [ ] 5.10 Discrete fill-ins. Curve, incline, scale or checkweigher, code reader, stack light,
+      emergency-stop station (a plain input, not safety-rated). As composites where possible.
+- [ ] 5.11 Plant surroundings. `scenery`: structure, platforms, panels, motors, building outline,
+      with no I/O and no physics, placed from the layout drawing.
+
+Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec, a section in
+`docs/components.md`, and one shipped scene that uses it and passes at 60 s and 300 s.
+
+#### Phase D: size and hand-over
+- [ ] 5.12 Plant-size scenes. Finish 2.9; then a 300-component, 1,000-tag sample holds its tick
+      rate with one viewer, numbers recorded.
+- [ ] 5.13 Authoring guide for assistants. `docs/authoring-from-drawings.md` (public): the steps,
+      the takeoff file, what to ask the person. The HIS skill that runs it on a customer's
+      drawings lives outside this repository.
+
+#### For the owner to rule
+1. Which drawing set is the pilot (5.0), and which private folder holds the scenes made from
+   customer drawings?
+2. Which family first in Phase C: bulk solids, air and heat, or discrete? Recommended: whatever the
+   pilot's drawing needs, and bulk solids if it is a tie.
+3. Is the bench PLC free for 2.2? A scene built from a customer's drawing is only a demo for them
+   once it runs against their controller family.
+4. Does Phase A wait for the open Milestone 4 items (4.1g, 4.4, 4.5), or run beside them?
+   Recommended: beside them; the pilot needs no code in the repository.
 ---
 
 ## 8. Risks and Mitigations
