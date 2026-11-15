@@ -38,9 +38,26 @@ Each accepted change is **previewed**: the server applies all pending changes to
 was when you opened it, runs `openfactory lint` on the result, and the plant is redrawn from it.
 The lint's findings are listed under the form. Nothing is written until you press **Save**.
 
-An I/O binding written as a mapping (`speed: {tag: CONV_01_SPD_AO, initial: 100}`) is edited as
-one line of YAML, and so is any value the form has no control for (an emitter's `parts` list), in
-the scenes' flow style.
+A field commits when you leave it (Tab, or a click elsewhere). If what you typed is the value the
+field already has (`3` in a length of 3, or `0.50` for 0.5), the field says **✓ Kept: that is
+already its value** and nothing is sent (PLAN 4.1j).
+
+**Lists and mappings** have their own controls, built from the schema (PLAN 4.1j):
+
+- A list (an emitter's `parts`, a pipe's `path`, a drain's `schedule`, a check's `never_dry`)
+  shows each item numbered, with its own fields (a part's `name`, `size`, `weight` and `color`),
+  a **×** to remove it, and **Add item** at the end. A new item starts empty and is sent once
+  every field it needs is filled; until then the list is marked with what is missing.
+- A mapping (a check's `parts_reached`, a tank's `nozzles`, `level_within`, `max_starts`) shows
+  each entry's key above its value, a **×** to remove it, and a **new key** box with **Add** at
+  the end. Renaming a key keeps the entry's place.
+- A value that may be one item or several (a `parts_reached` remover's part names) is a list
+  that writes a single item bare: `{REM_01: oversize}`, or `{REM_01: [good, tall]}` with two.
+
+The whole list or mapping is written as one change, in the scenes' flow style. An I/O binding
+written as a mapping (`speed: {tag: CONV_01_SPD_AO, initial: 100}`) is still edited as one line of
+YAML, and so are the two values the schema does not describe item by item: a mesh's `scale` (a
+number or three) and a composite instance's `io`.
 
 Every I/O port is listed, bound or not. An optional port that is not bound (a conveyor's
 `running` feedback, a pusher's `extended` limit, an emitter's `enable`) has a **Use TAG** button
@@ -64,7 +81,8 @@ seed, friction) and its [`checks:`](scene-format.md) (`parts_reached`, `none_los
   view, drawn, then placed (PLAN 4.1e):
   - Where its drawn footprint, with 5 cm around it, overlaps nothing, it stays there. Otherwise
     it moves to the nearest spot on the floor (searched in 0.1 m steps up to 15 m away, never
-    past the floor's 20 m edge) where it overlaps nothing. The view does not move.
+    past the floor's 20 m edge) where it overlaps nothing. If that puts any of it outside the
+    view, the view refits to the whole plant, as **Fit view** does (PLAN 4.1j).
   - A conveyor whose end lands within **1 m** of an open end of another conveyor (an end no
     other conveyor's end meets) snaps to it as a drag does (see "Snapping conveyor ends
     together" below): the ends meet and face, the new conveyor takes that end's height, and the
@@ -81,6 +99,8 @@ seed, friction) and its [`checks:`](scene-format.md) (`parts_reached`, `none_los
     the scene does not load, and you fill it in.
   - A new component starts with a placeholder description. **Save and Download stay disabled
     until each new component has its own description.**
+- **Fit view** (beside Add) frames the whole plant in the part of the window the panel does not
+  cover. Otherwise the view stays where you put it: changing a value never moves the camera.
 - **Move and Turn:** with a component selected, **Move** shows arrows that drag it along the
   floor, and **Turn** shows a ring that turns it about the vertical axis. Moves snap to a 0.05 m
   grid and turns to 15°; hold **Shift** while dragging for free placement. A composite instance

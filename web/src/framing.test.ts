@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { describe, expect, test } from "vitest";
 import { buildComponent, floorFor } from "./components";
 import type { ComponentGeometry } from "./api";
-import { FILL, framedBounds, framePose, RADII } from "./framing";
+import { boxInView, FILL, fitPose, framedBounds, framePose, RADII } from "./framing";
 
 const FOV = 45;
 
@@ -62,5 +62,42 @@ describe("initial camera framing", () => {
     const radius = bounds.getSize(new THREE.Vector3()).length() / 2;
     expect(pose.position.distanceTo(pose.target)).toBeCloseTo(radius * RADII, 9);
     expect(bounds.min.y).toBeCloseTo(floorFor([belt]), 6); // legs reach the floor on their own
+  });
+});
+
+describe("fit view (PLAN 4.1j)", () => {
+  /** A camera as main.ts sets it up with the editor panel `covered` px wide on the right. */
+  function cameraFor(pose: { position: THREE.Vector3; target: THREE.Vector3 }, w: number, h: number, covered: number): THREE.PerspectiveCamera {
+    const camera = new THREE.PerspectiveCamera(FOV, (w + covered) / h, 0.05, 500);
+    if (covered) camera.setViewOffset(w + covered, h, covered, 0, w, h);
+    camera.position.copy(pose.position);
+    camera.lookAt(pose.target);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    return camera;
+  }
+
+  test("a long line of belts beside the panel fits across the uncovered part, as framePose does not", () => {
+    const line = [0, 3, 6, 9, 12].map((x, n) =>
+      ({ id: `CONV_0${n}`, type: "belt_conveyor", position: [x, 0, 0], rotation_deg: 0, length: 3, width: 0.5, io: {} }) as unknown as ComponentGeometry);
+    const bounds = boundsOf(line);
+    // a 900 px window with the 360 px panel: 540 px across, narrower than the view is tall
+    const area = { width: 900, height: 720, covered: 360 };
+    expect(boxInView(bounds, cameraFor(framePose(bounds, FOV), 900, 720, 360), area)).toBe(false);
+    const pose = fitPose(bounds, FOV, area);
+    expect(boxInView(bounds, cameraFor(pose, 900, 720, 360), area)).toBe(true);
+    // and no further back than it needs: past the FILL margin, 5 % closer, it no longer fits
+    const closer = { position: pose.target.clone().lerp(pose.position, 0.95 * FILL), target: pose.target };
+    expect(boxInView(bounds, cameraFor(closer, 900, 720, 360), area)).toBe(false);
+  });
+
+  test("a box under the panel is not in view; one in the uncovered part is", () => {
+    const pose = { position: new THREE.Vector3(0, 5, 10), target: new THREE.Vector3(0, 0, 0) };
+    const camera = cameraFor(pose, 1280, 720, 360);
+    const area = { width: 1280, height: 720, covered: 360 };
+    const at = (x: number) => new THREE.Box3(new THREE.Vector3(x - 0.1, 0, -0.1), new THREE.Vector3(x + 0.1, 0.2, 0.1));
+    expect(boxInView(at(0), camera, area)).toBe(true);
+    expect(boxInView(at(6), camera, area)).toBe(false); // right of the centre, under the panel
+    expect(boxInView(at(-30), camera, area)).toBe(false);
   });
 });

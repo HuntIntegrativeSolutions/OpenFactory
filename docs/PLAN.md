@@ -2661,6 +2661,50 @@ runs the sorting program against it; a box visibly gets pushed.
         sorter with a 20 s `duration_s` goes pending to PASS in the viewer and the instructor
         view; a program that never pushes shows FAIL in red at about 11 s, the rest pending).
         Screenshots `checks-4.1i-passed.png`, `checks-4.1i-failed.png` looked at. The instructor page starts it folded to one line below 900 px, as the exam panel (fresh-clone CI caught it covering a fault label at 640 px; `test_instructor_view.py` now checks it).
+  - [x] 4.1j Editor leftovers from 4.1h's awkward list (owner, 2026-11-14): (5) a fit-view button
+        that frames the whole plant, and the view refits when Add puts a component outside it;
+        (2)/(6) a form control for list and mapping values (the emitter's `parts`, a check's
+        `parts_reached`) built from the schema, so neither is typed as a line of YAML; (8) typing
+        the value a field already has shows that it was taken. *Done when:*
+        tests/integration/test_editor_build.py rebuilds inline-reject with no value typed as YAML
+        and saves the same values as the shipped file; a Playwright test adds a component outside
+        the view, presses fit view and finds every component on screen; a test types an unchanged
+        value and sees the acknowledgement; screenshots of each looked at.
+        *Done (2026-11-14):* `web/src/editor/forms.ts` gains two field kinds from the schema: a
+        `list` (an array with `items`) and a `map` (an object with one `patternProperties`
+        pattern), each built only when its items are themselves controls; `anyOf [T, a list of
+        T]` is a list that writes one item bare (`parts_reached: {REM_01: oversize}`).
+        `checkField` checks them item by item (and groups key by key); `blank` gives a new item
+        its schema default or an empty value that `checkField` refuses. `web/src/editor/compound.ts`
+        draws them: numbered items with their own fields, **×** and **Add item**; mapping entries
+        with their key, **×** and a new-key box with **Add**. The panel writes the whole value as
+        one `set` when it checks, and says "Not sent yet" with the unfinished item otherwise. Fit
+        view: `framing.fitPose` frames the plant across as well as up and down, in the part of
+        the window the panel does not cover (the view offset of 4.1c); `boxInView` tells whether
+        a component is wholly in it. The **Fit view** button sits beside Add; after Add places a
+        component (4.1e) the view refits only if that component is not wholly in view, so the
+        4.1c rule stands that a preview never moves the camera. Acknowledgement: a field whose
+        value is typed again fires no `change`, so the panel watches for typing followed by
+        leaving the field, and a commit equal to the current value (`0.50` for 0.5) is also
+        caught; either shows "✓ Kept: that is already its value" on the field and sends nothing.
+        *Decisions:* the edits stay operations applied on the server (one `set` per list or
+        mapping, emitted in the scenes' flow style); single-field checks in the browser, the
+        server the authority, no `ajv`; the editor writes no lockfile. A half-made item is never
+        sent, and is dropped if another change redraws the form first. Still YAML, pinned in
+        `forms.test.ts`: `mesh.scale` (a number or three) and a composite instance's `io` (free
+        keys of undescribed values); a binding written with options stays one line of YAML.
+        The tank's `nozzles`, a drain's `schedule`, a pipe's `path` and a pump's `curve` lost
+        their YAML fallback with the same controls, and the scene's `checks:` form has none
+        left. Tests: `test_editor_build.py` builds the parts and `parts_reached` with the new
+        controls, fails if any text box of YAML receives a keystroke, saves the same values as
+        `scenes/inline-reject.yaml` (unchanged), and ends with Fit view and every component in
+        view; `tests/integration/test_editor_fit.py` (2: on the sorter zoomed in, a belt added
+        outside the view refits by itself, a component typed 12 m away is off screen until Fit
+        view brings every component back; a speed typed again key by key shows Kept with no
+        operation and no preview, `0.50` for 0.5 too, and a real change still goes through);
+        `forms.test.ts` (+4), `framing.test.ts` (+2). Screenshots `editor-4.1j-list.png`,
+        `editor-4.1j-mapping.png`, `editor-build-inline-reject.png`, `editor-4.1j-add-refit.png`,
+        `editor-4.1j-fit.png`, `editor-4.1j-kept.png` looked at.
 - [x] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
       *Defined (ruled 2026-11-07):* models authored by our own scripts or taken from CC0/CC-BY
       sources with attribution, each under the 1 MB rule with a license sidecar, drawn through

@@ -57,3 +57,58 @@ export function framePose(bounds: THREE.Box3, fovDeg: number): CameraPose {
   }
   return { position: target.clone().addScaledVector(toCamera, distance), target };
 }
+
+/** The part of the window a component must be in to count as on screen (PLAN 4.1j): CSS pixels
+ * from the left, the window less the editor panel's width on the right. */
+export interface VisibleArea {
+  width: number;
+  height: number;
+  covered: number;
+}
+
+/**
+ * Fit view (PLAN 4.1j): the camera pose, from the same direction as the initial framing, that
+ * puts every corner of `bounds` within FILL of the visible area both ways. The view's centre is
+ * the middle of the uncovered part (main.ts fitCamera shifts it there), so that part is
+ * symmetric about the camera's axis: its half width is tan(fov/2) times its width over the
+ * window's height. Unlike framePose it also fits across, and it comes as close as that allows.
+ */
+export function fitPose(bounds: THREE.Box3, fovDeg: number, area: VisibleArea): CameraPose {
+  const target = bounds.getCenter(new THREE.Vector3());
+  const radius = Math.max(bounds.getSize(new THREE.Vector3()).length() / 2, 0.05);
+  const toCamera = VIEW_DIRECTION;
+  const forward = toCamera.clone().negate();
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+  const up = new THREE.Vector3().crossVectors(right, forward);
+  const tanHalf = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
+  const tanV = tanHalf * FILL;
+  const tanH = tanHalf * (Math.max(area.width - area.covered, 1) / area.height) * FILL;
+  let distance = radius; // never inside the plant's bounding sphere
+  for (const x of [bounds.min.x, bounds.max.x]) {
+    for (const y of [bounds.min.y, bounds.max.y]) {
+      for (const z of [bounds.min.z, bounds.max.z]) {
+        const q = new THREE.Vector3(x, y, z).sub(target);
+        const along = q.dot(toCamera);
+        distance = Math.max(distance, along + Math.abs(q.dot(up)) / tanV, along + Math.abs(q.dot(right)) / tanH);
+      }
+    }
+  }
+  return { position: target.clone().addScaledVector(toCamera, distance), target };
+}
+
+/** Whether every corner of `box` projects into the visible area (and in front of `camera`). */
+export function boxInView(box: THREE.Box3, camera: THREE.Camera, area: VisibleArea): boolean {
+  if (box.isEmpty()) return true;
+  camera.updateMatrixWorld();
+  for (const x of [box.min.x, box.max.x]) {
+    for (const y of [box.min.y, box.max.y]) {
+      for (const z of [box.min.z, box.max.z]) {
+        const p = new THREE.Vector3(x, y, z).project(camera);
+        const sx = ((p.x + 1) / 2) * area.width;
+        const sy = ((1 - p.y) / 2) * area.height;
+        if (p.z > 1 || p.z < -1 || sx < 0 || sx > area.width - area.covered || sy < 0 || sy > area.height) return false;
+      }
+    }
+  }
+  return true;
+}

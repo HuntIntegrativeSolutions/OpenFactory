@@ -18,10 +18,12 @@ import {
   checkField,
   defForType,
   opFor,
+  sameValue,
   type Field,
   type Form,
   type JsonSchema,
 } from "./forms";
+import { valueEditor, watchUnchanged, type CompoundHost } from "./compound";
 import { EditOps } from "./ops";
 import type { Placement } from "./place";
 
@@ -63,6 +65,12 @@ export interface EditorStatus {
   deletes: number;
   /** Where the last Add put its component (PLAN 4.1e): moved off the drop point, or snapped. */
   placed: { id: string; dropped: [number, number, number]; position: [number, number, number]; moved_m: number; snapped: string | null; waiting: boolean } | null;
+  /** Values typed that a field already had (PLAN 4.1j item 8): how many, and the last field. */
+  acks: number;
+  ack: string | null;
+  /** Fit view (PLAN 4.1j item 5): how many times the view was refitted, and why the last time. */
+  fits: number;
+  fit: "button" | "add" | null;
 }
 
 export interface PaletteItem {
@@ -90,6 +98,10 @@ export interface PanelHost {
   settle(id: string, position: [number, number, number], rotationDeg: number): Placement | null;
   /** Whether a component is drawn in the plant now. */
   drawn(id: string): boolean;
+  /** Frame the whole plant in the part of the window the panel does not cover (PLAN 4.1j). */
+  fitView(): void;
+  /** Whether every drawn part of a component is inside that part of the window. */
+  inView(id: string): boolean;
 }
 
 const TEXT = cssColor("normalText");
@@ -148,7 +160,7 @@ export class EditorPanel {
     this.status = {
       file: "", selected: null, ops: 0, previews: 0, saves: 0, downloads: 0, errors: 0, findings: [],
       message: "", added: [], undescribed: [], palette: [], mode: "move", snap: null, snapping: null,
-      placed: null, confirm: null, deletes: 0,
+      placed: null, confirm: null, deletes: 0, acks: 0, ack: null, fits: 0, fit: null,
     };
     this.element = document.createElement("div");
     this.element.id = "editor-panel";
@@ -177,7 +189,12 @@ export class EditorPanel {
     this.paletteSelect.style.cssText = `flex:1;min-width:0;background:#0b1220;color:${TEXT};border:1px solid #4b5563`;
     const addButton = this.button("Add", () => void this.addComponent(this.paletteSelect.value));
     addButton.id = "editor-add";
-    add.append(this.paletteSelect, addButton);
+    // PLAN 4.1j item 5: frame the whole plant (the view also refits when Add puts a component
+    // outside it)
+    const fitButton = this.button("Fit view", () => this.fitView("button"));
+    fitButton.id = "editor-fit";
+    fitButton.title = "Frame the whole plant";
+    add.append(this.paletteSelect, addButton, fitButton);
     // what the gizmo does to the selection, and delete
     this.tools = document.createElement("div");
     this.tools.style.cssText = "display:flex;gap:6px;margin:0 0 8px";
@@ -261,6 +278,12 @@ export class EditorPanel {
     if (kept) this.paletteSelect.value = kept;
   }
 
+  private fitView(why: "button" | "add"): void {
+    this.host.fitView();
+    this.status.fit = why;
+    this.status.fits += 1;
+  }
+
   private setMode(mode: "move" | "turn"): void {
     this.status.mode = mode;
     for (const [b, m] of [[this.moveButton, "move"], [this.turnButton, "turn"]] as const) {
@@ -332,6 +355,8 @@ export class EditorPanel {
         if (placed.connection) this.ops.connect(placed.connection.from, placed.connection.to);
       }
       if (placed) await this.preview();
+      // PLAN 4.1j item 5: a component placed outside the view brings the whole plant into it
+      if (!this.host.inView(id)) this.fitView("add");
       // last: a test waiting for it sees the preview with the component in place
       this.status.placed = {
         id, dropped, position: placed?.position ?? dropped, moved_m: placed?.moved_m ?? 0, snapped: placed?.snapped ?? null, waiting: false,
@@ -516,8 +541,9 @@ export class EditorPanel {
     this.root = [];
   }
 
-  private row(field: Field, input: HTMLElement): HTMLDivElement {
-    const row = document.createElement("label");
+  private row(field: Field, input: HTMLElement, tag: "label" | "div" = "label"): HTMLDivElement {
+    // a list or mapping is a div: a label would send every click inside it to its first input
+    const row = document.createElement(tag);
     row.style.cssText = "display:block;margin:6px 0";
     row.title = field.description;
     const name = document.createElement("div");
@@ -526,7 +552,10 @@ export class EditorPanel {
     const error = document.createElement("div");
     error.className = "editor-error";
     error.style.cssText = `color:${ALARM};font-size:11px`;
-    row.append(name, input, error);
+    const ack = document.createElement("div");
+    ack.className = "editor-ack";
+    ack.style.cssText = `color:${TEXT};font-size:11px`;
+    row.append(name, input, error, ack);
     // a scene setting is named with its block (`scene.name`, `checks.duration_s`)
     const block = this.root[0] === "components" ? [] : this.root;
     row.dataset.field = [...block, ...field.path].join(".");
@@ -549,9 +578,16 @@ export class EditorPanel {
     const root = this.root;
     const commit = (row: HTMLElement, value: unknown) => {
       const error = checkField(field, value);
-      const shown = error === null ? "" : error.startsWith("must") ? error : `must be ${error}`;
+      const whole = ["list", "map"].includes((field.kind === "optional" ? field.inner : field).kind);
+      // a list or mapping says which item is not finished, and that nothing was sent yet
+      const shown = error === null ? "" : whole ? `Not sent yet: ${error}` : error.startsWith("must") ? error : `must be ${error}`;
       (row.querySelector(".editor-error") as HTMLElement).textContent = shown;
       if (error) return;
+      // the value it already has (PLAN 4.1j item 8): say it was taken, and send nothing
+      if (sameValue(value, current) || ((value === null || value === undefined) && (current === null || current === undefined))) {
+        this.acknowledge(row);
+        return;
+      }
       this.ops.change(opFor(root, field, value));
       void this.preview();
     };
@@ -588,6 +624,15 @@ export class EditorPanel {
       return this.row(field, none);
     }
     if (inner.kind === "group") return this.control(form, comp, { ...inner, path: field.path, key: field.key });
+    if (inner.kind === "list" || inner.kind === "map") {
+      // PLAN 4.1j: a list or mapping edited item by item, written whole as one `set`
+      const holder = document.createElement("div");
+      const row = this.row(field, holder, "div");
+      const host = this.compoundHost(row);
+      const working = current === undefined || current === null ? undefined : structuredClone(current);
+      holder.append(valueEditor(field, working, row.dataset.field ?? field.key, (v) => commit(row, v === undefined ? null : v), host));
+      return row;
+    }
     if (inner.kind === "bool") {
       const i = this.input("checkbox", "");
       i.style.width = "auto";
@@ -626,6 +671,7 @@ export class EditorPanel {
       const row = this.row(field, box);
       for (const i of inputs) {
         i.addEventListener("change", () => commit(row, inputs.map((x) => (x.value === "" ? NaN : Number(x.value)))));
+        watchUnchanged(i, () => this.acknowledge(row));
       }
       return row;
     }
@@ -638,6 +684,7 @@ export class EditorPanel {
         if (i.value === "" && field.kind === "optional") return commit(row, null);
         commit(row, i.value === "" ? NaN : Number(i.value));
       });
+      watchUnchanged(i, () => this.acknowledge(row));
       return row;
     }
     if (inner.kind === "yaml") {
@@ -647,6 +694,7 @@ export class EditorPanel {
       t.style.cssText = `width:100%;box-sizing:border-box;background:#0b1220;color:${TEXT};border:1px solid #4b5563;font:12px monospace`;
       const row = this.row(field, t);
       t.addEventListener("change", () => commit(row, t.value));
+      watchUnchanged(t, () => this.acknowledge(row));
       return row;
     }
     // text and tag (a tag binding written as a mapping is shown as its tag name)
@@ -675,6 +723,7 @@ export class EditorPanel {
       if (i.value === "" && field.kind === "optional") return commit(row, null);
       commit(row, i.value);
     });
+    watchUnchanged(i, () => this.acknowledge(row));
     // an unbound optional port (a feedback, a limit, an enable): offer the conventional tag
     // with one click instead of typing it (2026-11-13, from building inline-reject)
     const proposal = inner.kind === "tag" && !field.required && (shown === undefined || shown === null || shown === "")
@@ -687,6 +736,27 @@ export class EditorPanel {
       row.insertBefore(use, row.querySelector(".editor-error"));
     }
     return row;
+  }
+
+  /** Show, on a field's row, that the value typed is the one it already had (PLAN 4.1j item 8):
+   * no change event fires for it, so without this nothing on the page would answer. */
+  private acknowledge(row: HTMLElement): void {
+    const ack = row.querySelector(":scope > .editor-ack") as HTMLElement | null;
+    if (!ack) return;
+    ack.textContent = "✓ Kept: that is already its value, nothing to change";
+    this.status.acks += 1;
+    this.status.ack = row.dataset.field ?? null;
+  }
+
+  /** What a list or mapping control (compound.ts) needs from the panel. */
+  private compoundHost(row: HTMLElement): CompoundHost {
+    return {
+      input: (type, value) => this.input(type, value),
+      button: (text, onClick) => this.button(text, onClick),
+      unchanged: () => this.acknowledge(row),
+      muted: MUTED,
+      text: TEXT,
+    };
   }
 
   /** The tag the palette would propose for an I/O port (core/templates.py `propose_tag`):

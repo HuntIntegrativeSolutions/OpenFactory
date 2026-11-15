@@ -5,6 +5,10 @@
 // server applies (server/editor.py, core/sceneedit.py). The server's load and lint are the
 // authority (ruled 2026-11-10: single-field checks here, no ajv).
 //
+// A list (`items`) or a mapping of pattern keys (`patternProperties`) whose items are themselves
+// controls gets a list or mapping control (PLAN 4.1j): the whole value is edited in place and
+// written as one `set`, so no list is typed as YAML. `anyOf [T, a list of T]` (a check's
+// `parts_reached` value: one name or several) is a list that writes a single item bare.
 // A construct the builder has no control for falls back to one YAML text field for that key
 // (sent as `set_raw`); forms.test.ts pins the expected fallbacks, so a new construct in the
 // schema cannot silently get no form.
@@ -39,7 +43,20 @@ export type Field =
   | (Base & { kind: "tag"; pattern?: string; maxLength?: number; ioKind?: string; spec: Field[] })
   | (Base & { kind: "optional"; inner: Field })
   | (Base & { kind: "group"; fields: Field[] })
+  | (Base & { kind: "list"; item: Field; minItems?: number; maxItems?: number; single?: boolean })
+  | (Base & { kind: "map"; keyPattern: string; keyMaxLength?: number; value: Field })
   | (Base & { kind: "yaml"; reason: string });
+
+/** The kinds a list's item or a mapping's value may be: anything with a control of its own. */
+const NESTABLE = new Set(["number", "text", "enum", "bool", "vector", "optional", "group", "list", "map"]);
+
+function nestable(f: Field): boolean {
+  if (f.kind === "optional") return nestable(f.inner);
+  if (f.kind === "group") return f.fields.every(nestable);
+  if (f.kind === "list") return nestable(f.item);
+  if (f.kind === "map") return nestable(f.value);
+  return NESTABLE.has(f.kind);
+}
 
 export interface Form {
   type: string; // the component type (the `type` constant), or "composite instance"
@@ -102,6 +119,13 @@ export function fieldFor(schema: JsonSchema, path: Path, key: string, raw: JsonS
         spec: groupFields(schema, path, obj),
       };
     }
+    // one value or a list of them (`parts_reached: {REM_01: good}` or `{REM_01: [a, b]}`)
+    const one = others.find((x: JsonSchema) => x.type !== "array");
+    const many = others.find((x: JsonSchema) => x.type === "array" && x.items);
+    if (others.length === 2 && one && many && JSON.stringify(deref(schema, many.items)) === JSON.stringify(one)) {
+      const item = fieldFor(schema, [], "item", one, true);
+      if (nestable(item)) return { ...b, kind: "list", item, single: true };
+    }
     return yaml("a union of several kinds of value");
   }
   if (Array.isArray(node.enum)) return { ...b, kind: "enum", options: node.enum };
@@ -118,11 +142,24 @@ export function fieldFor(schema: JsonSchema, path: Path, key: string, raw: JsonS
       if (items && items.every((x) => ["number", "integer"].includes(deref(schema, x).type))) {
         return { ...b, kind: "vector", items: items.map((x) => limits(deref(schema, x))) };
       }
+      if (!items && node.items) {
+        const item = fieldFor(schema, [], "item", node.items, true);
+        if (nestable(item)) return { ...b, kind: "list", item, minItems: node.minItems, maxItems: node.maxItems };
+      }
       return yaml("a list");
     }
     case "object":
       if (node.properties && node.additionalProperties === false) {
         return { ...b, kind: "group", fields: groupFields(schema, path, node) };
+      }
+      {
+        const patterns = Object.entries<JsonSchema>(node.patternProperties ?? {});
+        if (patterns.length === 1 && !node.properties) {
+          const value = fieldFor(schema, [], "value", patterns[0][1], true);
+          if (nestable(value)) {
+            return { ...b, kind: "map", keyPattern: patterns[0][0], keyMaxLength: node.propertyNames?.maxLength, value };
+          }
+        }
       }
       return yaml("a mapping of free keys");
     default:
@@ -157,11 +194,68 @@ export function defForType(schema: JsonSchema, type: string): string {
   return "CompositeInstance"; // any other type names a composite (PLAN 2.16)
 }
 
-/** Every field, groups and optionals opened, depth first. */
+/** Every field, groups and optionals opened, depth first (a list's item and a mapping's value
+ * are not opened: they are part of their list's or mapping's control). */
 export function flatten(fields: Field[]): Field[] {
   return fields.flatMap((f) =>
     f.kind === "group" ? [f, ...flatten(f.fields)] : f.kind === "optional" ? [f, ...flatten([f.inner])] : [f],
   );
+}
+
+/** A new item's or entry's starting value: the schema default, or empty for the user to fill
+ * (an empty number is NaN, which checkField refuses, so nothing half-made is ever sent). */
+export function blank(field: Field): unknown {
+  if (field.default !== undefined && field.default !== null) return structuredClone(field.default);
+  switch (field.kind) {
+    case "number":
+      return NaN;
+    case "text":
+    case "tag":
+      return "";
+    case "enum":
+      return field.options[0];
+    case "bool":
+      return false;
+    case "vector":
+      return field.items.map(() => NaN);
+    case "optional":
+      return undefined;
+    case "group": {
+      const out: Record<string, unknown> = {};
+      for (const f of field.fields) if (f.required) out[f.key] = blank(f);
+      return out;
+    }
+    case "list":
+      return field.single ? blank(field.item) : Array.from({ length: field.minItems ?? 0 }, () => blank(field.item));
+    case "map":
+      return {};
+    default:
+      return "";
+  }
+}
+
+/** The items a list control shows for a value (a single list's bare item is one item). */
+export function listItems(field: Extract<Field, { kind: "list" }>, value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null) return [];
+  return field.single ? [value] : [];
+}
+
+/** The value a list control writes for its items: a single list writes one item bare. */
+export function listValue(field: Extract<Field, { kind: "list" }>, items: unknown[]): unknown {
+  return field.single && items.length === 1 ? items[0] : items;
+}
+
+/** Whether two values are the same scene value (numbers by value, lists and mappings deeply,
+ * key order included, as the file would be written). */
+export function sameValue(a: unknown, b: unknown): boolean {
+  if (typeof a === "number" && typeof b === "number") return a === b;
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((x, i) => sameValue(x, b[i]));
+  if (a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b)) {
+    const ka = Object.keys(a), kb = Object.keys(b);
+    return ka.length === kb.length && ka.every((k, i) => k === kb[i] && sameValue((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+  }
+  return a === b;
 }
 
 function numberError(v: number, l: NumberLimits): string | null {
@@ -202,7 +296,45 @@ export function checkField(field: Field, value: unknown): string | null {
     case "bool":
       return typeof value === "boolean" ? null : "true or false";
     case "optional":
-      return value === null ? null : checkField(field.inner, value);
+      return value === null || value === undefined ? null : checkField(field.inner, value);
+    case "group": {
+      if (value === null || typeof value !== "object" || Array.isArray(value)) return "a mapping";
+      const v = value as Record<string, unknown>;
+      for (const f of field.fields) {
+        if (v[f.key] === undefined) {
+          if (f.required) return `${f.key}: required`;
+          continue;
+        }
+        const e = checkField(f, v[f.key]);
+        if (e) return `${f.key}: ${e}`;
+      }
+      return null;
+    }
+    case "list": {
+      const items = field.single && !Array.isArray(value) ? [value] : value;
+      if (!Array.isArray(items)) return "a list";
+      if (field.minItems !== undefined && items.length < field.minItems) {
+        return field.minItems === 1 ? "at least one item" : `at least ${field.minItems} items`;
+      }
+      if (field.maxItems !== undefined && items.length > field.maxItems) return `at most ${field.maxItems} items`;
+      for (let i = 0; i < items.length; i++) {
+        // a name in a list is never empty (the schema's strings there have no minLength)
+        if (field.item.kind === "text" && items[i] === "") return `item ${i + 1}: not empty`;
+        const e = checkField(field.item, items[i]);
+        if (e) return `item ${i + 1}: ${e}`;
+      }
+      return null;
+    }
+    case "map": {
+      if (value === null || typeof value !== "object" || Array.isArray(value)) return "a mapping";
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        if (!new RegExp(field.keyPattern).test(k)) return `key ${k || "(empty)"}: must match ${field.keyPattern}`;
+        if (field.keyMaxLength !== undefined && k.length > field.keyMaxLength) return `key ${k}: at most ${field.keyMaxLength} characters`;
+        const e = checkField(field.value, v);
+        if (e) return `${k}: ${e}`;
+      }
+      return null;
+    }
     case "yaml":
       return typeof value === "string" && value.trim() ? null : "a YAML value";
     default:

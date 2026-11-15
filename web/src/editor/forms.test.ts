@@ -1,17 +1,13 @@
 import { describe, expect, it } from "vitest";
 import schema from "../../public/scene.schema.json";
-import { buildForm, checkField, componentDefs, defForType, fieldFor, flatten, opFor, type Field } from "./forms";
+import { blank, buildForm, checkField, componentDefs, defForType, fieldFor, flatten, listValue, opFor, sameValue, type Field } from "./forms";
 
 /** The fields the form builder sends as YAML text, by design (PLAN 4.1b): `mesh.scale` (a number
- * or a 3-vector) on every type with a mesh, and these lists and free-key mappings. */
-const EXPECTED_FALLBACKS = new Set([
-  "BoxEmitter parts",
-  "Tank nozzles",
-  "Drain schedule",
-  "Pipe path",
-  "Pump curve",
-  "CompositeInstance io",
-]);
+ * or a 3-vector) on every type with a mesh, and a composite instance's `io`, a mapping of free
+ * keys whose values the schema does not describe. Lists and pattern-keyed mappings have their
+ * own controls since PLAN 4.1j (the emitter's parts, a tank's nozzles, a drain's schedule, a
+ * pipe's path, a pump's curve). */
+const EXPECTED_FALLBACKS = new Set(["CompositeInstance io"]);
 
 describe("the property form (PLAN 4.1b)", () => {
   const defs = componentDefs(schema);
@@ -84,5 +80,64 @@ describe("the property form (PLAN 4.1b)", () => {
   it("names a composite type's def as CompositeInstance", () => {
     expect(defForType(schema, "photo_eye")).toBe("PhotoEye");
     expect(defForType(schema, "accumulation_conveyor")).toBe("CompositeInstance");
+  });
+});
+
+describe("list and mapping controls (PLAN 4.1j)", () => {
+  const field = (def: string, key: string) => flatten(buildForm(schema, def).fields).find((f) => f.path.join(".") === key)!;
+  const inner = (f: Field) => (f.kind === "optional" ? f.inner : f);
+
+  it("gives the lists and mappings that were typed as YAML a control built from the schema", () => {
+    const parts = field("BoxEmitter", "parts");
+    expect(parts.kind).toBe("list");
+    if (parts.kind !== "list") return;
+    expect(parts.minItems).toBe(1);
+    expect(parts.item.kind).toBe("group");
+    if (parts.item.kind === "group") expect(parts.item.fields.map((f) => `${f.key}:${f.kind}`)).toEqual(["name:text", "size:vector", "weight:number", "color:optional"]);
+    const nozzles = field("Tank", "nozzles");
+    expect(nozzles.kind === "map" && nozzles.value.kind).toBe("number");
+    expect(inner(field("Drain", "schedule")).kind).toBe("list");
+    expect(inner(field("Pump", "curve")).kind).toBe("list");
+    const path = field("Pipe", "path");
+    expect(path.kind === "list" && path.item.kind).toBe("vector");
+  });
+
+  it("builds the scene's checks with no YAML field at all", () => {
+    const checks = flatten(buildForm(schema, "Checks").fields);
+    expect(checks.filter((f) => f.kind === "yaml").map((f) => f.key)).toEqual([]);
+    const reached = checks.find((f) => f.key === "parts_reached")!;
+    expect(reached.kind).toBe("map");
+    if (reached.kind !== "map") return;
+    expect(reached.keyPattern).toBe("^[A-Z][A-Z0-9_]*$");
+    expect(reached.value.kind === "list" && reached.value.single).toBe(true);
+    // one name is written bare, several as a list
+    expect(checkField(reached, { REM_01: "oversize", REM_02: ["good", "tall"] })).toBeNull();
+    expect(checkField(reached, { rem_01: "good" })).toMatch(/key rem_01: must match/);
+    expect(checkField(reached, { REM_01: "" })).toBe("REM_01: item 1: not empty"); // a new entry, not filled in yet
+    if (reached.value.kind === "list") {
+      expect(listValue(reached.value, ["good"])).toBe("good");
+      expect(listValue(reached.value, ["good", "tall"])).toEqual(["good", "tall"]);
+    }
+  });
+
+  it("checks a list item by item and never passes a half-made one", () => {
+    const parts = field("BoxEmitter", "parts");
+    const good = { name: "good", size: [0.3, 0.2, 0.3], weight: 0.7 };
+    expect(checkField(parts, [good])).toBeNull();
+    expect(checkField(parts, [])).toBe("at least one item");
+    expect(parts.kind === "list" && blank(parts.item)).toEqual({ name: "", size: [NaN, NaN, NaN], weight: NaN });
+    expect(checkField(parts, [good, parts.kind === "list" ? blank(parts.item) : null])).toMatch(/^item 2: name: must match/);
+    expect(checkField(parts, [{ ...good, weight: NaN }])).toBe("item 1: weight: a number");
+    expect(checkField(parts, [{ ...good, color: "red" }])).toBeNull();
+    expect(checkField(parts, [{ name: "good", size: [0.3, 0.2, 0.3] }])).toBe("item 1: weight: required");
+    expect(opFor("EMT_01", parts, [good])).toEqual({ op: "set", path: ["components", "EMT_01", "parts"], value: [good] });
+  });
+
+  it("knows a value it already has, key order included", () => {
+    expect(sameValue(3, 3.0)).toBe(true);
+    expect(sameValue([0.3, 0.2], [0.3, 0.2])).toBe(true);
+    expect(sameValue({ a: 1, b: 2 }, { a: 1, b: 2 })).toBe(true);
+    expect(sameValue({ a: 1, b: 2 }, { b: 2, a: 1 })).toBe(false); // written in another order
+    expect(sameValue("3", 3)).toBe(false);
   });
 });

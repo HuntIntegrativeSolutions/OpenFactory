@@ -1,9 +1,11 @@
 """A shipped scene built only with the editor (owner, 2026-11-13): `openfactory new`, then the
-editor in a browser, without the file ever being opened (two values, the emitter's parts list
-and the parts_reached check, are typed as one line of YAML in the form, which has no list or
-mapping control). This test does what a user does, click by click and field by field, and checks
-the saved file holds exactly what the shipped scenes/inline-reject.yaml holds (the same values;
-the shipped file is this session's output).
+editor in a browser, without the file ever being opened. This test does what a user does, click
+by click and field by field, and checks the saved file holds exactly what the shipped
+scenes/inline-reject.yaml holds (the same values; the shipped file is this session's output).
+
+PLAN 4.1j: no value is typed as YAML. The emitter's parts and the parts_reached check are built
+with the list and mapping controls (Add item, a key and Add), and the test fails if any YAML
+text box is used; at the end Fit view frames the whole plant.
 
 Set OPENFACTORY_BUILD_SCENE=<path> to write the saved file there (how the shipped one was made).
 """
@@ -57,16 +59,34 @@ class User:
         want = "null" if comp_id is None else f"'{comp_id}'"
         self.page.wait_for_function(f"() => window.__openfactory.editor.selected === {want}")
 
-    def type(self, field: str, value: str, tag: str = "input", nth: int = 0) -> None:
-        box = self.page.locator(f'[data-field="{field}"] {tag}').nth(nth)
+    def box(self, field: str, nth: int = 0):
+        """The input of a field: in its row, or the input itself (an item in a list)."""
+        sel = f'[data-field="{field}"] input, input[data-field="{field}"]'
+        return self.page.locator(sel).nth(nth)
+
+    def type(self, field: str, value: str, nth: int = 0, preview: bool = True) -> None:
+        """Type a value and leave the field; wait for the preview it sends unless the value is
+        not complete yet (an item in a list whose other fields are still empty)."""
+        box = self.box(field, nth)
         current = box.input_value()
         with contextlib.suppress(ValueError):
             if current == value or float(current) == float(value):
-                return  # already so: a change event would not fire
+                return  # already so: the panel says it was kept, and sends nothing
         before = self.previews()
         box.fill(value)
         box.press("Tab")  # a field commits when it loses focus
-        self._after(before)
+        if preview:
+            self._after(before)
+
+    def add_item(self, field: str) -> None:
+        """Press a list's Add item: a new empty item, sent once every field of it is filled."""
+        self.page.locator(f'[data-field="{field}"] .editor-list-add').first.click()
+
+    def add_entry(self, field: str, key: str) -> None:
+        """Type a mapping's new key and press its Add: a new entry with its value empty."""
+        row = self.page.locator(f'[data-field="{field}"]').first
+        row.locator(".editor-map-new").last.fill(key)
+        row.locator(".editor-map-add").last.click()
 
     def position(self, xyz: tuple[float, float, float]) -> None:
         for i, v in enumerate(xyz):
@@ -117,12 +137,15 @@ def build(user: User) -> None:
     user.type("description", "Infeed Box Source — Good and Oversize")
     user.position((0.2, 0.3, 0.0))
     user.use_tag("io.enable", "EMT_01_DO")
-    user.type(
-        "parts",
-        "[{name: oversize, size: [0.3, 0.4, 0.3], weight: 0.3},"
-        " {name: good, size: [0.3, 0.2, 0.3], weight: 0.7}]",
-        tag="textarea",
-    )
+    # its parts list: the starter box becomes the oversize one, and a good one is added
+    user.type("parts.0.name", "oversize")
+    user.type("parts.0.size", "0.4", nth=1)
+    user.type("parts.0.weight", "0.3")
+    user.add_item("parts")
+    user.type("parts.1.name", "good", preview=False)
+    for n, v in enumerate(("0.3", "0.2", "0.3")):
+        user.type("parts.1.size", v, nth=n, preview=False)
+    user.type("parts.1.weight", "0.7")  # the item is complete: now it is sent
     # the eye across CONV_02, above good boxes and below oversize ones
     assert user.add("photo_eye", (3.5, 0.0)) == "PE_01"
     user.type("description", "Oversize Box Photo Eye")
@@ -151,7 +174,10 @@ def build(user: User) -> None:
     user.type("scene.description", about)
     user.type("scene.author", "HIS Controls")
     user.type("scene.seed", "7")
-    user.type("checks.parts_reached", "{REM_01: oversize, REM_02: good}", tag="textarea")
+    user.add_entry("checks.parts_reached", "REM_01")
+    user.type("checks.parts_reached.REM_01.0", "oversize")
+    user.add_entry("checks.parts_reached", "REM_02")
+    user.type("checks.parts_reached.REM_02.0", "good")
     user.tick("checks.none_lost")
     user.type("checks.max_cycle_s", "15")
 
@@ -178,16 +204,27 @@ def test_the_inline_reject_scene_is_built_in_the_editor(tmp_path):
             page.wait_for_function("() => (window.__openfactory.editor?.palette ?? []).length > 0")
             assert page.locator("#editor-save").is_disabled()  # placeholders: scene and CONV_01
             user = User(page)
+            # PLAN 4.1j: count every YAML text box the user types in; there must be none
+            page.evaluate(
+                "() => { window.__yamlTyped = 0; document.addEventListener('input', (e) => {"
+                " if (e.target instanceof HTMLTextAreaElement) window.__yamlTyped += 1; }, true); }"
+            )
             build(user)
+            assert page.evaluate("() => window.__yamlTyped") == 0
             assert page.evaluate("() => window.__openfactory.editor.undescribed") == []
             assert page.evaluate("() => window.__openfactory.editor.errors") == 0
             page.locator("#editor-save").click()
             page.wait_for_function("() => window.__openfactory.editor.saves === 1")
-            page.evaluate("() => window.__openfactoryEditorLook(3.0, 0.0)")
-            page.mouse.move(450, 360)
-            for _ in range(6):  # the view is still framed on the starter belt: zoom out
-                page.mouse.wheel(0, 400)
-                page.wait_for_timeout(100)
+            # the lists as the form shows them, then the whole plant framed by Fit view
+            user.select("EMT_01")
+            page.locator('[data-field="parts"]').first.scroll_into_view_if_needed()
+            page.screenshot(path=str(out / "editor-4.1j-list.png"))
+            user.select(None)
+            page.locator('[data-field="checks.parts_reached"]').first.scroll_into_view_if_needed()
+            page.screenshot(path=str(out / "editor-4.1j-mapping.png"))
+            page.locator("#editor-fit").click()
+            page.wait_for_timeout(300)
+            assert page.evaluate("() => window.__openfactoryEditorOutOfView()") == []
             page.screenshot(path=str(out / "editor-build-inline-reject.png"))
             browser.close()
     finally:

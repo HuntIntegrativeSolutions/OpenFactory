@@ -45,7 +45,7 @@ import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
-import { framedBounds, framePose } from "./framing";
+import { boxInView, fitPose, framedBounds, framePose, type VisibleArea } from "./framing";
 import { applyShadowRoles, buildStage, editOverlay, Lighting } from "./lighting";
 import { initialQuality, isAutomatedBrowser, QUALITIES, QUALITY_TOOLTIP, readStored, remember, type Quality } from "./quality";
 
@@ -761,7 +761,21 @@ async function startEditor(): Promise<void> {
     }
     return out;
   };
+  /** The part of the window the panel does not cover (fitCamera centres the view in it). */
+  const visible = (): VisibleArea => ({ width: window.innerWidth, height: window.innerHeight, covered: viewShiftPx });
+  /** PLAN 4.1j item 5: frame every drawn component in that part of the window. */
+  const fitView = () => {
+    const bounds = framedBounds(views.map((v) => v.object));
+    if (bounds.isEmpty()) return;
+    const pose = fitPose(bounds, camera.fov, visible());
+    camera.position.copy(pose.position);
+    controls.target.copy(pose.target);
+    controls.update();
+  };
+  const inView = (id: string) => viewsOf(id).every((v) => boxInView(boundsOf([v.object]), camera, visible()));
   const panel = new EditorPanel({
+    fitView,
+    inView,
     onScene: (next) => applyScene(next).then(highlight),
     onSelect: select,
     placement,
@@ -874,6 +888,8 @@ async function startEditor(): Promise<void> {
       controls.update();
       return placement();
     },
+    /** The components not wholly in the uncovered part of the window (tests, PLAN 4.1j). */
+    __openfactoryEditorOutOfView: () => [...new Set(views.map((v) => v.id))].filter((id) => !inView(id)),
     /** Each component's drawn footprint (tests, PLAN 4.1e). */
     __openfactoryEditorFootprints: footprints,
     /** A component's values as the file with pending edits has them (tests, PLAN 4.1c). */

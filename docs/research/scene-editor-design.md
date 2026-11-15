@@ -285,9 +285,10 @@ with bearings taken from today's drawing (above) no pipe moves, so none needs it
 editor's snap does when you join a pipe to a tank wall (9.4), not something every old scene must
 be rewritten for.
 
-The form: `Tank.nozzles` is one of the pinned YAML fallbacks in `web/src/editor/forms.test.ts`.
-The value `height | {height, bearing_deg}` is a union the 4.1j list and mapping control would show
-per entry as a number or a two-field group; when 4.1g is built, its pin comes out of the list.
+The form: since 4.1j (built 2026-11-14, after this proposal was written) `Tank.nozzles` has a
+mapping control, a number per nozzle. The value `height | {height, bearing_deg}` would make each
+entry a union, which that control does not yet take: 4.1g2 adds it (a number, or a two-field
+group, per entry), or `nozzles` falls back to a line of YAML again.
 
 ### 9.3 The ports
 
