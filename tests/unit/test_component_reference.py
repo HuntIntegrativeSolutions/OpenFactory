@@ -78,3 +78,17 @@ def test_each_railed_conveyor_section_lists_its_mount_ports():
         if "**Mount ports**" not in found[type_name] or f"`{name}`" not in found[type_name]
     ]
     assert not missing, f"docs/components.md does not list the mount ports: {missing}"
+
+
+def test_each_process_section_lists_its_pipe_ports():
+    """PLAN 4.1g2: the process types list their pipe ports (core/snaps.py)."""
+    from openfactory.core.snaps import PIPE_PORT_NAMES
+
+    found = sections()
+    missing = [
+        f"{type_name}: {name}"
+        for type_name, names in {**PIPE_PORT_NAMES, "tank": ("top",)}.items()
+        for name in names
+        if "**Pipe ports**" not in found[type_name] or f"`{name}`" not in found[type_name]
+    ]
+    assert not missing, f"docs/components.md does not list the pipe ports: {missing}"

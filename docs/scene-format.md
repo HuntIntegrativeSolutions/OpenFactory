@@ -240,6 +240,28 @@ its own:** `openfactory test x.ofz --bundled-script` (or `run ... --bundled-scri
 only a bundle you trust should get that flag. Without it, `test` needs `--script` or `--plc` as
 for a scene file.
 
+## `nozzles:` with a bearing, and pipe ports (PLAN 4.1g2)
+
+A tank's `nozzles:` maps a name to a height above the bottom (m), as before, or to
+`{height, bearing_deg}`, which fixes the nozzle on the wall at that bearing: degrees about +y in
+the tank's frame from local +x, the same sense as `rotation_deg`. `bottom` may be listed to fix
+its bearing (its height stays 0); `top` takes none. A nozzle without a bearing faces the link that
+joins it, as it always has. This is an optional form, so the format stays `0.1` and no scene
+needs migrating (ruled 2026-11-14).
+
+```yaml
+- id: TK_01
+  type: tank
+  nozzles:
+    bottom: {height: 0, bearing_deg: 180}   # drawn on the -x wall
+    side: 1.2                               # faces whatever link joins it
+```
+
+`/api/scene` publishes each process component's `pipe` ports beside the conveyors' `load` and
+`mount` ports (`snaps`, left out of recordings): a tank's nozzles, a supply's `outlet`, a drain's
+`inlet`, a junction's `node`, a pipe's or valve's `inlet` and `outlet`, and a pump's `suction` and
+`discharge`. [The component reference](components.md) lists them per type.
+
 ## `mesh:`: a custom housing (PLAN 2.15)
 
 Any component may draw its own model in the viewer in place of its fixed housing:

@@ -2440,6 +2440,29 @@
       "title": "NoIO",
       "type": "object"
     },
+    "NozzleSpec": {
+      "additionalProperties": false,
+      "description": "A nozzle with a fixed place on the wall (PLAN 4.1g2, ruled 2026-11-14).",
+      "properties": {
+        "height": {
+          "description": "Height above the bottom, m.",
+          "minimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "bearing_deg": {
+          "description": "Where on the wall it faces, degrees about +y in the tank's frame from local +x, the same sense as rotation_deg.",
+          "title": "Bearing Deg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "height",
+        "bearing_deg"
+      ],
+      "title": "NozzleSpec",
+      "type": "object"
+    },
     "PartRemover": {
       "additionalProperties": false,
       "description": "Origin: center of the removal volume.",
@@ -4524,10 +4547,17 @@
           "type": "number"
         },
         "nozzles": {
-          "description": "More nozzles: name -> height above the bottom, m. `bottom` (0) and `top` (the height) always exist.",
+          "description": "More nozzles: name -> height above the bottom, m (it faces whatever link joins it), or {height, bearing_deg} (fixed on the wall at that bearing). `bottom` (0) and `top` (the height) always exist; list `bottom` to fix its bearing.",
           "patternProperties": {
             "^[a-z][a-z0-9_]*$": {
-              "type": "number"
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/NozzleSpec"
+                }
+              ]
             }
           },
           "propertyNames": {

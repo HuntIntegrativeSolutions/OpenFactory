@@ -652,7 +652,7 @@ switches and the level by ISA-5.1 function, as the shipped scenes do: `TK_02_LSH
 | `height` | 2.0 | Height, m; the tank overflows at this level |
 | `initial_level` | 0.5 | Level at start, m |
 | `initial_temperature_c` | 20 | Liquid temperature at start, °C |
-| `nozzles` | none | More nozzles, `name: height above the bottom` (m); `bottom` and `top` always exist |
+| `nozzles` | none | More nozzles, `name: height above the bottom` (m), or `name: {height, bearing_deg}` to fix one on the wall (PLAN 4.1g2); `bottom` and `top` always exist, and `bottom` may be listed to fix its bearing |
 | `hi_level` | 90 % of `height` | Level where `hi_sw` turns on, m |
 | `lo_level` | 10 % of `height` | Level where `lo_sw` turns on, m |
 
@@ -666,6 +666,17 @@ switches and the level by ISA-5.1 function, as the shipped scenes do: `TK_02_LSH
 Faults: `stuck_on`, `stuck_off`, `drift`, `noisy`, `misaligned`. Stuck faults hold the
 switches; `drift` and `noisy` act on the analog inputs; `misaligned` makes the level read
 `offset_m` high, switches included.
+
+A nozzle with a bearing: `bottom: {height: 0, bearing_deg: 90}` puts the bottom nozzle on the wall
+at 90 degrees about +y in the tank's frame from local +x, the same sense as `rotation_deg` (here
+local -z); a cylinder's at its radius, a box's where that bearing's ray meets the wall. `top`
+takes no bearing (load error), and a listed `bottom` must stay at height 0. A nozzle without a
+bearing is drawn facing the link that joins it, as before, so a pipe's default length, which is
+its drawn length, changes only when a bearing is given.
+
+**Pipe ports** (PLAN 4.1g2, `pipe`): one per nozzle, named as the nozzle (role both): `top` at
+the centre of the top; a nozzle with a bearing on the wall, facing out; any other a ring round
+the axis at its height (`heading_deg` null, `radius` the wall's), since it faces its link.
 
 ### `supply`
 
@@ -683,6 +694,9 @@ valve between it and the plant is the control element. Its state reports the flo
 No ports.
 
 Faults: none.
+
+**Pipe ports** (PLAN 4.1g2, `pipe`): `outlet` at the origin (role out). Published in `/api/scene` for a later editor
+(PLAN 4.1g3, parked) and for layout from drawings; a link's `from` and `to` join them.
 
 ### `drain`
 
@@ -707,6 +721,9 @@ No ports.
 
 Faults: none.
 
+**Pipe ports** (PLAN 4.1g2, `pipe`): `inlet` at the origin (role in). Published in `/api/scene` for a later editor
+(PLAN 4.1g3, parked) and for layout from drawings; a link's `from` and `to` join them.
+
 ### `junction`
 
 Origin: the junction point. Where links meet, a tee or a header: a node whose head is solved each
@@ -723,14 +740,17 @@ No ports.
 
 Faults: none.
 
+**Pipe ports** (PLAN 4.1g2, `pipe`): `node` at the origin (role both). Published in `/api/scene` for a later editor
+(PLAN 4.1g3, parked) and for layout from drawings; a link's `from` and `to` join them.
+
 ### `pipe`
 
 Origin: anywhere along it; an implicit junction made with another link downstream of it sits
 there. A run of pipe from `from` to `to`: its head loss is `r·q·|q|`, with `r` from Darcy-Weisbach
 at a fixed friction factor plus minor losses, `(f·L/D + ΣK) / (2·g·A²)`. Without a `length` it is
 as long as it is drawn: from its `from` end through each `path` point to its `to` end, where a
-tank nozzle's end is on the tank wall facing the pipe (a `top` nozzle: the top's centre) and any
-other end is that component's origin. A `transmitter` reads its flow (`measures: PIPE_01.flow`).
+tank nozzle's end is on the tank wall facing the pipe, or at the nozzle's `bearing_deg` when it
+has one (a `top` nozzle: the top's centre), and any other end is that component's origin. A `transmitter` reads its flow (`measures: PIPE_01.flow`).
 
 Link ends are checked when the scene loads: each names a component of the flow network (a tank's
 nozzle as `TK_01.bottom`, a supply, a drain, a junction, or another link that names this one
@@ -753,6 +773,9 @@ time constant through its direct connections is under 10 ticks.
 No ports.
 
 Faults: none.
+
+**Pipe ports** (PLAN 4.1g2, `pipe`): `inlet` (role in) and `outlet` (role out), both at the origin, where an implicit junction with it sits; `width` is its `diameter`. Published in `/api/scene` for a later editor
+(PLAN 4.1g3, parked) and for layout from drawings; a link's `from` and `to` join them.
 
 ### `valve_onoff`
 
@@ -780,6 +803,9 @@ mid-travel.
 
 Faults: `jammed`, `slow`, `stuck_on`, `stuck_off`. A jammed valve stops where it is with its
 limits honest; `slow` travels at `factor` of its speed; stuck faults hold a limit switch.
+
+**Pipe ports** (PLAN 4.1g2, `pipe`): `inlet` and `outlet` at the origin, as `pipe`. Published in `/api/scene` for a later editor
+(PLAN 4.1g3, parked) and for layout from drawings; a link's `from` and `to` join them.
 
 ### `valve_control`
 
@@ -819,6 +845,9 @@ exercise that needs it must use `float32`.
 Faults: `jammed`, `slow`, `drift`, `noisy`.
 A jammed stem sticks; `slow` scales the rate limit; `drift` and `noisy` act on the feedback.
 
+**Pipe ports** (PLAN 4.1g2, `pipe`): `inlet` and `outlet` at the origin, as `pipe`. Published in `/api/scene` for a later editor
+(PLAN 4.1g3, parked) and for layout from drawings; a link's `from` and `to` join them.
+
 ### `pump`
 
 Origin: the pump centre; it is drawn joined to its ends. A centrifugal pump from its suction
@@ -853,6 +882,9 @@ design head is below the static lift between the tanks or supplies its ends reac
 Faults: `jammed`, `slow`, `stuck_on`, `stuck_off`, `drift`, `noisy`.
 A jammed pump is seized (no flow, `running` honest); `slow` is a worn impeller (head times
 `factor`); stuck faults hold `running`; `drift` and `noisy` act on `flow`.
+
+**Pipe ports** (PLAN 4.1g2, `pipe`): `suction` (role in) and `discharge` (role out), both at the origin. Published in `/api/scene` for a later editor
+(PLAN 4.1g3, parked) and for layout from drawings; a link's `from` and `to` join them.
 
 ### `heater`
 

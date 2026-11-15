@@ -57,13 +57,16 @@ already its value** and nothing is sent (PLAN 4.1j).
   entries with one key would be written as one).
 - A value that may be one item or several (a `parts_reached` remover's part names) is a list
   that writes a single item bare: `{REM_01: oversize}`, or `{REM_01: [good, tall]}` with two.
+- A value that may be one of a few kinds (a tank's nozzle: a height, or a height and a bearing,
+  PLAN 4.1g2; a mesh's `scale`: one number or three) has a choice above its control; changing it
+  keeps what it can (a nozzle's height stays when a bearing is added).
 
 The whole list or mapping is written as one change: in flow style, or, where the file writes it
 as a block (one item per line), as a block again with each item on its own line in flow style
 (comment lines between its old items go with them). An I/O binding
 written as a mapping (`speed: {tag: CONV_01_SPD_AO, initial: 100}`) is still edited as one line of
-YAML, and so are the two values the schema does not describe item by item: a mesh's `scale` (a
-number or three) and a composite instance's `io`.
+YAML, and so is the one value the schema does not describe item by item: a composite instance's
+`io`.
 
 Every I/O port is listed, bound or not. An optional port that is not bound (a conveyor's
 `running` feedback, a pusher's `extended` limit, an emitter's `enable`) has a **Use TAG** button

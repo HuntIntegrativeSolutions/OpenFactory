@@ -290,10 +290,11 @@ class Runtime:
 
         def snap(comp_id: str) -> dict[str, Any]:
             from openfactory.core.mounts import rails
-            from openfactory.core.snaps import snap_ports
+            from openfactory.core.snaps import pipe_ports, snap_ports
 
-            # load ports (PLAN 4.1d) and a belt's rails, mount ports (PLAN 4.1g1)
-            ports = [*snap_ports(config[comp_id]), *rails(config[comp_id])] if snaps else []
+            # load ports (PLAN 4.1d), a belt's rails (mount, 4.1g1), pipe ports (4.1g2)
+            cfg = config[comp_id]
+            ports = [*snap_ports(cfg), *rails(cfg), *pipe_ports(cfg)] if snaps else []
             return {"snaps": [p.document() for p in ports]} if ports else {}
 
         def composite(comp_id: str) -> dict[str, Any]:

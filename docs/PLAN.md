@@ -2607,7 +2607,7 @@ runs the sorting program against it; a box visibly gets pushed.
         deck); `test_component_reference.py` (+1: each railed conveyor lists its mount ports).
         Documented in `docs/components.md` and `docs/editor.md` ("Dropping a device on a rail").
         Screenshots `editor-4.1g1-marked.png` and `editor-4.1g1-dropped.png` looked at.
-  - [ ] 4.1g2 Nozzle bearings and pipe ports (§9.2, §9.3; rulings 1 to 3). *Done when:* every
+  - [x] 4.1g2 Nozzle bearings and pipe ports (§9.2, §9.3; rulings 1 to 3). *Done when:* every
         shipped scene loads, draws and runs exactly as before (its state frames and `checks:`
         results equal before and after over a 60 s run; `migrate --check` clean); a tank with
         `bottom: {height: 0, bearing_deg: 90}` draws its pipe end on the +90 degree wall within 1
@@ -2615,6 +2615,36 @@ runs the sorting program against it; a box visibly gets pushed.
         `/api/scene` and not in a recording; the scene format and the component reference
         describe both; the editor's `nozzles` control takes a number or a `{height,
         bearing_deg}` group per entry and never falls back to a line of YAML.
+        *Done (2026-11-15):* `Tank.nozzles` takes a height or a `NozzleSpec` `{height,
+        bearing_deg}` (bearing about +y in the tank's frame from local +x, as `rotation_deg`);
+        `bottom` may be listed to fix its bearing (its height must stay 0) and `top` takes none
+        (load errors naming each); `Tank.bearings()` beside `all_nozzles()`. The wall point is
+        `snaps.nozzle_wall` (a cylinder at its radius, a box where the bearing's ray meets the
+        wall), the one copy the tank's drawing (`Tank.nozzle_point`) and the ports use; a nozzle
+        without a bearing still faces its link. `snaps.pipe_ports` (ruling 3): a tank's nozzles
+        (`top` at the top's centre, a fixed one on the wall facing out, a free one a ring with
+        `heading_deg` null and a `radius`), a supply's `outlet`, a drain's `inlet`, a junction's
+        `node`, a pipe's and valve's `inlet`/`outlet`, a pump's `suction`/`discharge`, all at the
+        origin and told apart by role; published in `/api/scene` with the other ports, not in a
+        recording. Format 0.1, no migration (ruling 2); `web/public/scene.schema.json`
+        regenerated. Editor: a new `either` field kind for a value of one of a few kinds, each
+        with a control (`anyOf` with distinct kinds), offered as a choice above its control;
+        switching keeps what it can (a nozzle's height stays when a bearing is added). It also
+        gives a mesh's `scale` (one number or three) a control, so the only YAML fallback left is
+        a composite instance's `io`. *Checked before and after:* each of the 12 shipped scenes
+        run 60 s under its stand-in script with `--record`, at eb8916d and with this change: the
+        12 recordings (every state frame and the drawn geometry, link points included) are byte
+        for byte the same, and so are the check results. Tests: `tests/unit/test_nozzles.py` (6:
+        every shipped file migrates byte for byte at format 0.1; `bottom: {height: 0,
+        bearing_deg: 90}` draws PIPE_02's end at (0, 1.55, -0.3) within 1 mm and its default
+        length follows the drawn length, against (0.3, 1.55, 0) without; a box tank's ray; the
+        load errors; each process type's ports, the ring, the origin; `/api/scene` publishes them
+        and a recording does not); `tests/integration/test_editor_nozzles.py` (TK_01's bottom
+        nozzle given bearing 90 in the form by its choice and two numbers, no YAML text box
+        touched, saved as `{bottom: {height: 0, bearing_deg: 90}}`, PIPE_02 drawn on the -z
+        wall); `forms.test.ts` (+3); `test_component_reference.py` (+1: each process type lists
+        its pipe ports). Documented in `docs/components.md`, `docs/scene-format.md` and
+        `docs/editor.md`. Screenshot `editor-4.1g2-nozzle.png` looked at.
   - [ ] 4.1g3 Pipe snapping in the editor (§9.4; ruling 4). *Parked 2026-11-14, after Milestone
         5's Phase B.* Not to be built before then.
   - [x] 4.1e Free placement on Add (added 2026-11-12, from 4.1c's open items): a new component
@@ -3350,6 +3380,7 @@ runs the sorting program against it; a box visibly gets pushed.
         - The tick-cost gate is ok: load-200 +4.1 %, queue-200 +10.7 %, tank-level-pid -8.8 %
           against the baseline. The core is untouched here.
         - The working tree was unchanged after the run.
+
 
 ---
 

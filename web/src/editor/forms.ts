@@ -45,16 +45,18 @@ export type Field =
   | (Base & { kind: "group"; fields: Field[] })
   | (Base & { kind: "list"; item: Field; minItems?: number; maxItems?: number; single?: boolean })
   | (Base & { kind: "map"; keyPattern: string; keyMaxLength?: number; value: Field })
+  | (Base & { kind: "either"; options: Field[] })
   | (Base & { kind: "yaml"; reason: string });
 
 /** The kinds a list's item or a mapping's value may be: anything with a control of its own. */
-const NESTABLE = new Set(["number", "text", "enum", "bool", "vector", "optional", "group", "list", "map"]);
+const NESTABLE = new Set(["number", "text", "enum", "bool", "vector", "optional", "group", "list", "map", "either"]);
 
 function nestable(f: Field): boolean {
   if (f.kind === "optional") return nestable(f.inner);
   if (f.kind === "group") return f.fields.every(nestable);
   if (f.kind === "list") return nestable(f.item);
   if (f.kind === "map") return nestable(f.value);
+  if (f.kind === "either") return f.options.every(nestable);
   return NESTABLE.has(f.kind);
 }
 
@@ -125,6 +127,13 @@ export function fieldFor(schema: JsonSchema, path: Path, key: string, raw: JsonS
     if (others.length === 2 && one && many && JSON.stringify(deref(schema, many.items)) === JSON.stringify(one)) {
       const item = fieldFor(schema, [], "item", one, true);
       if (nestable(item)) return { ...b, kind: "list", item, single: true };
+    }
+    // one of a few kinds of value, each with a control (a tank nozzle: a height, or a height
+    // and a bearing, PLAN 4.1g2): the user picks which, then fills it in
+    if (others.length >= 2 && others.length === branches.length) {
+      const options = others.map((x: JsonSchema, i: number) => fieldFor(schema, [], `option${i + 1}`, x, true));
+      const kinds = new Set(options.map((o: Field) => o.kind));
+      if (kinds.size === options.length && options.every(nestable)) return { ...b, kind: "either", options };
     }
     return yaml("a union of several kinds of value");
   }
@@ -229,6 +238,8 @@ export function blank(field: Field): unknown {
       return field.single ? blank(field.item) : Array.from({ length: field.minItems ?? 0 }, () => blank(field.item));
     case "map":
       return {};
+    case "either":
+      return blank(field.options[0]);
     default:
       return "";
   }
@@ -244,6 +255,45 @@ export function listItems(field: Extract<Field, { kind: "list" }>, value: unknow
 /** The value a list control writes for its items: a single list writes one item bare. */
 export function listValue(field: Extract<Field, { kind: "list" }>, items: unknown[]): unknown {
   return field.single && items.length === 1 ? items[0] : items;
+}
+
+/** How an `either` field's option is offered: "a number", or a group's fields by name. */
+export function optionLabel(option: Field): string {
+  if (option.kind === "group") return option.fields.map((f) => f.key).join(" and ");
+  if (option.kind === "vector") return `${option.items.length} numbers`;
+  return `a ${option.kind}`;
+}
+
+/** Which of an `either` field's options a value is: the first that takes it, else the first of
+ * the value's shape (a number, a list, a mapping). */
+export function eitherIndex(field: Extract<Field, { kind: "either" }>, value: unknown): number {
+  const ok = field.options.findIndex((o) => checkField(o, value) === null);
+  if (ok >= 0) return ok;
+  const shape = (o: Field) =>
+    o.kind === "number" ? typeof value === "number"
+      : o.kind === "text" || o.kind === "enum" ? typeof value === "string"
+        : o.kind === "bool" ? typeof value === "boolean"
+          : o.kind === "vector" || o.kind === "list" ? Array.isArray(value)
+            : value !== null && typeof value === "object" && !Array.isArray(value);
+  return Math.max(0, field.options.findIndex(shape));
+}
+
+/** A value carried over when the user picks another option: a scalar becomes the new group's
+ * first field (a nozzle's height keeps its number when a bearing is added), and a group's first
+ * field becomes the new scalar; otherwise the option starts empty. */
+export function switchOption(from: unknown, to: Field): unknown {
+  const fresh = blank(to);
+  if (to.kind === "group" && to.fields.length && (typeof from === "number" || typeof from === "string")) {
+    const first = to.fields[0];
+    if ((first.kind === "number" && typeof from === "number") || (first.kind === "text" && typeof from === "string")) {
+      return { ...(fresh as Record<string, unknown>), [first.key]: from };
+    }
+  }
+  if ((to.kind === "number" || to.kind === "text") && from && typeof from === "object" && !Array.isArray(from)) {
+    const first = Object.values(from as Record<string, unknown>)[0];
+    if (to.kind === "number" ? typeof first === "number" : typeof first === "string") return first;
+  }
+  return fresh;
 }
 
 /** Whether two values are the same scene value (numbers by value, lists and mappings deeply,
@@ -324,6 +374,12 @@ export function checkField(field: Field, value: unknown): string | null {
         if (e) return `item ${i + 1}: ${e}`;
       }
       return null;
+    }
+    case "either": {
+      if (field.options.some((o) => checkField(o, value) === null)) return null;
+      const which = eitherIndex(field, value);
+      const e = checkField(field.options[which], value);
+      return field.options.length > 1 ? `${optionLabel(field.options[which])}: ${e}` : e;
     }
     case "map": {
       if (value === null || typeof value !== "object" || Array.isArray(value)) return "a mapping";

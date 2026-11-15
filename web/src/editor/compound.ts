@@ -7,7 +7,7 @@
 //
 // Every nested control carries `data-field`, its path from the form's root joined with dots
 // (`parts.1.weight`, `checks.parts_reached.REM_01.0`), for tests and for the user's eye.
-import { blank, listItems, listValue, type Field } from "./forms";
+import { blank, eitherIndex, listItems, listValue, optionLabel, switchOption, type Field } from "./forms";
 
 export interface CompoundHost {
   input(type: string, value: string): HTMLInputElement;
@@ -148,6 +148,39 @@ export function valueEditor(field: Field, value: unknown, path: string, onChange
         };
         box.append(labelled(host, f.key, sub, valueEditor(f, working[f.key], sub, set, host), !f.required));
       }
+      return box;
+    }
+    case "either": {
+      // which kind of value (a nozzle: a height, or a height and a bearing), then its control
+      const box = document.createElement("div");
+      box.dataset.field = path;
+      const pick = document.createElement("select");
+      pick.className = "editor-either";
+      pick.style.cssText = `${SELECT_CSS};color:${host.text};margin-bottom:2px`;
+      field.options.forEach((o, i) => {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = optionLabel(o);
+        pick.appendChild(opt);
+      });
+      let current = value;
+      const holder = document.createElement("div");
+      const draw = (i: number) => {
+        holder.replaceChildren(valueEditor(field.options[i], current, path, (v) => {
+          current = v;
+          onChange(v);
+        }, host));
+      };
+      const at = eitherIndex(field, value);
+      pick.value = String(at);
+      pick.addEventListener("change", () => {
+        const i = Number(pick.value);
+        current = switchOption(current, field.options[i]);
+        draw(i);
+        onChange(current);
+      });
+      draw(at);
+      box.append(pick, holder);
       return box;
     }
     case "list":

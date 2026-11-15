@@ -9,6 +9,20 @@ This module declares ``load`` ports: the two ends of every conveyor (``belt_conv
 side rails, ``mount`` ports, are :mod:`openfactory.core.mounts` (PLAN 4.1g1), with the same
 :class:`SnapPort` and a ``length`` (the rail's run; 0 for a point port).
 
+``pipe`` ports (PLAN 4.1g2, ruled 2026-11-14; :func:`pipe_ports`), where a link's ``from`` or
+``to`` can join, published for a later editor (4.1g3, parked) and for layout from drawings:
+
+- ``tank``: one per nozzle, named as the nozzle, role ``both``: ``top`` at the centre of the top;
+  a nozzle with a ``bearing_deg`` on the wall at that bearing, facing out (:func:`nozzle_wall`,
+  which the tank's drawing uses too); any other a ring round the tank's axis at its height
+  (``heading_deg`` null, ``radius`` the wall's reach), since it faces whatever link joins it.
+- ``supply``: ``outlet`` (``out``); ``drain``: ``inlet`` (``in``); ``junction``: ``node``
+  (``both``); each at the origin.
+- ``pipe``, ``valve_onoff``, ``valve_control``: ``inlet`` (``in``) and ``outlet`` (``out``);
+  ``pump``: ``suction`` (``in``) and ``discharge`` (``out``); both at the origin, where the core
+  joins links (ruling 3), told apart by role. ``width`` is the bore: a pipe's ``diameter``,
+  else 0.05 m.
+
 A :class:`SnapPort` has a ``name``, its ``kind``, a world ``position`` (m), a ``heading_deg`` (the
 way the port faces outward, a rotation about +y as ``rotation_deg``: an end that discharges along
 the flow faces along it, an infeed faces back against it), the conveyor's ``width`` and a
@@ -57,16 +71,20 @@ class SnapPort:
     name: str
     kind: Literal["load", "mount", "pipe"]
     position: Vec3
-    heading_deg: float
+    heading_deg: float | None  # None: a pipe port facing any way (a ring, or the top)
     width: float
     role: Role
     length: float = 0.0  # a rail's run from ``position`` (mount); 0 for a point port
+    radius: float = 0.0  # a ring's radius round ``position`` (a free nozzle, pipe ports only)
 
     def document(self) -> dict[str, Any]:
         """The port as ``/api/scene`` publishes it (rounded to 0.1 mm and 0.001 degrees)."""
         d = asdict(self)
         d["position"] = [round(v, 4) for v in self.position]
-        d["heading_deg"] = round(self.heading_deg % 360.0, 3)
+        if self.heading_deg is not None:
+            d["heading_deg"] = round(self.heading_deg % 360.0, 3)
+        if self.kind != "pipe":
+            del d["radius"]
         return d
 
 
@@ -211,3 +229,94 @@ def misjoined(scene: Any) -> list[str]:
             "(the editor snaps ends within 0.15 m) if they should meet"
         )
     return out
+
+
+# --- pipe ports (PLAN 4.1g2) ---------------------------------------------------------------
+
+#: The bore a pipe port is published with when its link names none, m.
+DEFAULT_BORE_M = 0.05
+#: A nozzle at the bottom is drawn this far up, clear of the floor.
+BOTTOM_CLEAR_M = 0.05
+
+#: The fixed pipe port names of each type (a tank has one per nozzle).
+PIPE_PORT_NAMES: dict[str, tuple[str, ...]] = {
+    "supply": ("outlet",),
+    "drain": ("inlet",),
+    "junction": ("node",),
+    "pipe": ("inlet", "outlet"),
+    "valve_onoff": ("inlet", "outlet"),
+    "valve_control": ("inlet", "outlet"),
+    "pump": ("suction", "discharge"),
+}
+
+
+def _wall_reach(tank: Any) -> float:
+    """How far the wall is from the axis for a nozzle that faces its link (a box: its narrower
+    half)."""
+    if tank.shape == "box":
+        return float(min(tank.length, tank.width)) / 2
+    return float(tank.diameter) / 2
+
+
+def nozzle_wall(tank: Any, name: str) -> Vec3 | None:
+    """Where a nozzle with a fixed bearing is on the wall (world, m), or None for a nozzle
+    without one: a cylinder's at its radius, a box's where the bearing's ray meets the wall."""
+    from openfactory.core.geometry import rotate_y
+
+    bearing = tank.bearings().get(name)
+    if bearing is None:
+        return None
+    lx, _, lz = rotate_y((1.0, 0.0, 0.0), bearing)
+    if tank.shape == "box":
+        hx, hz = tank.length / 2, tank.width / 2
+        t = min(
+            hx / abs(lx) if abs(lx) > 1e-12 else math.inf,
+            hz / abs(lz) if abs(lz) > 1e-12 else math.inf,
+        )
+    else:
+        t = tank.diameter / 2
+    height = tank.all_nozzles()[name]
+    return to_world(
+        tuple(tank.position), tank.rotation_deg, (lx * t, max(height, BOTTOM_CLEAR_M), lz * t)
+    )
+
+
+def pipe_ports(comp: Any) -> list[SnapPort]:
+    """The ``pipe`` ports of a component's configuration (none for a type that has none)."""
+    pos = tuple(float(v) for v in comp.position)
+    if comp.type == "tank":
+        out = []
+        x, y, z = pos
+        for name, height in comp.all_nozzles().items():
+            wall = nozzle_wall(comp, name)
+            if wall is not None:
+                bearing = comp.bearings()[name]
+                out.append(
+                    SnapPort(
+                        name, "pipe", wall, comp.rotation_deg + bearing, DEFAULT_BORE_M, "both"
+                    )
+                )
+            elif name == "top" or height >= comp.height - 1e-9:
+                out.append(SnapPort(name, "pipe", (x, y + height, z), None, DEFAULT_BORE_M, "both"))
+            else:
+                at = (x, y + max(height, BOTTOM_CLEAR_M), z)
+                out.append(
+                    SnapPort(
+                        name, "pipe", at, None, DEFAULT_BORE_M, "both", radius=_wall_reach(comp)
+                    )
+                )
+        return out
+    names = PIPE_PORT_NAMES.get(comp.type)
+    if names is None:
+        return []
+    bore = (
+        float(getattr(comp, "diameter", DEFAULT_BORE_M)) if comp.type == "pipe" else DEFAULT_BORE_M
+    )
+    heading = float(comp.rotation_deg)
+    if len(names) == 1:
+        role: Role = {"supply": "out", "drain": "in"}.get(comp.type, "both")  # type: ignore[assignment]
+        return [SnapPort(names[0], "pipe", pos, heading, bore, role)]
+    return [
+        SnapPort(names[0], "pipe", pos, heading + 180.0, bore, "in"),
+        SnapPort(names[1], "pipe", pos, heading, bore, "out"),
+    ]

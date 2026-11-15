@@ -913,6 +913,16 @@ class SelectorSwitch(ComponentBase):
 NozzleName = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
 
 
+class NozzleSpec(StrictModel):
+    """A nozzle with a fixed place on the wall (PLAN 4.1g2, ruled 2026-11-14)."""
+
+    height: float = Field(ge=0, description="Height above the bottom, m.")
+    bearing_deg: float = Field(
+        description="Where on the wall it faces, degrees about +y in the tank's frame from local "
+        "+x, the same sense as rotation_deg.",
+    )
+
+
 class TankIO(IOModel):
     level: AiTag | None = port("AI", "Level", units="m", range_from="height")
     hi_sw: DiTag | None = port("DI", "High level switch (on at hi_level)")
@@ -934,10 +944,11 @@ class Tank(ComponentBase):
     height: PositiveFloat = Field(2.0, description="Height, m; the tank overflows at this level.")
     initial_level: float = Field(0.5, ge=0, description="Level at start, m.")
     initial_temperature_c: float = Field(20.0, description="Liquid temperature at start, °C.")
-    nozzles: dict[NozzleName, float] = Field(
+    nozzles: dict[NozzleName, float | NozzleSpec] = Field(
         default_factory=dict,
-        description="More nozzles: name -> height above the bottom, m. `bottom` (0) and `top` "
-        "(the height) always exist.",
+        description="More nozzles: name -> height above the bottom, m (it faces whatever link "
+        "joins it), or {height, bearing_deg} (fixed on the wall at that bearing). `bottom` (0) "
+        "and `top` (the height) always exist; list `bottom` to fix its bearing.",
     )
     hi_level: PositiveFloat | None = Field(
         None,
@@ -956,9 +967,16 @@ class Tank(ComponentBase):
             raise ValueError(f"{self.id}: a vertical_cylinder takes diameter, not length or width")
         if self.initial_level > self.height:
             raise ValueError(f"{self.id}: initial_level {self.initial_level:g} m is above height")
-        for name, z in self.nozzles.items():
+        for name, spec in self.nozzles.items():
+            z = spec.height if isinstance(spec, NozzleSpec) else spec
             if not 0 <= z <= self.height:
                 raise ValueError(f"{self.id}: nozzle {name} at {z:g} m is outside 0 to height")
+            if name == "top" and isinstance(spec, NozzleSpec):
+                raise ValueError(f"{self.id}: nozzle top is the centre of the top; it takes no "
+                                 "bearing_deg")  # fmt: skip
+            if name == "bottom" and z != 0:
+                raise ValueError(f"{self.id}: nozzle bottom is at height 0, not {z:g} m; list "
+                                 "another name for a nozzle above the bottom")  # fmt: skip
         if not 0 <= self.low() < self.high() <= self.height:
             raise ValueError(f"{self.id}: needs 0 <= lo_level < hi_level <= height")
         return self
@@ -975,7 +993,13 @@ class Tank(ComponentBase):
         return math.pi * self.diameter**2 / 4
 
     def all_nozzles(self) -> dict[str, float]:
-        return {"bottom": 0.0, "top": self.height, **self.nozzles}
+        """Every nozzle's height above the bottom, m."""
+        heights = {k: v.height if isinstance(v, NozzleSpec) else v for k, v in self.nozzles.items()}
+        return {"bottom": 0.0, "top": self.height, **heights}
+
+    def bearings(self) -> dict[str, float]:
+        """The nozzles with a fixed bearing (PLAN 4.1g2): name -> degrees."""
+        return {k: v.bearing_deg for k, v in self.nozzles.items() if isinstance(v, NozzleSpec)}
 
 
 #: An ingredient's name in a process scene (PLAN 3.1 mixing): lowercase.

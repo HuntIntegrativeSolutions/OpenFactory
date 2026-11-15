@@ -21,7 +21,10 @@ Faults: ``stuck_on``/``stuck_off`` (the switches), ``drift`` and ``noisy`` (the 
 ``misaligned`` (the level reads ``offset_m`` high, switches included, as a level transmitter or
 float set wrong).
 
-Geometry: origin at the centre of the tank bottom.
+Geometry: origin at the centre of the tank bottom. A nozzle given as ``{height, bearing_deg}``
+(PLAN 4.1g2) is fixed on the wall at that bearing (degrees about +y in the tank's frame from
+local +x, as ``rotation_deg``): a cylinder's at its radius, a box's where the bearing's ray meets
+the wall. ``top`` is the centre of the top; any other nozzle faces the link that joins it.
 """
 
 from __future__ import annotations
@@ -31,6 +34,7 @@ from typing import Any
 
 from openfactory.core import flownet
 from openfactory.core.component import Component, register
+from openfactory.core.snaps import nozzle_wall
 
 #: Switch deadband, m: a switch turns off this far back from where it turned on.
 DEADBAND = 0.02
@@ -64,16 +68,23 @@ class Tank(Component):
         return [self.node]
 
     def nozzle_point(self, nozzle: str, toward: tuple[float, float, float]) -> list[float]:
-        """Where a pipe meets ``nozzle`` (for the viewer): the top's centre, or the wall facing
-        ``toward`` at the nozzle's height (a bottom nozzle 0.05 m up, clear of the floor)."""
+        """Where a pipe meets ``nozzle`` (for the viewer, and a pipe's drawn length): the top's
+        centre; a nozzle with a fixed ``bearing_deg`` (PLAN 4.1g2) on the wall at that bearing
+        (a cylinder at its radius, a box where the bearing's ray meets the wall); any other on
+        the wall facing ``toward``. A nozzle at the bottom sits 0.05 m up, clear of the floor."""
         x, y, z = self.config.position
         height = self.node.nozzles[nozzle]
-        if height >= self.node.height - 1e-9:
+        if height >= self.node.height - 1e-9 and nozzle == "top":
             return [x, y + height, z]
-        dx, dz = toward[0] - x, toward[2] - z
-        dist = math.hypot(dx, dz)
+        wall = nozzle_wall(self.config, nozzle)  # a fixed bearing (core/snaps.py, one copy)
+        if wall is not None:
+            return [float(v) for v in wall]
+        if height >= self.node.height - 1e-9:
+            return [x, y + height, z]  # a free nozzle at the top's height: as top, as before
         cfg = self.config
         box = cfg.shape == "box"  # type: ignore[attr-defined]
+        dx, dz = toward[0] - x, toward[2] - z
+        dist = math.hypot(dx, dz)
         reach = min(cfg.length, cfg.width) / 2 if box else cfg.diameter / 2  # type: ignore[attr-defined,type-var]
         ux, uz = (dx / dist, dz / dist) if dist > 1e-9 else (1.0, 0.0)
         return [x + ux * reach, y + max(height, 0.05), z + uz * reach]

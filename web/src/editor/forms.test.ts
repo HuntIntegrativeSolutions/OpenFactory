@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import schema from "../../public/scene.schema.json";
-import { blank, buildForm, checkField, componentDefs, defForType, fieldFor, flatten, listValue, opFor, sameValue, type Field } from "./forms";
+import { blank, buildForm, checkField, componentDefs, defForType, eitherIndex, fieldFor, flatten, listValue, opFor, optionLabel, sameValue, switchOption, type Field } from "./forms";
 
 /** The fields the form builder sends as YAML text, by design (PLAN 4.1b): `mesh.scale` (a number
  * or a 3-vector) on every type with a mesh, and a composite instance's `io`, a mapping of free
@@ -95,7 +95,7 @@ describe("list and mapping controls (PLAN 4.1j)", () => {
     expect(parts.item.kind).toBe("group");
     if (parts.item.kind === "group") expect(parts.item.fields.map((f) => `${f.key}:${f.kind}`)).toEqual(["name:text", "size:vector", "weight:number", "color:optional"]);
     const nozzles = field("Tank", "nozzles");
-    expect(nozzles.kind === "map" && nozzles.value.kind).toBe("number");
+    expect(nozzles.kind === "map" && nozzles.value.kind).toBe("either"); // 4.1g2: a height, or a group
     expect(inner(field("Drain", "schedule")).kind).toBe("list");
     expect(inner(field("Pump", "curve")).kind).toBe("list");
     const path = field("Pipe", "path");
@@ -139,5 +139,33 @@ describe("list and mapping controls (PLAN 4.1j)", () => {
     expect(sameValue({ a: 1, b: 2 }, { a: 1, b: 2 })).toBe(true);
     expect(sameValue({ a: 1, b: 2 }, { b: 2, a: 1 })).toBe(false); // written in another order
     expect(sameValue("3", 3)).toBe(false);
+  });
+});
+
+describe("a value of one of several kinds (PLAN 4.1g2)", () => {
+  const nozzles = flatten(buildForm(schema, "Tank").fields).find((f) => f.key === "nozzles")!;
+  const either = nozzles.kind === "map" ? nozzles.value : null;
+
+  it("makes a tank's nozzle a height or a height and a bearing, never a line of YAML", () => {
+    expect(either?.kind).toBe("either");
+    if (either?.kind !== "either") return;
+    expect(either.options.map(optionLabel)).toEqual(["a number", "height and bearing_deg"]);
+    expect(checkField(nozzles, { side: 1.2, bottom: { height: 0, bearing_deg: 90 } })).toBeNull();
+    expect(checkField(nozzles, { side: { height: 1.2 } })).toBe("side: height and bearing_deg: bearing_deg: required");
+    expect(checkField(nozzles, { side: "high" })).not.toBeNull(); // neither kind (the server checks 0 to height)
+    expect(eitherIndex(either, 1.2)).toBe(0);
+    expect(eitherIndex(either, { height: 1.2 })).toBe(1);
+  });
+
+  it("keeps the height when a bearing is added, and when it is taken away", () => {
+    if (either?.kind !== "either") return;
+    expect(switchOption(1.2, either.options[1])).toEqual({ height: 1.2, bearing_deg: NaN });
+    expect(switchOption({ height: 1.2, bearing_deg: 90 }, either.options[0])).toBe(1.2);
+  });
+
+  it("also gives a mesh's scale (one number or three) its own control", () => {
+    const scale = flatten(buildForm(schema, "BeltConveyor").fields).find((f) => f.path.join(".") === "mesh.scale")!;
+    const inner = scale.kind === "optional" ? scale.inner : scale;
+    expect(inner.kind).toBe("either");
   });
 });
