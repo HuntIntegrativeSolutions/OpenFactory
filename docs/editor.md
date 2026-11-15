@@ -47,14 +47,20 @@ already its value** and nothing is sent (PLAN 4.1j).
 - A list (an emitter's `parts`, a pipe's `path`, a drain's `schedule`, a check's `never_dry`)
   shows each item numbered, with its own fields (a part's `name`, `size`, `weight` and `color`),
   a **×** to remove it, and **Add item** at the end. A new item starts empty and is sent once
-  every field it needs is filled; until then the list is marked with what is missing.
+  every field it needs is filled; until then the list is marked **Not sent yet** with what is
+  missing, and the item stays in the form while you change other values, until you finish it,
+  remove it or press Revert.
 - A mapping (a check's `parts_reached`, a tank's `nozzles`, `level_within`, `max_starts`) shows
   each entry's key above its value, a **×** to remove it, and a **new key** box with **Add** at
-  the end. Renaming a key keeps the entry's place.
+  the end. Renaming a key keeps the entry's place. A key another entry already has, or an empty
+  one, is refused, for a rename as for Add: the box goes back to its name and says why (two
+  entries with one key would be written as one).
 - A value that may be one item or several (a `parts_reached` remover's part names) is a list
   that writes a single item bare: `{REM_01: oversize}`, or `{REM_01: [good, tall]}` with two.
 
-The whole list or mapping is written as one change, in the scenes' flow style. An I/O binding
+The whole list or mapping is written as one change: in flow style, or, where the file writes it
+as a block (one item per line), as a block again with each item on its own line in flow style
+(comment lines between its old items go with them). An I/O binding
 written as a mapping (`speed: {tag: CONV_01_SPD_AO, initial: 100}`) is still edited as one line of
 YAML, and so are the two values the schema does not describe item by item: a mesh's `scale` (a
 number or three) and a composite instance's `io`.

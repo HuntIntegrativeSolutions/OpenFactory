@@ -23,7 +23,7 @@ import {
   type Form,
   type JsonSchema,
 } from "./forms";
-import { valueEditor, watchUnchanged, type CompoundHost } from "./compound";
+import { Drafts, valueEditor, watchUnchanged, type CompoundHost } from "./compound";
 import { EditOps } from "./ops";
 import type { Placement } from "./place";
 
@@ -134,6 +134,8 @@ export class EditorPanel {
   private base = "";
   private data: Preview["data"] = null;
   private readonly ops = new EditOps();
+  /** Lists and mappings still being filled in, kept across redraws (compound.ts Drafts). */
+  private readonly drafts = new Drafts();
   /** Added components still waiting to be drawn and placed (PLAN 4.1e). */
   private readonly unplaced = new Set<string>();
   /** The block the form being built edits: `["components", id]`, `["scene"]` or `["checks"]`. */
@@ -429,6 +431,7 @@ export class EditorPanel {
   private async deleteNow(id: string, unreference: string[]): Promise<void> {
     this.closeConfirm();
     this.ops.remove(id);
+    this.drafts.clearUnder(`components.${id}`);
     if (unreference.length) this.ops.unreference(unreference);
     await this.preview();
     this.host.onSelect(null);
@@ -629,8 +632,21 @@ export class EditorPanel {
       const holder = document.createElement("div");
       const row = this.row(field, holder, "div");
       const host = this.compoundHost(row);
-      const working = current === undefined || current === null ? undefined : structuredClone(current);
-      holder.append(valueEditor(field, working, row.dataset.field ?? field.key, (v) => commit(row, v === undefined ? null : v), host));
+      // a value still being filled in survives a redraw (a preview of another change)
+      const key = [...root, ...field.path].join(".");
+      const shown = this.drafts.shown(key, current);
+      const working = shown === undefined || shown === null ? undefined : structuredClone(shown);
+      const send = (v: unknown) => {
+        const value = v === undefined ? null : v;
+        if (checkField(field, value)) this.drafts.keep(key, value);
+        else this.drafts.clear(key);
+        commit(row, value);
+      };
+      holder.append(valueEditor(field, working, row.dataset.field ?? field.key, send, host));
+      if (this.drafts.has(key)) {
+        const error = checkField(field, shown);
+        (row.querySelector(".editor-error") as HTMLElement).textContent = error ? `Not sent yet: ${error}` : "";
+      }
       return row;
     }
     if (inner.kind === "bool") {
@@ -756,6 +772,7 @@ export class EditorPanel {
       unchanged: () => this.acknowledge(row),
       muted: MUTED,
       text: TEXT,
+      alarm: ALARM,
     };
   }
 
@@ -891,6 +908,7 @@ export class EditorPanel {
   private async revert(): Promise<void> {
     this.ops.clear();
     this.unplaced.clear();
+    this.drafts.clearUnder();
     this.closeConfirm();
     this.findings = [];
     this.errors = 0;

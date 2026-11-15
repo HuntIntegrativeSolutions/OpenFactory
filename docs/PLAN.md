@@ -2705,6 +2705,28 @@ runs the sorting program against it; a box visibly gets pushed.
         `forms.test.ts` (+4), `framing.test.ts` (+2). Screenshots `editor-4.1j-list.png`,
         `editor-4.1j-mapping.png`, `editor-build-inline-reject.png`, `editor-4.1j-add-refit.png`,
         `editor-4.1j-fit.png`, `editor-4.1j-kept.png` looked at.
+        *Fixed (2026-11-14), three faults that lost what the user typed:* (a) renaming a mapping
+        key to one another entry has, or to an empty key, was taken, and the mapping was written
+        with an entry fewer: now refused as Add refuses a duplicate, the box back to its name with
+        the reason, nothing sent; (b) a list item not yet sent was dropped when another change
+        redrew the form: the panel now keeps it (`Drafts` in `web/src/editor/compound.ts`, keyed
+        by the field's path) until it is sent, removed, its component deleted, or Revert; (c)
+        found while testing (b): a list or mapping set whole over one written in block style (the
+        sorter's `parts:`) was refused by the server ("a block collection; set its keys", 400),
+        so the 4.1j control worked only on flow lists, which inline-reject happens to use. `set`
+        now rewrites a block collection as a block, one item per line in flow style
+        (`Document.set_block`, an exact inverse); an emptied one is written `[]` or `{}` on its
+        key's line. The list and mapping edits are now pure functions (`addItem`, `removeItem`,
+        `renameEntry`, `addEntry`, `removeEntry`) that the controls call. Tests:
+        `web/src/editor/compound.test.ts` (new, 9: add, remove and rename on a list and a mapping,
+        both refusals, drafts kept, copied and cleared); `tests/integration/test_editor_lists.py`
+        (2, on the sorter: a rename to REM_02 or to nothing refused with both entries kept and no
+        operation, a free name taken; a third part half filled survives a description change and
+        its redraw, then finished, sent and saved); both fail with the editor of b6bf8d6 (run:
+        the rename's refusal never shows; the item is gone after the redraw);
+        `test_sceneedit.py` (+1: the sorter's parts set whole keeps the block, comments and an
+        exact undo; a block mapping; an emptied list). Screenshots `editor-fix-rename-refused.png`,
+        `editor-fix-draft-kept.png` looked at.
 - [x] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
       *Defined (ruled 2026-11-07):* models authored by our own scripts or taken from CC0/CC-BY
       sources with attribution, each under the 1 MB rule with a license sidecar, drawn through

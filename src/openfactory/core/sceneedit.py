@@ -14,7 +14,9 @@ Operations (JSON objects). A ``path`` is a list of keys from the top of the scen
 
 - ``{"op": "set", "path": [...], "value": V}``: sets a scalar or a flow value (a position
   ``[x, y, z]``, a binding ``{tag: X}``), or adds the key as the mapping's last if it is not there.
-  A block mapping is set key by key.
+  A list or mapping set over one written in block style keeps the block style, each item on its
+  own line in flow style (``- {name: tall, ...}``; PLAN 4.1j fix 2026-11-14): comment lines
+  between its old items go with them.
   A key under a component mapping it does not have yet (``io`` on a type with no required
   port) adds the mapping in flow style, ``io: {enable: EMT_01_ENABLE_DO}``. A key under
   ``checks`` when the scene has no ``checks:`` creates the block just above
@@ -143,8 +145,9 @@ def _index_of(doc: Document, comp_id: str) -> int:
 _NEW_BLOCKS = ("checks",)
 
 
-def _set(doc: Document, path: list[Any], literal: str) -> Op:
-    """Set (or add) the value at ``path``; returns the inverse."""
+def _set(doc: Document, path: list[Any], literal: str, value: Any = None) -> Op:
+    """Set (or add) the value at ``path``; returns the inverse. A list or mapping ``value``
+    over a block collection keeps the block style, one item per line (PLAN 4.1j fix)."""
     if len(path) == 2 and path[0] in _NEW_BLOCKS and not doc.has((path[0],)):
         block = f"{path[0]}:\n  {emit_key(path[1])}: {literal}\n"
         if doc.has(("components",)):
@@ -161,6 +164,16 @@ def _set(doc: Document, path: list[Any], literal: str) -> Op:
         doc.add_key(resolved[:-2], emit_key(path[-2]), f"{{{emit_key(path[-1])}: {literal}}}")
         return {"op": "unset", "path": path[:-1]}
     if doc.has(resolved):
+        _, node = doc.find(resolved)
+        block = isinstance(node, yaml.MappingNode | yaml.SequenceNode) and not node.flow_style
+        if block and isinstance(value, list | dict):
+            if isinstance(value, list):
+                lines = [f"- {emit(v)}" for v in value]
+            else:
+                lines = [f"{emit_key(k)}: {emit(v)}" for k, v in value.items()]
+            return _inserted(
+                doc.set_block(resolved, lines, "[]" if isinstance(value, list) else "{}")
+            )
         start, end, old = doc.set_node(resolved, literal)
         return {"op": "set_raw", "path": path, "literal": old}
     doc.add_key(resolved[:-1], emit_key(path[-1]), literal)
@@ -248,7 +261,7 @@ def _connect(doc: Document, up: str, down: str) -> Op:
 def _apply(doc: Document, op: Op) -> Op:
     kind = op.get("op")
     if kind == "set":
-        return _set(doc, list(op["path"]), emit(op["value"]))
+        return _set(doc, list(op["path"]), emit(op["value"]), op["value"])
     if kind == "set_raw":
         return _set(doc, list(op["path"]), str(op["literal"]))
     if kind == "unset":

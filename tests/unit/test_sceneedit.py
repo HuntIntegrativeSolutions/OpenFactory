@@ -154,8 +154,9 @@ def test_errors_name_the_operation():
     text = 'openfactory: "0.1"\ncomponents:\n  - id: A\n    io:\n      detect: X_DI\n'
     with pytest.raises(ValueError, match=r"op 1 \(delete\): no item with id 'NOPE'"):
         apply_ops(text, [{"op": "delete", "id": "NOPE"}])
-    with pytest.raises(ValueError, match=r"op 1 \(set\).*block collection"):
-        apply_ops(text, [{"op": "set", "path": ["components", "A", "io"], "value": {}}])
+    # YAML text over a block collection is refused (a value set whole keeps the block, 4.1j)
+    with pytest.raises(ValueError, match=r"op 1 \(set_raw\).*block collection"):
+        apply_ops(text, [{"op": "set_raw", "path": ["components", "A", "io"], "literal": "{}"}])
     with pytest.raises(ValueError, match=r"op 2 \(frobnicate\)"):
         apply_ops(
             text,
@@ -248,3 +249,44 @@ def test_a_first_io_binding_adds_the_mapping_in_flow_style():
     edited, inverses = apply_ops(text, ops)
     assert "size: [0.3, 1.0, 1.0]\n    io: {a: X_DI, b: Y_DI}\n" in edited
     assert undo(edited, inverses) == text
+
+
+def test_a_list_or_mapping_set_over_a_block_one_keeps_its_block_style():
+    """PLAN 4.1j fix (2026-11-14): the list control writes a value whole; over a block list (the
+    sorter's parts) it was refused (400, "a block collection; set its keys")."""
+    text = (REPO / "scenes" / "sorting-by-height.yaml").read_text(encoding="utf-8")
+    parts = [
+        {"name": "tall", "size": [0.3, 0.4, 0.3], "weight": 0.5},
+        {"name": "short", "size": [0.3, 0.2, 0.3], "weight": 0.5},
+        {"name": "medium", "size": [0.3, 0.3, 0.3], "weight": 0.2},
+    ]
+    path = ["components", "EMT_01", "parts"]
+    new, inv = apply_ops(text, [{"op": "set", "path": path, "value": parts}])
+    assert (
+        "    parts:\n"
+        "      - {name: tall, size: [0.3, 0.4, 0.3], weight: 0.5}\n"
+        "      - {name: short, size: [0.3, 0.2, 0.3], weight: 0.5}\n"
+        "      - {name: medium, size: [0.3, 0.3, 0.3], weight: 0.2}\n"
+        "    io:"
+    ) in new
+    emitter = next(c for c in yaml.safe_load(new)["components"] if c["id"] == "EMT_01")
+    assert emitter["parts"] == parts
+    assert comments(new) == comments(text)
+    assert undo(new, inv) == text
+    # a block mapping, and a block list emptied (written `[]` on the key's line)
+    doc = (
+        'openfactory: "0.1"\nchecks:\n  never_dry:\n    - P_01\n    - P_02  # both\n'
+        "  max_starts:\n    P_01: 3\n"
+    )
+    new, inv = apply_ops(
+        doc,
+        [
+            {"op": "set", "path": ["checks", "max_starts"], "value": {"P_01": 4, "P_02": 2}},
+            {"op": "set", "path": ["checks", "never_dry"], "value": []},
+        ],
+    )
+    assert (
+        new == 'openfactory: "0.1"\nchecks:\n  never_dry: []  # both\n'
+        "  max_starts:\n    P_01: 4\n    P_02: 2\n"
+    )
+    assert undo(new, inv) == doc

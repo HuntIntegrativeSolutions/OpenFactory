@@ -134,6 +134,28 @@ class Document:
             raise ValueError(f"{'.'.join(map(str, path))}: a block collection; set its keys")
         return self.splice(node.start_mark.index, self._leaf_end(node), literal)
 
+    def set_block(self, path: Path_, lines: list[str], empty: str) -> tuple[int, int, str]:
+        """Replace a block collection's items with ``lines`` (each a whole item: ``- {...}`` or
+        ``key: value``), at the first item's indentation, from the first item's line to the
+        end of the last item's text; anything after (an inline comment on the last line) stays.
+        With no ``lines`` the value becomes ``empty`` (``[]`` or ``{}``) on the key's line
+        (PLAN 4.1j fix: a list control writes a block list whole, keeping its style)."""
+        key, node = self.find(path)
+        if not isinstance(node, yaml.MappingNode | yaml.SequenceNode) or node.flow_style:
+            raise ValueError(f"{'.'.join(map(str, path))}: not a block collection")
+        if not node.value:
+            raise ValueError(f"{'.'.join(map(str, path))}: an empty block collection")
+        end = self._leaf_end(node)
+        if not lines:
+            if key is None:
+                raise ValueError(f"{'.'.join(map(str, path))}: a sequence item cannot be emptied")
+            return self.splice(key.end_mark.index, end, f": {empty}")
+        first = node.value[0]
+        at = self._dash(first) if isinstance(node, yaml.SequenceNode) else first[0].start_mark.index
+        start = self._line_start(at)
+        pad = " " * (at - start)
+        return self.splice(start, end, "\n".join(pad + line for line in lines))
+
     def add_key(self, map_path: Path_, key: str, literal: str) -> tuple[int, int, str]:
         """Add ``key: literal`` as the mapping's last key: on its own line at the siblings'
         indentation for a block mapping, before the ``}`` of a flow mapping."""

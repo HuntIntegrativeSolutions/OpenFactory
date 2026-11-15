@@ -17,6 +17,8 @@ export interface CompoundHost {
   unchanged(): void;
   muted: string;
   text: string;
+  /** ISA-101 alarm color, for a refused rename or add. */
+  alarm: string;
 }
 
 const SELECT_CSS = "width:100%;background:#0b1220;border:1px solid #4b5563";
@@ -175,11 +177,101 @@ function enumSelect(options: (string | number)[], value: unknown, path: string, 
   return s;
 }
 
+// --- the edits a list or mapping control makes, as pure functions (compound.test.ts) ----------
+
+/** A list's items after adding one at the end. */
+export function addItem(items: unknown[], item: unknown): unknown[] {
+  return [...items, item];
+}
+
+/** A list's items after removing item `n`. */
+export function removeItem(items: unknown[], n: number): unknown[] {
+  return items.filter((_, i) => i !== n);
+}
+
+export type Entries = [string, unknown][];
+
+/** Why a mapping cannot take `key` (as entry `self`'s new name, or a new entry's), or null. An
+ * empty key or one another entry has would make the mapping lose an entry when it is written
+ * (two entries with one key become one), so both are refused. */
+export function keyProblem(entries: Entries, key: string, self = -1): string | null {
+  if (!key) return "a key cannot be empty";
+  const other = entries.findIndex(([k], i) => k === key && i !== self);
+  return other >= 0 ? `${key} is already a key here` : null;
+}
+
+/** The mapping's entries after renaming entry `n` to `key` (its place kept), or why not. */
+export function renameEntry(entries: Entries, n: number, key: string): { entries: Entries; problem: string | null } {
+  const name = key.trim();
+  if (entries[n][0] === name) return { entries, problem: null };
+  const problem = keyProblem(entries, name, n);
+  if (problem) return { entries, problem };
+  return { entries: entries.map((e, i) => (i === n ? [name, e[1]] : e)), problem: null };
+}
+
+/** The mapping's entries after adding `key` with `value` at the end, or why not. */
+export function addEntry(entries: Entries, key: string, value: unknown): { entries: Entries; problem: string | null } {
+  const name = key.trim();
+  const problem = keyProblem(entries, name);
+  return problem ? { entries, problem } : { entries: [...entries, [name, value]], problem: null };
+}
+
+/** The mapping's entries after removing entry `n`. */
+export function removeEntry(entries: Entries, n: number): Entries {
+  return entries.filter((_, i) => i !== n);
+}
+
+/**
+ * Values the user is still filling in (PLAN 4.1j fix, 2026-11-14): a list or mapping whose
+ * whole value does not check yet (an item with an empty field) is not sent, so the file does not
+ * have it; when another change redraws the form, the control shows the draft kept here instead
+ * of the file's value. A draft goes when its value is sent, or when it is cleared (Revert, or
+ * its component deleted). Keyed by the field's path from the file's root
+ * (`components.EMT_01.parts`, `checks.parts_reached`).
+ */
+export class Drafts {
+  private readonly values = new Map<string, unknown>();
+
+  keep(key: string, value: unknown): void {
+    this.values.set(key, structuredClone(value));
+  }
+
+  has(key: string): boolean {
+    return this.values.has(key);
+  }
+
+  /** The draft for `key` if there is one, else `current` (the file's value). */
+  shown(key: string, current: unknown): unknown {
+    return this.values.has(key) ? structuredClone(this.values.get(key)) : current;
+  }
+
+  clear(key: string): void {
+    this.values.delete(key);
+  }
+
+  /** Every draft under `prefix` (a deleted component's), or all of them with no prefix. */
+  clearUnder(prefix = ""): void {
+    for (const key of [...this.values.keys()]) if (!prefix || key === prefix || key.startsWith(`${prefix}.`)) this.values.delete(key);
+  }
+
+  get size(): number {
+    return this.values.size;
+  }
+}
+
+function note(host: CompoundHost, text: string): HTMLElement {
+  const n = document.createElement("div");
+  n.className = "editor-map-problem";
+  n.style.cssText = `color:${host.alarm};font-size:11px`;
+  n.textContent = text;
+  return n;
+}
+
 function listEditor(field: Extract<Field, { kind: "list" }>, value: unknown, path: string, onChange: (v: unknown) => void, host: CompoundHost): HTMLElement {
   const box = document.createElement("div");
   box.className = "editor-list";
   box.dataset.field = path;
-  const items = [...listItems(field, value)];
+  let items = [...listItems(field, value)];
   const changed = () => onChange(listValue(field, [...items]));
   const draw = () => {
     box.replaceChildren();
@@ -197,7 +289,7 @@ function listEditor(field: Extract<Field, { kind: "list" }>, value: unknown, pat
       editor.style.flex = "1";
       editor.style.minWidth = "0";
       const remove = host.button("×", () => {
-        items.splice(n, 1);
+        items = removeItem(items, n);
         draw();
         changed();
       });
@@ -208,7 +300,7 @@ function listEditor(field: Extract<Field, { kind: "list" }>, value: unknown, pat
       box.append(row);
     });
     const add = host.button("Add item", () => {
-      items.push(blank(field.item));
+      items = addItem(items, blank(field.item));
       draw();
       changed();
       (box.querySelector(`.editor-item:last-of-type input, .editor-item:last-of-type select`) as HTMLElement | null)?.focus();
@@ -225,9 +317,9 @@ function mapEditor(field: Extract<Field, { kind: "map" }>, value: unknown, path:
   const box = document.createElement("div");
   box.className = "editor-map";
   box.dataset.field = path;
-  const entries: [string, unknown][] = value && typeof value === "object" && !Array.isArray(value) ? Object.entries(value as Record<string, unknown>) : [];
+  let entries: Entries = value && typeof value === "object" && !Array.isArray(value) ? Object.entries(value as Record<string, unknown>) : [];
   const changed = () => onChange(Object.fromEntries(entries));
-  const draw = () => {
+  const draw = (problem: { at: number; text: string } | null = null) => {
     box.replaceChildren();
     entries.forEach(([key, v], n) => {
       const row = document.createElement("div");
@@ -239,13 +331,19 @@ function mapEditor(field: Extract<Field, { kind: "map" }>, value: unknown, path:
       k.className = "editor-map-key";
       k.dataset.field = `${path}.${key}:key`;
       k.addEventListener("change", () => {
-        entries[n] = [k.value, entries[n][1]];
+        const renamed = renameEntry(entries, n, k.value);
+        if (renamed.problem) {
+          // refused: the box goes back to its name and says why; nothing is sent
+          draw({ at: n, text: `Not renamed: ${renamed.problem}` });
+          return;
+        }
+        entries = renamed.entries;
         draw();
         changed();
       });
       watchUnchanged(k, host.unchanged);
       const remove = host.button("×", () => {
-        entries.splice(n, 1);
+        entries = removeEntry(entries, n);
         draw();
         changed();
       });
@@ -253,11 +351,13 @@ function mapEditor(field: Extract<Field, { kind: "map" }>, value: unknown, path:
       remove.title = `Remove ${key}`;
       remove.style.cssText += ";padding:2px 7px";
       top.append(k, remove);
+      row.append(top);
+      if (problem?.at === n) row.append(note(host, problem.text));
       const editor = valueEditor(field.value, v, `${path}.${key}`, (nv) => {
         entries[n] = [entries[n][0], nv];
         changed();
       }, host);
-      row.append(top, editor);
+      row.append(editor);
       box.append(row);
     });
     // a new entry: its key, then Add (the value starts empty for the user to fill)
@@ -267,9 +367,12 @@ function mapEditor(field: Extract<Field, { kind: "map" }>, value: unknown, path:
     key.className = "editor-map-new";
     key.placeholder = "new key";
     const button = host.button("Add", () => {
-      const name = key.value.trim();
-      if (!name || entries.some(([k]) => k === name)) return;
-      entries.push([name, blank(field.value)]);
+      const added = addEntry(entries, key.value, blank(field.value));
+      if (added.problem) {
+        draw({ at: -1, text: `Not added: ${added.problem}` });
+        return;
+      }
+      entries = added.entries;
       draw();
       changed();
     });
@@ -277,6 +380,7 @@ function mapEditor(field: Extract<Field, { kind: "map" }>, value: unknown, path:
     button.style.cssText += ";padding:2px 8px;font-size:12px";
     add.append(key, button);
     box.append(add);
+    if (problem?.at === -1) box.append(note(host, problem.text));
   };
   draw();
   return box;
