@@ -51,5 +51,10 @@ class SelectorSwitch(Component):
     def state(self) -> dict[str, Any]:
         return {"position": self.position}
 
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        return f"in position {state['position']}"
+
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "positions": self.config.positions}

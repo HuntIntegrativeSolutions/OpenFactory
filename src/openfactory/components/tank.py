@@ -33,7 +33,7 @@ import math
 from typing import Any
 
 from openfactory.core import flownet
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 from openfactory.core.snaps import nozzle_wall
 
 #: Switch deadband, m: a switch turns off this far back from where it turned on.
@@ -117,6 +117,16 @@ class Tank(Component):
             "temperature_c": self.node.temperature,
             "overflowing": self.overflowing,
         }
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        level, height = float(state["level_m"]), float(geometry["height"])
+        out = f"level {num(level)} m of {num(height)} m, {num(state['volume_m3'], 3)} m3"
+        temperature = state.get("temperature_c")
+        if temperature is not None:
+            out += f", {num(temperature, 1)} degC"
+        return out + (", overflowing" if state["overflowing"] else "")
 
     def geometry(self) -> dict[str, Any]:
         cfg = self.config

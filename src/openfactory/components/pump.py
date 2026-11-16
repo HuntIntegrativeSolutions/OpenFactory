@@ -30,7 +30,7 @@ from typing import Any
 
 from openfactory.components._process import link_points
 from openfactory.core import flownet
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 @register("pump")
@@ -105,6 +105,13 @@ class Pump(Component):
             "flow_m3h": self.link.flow * 3600,
             "dry": self.dry,
         }
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        run = f"running at {num(state['speed'], 0)} %" if state["running"] else "stopped"
+        out = f"{run}, {num(state['flow_m3h'])} m3/h"
+        return out + (", running dry" if state["dry"] else "")
 
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "points": self.points}

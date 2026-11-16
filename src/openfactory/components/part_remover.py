@@ -53,5 +53,12 @@ class PartRemover(Component):
     def state(self) -> dict[str, Any]:
         return {"removed": sum(self.removed.values()), "by_name": dict(self.removed)}
 
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        by_name = state["by_name"]
+        names = ", ".join(f"{n} {by_name[n]}" for n in sorted(by_name))
+        return f"removed {state['removed']} parts" + (f" ({names})" if names else "")
+
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "size": list(self.config.size)}

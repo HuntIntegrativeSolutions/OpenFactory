@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import Any
 
 from openfactory.core import flownet
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 @register("drain")
@@ -65,3 +65,10 @@ class Drain(Component):
         if self.consumer:
             out["demand_m3h"] = self.node.demand * 3600  # type: ignore[union-attr]
         return out
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        demand = state.get("demand_m3h")
+        out = f"flowing {num(state['flow_m3h'])} m3/h"
+        return out + (f" of a {num(demand)} m3/h demand" if demand is not None else "")

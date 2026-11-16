@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 from openfactory.core.schema import Scene
 from openfactory.core.sizing import resolver, tallest_part
 
@@ -69,6 +69,16 @@ class DiverterArm(Component):
 
     def state(self) -> dict[str, Any]:
         return {"angle_deg": self.angle, "extending": bool(self.read("extend", default=False))}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        angle, swing = abs(float(state["angle_deg"])), abs(float(geometry["swing_deg"]))
+        if state["extending"]:
+            moving = "swung out" if angle >= swing - 1e-6 else "swinging out"
+        else:
+            moving = "at rest" if angle <= 1e-6 else "swinging back"
+        return f"{moving}, {num(angle, 1)} deg of {num(swing, 1)} deg"
 
     def geometry(self) -> dict[str, Any]:
         return {

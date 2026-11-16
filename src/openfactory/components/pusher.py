@@ -30,7 +30,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 from openfactory.core.geometry import rotate_y, to_local
 from openfactory.core.schema import CARRIER_TYPES, Scene
 from openfactory.core.sizing import emitted_parts, resolver
@@ -155,6 +155,16 @@ class Pusher(Component):
 
     def state(self) -> dict[str, Any]:
         return {"position_m": self.position, "extending": bool(self.read("extend", default=False))}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        out, stroke = float(state["position_m"]), float(geometry["stroke"])
+        if state["extending"]:
+            moving = "extended" if out >= stroke - 1e-6 else "extending"
+        else:
+            moving = "retracted" if out <= 1e-6 else "retracting"
+        return f"{moving}, plate {num(out)} m out of {num(stroke)} m"
 
     def geometry(self) -> dict[str, Any]:
         return {

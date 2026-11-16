@@ -23,7 +23,7 @@ from typing import Any
 
 from openfactory.components._process import link_points
 from openfactory.core import flownet
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 @register("valve_onoff")
@@ -65,6 +65,14 @@ class ValveOnOff(Component):
 
     def state(self) -> dict[str, Any]:
         return {"opening": self.opening, "flow_m3h": self.link.flow * 3600}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        opening = float(state["opening"])
+        shut = "closed" if opening <= 1e-6 else "open" if opening >= 1 - 1e-6 else None
+        where = shut or f"{num(opening * 100, 0)} % open"
+        return f"{where}, {num(state['flow_m3h'])} m3/h"
 
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "points": self.points, "kv": self.kv}

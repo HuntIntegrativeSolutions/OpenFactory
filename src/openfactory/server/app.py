@@ -51,6 +51,11 @@ Behavior spec
   change held) and ``complete`` (false when a change after ``N`` was dropped by the cap: the
   last 600 s or 20,000 changes). In a replay, every recorded change up to the tick being shown.
   404 for a tag that is not in the scene. Read-only.
+- ``GET /api/look[?since=S&component=ID]`` (PLAN 5.14b, :mod:`openfactory.observe`): the plant
+  in words at the last tick, as Markdown (``text/markdown``): the scene, its checks, active
+  faults, each component in a sentence with its tags, each part and where it is, and the changes
+  of the last ``S`` seconds (default 5). ``component`` narrows it to one component. In a replay,
+  at the frame being shown. 404 for an unknown component, 400 for ``since`` <= 0. Read-only.
 - ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
   sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
 - ``WS /ws/state``: the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines, plus
@@ -111,7 +116,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -492,6 +497,17 @@ def create_app(
             return runtime.iolog_query(since_tick, names)
         except KeyError as exc:
             raise HTTPException(404, str(exc.args[0])) from None
+
+    @app.get("/api/look", response_class=PlainTextResponse)
+    def look(since: float = 5.0, component: str | None = None) -> PlainTextResponse:
+        """The plant in words at the last tick, as Markdown (PLAN 5.14b)."""
+        if since <= 0:
+            raise HTTPException(400, "since must be positive")
+        try:
+            text = runtime.look(since, component)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc.args[0])) from None
+        return PlainTextResponse(text, media_type="text/markdown; charset=utf-8")
 
     @app.get("/api/parity")
     def parity() -> dict[str, Any]:

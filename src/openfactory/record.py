@@ -28,7 +28,8 @@ crash mid-write): it returns what it could read, marked ``truncated``.
 ``/api/scene`` (with ``"mode": "replay"``, which tells the viewer to draw parts where the
 recording has them instead of simulating them), ``/ws/state`` frames at the recorded pace times
 ``speed``, ``/api/events`` as recorded, and ``/api/iolog`` (PLAN 5.14a) from the recording's
-I/O lines, every change up to the tick being shown, uncapped. Fault and exam requests are
+I/O lines, every change up to the tick being shown, uncapped, and ``/api/look`` (PLAN 5.14b) at
+the frame being shown. Fault and exam requests are
 refused with "replay: no simulation".
 """
 
@@ -330,6 +331,16 @@ class ReplayRuntime:
     def iolog_query(self, since_tick: int = -1, tags: list[str] | None = None) -> dict[str, Any]:
         """The recorded tag changes after ``since_tick`` up to the tick being shown."""
         return self.iolog.query(since_tick, tags, until_tick=self.snapshot["tick"])
+
+    def look(self, since_s: float = 5.0, component: str | None = None) -> str:
+        """The plant in words at the frame being shown (PLAN 5.14b)."""
+        from openfactory.observe import look, recording_plant
+
+        snap = self.snapshot
+        changes = self.iolog.entries(until_tick=int(snap["tick"]))
+        plant = recording_plant(self.recording.header)
+        document = self.recording.header["scene"]
+        return look(document, snap, changes, plant, since_s=since_s, component=component)
 
     def apply_event(self, raw: dict[str, Any]) -> Any:
         from openfactory.server.runtime import ViewerEvent

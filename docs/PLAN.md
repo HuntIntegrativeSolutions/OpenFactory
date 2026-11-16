@@ -3705,7 +3705,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         (stops at the tick shown, every recorded change up to it). Recordings, kits
         (`build_kit.py --check`: all 12 current), run references, parity traces
         (`parity_trace.py --check`) and lockfiles did not move.
-  - [ ] 5.14b The plant in words: `openfactory look`. *What:* a text report of the plant now, or
+  - [x] 5.14b The plant in words: `openfactory look`. *What:* a text report of the plant now, or
         at a time in a recording: one line per component in plain words with its tags and
         values; each part and where it is ("P000007 tall, on CONV_01, 1.84 m from the infeed,
         moving 0.5 m/s"); what changed in the last N seconds; the checks; active faults.
@@ -3720,6 +3720,69 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         one); the report of the sorter at 6.0 s from its kit recording is a committed golden
         file; the same call on a live run and on its recording at the same tick gives the same
         text.
+        *Done (2026-11-16):* `src/openfactory/observe.py`: `look(document, snapshot, changes,
+        plant)`, a pure function of the scene document (as a recording's header stores it,
+        `scene_document(meshes=False, snaps=False)`), one snapshot, the change log up to its
+        tick, and a `Plant`, the two things the document lacks: the declared `checks:` and each
+        link's `from`/`to`. A live run takes them from the parsed scene, and a recording from
+        the scene's YAML in its header. It reads no clock and prints no path, host, port or
+        version. **Sections, in order:** the scene in one line; checks; active faults;
+        components (the type's sentence, then each bound tag and value, then tags no component
+        owns, such as the heartbeat); parts (id, name, carrier, distance from that carrier's
+        infeed end in its own belt frame, which turns with a turntable's deck and rises with a
+        lift's, and speed; a part carried by nothing is held by a gripper, falling, or at rest,
+        with its position; 30 listed, the rest counted by carrier); changes in the last N s
+        (default 5, `--since`; DI and DO edges one per line up to 40; an AI or AO, or a DI or DO
+        with more than 4 changes in the window such as the heartbeat, on one line: first and
+        last value and the count; tick 0's starting values left out). `--component ID`: that
+        component, what it is connected to (conveyor connections, link ends, references such as
+        `measures`, `tank` or `drives`, and devices standing on a belt by W214's footprint
+        rule), the parts it carries and its tags' changes. **Decisions:** (1) `describe` is a
+        classmethod, `describe(state, geometry)`, beside `state()`: a recording has no
+        component objects, so the sentence is made from the state and the component's entry in
+        the scene document, nothing else; `Component.describe` returns "" and each of the 28
+        registered types overrides it (`roller_conveyor` inherits `belt_conveyor`'s); a
+        `core.component.num` formatter keeps numbers fixed and never prints `-0.00`. (2) The
+        checks section says what each declared check asks and what the snapshot shows of it now
+        (each remover's count of each name, the oldest part's age, a tank's level or
+        temperature, overflowing or dry), and says the grade is `openfactory test`'s (live,
+        `GET /api/checks`) at `duration_s`. It does not grade: grading needs the removal log,
+        lost parts and a pump's starts, which a snapshot does not hold, and a recording holds
+        no grades. So the report is the same live and from a recording; 5.14g's `at_tick` is
+        where a check's failure will get a time. (3) `GET /api/look?since=S&component=ID` is
+        `text/markdown`, GET only, 404 for an unknown component and 400 for `since` <= 0. It
+        waits up to 1 s for the change log to catch up to the snapshot's tick, since the log is
+        fed just after the step lock is released (5.14a). A replay serves it at the frame shown.
+        (4) `openfactory look [FILE.ofrec] [--at T] [--url URL] [--since S] [--component ID]`:
+        with a recording, the frame at or before T (the last frame without `--at`); without one,
+        `GET /api/look` on the `[web]` endpoint. (5) The generated `CONTEXT.md` gains "Looking
+        at the plant" with the two commands for its scene; the 2.19 golden files are renewed in
+        this commit: the 13 `scenes/**/*.CONTEXT.md` and the 12 kits' copies (each kit's
+        `CONTEXT.md` is a kit file, so `build_kit.py --check` needed them; no recording, export,
+        lockfile or other kit file moved). `tests/scenes/*.CONTEXT.md` are git-ignored. The rest
+        of 5.14j waits for 5.14c to 5.14g. Docs: `docs/looking-at-the-plant.md` in the site's
+        Reference.
+        **Line counts** (`openfactory look`, whole report, at 6.0 s and at 60 s from each kit
+        recording; `accumulation-demo`, which has no kit, from a 60 s recording made in scratch
+        under its script): batch-mix-heat (11 components) 49 and 46; buffer-and-release (7) 42
+        and 57; conveyor-start-stop (6) 39 and 39; inline-reject (7) 41 and 42; palletizer-lite
+        (9) 54 and 68; plantpax-tank-level (10) 45 and 45; sorting-by-color (8) 45 and 50;
+        sorting-by-height (7) 41 and 54; tank-level-onoff (6) 37 and 37; tank-level-pid (7) 39
+        and 39; two-lane-merge (13) 57 and 72; two-tank-cascade (10) 45 and 45;
+        accumulation-demo (11) 48 and 43. No shipped scene has 15 components; the largest,
+        two-lane-merge with 13, is at most 72 lines, under the 150-line limit.
+        *Tests* (`tests/unit/test_look.py`, 11): every registered type overrides `describe`, and
+        each gives one line for a real state (a component from every scene in `scenes/` and
+        `tests/scenes/`; `junction` and `vfd_motor`, which no scene uses, from a state of their
+        `state()`'s shape); the sorter at 6.0 s from its kit recording equals the golden file
+        `tests/golden/look-sorting-by-height-6.0s.md` (41 lines); a live scripted run of the
+        sorter and its own recording give the same text at 6.0 s and, narrowed to `CONV_01`
+        with a 1 s window, at 4.2 s, `GET /api/look` serves that text as `text/markdown`, and
+        it equals the golden file; `--component` narrows (`CYL_01` is connected to `CONV_01`);
+        404, 400 and 405; the CLI on a recording, `--at` without one (exit 2), an unknown
+        component (exit 1); a turntable mid-turn and a lift mid-move give the frame
+        `KinematicModel._frame` carries parts in; a part held, falling or at rest. Kits:
+        `build_kit.py --check` current; run references unchanged.
   - [ ] 5.14c Aimed views and a plan view. *What:* `?look=ID` frames one component and what
         touches it; `?view=px,py,pz,tx,ty,tz` sets an exact camera; `?view=top` is a straight-down
         orthographic plan view with north up and a scale bar. `tools/screenshot.py` gains

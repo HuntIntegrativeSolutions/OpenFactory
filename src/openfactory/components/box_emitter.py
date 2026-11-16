@@ -109,6 +109,15 @@ class BoxEmitter(Component):
             "waiting_ticks": self.waiting_ticks,
         }
 
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        made = f"{state['spawned']} parts made"
+        extra = ", waiting for room" if state["waiting_ticks"] else ""
+        if state["skipped"]:
+            extra += f", {state['skipped']} skipped"
+        return f"{'enabled' if state['enabled'] else 'disabled'}, {made}{extra}"
+
     def geometry(self) -> dict[str, Any]:
         return {
             **super().geometry(),

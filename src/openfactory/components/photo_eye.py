@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 from openfactory.core.debounce import Debounce
 from openfactory.core.geometry import segment_hits_aabb, to_world
 
@@ -71,6 +71,14 @@ class PhotoEye(Component):
 
     def state(self) -> dict[str, Any]:
         return {"detect": self.detect, "blocked": self.blocked, "beam_offset_m": self.beam_offset}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        beam = "beam blocked" if state["blocked"] else "beam clear"
+        out = f"{beam}, detect {'on' if state['detect'] else 'off'}"
+        offset = float(state.get("beam_offset_m", 0.0))
+        return out + (f", beam {num(offset, 3)} m off its place" if offset else "")
 
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "beam_length": self.config.beam_length}

@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from openfactory.core import flownet
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 @register("supply")
@@ -46,6 +46,11 @@ class Supply(Component):
 
     def state(self) -> dict[str, Any]:
         return {"flow_m3h": self.flow_m3h}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        return f"supplying {num(state['flow_m3h'])} m3/h at {num(geometry['pressure_bar'], 1)} bar"
 
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "pressure_bar": self.config.pressure_bar}  # type: ignore[attr-defined]

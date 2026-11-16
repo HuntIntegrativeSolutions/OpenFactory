@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 @register("heater")
@@ -54,6 +54,12 @@ class Heater(Component):
 
     def state(self) -> dict[str, Any]:
         return {"on": self.on, "power_kw": self.power_kw, "uncovered": self.uncovered}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        on = f"on, {num(state['power_kw'], 1)} kW" if state["on"] else "off"
+        return on + (", element uncovered" if state["uncovered"] else "")
 
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "tank": self.config.tank}  # type: ignore[attr-defined]

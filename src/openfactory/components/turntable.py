@@ -29,7 +29,7 @@ from __future__ import annotations
 from typing import Any
 
 from openfactory.components.belt_conveyor import RAMP_S
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 from openfactory.core.geometry import Vec3, rotate_y
 
 _EPS = 1e-9
@@ -89,6 +89,16 @@ class Turntable(Component):
             "angle_deg": self.angle,
             "turning": self.turning,
         }
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        angle, turn = float(state["angle_deg"]), float(geometry["turn_deg"])
+        deck = f"deck at {num(angle, 1)} deg of {num(turn, 1)} deg"
+        deck += ", turning" if state["turning"] else ""
+        speed = abs(float(state["speed_mps"]))
+        belt = f"running at {num(speed)} m/s" if state["running"] else "stopped"
+        return f"{deck}; deck belt {belt}"
 
     def geometry(self) -> dict[str, Any]:
         return {

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 from openfactory.core.geometry import Vec3, rotate_y, to_world
 
 _EPS = 1e-9
@@ -154,6 +154,17 @@ class PickAndPlace(Component):
             "gripping": bool(self.read("grip", default=False)),
             "holding": self.held is not None,
         }
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        carriage = (
+            f"carriage {num(state['x_m'])} m of {num(geometry['travel'])} m from the pick side"
+        )
+        pad = f"pad {num(state['y_m'])} m down"
+        grip = "gripping" if state["gripping"] else "not gripping"
+        held = "holding a part" if state["holding"] else "holding nothing"
+        return f"{carriage}, {pad}, {grip}, {held}"
 
     def geometry(self) -> dict[str, Any]:
         return {

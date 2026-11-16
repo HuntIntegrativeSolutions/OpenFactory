@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 from openfactory.core.schema import Scene
 from openfactory.core.sizing import belt_under, resolver, tallest_part
 
@@ -77,6 +77,16 @@ class Stopper(Component):
 
     def state(self) -> dict[str, Any]:
         return {"position": self.position, "raising": bool(self.read("raise", default=False))}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        up = float(state["position"])
+        if state["raising"]:
+            moving = "raised" if up >= 1 - 1e-6 else "raising"
+        else:
+            moving = "lowered" if up <= 1e-6 else "lowering"
+        return f"{moving}, blade {num(up * 100, 0)} % up"
 
     def geometry(self) -> dict[str, Any]:
         return {

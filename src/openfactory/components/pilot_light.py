@@ -32,5 +32,10 @@ class PilotLight(Component):
     def state(self) -> dict[str, Any]:
         return {"lit": self.lit}
 
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        return "lit" if state["lit"] else "off"
+
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "color": self.config.color}

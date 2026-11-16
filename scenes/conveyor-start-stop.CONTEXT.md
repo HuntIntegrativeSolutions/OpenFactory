@@ -34,6 +34,17 @@ openfactory bundle conveyor-start-stop.yaml   # one .ofz with meshes, lockfiles 
 Modbus TCP listens on 127.0.0.1 port 5020 and the viewer on http://127.0.0.1:8000/
 unless `openfactory.toml` or `--bind`, `--port` and `--web-port` say otherwise.
 
+## Looking at the plant
+
+`openfactory look` prints the plant in words, as Markdown: each component in a sentence
+with its tags, each part and where it is, the checks, active faults, and the changes of
+the last 5 s (`--since S`; `--component ID` for one component).
+
+```bash
+openfactory look   # the running scene (the viewer's server, http://127.0.0.1:8000/)
+openfactory look conveyor-start-stop.ofrec --at 6   # a recording made with --record conveyor-start-stop.ofrec, at 6 s
+```
+
 ## Tags
 
 - float32 addresses: `conveyor-start-stop.float32.modbus.yaml`

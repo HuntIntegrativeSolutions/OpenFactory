@@ -294,6 +294,15 @@ class Component(ABC):
         """Dynamic state the viewer needs each frame (PLAN §3.3)."""
         return {}
 
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """What the component is doing, as one plain sentence with units (PLAN 5.14b,
+        ``openfactory look``), from its :meth:`state` in a snapshot and its :meth:`geometry`
+        entry in the scene document. It reads nothing else, so a recording, which holds no
+        component objects, is described as a live run is. Every registered type overrides it
+        (``tests/unit/test_look.py`` fails for one that does not)."""
+        return ""
+
     def geometry(self) -> dict[str, Any]:
         """Static geometry sent to the viewer once. Subclasses add their dimensions."""
         return {
@@ -302,6 +311,14 @@ class Component(ABC):
             "position": list(self.config.position),
             "rotation_deg": self.config.rotation_deg,
         }
+
+
+def num(value: float, digits: int = 2) -> str:
+    """A number for a :meth:`Component.describe` sentence: fixed decimals, never ``-0.00``."""
+    x = float(value)
+    if abs(x) < 0.5 * 10**-digits:
+        x = 0.0
+    return f"{x:.{digits}f}"
 
 
 C = TypeVar("C", bound=type[Component])

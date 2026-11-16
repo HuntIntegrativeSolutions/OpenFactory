@@ -31,7 +31,7 @@ from __future__ import annotations
 from typing import Any
 
 from openfactory.components.belt_conveyor import RAMP_S
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 from openfactory.core.geometry import Vec3
 
 _EPS = 1e-9
@@ -85,6 +85,15 @@ class Lift(Component):
             "height_m": self.height,
             "moving": self.moving,
         }
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        height, top = float(state["height_m"]), float(geometry["lift_height"])
+        deck = f"deck at {num(height)} m of {num(top)} m" + (", moving" if state["moving"] else "")
+        speed = abs(float(state["speed_mps"]))
+        belt = f"running at {num(speed)} m/s" if state["running"] else "stopped"
+        return f"{deck}; deck belt {belt}"
 
     def geometry(self) -> dict[str, Any]:
         return {

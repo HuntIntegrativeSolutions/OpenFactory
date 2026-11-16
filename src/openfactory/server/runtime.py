@@ -71,6 +71,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 import traceback
 from collections import Counter, deque
 from typing import Any, Literal
@@ -139,6 +140,8 @@ class Runtime:
         #: Ten minutes of every AI tag at 2 Hz of simulated time, for the trend panel (PLAN 3.6).
         self.tag_history = TagHistory(loaded.io)
         #: Every tag change, the last 600 s or 20,000 of them (PLAN 5.14a); None turns it off.
+        #: The scene document as a recording stores it, built once for ``look`` (PLAN 5.14b).
+        self._look_document: dict[str, Any] | None = None
         self.iolog: IoLog | None = IoLog(
             {t.name: t.kind for t in loaded.io.tags()}, self.scheduler.dt
         )
@@ -554,6 +557,27 @@ class Runtime:
         if self.iolog is None:
             raise KeyError("this run keeps no tag change log")
         return self.iolog.query(since_tick, tags)
+
+    def look(self, since_s: float = 5.0, component: str | None = None) -> str:
+        """The plant in words at the last tick (PLAN 5.14b, :func:`openfactory.observe.look`),
+        as ``GET /api/look`` serves it: the scene document as a recording stores it, the
+        snapshot, and the change log up to the snapshot's tick. KeyError for an unknown
+        component."""
+        from openfactory.observe import Plant, look
+
+        snap = self.snapshot
+        tick = int(snap["tick"])
+        changes: list[tuple[int, str, Any]] = []
+        if self.iolog is not None:
+            # the log is fed just after the step lock is released: wait for this tick's changes
+            deadline = time.monotonic() + 1.0
+            while self.iolog.tick < tick and self.running and time.monotonic() < deadline:
+                time.sleep(0.001)
+            changes = self.iolog.entries(until_tick=tick)
+        if self._look_document is None:
+            self._look_document = self.scene_document(meshes=False, snaps=False)
+        plant = Plant.from_scene(self.loaded.scene)
+        return look(self._look_document, snap, changes, plant, since_s=since_s, component=component)
 
     def parity(self) -> dict[str, Any]:
         """Core beam edges and browser sensor events, for ``tools/parity_trace.py --live``."""

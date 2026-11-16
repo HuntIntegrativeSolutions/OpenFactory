@@ -74,6 +74,7 @@ nav:
   - Reference:
       - scene-format.md
       - editor.md
+      - looking-at-the-plant.md
       # Filled in by tools/mkdocs_hooks.py with one page per registered component type.
       - Component types: []
       - ignition.md

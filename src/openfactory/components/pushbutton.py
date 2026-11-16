@@ -60,5 +60,10 @@ class Pushbutton(Component):
     def state(self) -> dict[str, Any]:
         return {"pressed": self.pressed}
 
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        return "pressed" if state["pressed"] else "released"
+
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "mode": self.config.mode, "color": self.config.color}

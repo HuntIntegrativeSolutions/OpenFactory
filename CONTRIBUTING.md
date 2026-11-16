@@ -102,7 +102,8 @@ symlink support, clone to a Linux filesystem (the script needs no `UV_PROJECT_EN
 - Python: `ruff` for lint and format, 4-space indent, type hints on public functions.
 - TypeScript: `prettier` + `eslint` defaults from `web/`.
 - Commits: imperative mood, conventional prefix (`feat:`, `fix:`, `docs:`, `test:`, `chore:`).
-- Every new component ships with a unit test and a docstring describing its behavior.
+- Every new component ships with a unit test, a docstring describing its behavior, and a
+  `describe(state, geometry)` sentence for `openfactory look` (a test fails for a type without one).
 
 ## Safety Notice
 

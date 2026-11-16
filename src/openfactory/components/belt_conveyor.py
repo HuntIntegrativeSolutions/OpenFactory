@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 RAMP_S = 0.3
 
@@ -72,6 +72,15 @@ class BeltConveyor(Component):
         if self.config.bidirectional:
             state["reverse"] = self.reversing
         return state
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        speed = abs(float(state["speed_mps"]))
+        way = " in reverse" if state.get("reverse") else ""
+        if state["running"]:
+            return f"running{way} at {num(speed)} m/s"
+        return f"stopping{way}, {num(speed)} m/s" if speed > 0 else "stopped"
 
     def geometry(self) -> dict[str, Any]:
         out = {**super().geometry(), "length": self.config.length, "width": self.config.width}

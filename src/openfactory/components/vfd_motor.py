@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 @register("vfd_motor")
@@ -85,6 +85,14 @@ class VfdMotor(Component):
     def state(self) -> dict[str, Any]:
         return {"running": bool(self._run and not self.tripped), "speed": self.output,
                 "fault": self.tripped}  # fmt: skip
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        if state["fault"]:
+            return f"tripped, output {num(state['speed'], 1)} %"
+        run = "running" if state["running"] else "stopped"
+        return f"{run}, output {num(state['speed'], 1)} %"
 
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "drives": self.config.drives}  # type: ignore[attr-defined]

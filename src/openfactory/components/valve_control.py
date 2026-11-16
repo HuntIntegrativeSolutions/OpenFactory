@@ -28,7 +28,7 @@ from typing import Any
 
 from openfactory.components._process import link_points
 from openfactory.core import flownet
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 def capacity(characteristic: str, rangeability: float, x: float) -> float:
@@ -96,6 +96,15 @@ class ValveControl(Component):
 
     def state(self) -> dict[str, Any]:
         return {"position": self.stem, "command": self.command, "flow_m3h": self.link.flow * 3600}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        stem, command = float(state["position"]), float(state["command"])
+        out = f"open {num(stem, 1)} %"
+        if abs(stem - command) > 0.05:
+            out += f", moving to {num(command, 1)} %"
+        return f"{out}, {num(state['flow_m3h'])} m3/h"
 
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "points": self.points, "kv": self.kv}

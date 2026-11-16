@@ -39,6 +39,10 @@ Behavior spec
   run's I/O changes, state frames and events, with the scene itself, so ``openfactory replay
   FILE.ofrec [--speed X] [--loop] [--exit-at-end]`` can show it in the viewer with no scene file and
   no simulation, and ``openfactory replay FILE.ofrec --io`` prints the I/O change log.
+- ``look`` (PLAN 5.14b, :mod:`openfactory.observe`) prints the plant in words, as Markdown: from a
+  running server (``GET /api/look``, ``--url``, default the ``[web]`` endpoint) or from a recording
+  at a simulated time (``openfactory look FILE.ofrec --at T``, the frame at or before T; the end
+  without ``--at``), with ``--since S`` and ``--component ID``.
 - ``run`` and ``test`` take ``--fault ID=KIND[:key=value,...]`` (repeatable) and ``--fault-at T``
   (simulated seconds, default 0): each fault is checked against its component before the run and
   injected between ticks once the simulated time reaches T, logged like an ``/api/fault`` request,
@@ -870,6 +874,73 @@ def replay(
 
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(serve())
+
+
+@app.command()
+def look(
+    recording: Annotated[
+        Path | None,
+        typer.Argument(
+            help="A recording to look into (--at); without one, the running server.",
+            metavar="[FILE.ofrec]",
+        ),
+    ] = None,
+    at: Annotated[
+        float | None,
+        typer.Option(help="Simulated time in the recording, s: the frame at or before it."),
+    ] = None,
+    url: Annotated[
+        str | None,
+        typer.Option(help="The running server (default: the [web] endpoint, 127.0.0.1:8000)."),
+    ] = None,
+    since: Annotated[
+        float, typer.Option(help="Show the changes of the last S simulated seconds.", min=0.01)
+    ] = 5.0,
+    component: Annotated[
+        str | None, typer.Option(help="Narrow the report to one component, by id.")
+    ] = None,
+) -> None:
+    """The plant in words (PLAN 5.14b): components, tags, parts, checks and recent changes, as
+    Markdown, from a running scene or from a recording at a time."""
+    if recording is not None:
+        from openfactory.observe import look_recording
+        from openfactory.record import read_recording
+
+        try:
+            rec = read_recording(recording)
+        except (OSError, ValueError) as exc:
+            typer.echo(f"error: {recording}: {exc}", err=True)
+            raise typer.Exit(1) from None
+        last = rec.frames[-1][0] * rec.dt
+        when = last if at is None else at
+        try:
+            typer.echo(look_recording(rec, when, since_s=since, component=component), nl=False)
+        except KeyError as exc:
+            typer.echo(f"error: {exc.args[0]}", err=True)
+            raise typer.Exit(1) from None
+        return
+    if at is not None:
+        typer.echo("error: --at needs a recording (FILE.ofrec)", err=True)
+        raise typer.Exit(2)
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    if url is None:
+        web = load_settings().web
+        url = f"http://{'127.0.0.1' if web.bind in ('0.0.0.0', '::') else web.bind}:{web.port}"
+    query = {"since": f"{since:g}", **({"component": component} if component else {})}
+    target = f"{url.rstrip('/')}/api/look?{urllib.parse.urlencode(query)}"
+    try:
+        with urllib.request.urlopen(target, timeout=10) as response:  # noqa: S310 - our server
+            typer.echo(response.read().decode("utf-8"), nl=False)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")
+        typer.echo(f"error: {target}: {exc.code} {detail}", err=True)
+        raise typer.Exit(1) from None
+    except (urllib.error.URLError, OSError) as exc:
+        typer.echo(f"error: {url}: no running OpenFactory server ({exc})", err=True)
+        raise typer.Exit(1) from None
 
 
 def _scene_files(paths: list[Path]) -> list[Path]:

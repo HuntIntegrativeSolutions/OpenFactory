@@ -69,6 +69,11 @@ class CounterDisplay(Component):
     def state(self) -> dict[str, Any]:
         return {"text": self.text, "value": self.value}
 
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        return f"shows {state['text']}"
+
     def geometry(self) -> dict[str, Any]:
         c = self.config
         return {**super().geometry(), "digits": c.digits, "decimals": c.decimals, "color": c.color}

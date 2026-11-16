@@ -63,5 +63,12 @@ class ColorSensor(DistanceSensor):
             "distance_m": self.distance,  # where the beam stops, for the viewer to draw it
         }
 
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        seen = state["seen"]
+        sees = f"sees {seen}" if seen is not None else "sees nothing"
+        return f"{sees}, match {'on' if state['match'] else 'off'}"
+
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "teach": self.config.teach}

@@ -118,6 +118,12 @@ class IoLog:
         with self._lock:
             return self._ring[0][0] if self._ring else None
 
+    def entries(self, until_tick: int | None = None) -> list[tuple[int, str, Any]]:
+        """Every change held, ``(tick, tag, value)`` in order, up to ``until_tick``."""
+        with self._lock:
+            entries = list(self._ring)
+        return entries if until_tick is None else [e for e in entries if e[0] <= until_tick]
+
     def query(
         self,
         since_tick: int = -1,

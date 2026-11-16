@@ -17,6 +17,8 @@ instead of reverse-engineering the YAML and the lockfiles:
 - every component after composite expansion: type, description, position, every parameter that
   is set (defaults included), each port with its kind and tag (or unbound), the composite it is
   part of, and the fault kinds it supports (PLAN 2.6), with one line on what each kind does;
+- how to read the plant in words with ``openfactory look``, live and from a recording (PLAN
+  5.14b);
 - the ``checks:`` block, if any.
 
 The text depends only on the scene, its lockfiles and where its script is, never on the time,
@@ -150,6 +152,25 @@ def _commands(scene: Scene, scene_path: Path) -> list[str]:
     return lines
 
 
+def _looking(scene_path: Path) -> list[str]:
+    """How to read the plant in words (PLAN 5.14b; 5.14j adds the later commands)."""
+    stem = scene_path.stem
+    return [
+        "## Looking at the plant",
+        "",
+        "`openfactory look` prints the plant in words, as Markdown: each component in a sentence",
+        "with its tags, each part and where it is, the checks, active faults, and the changes of",
+        "the last 5 s (`--since S`; `--component ID` for one component).",
+        "",
+        "```bash",
+        "openfactory look   # the running scene (the viewer's server, http://127.0.0.1:8000/)",
+        f"openfactory look {stem}.ofrec --at 6   # a recording made with --record {stem}.ofrec,"
+        " at 6 s",
+        "```",
+        "",
+    ]
+
+
 def _tags(scene: Scene, scene_path: Path) -> list[str]:
     table = build_iotable(scene)
     bindings = {b.name: b for b in scene.tag_bindings()}
@@ -272,6 +293,7 @@ def context_md(scene: Scene, scene_path: str | Path) -> str:
         "",
     ]
     lines += _commands(scene, scene_path)
+    lines += _looking(scene_path)
     lines += _tags(scene, scene_path)
     lines += _components(scene)
     lines += ["## Fault kinds", ""]

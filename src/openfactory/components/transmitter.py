@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 @register("transmitter")
@@ -77,6 +77,15 @@ class Transmitter(Component):
 
     def state(self) -> dict[str, Any]:
         return {"pv": self.raw.get("pv", 0.0)}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        source, quantity, *rest = str(geometry["measures"]).split(".")
+        units = {"level": "m", "temperature": "degC", "fraction": "%", "flow": "m3/h"}
+        unit = units.get(quantity, "bar")
+        what = f"{source} {quantity}" + (f" {rest[0]}" if rest else "")
+        return f"reads {num(state['pv'])} {unit} ({what})"
 
     def geometry(self) -> dict[str, Any]:
         return {**super().geometry(), "measures": self.config.measures}  # type: ignore[attr-defined]

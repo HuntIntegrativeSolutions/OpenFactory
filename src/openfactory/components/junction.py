@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 from openfactory.core import flownet
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 @register("junction")
@@ -38,3 +38,8 @@ class Junction(Component):
 
     def state(self) -> dict[str, Any]:
         return {"pressure_bar": self.node.pressure_bar}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        return f"at {num(state['pressure_bar'])} bar"

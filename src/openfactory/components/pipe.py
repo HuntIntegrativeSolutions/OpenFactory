@@ -22,7 +22,7 @@ from typing import Any
 
 from openfactory.components._process import link_points
 from openfactory.core import flownet
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 
 
 @register("pipe")
@@ -69,6 +69,11 @@ class Pipe(Component):
 
     def state(self) -> dict[str, Any]:
         return {"flow_m3h": self.link.flow * 3600}
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        return f"flowing {num(state['flow_m3h'])} m3/h"
 
     def geometry(self) -> dict[str, Any]:
         return {

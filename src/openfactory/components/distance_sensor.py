@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from openfactory.core.component import Component, register
+from openfactory.core.component import Component, num, register
 from openfactory.core.geometry import Vec3, rotate_y, to_local
 
 _EPS = 1e-12
@@ -95,6 +95,12 @@ class DistanceSensor(Component):
             "distance_m": self.distance,
             "target": self.distance < self.config.beam_length,
         }
+
+    @classmethod
+    def describe(cls, state: dict[str, Any], geometry: dict[str, Any]) -> str:
+        """One sentence for ``openfactory look`` (PLAN 5.14b; :meth:`Component.describe`)."""
+        reading = f"reads {num(state['distance_m'], 3)} m"
+        return f"{reading}, target {'in range' if state['target'] else 'out of range'}"
 
     def geometry(self) -> dict[str, Any]:
         return {
