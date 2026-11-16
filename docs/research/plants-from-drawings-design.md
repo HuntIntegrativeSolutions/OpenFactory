@@ -1,12 +1,13 @@
 # Plants from drawings: design proposal (PLAN 5.1 to 5.4)
 
-*Proposal for ruling, 2026-11-15. No code. This note covers Milestone 5, Phase B: the plant's
-own tag names (5.3), generic equipment (5.2), the takeoff file (5.1), and plants in several files
-(5.4), in that order. Each section says what exists today, what it proposes, and what the
-alternatives are. Proposed tasks and their Done-whens are in section 5. Decisions for the owner
-are in section 6, numbered, each with a recommendation. The worked example is a small plant of
-our own invention. No customer and no product is named, and the drawings and scenes made from
-a customer's drawings stay out of this repository (Milestone 5, rule 1).*
+*Proposal of 2026-11-15, ruled by the owner the same day: all eleven decisions of section 6 as
+recommended, with three additions (A, B and C, written into sections 3 and 5 and listed in
+section 6). This note covers Milestone 5, Phase B: the plant's own tag names (5.3), generic
+equipment (5.2), the takeoff file (5.1), and plants in several files (5.4), in that order. Each
+section says what exists today, what it proposes, and what the alternatives are. The tasks and
+their Done-whens are in section 5, and are PLAN's sub-tasks 5.1a to 5.4. The worked example is
+a small plant of our own invention. No customer and no product is named, and the drawings and
+scenes made from a customer's drawings stay out of this repository (Milestone 5, rule 1).*
 
 Three facts hold for every proposal below.
 
@@ -379,7 +380,12 @@ JSON Schema exported beside the scene schema. Unknown keys are errors, as in a s
 takeoff: "0.1"
 plant: {name: <scene name>, description: <one line>, author: <who read it>}
 drawings:                      # the set it was read from
-  - {id: <sheet id>, kind: pid | layout | io_list | other, title: <text>, rev: <text>}
+  - {id: <sheet id>, kind: pid | layout | io_list | other, title: <text>, rev: <text>,
+     frame: {units: mm | m | in | ft,          # layout sheets only (ruled 2026-11-15, B)
+             datum: [x, y, z],                 # where the sheet's datum is, in scene metres
+             rotation_deg: <angle>}}           # the sheet's axes turned about +y
+checked: {by: <initials>, date: <date>, drawings: [<sheet>@<rev>, ...],
+          rows: <digest of the rows>}          # written by `takeoff check --mark` (A)
 equipment:                     # one row per item
   - row: EQ-<n>                # the row's own id, never reused
     tag: <tag on the drawing>  # e.g. TK-101; the scene id is it with '-' as '_' unless `id:`
@@ -387,8 +393,10 @@ equipment:                     # one row per item
     description: <ISA-5.1 style, as the scene's>
     params: {<the type's parameters read from the drawing>}
     ref: [{sheet: <id>, grid: <zone, e.g. C3>}]          # every place it appears
-    at: [x, y, z]              # metres, from the layout; or
-    mount: {on: <conveyor tag>, along: <m from the infeed>, rail: left | right}
+    # its position, one of three forms:
+    layout: {sheet: <layout id>, x: <dim>, y: <dim>, elevation: <dim>}   # as printed (B)
+    mount: {conveyor: <conveyor tag>, sheet: <layout id>, along: <dim>, rail: left | right}
+    at: [x, y, z]              # scene metres: only for a row on no layout sheet
     confidence: read | inferred | assumed
     questions: [<text>]        # open questions; empty when none
 connections:
@@ -414,9 +422,56 @@ io:
   - `assumed`: not on the drawing; a default, or something the demo needs that the plant does
     not show.
 
-  A row is never `read` with open questions. The person checking marks the file, not each row:
-  `checked: {by: <initials>, date: <date>, drawings: [<sheet>@<rev>, ...]}`. A changed
-  revision of any sheet makes the mark stale (decision 6).
+  A row is never `read` with open questions. The person checking marks the file, not each row
+  (decision 6): `checked: {by, date, drawings: [<sheet>@<rev>, ...], rows: <digest>}`.
+- **The `checked` mark goes stale two ways** (ruled 2026-11-15, addition A):
+  - a sheet's revision in `drawings` differs from the one the mark names;
+  - a row changed after checking: `rows` is not the digest of the rows as they are now.
+
+  `takeoff check` prints which: "checked: current", "checked: stale, rows changed since
+  checking", "checked: stale, L-001 is rev B, checked at rev A", or both reasons.
+  - **What the digest covers:** the `drawings`, `equipment`, `connections` and `io` lists, as
+    YAML loads them. It does not cover the mark itself, nor `plant` (a name or description,
+    not a row).
+  - **How it is computed:** those four lists as one JSON object `{"connections": ...,
+    "drawings": ..., "equipment": ..., "io": ...}`, written with sorted keys, no spaces
+    (`separators=(",", ":")`), UTF-8 and a date as its ISO text. The digest is the first 16 hex
+    characters of its SHA-256, the length of a run reference's line digest (PLAN §9 rule 13).
+  - **What does and does not stale it:** comments, key order, flow or block style and line
+    breaks do not change the digest. Any changed value does, and so does `1` written as `1.0`,
+    since YAML loads one as an integer and the other as a number with a fraction.
+  - **Nobody computes it by hand.** `openfactory takeoff check TAKEOFF --mark INITIALS` writes
+    the mark: today's date, every sheet with its revision, and the digest. It writes only when
+    check finds no error, and replaces only the `checked:` key, keeping the rest of the file's
+    bytes (the 4.7 `Document` writer). It is the only command that writes a takeoff.
+- **Positions, as the drawing gives them** (ruled 2026-11-15, addition B). A layout sheet in
+  `drawings` carries a `frame`:
+  - `units`: what its dimensions are printed in;
+  - `datum`: where the sheet's datum point is in the scene, in metres;
+  - `rotation_deg`: how the sheet's axes are turned in the scene.
+
+  An equipment row drawn on that sheet gives `layout: {sheet, x, y, elevation}`: the
+  dimensions from the datum as printed, in the sheet's units. `x` is to the right on the
+  sheet, `y` up the sheet, and `elevation` is the height above the datum. The point
+  dimensioned is the one the type's `position` names in [the component reference](../components.md):
+  the centre of a conveyor's infeed end, the centre of a tank's bottom, and so on. The tool converts to scene metres
+  (`u` the unit in metres, `rotate_y` from `core/geometry.py`, positive turning +x toward -z,
+  counter-clockwise seen from above):
+
+  ```text
+  scene position = datum + rotate_y((x·u, elevation·u, -y·u), rotation_deg)
+  ```
+
+  So at `rotation_deg: 0` the sheet's x is the scene's +x and the sheet's y, up the sheet, is
+  the scene's -z, which is the scene seen from above with +x to the right. A `mount` names its
+  sheet too, and its `along` is then in that sheet's units, as printed. Without a `sheet` it is
+  in metres. `at:` in scene metres stays allowed for a row on no layout sheet. Scaffold reports
+  each such row as positioned in scene metres, and `check` warns when an `at:` row's `ref`
+  names a layout sheet, since the drawing could have given it.
+- **`conveyor:`, not `on:`.** YAML 1.1, which PyYAML reads, takes the bare key `on` as the
+  boolean true. The draft of this note wrote `mount: {on: ...}`. The key is `conveyor`
+  (found 2026-11-15 when the example's digest was first computed and the JSON writer met a
+  boolean key).
 - **"Left" and "right"** are `rail_left` and `rail_right` of the conveyor (`core/mounts.py`),
   looking from the infeed toward the discharge. `along` is metres from the infeed end along the
   belt, as `place_on_rail` takes it.
@@ -456,17 +511,33 @@ Errors, each naming the row:
 - an I/O row on a missing item, or on a port the type does not have;
 - an I/O row whose `signal` is not the port's kind;
 - a `plc_tag` outside the 5.3 grammar;
+- a position problem (addition B):
+  - more than one of `layout`, `mount` and `at` on one row;
+  - a `layout` or a `mount` naming a sheet that is not in `drawings`, or a sheet with no
+    `frame`;
+  - a `frame` with a unit not in the list, or a datum that is not three numbers;
 - a `mount` problem:
-  - `on` that is not a belt or roller conveyor in the takeoff;
+  - `conveyor` that is not a belt or roller conveyor in the takeoff;
   - a device type `place_on_rail` does not place;
   - a rail other than `left` or `right`;
-  - **`along` outside 0 to the conveyor's length.** `place_on_rail` clamps `along` into the
-    belt, so a device given at 3.4 m on a 3 m belt would silently land at the end. Check makes
-    that an error instead of a moved device;
-- both `at` and `mount` on one row.
+  - **`along` outside 0 to the conveyor's length**, compared after converting a sheet's
+    units. `place_on_rail` clamps `along` into the belt, so a device dimensioned at 3400 mm on
+    a 3000 mm belt would silently land at the end. Check makes that an error instead of a moved
+    device.
 
-`--strict` also fails on open questions and on a missing or stale `checked` mark. It is the gate
-before a scaffold is shown to anyone.
+Warnings, each naming the row:
+
+- `type: unknown`;
+- an `at:` row whose `ref` names a layout sheet (the drawing could have given the position).
+
+An `assumed` row with an empty `ref` is neither: an item the demo needs and the drawing does not
+show (the worked example's carton source and discharge) has no sheet to name.
+
+`--strict` also fails on open questions and on a missing or stale `checked`
+mark, saying which reason made it stale (addition A). It is the gate before a scaffold is shown
+to anyone. `--mark INITIALS` writes the mark when there is no error (section 3.2); it does not
+need `--strict` to pass, since marking is how a person records that the open questions were
+read.
 
 ### 3.4 `openfactory takeoff scaffold TAKEOFF -o SCENE`
 
@@ -481,11 +552,16 @@ questions are listed apart, since a placed row may still have one.
 | A known type with what it needs | the component, its description, its params; a comment naming the row (`# EQ-4, P-001 C2`) | placed |
 | A known type missing a required parameter, or a row marked `assumed` | the component, any missing parameter at its documented default with `# ASSUMED <param>` | assumed |
 | `type: unknown`, or a type not in this release | a stand-in: a local composite type `standin_<id>` in the scene's `composites:` block, built as section 2's `driven_item` is (a `scenery` body sized from `params.length/width/height`, else 1 m), whose io are exactly the row's I/O rows: each DO and AO a `command`, the first DI following the first DO (a running feedback), the first AI following the first AO, any other DI false and any other AI the low end of its range. Its description starts `PLACEHOLDER` | stand-in, and each of its I/O rows |
-| No `at` and no `mount` | placed in a holding row past the plant's far edge, 1.5 m apart, until 5.5 lays it out | unplaced |
+| No `layout`, `mount` or `at` | placed in a holding row past the plant's far edge, 1.5 m apart, until 5.5 lays it out | unplaced |
 | A `mount` | the position and heading from `core/mounts.place_on_rail` (a pusher's plate height from the tallest part an emitter in the takeoff makes, else the default) | placed on `<conveyor>` `<rail>` at `<along>` m |
 | A connection | the `from`/`to` keys of the link, a `pipe` for a line between two nodes or a node and a link, or a `connections:` entry for conveyors | placed |
 | A connection scaffold cannot make (a conveyor to a tank, say) | a YAML comment at the end of the scene, the connection as written | not connected: `<why>` |
 | An open question (on any row, whatever its outcome) | a `# QUESTION (<row>): <text>` comment above the component | listed under open questions |
+
+Besides the outcomes, the report says where each equipment row's position came from
+(addition B): converted from a layout sheet's dimensions, placed on a rail from a sheet's
+`along`, or given in scene metres with no layout sheet (`at:`). That is a note beside the
+outcome, not an outcome of its own, so the outcomes still add up to the rows.
 
 Exit codes:
 
@@ -525,8 +601,11 @@ A plant of our own invention, drawn on three sheets:
 - **P-001**, the P&ID: a make-up supply through a level control valve LV-101 into tank TK-101,
   with level transmitter LT-101, a high-level switch, and an agitator AG-101. Transfer pump
   P-101 feeds the washer through a flow transmitter FT-101.
-- **L-001**, the layout: the skid, and a 3 m carton reject belt CV-201 with a photo eye PE-201
-  and a reject pusher CYL-201 dimensioned from the belt's infeed.
+- **L-001**, the layout, in plan, dimensioned in millimetres from a datum at a building column
+  3 m west and 4 m south of the tank's centre: the skid, and a 3 m carton reject belt CV-201
+  with a photo eye PE-201 and a reject pusher CYL-201 dimensioned from the belt's infeed. Its
+  `frame` puts that datum at scene (-3.0, 0, 4.0) with the sheet unturned, so the tank's
+  bottom centre, dimensioned 3000 right, 4000 up and 500 elevation, is scene (0, 0.5, 0).
 - **IO-001**, the I/O list, with the plant program's names.
 
 **The takeoff, in full:**
@@ -539,55 +618,63 @@ plant:
   author: HIS Controls
 drawings:
   - {id: P-001, kind: pid, title: Wash Water Skid P&ID, rev: A}
-  - {id: L-001, kind: layout, title: Wash Water Skid and Reject Belt Layout, rev: A}
+  - {id: L-001, kind: layout, title: Wash Water Skid and Reject Belt Layout, rev: A,
+     frame: {units: mm, datum: [-3.0, 0, 4.0], rotation_deg: 0}}
   - {id: IO-001, kind: io_list, title: Wash Water Skid I/O List, rev: A}
-checked: {by: XX, date: 2026-11-15, drawings: [P-001@A, L-001@A, IO-001@A]}
+checked: {by: XX, date: 2026-11-15, drawings: [P-001@A, L-001@A, IO-001@A],
+          rows: 2c9c61b4ae244f3a}
 equipment:
   - {row: EQ-1, tag: SUP-101, type: supply, description: Wash Water Make-Up Supply,
-     params: {pressure_bar: 2.0}, ref: [{sheet: P-001, grid: A1}], at: [-2.0, 2.4, 0],
+     params: {pressure_bar: 2.0}, ref: [{sheet: P-001, grid: A1}, {sheet: L-001, grid: A2}],
+     layout: {sheet: L-001, x: 1000, y: 4000, elevation: 2400},
      confidence: assumed, questions: ["Make-up pressure not shown; 2 bar assumed."]}
   - {row: EQ-2, tag: LV-101, type: valve_control,
      description: Wash Water Tank Level Control Valve, params: {kv: 6},
-     ref: [{sheet: P-001, grid: B2}], at: [-1.2, 2.4, 0], confidence: read, questions: []}
+     ref: [{sheet: P-001, grid: B2}, {sheet: L-001, grid: A2}],
+     layout: {sheet: L-001, x: 1800, y: 4000, elevation: 2400}, confidence: read, questions: []}
   - {row: EQ-3, tag: TK-101, type: tank, description: Wash Water Tank,
      params: {diameter: 1.2, height: 1.8, initial_level: 0.9, hi_level: 1.6},
-     ref: [{sheet: P-001, grid: C2}, {sheet: L-001, grid: B2}], at: [0, 0.5, 0],
-     confidence: read, questions: []}
+     ref: [{sheet: P-001, grid: C2}, {sheet: L-001, grid: B2}],
+     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 500}, confidence: read, questions: []}
   - {row: EQ-4, tag: LT-101, type: transmitter,
      description: Wash Water Tank Level Transmitter,
      params: {measures: TK-101.level, range: [0, 1.8], lag_s: 1.0},
-     ref: [{sheet: P-001, grid: C3}], at: [0.7, 1.4, 0], confidence: read, questions: []}
+     ref: [{sheet: P-001, grid: C3}, {sheet: L-001, grid: B2}],
+     layout: {sheet: L-001, x: 3700, y: 4000, elevation: 1400}, confidence: read, questions: []}
   - {row: EQ-5, tag: AG-101, type: unknown, description: Wash Water Tank Agitator,
      params: {length: 0.3, width: 0.3, height: 0.6},
-     ref: [{sheet: P-001, grid: C1}], at: [0, 2.4, 0], confidence: read,
+     ref: [{sheet: P-001, grid: C1}, {sheet: L-001, grid: B2}],
+     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 2400}, confidence: read,
      questions: ["No agitator type yet (5.9); a stand-in until then."]}
   - {row: EQ-6, tag: P-101, type: pump, description: Wash Water Transfer Pump,
      params: {design_flow_m3h: 3.0, design_head_m: 6.0},
-     ref: [{sheet: P-001, grid: D2}, {sheet: L-001, grid: C2}], at: [1.2, 0.3, 0],
-     confidence: read, questions: []}
+     ref: [{sheet: P-001, grid: D2}, {sheet: L-001, grid: C2}],
+     layout: {sheet: L-001, x: 4200, y: 4000, elevation: 300}, confidence: read, questions: []}
   - {row: EQ-7, tag: FT-101, type: transmitter,
      description: Wash Water Transfer Flow Transmitter,
      params: {measures: P-101.flow, range: [0, 5.0], lag_s: 0.5},
-     ref: [{sheet: P-001, grid: D3}], at: [1.8, 0.6, 0], confidence: read, questions: []}
+     ref: [{sheet: P-001, grid: D3}, {sheet: L-001, grid: C2}],
+     layout: {sheet: L-001, x: 4800, y: 4000, elevation: 600}, confidence: read, questions: []}
   - {row: EQ-8, tag: DR-101, type: drain, description: Wash Water To Washer,
-     ref: [{sheet: P-001, grid: E2}], at: [2.6, 0.3, 0], confidence: assumed,
+     ref: [{sheet: P-001, grid: E2}, {sheet: L-001, grid: D2}],
+     layout: {sheet: L-001, x: 5600, y: 4000, elevation: 300}, confidence: assumed,
      questions: ["The washer is off this drawing; an open drain stands for it."]}
   - {row: EQ-9, tag: CV-201, type: belt_conveyor, description: Carton Reject Belt Conveyor,
-     params: {length: 3.0, width: 0.5, speed_mps: 0.4},
-     ref: [{sheet: L-001, grid: B4}], at: [0, 0, 2.5], confidence: read, questions: []}
+     params: {length: 3.0, width: 0.5, speed_mps: 0.4}, ref: [{sheet: L-001, grid: B4}],
+     layout: {sheet: L-001, x: 3000, y: 1500, elevation: 0}, confidence: read, questions: []}
   - {row: EQ-10, tag: PE-201, type: photo_eye, description: Carton Reject Belt Photo Eye,
      params: {beam_length: 0.6}, ref: [{sheet: L-001, grid: B4}],
-     mount: {on: CV-201, along: 1.2, rail: left}, confidence: read, questions: []}
+     mount: {conveyor: CV-201, sheet: L-001, along: 1200, rail: left}, confidence: read, questions: []}
   - {row: EQ-11, tag: CYL-201, type: pusher, description: Carton Reject Pusher,
      params: {stroke: 0.6, extend_time_s: 0.4}, ref: [{sheet: L-001, grid: C4}],
-     mount: {on: CV-201, along: 2.0, rail: left}, confidence: read,
+     mount: {conveyor: CV-201, sheet: L-001, along: 2000, rail: left}, confidence: read,
      questions: []}
   - {row: EQ-12, tag: EMT-201, type: box_emitter, description: Carton Reject Belt Carton Source,
      params: {interval_s: 4.0, parts: [{name: carton, size: [0.3, 0.3, 0.3], weight: 1.0}]},
-     ref: [{sheet: L-001, grid: A4}], at: [0.3, 0.155, 2.5], confidence: assumed,
+     ref: [], at: [0.3, 0.155, 2.5], confidence: assumed,
      questions: ["Not on the drawing: a parts source for the demo."]}
   - {row: EQ-13, tag: REM-201, type: part_remover, description: Carton Reject Belt Discharge,
-     params: {size: [0.3, 1.0, 1.0]}, ref: [{sheet: L-001, grid: D4}], at: [3.15, 0, 2.5],
+     params: {size: [0.3, 1.0, 1.0]}, ref: [], at: [3.15, 0, 2.5],
      confidence: assumed, questions: ["Not on the drawing: the belt's discharge."]}
 connections:
   - {row: CN-1, from: SUP-101, to: LV-101, line: 25-W-100, ref: [{sheet: P-001, grid: A2}],
@@ -644,7 +731,10 @@ valve or pump (CN-1, CN-3) is that link's `from`.
 checked with `openfactory validate` and `openfactory lint` on 2026-11-15. The only lint output
 is W201 and W202, "no PLC side", which is expected for a scaffold with no program yet. The
 pusher's and the photo eye's positions are `place_on_rail`'s output for EQ-10 and EQ-11,
-computed with the real function: (1.2, 0.1, 2.5) and (2.0, 0.1375, 2.2).
+computed with the real function: (1.2, 0.1, 2.5) and (2.0, 0.1375, 2.2). The other positions
+are L-001's dimensions converted by section 3.2's rule. A scratch script applied the rule to the
+takeoff above on 2026-11-15, and each converted position equalled the one in this text exactly
+(0 mm); the rows digest in the `checked` mark was computed the same way.
 
 ```yaml
 # Written by `openfactory takeoff scaffold wash-skid.takeoff.yaml` (PLAN 5.1, proposed).
@@ -814,6 +904,8 @@ wash-skid.takeoff.yaml -> wash-skid.yaml: 32 rows (13 equipment, 4 connections, 
   unplaced         0
   not connected    0
   25 + 4 + 3 + 0 + 0 = 32: every row accounted for
+positions: 9 from L-001 dimensions, 2 on CV-201's left rail (L-001), 2 in scene metres with no
+  layout sheet (EQ-12 EMT-201, EQ-13 REM-201)
 open questions, written as # QUESTION comments (6): EQ-1, EQ-5, EQ-8, EQ-12, EQ-13, IO-15
 ```
 
@@ -830,7 +922,11 @@ not made yet; this section describes it.**
   - `P-001.svg`: the P&ID. Instrument bubbles are our own circles with tag letters inside.
     Lines carry line numbers. A zone grid runs A to E across and 1 to 4 down.
   - `L-001.svg`: the layout, in plan view, dimensioned in millimetres from a datum, with the
-    belt's devices dimensioned from the infeed.
+    belt's devices dimensioned from the infeed. The datum and the sheet's axes are drawn, so a
+    reader can write the sheet's `frame` (section 3.2).
+  - `P-001.png` and `L-001.png` (ruled 2026-11-15, addition C): each sheet as a picture,
+    rendered from its SVG, so a practice run reads an image as it would a scanned or exported
+    customer sheet, not SVG text. Each is under 1 MB.
   - `IO-001.csv`: the I/O list, in the column layout of the I/O CSV (1.8) plus a `plc_tag`
     column. CSV, because an I/O list usually arrives as a table.
   - `wash-skid.takeoff.yaml`: the takeoff of section 3.6, which tests check and scaffold.
@@ -838,16 +934,28 @@ not made yet; this section describes it.**
   - an item with no component type (the agitator);
   - an abbreviated I/O-list entry (IO-15);
   - a dimension on the layout that runs past the end of the belt in one variant of the
-    takeoff, which `check` must refuse.
+    takeoff, which `check` must refuse;
+  - a variant with one row edited after the `checked` mark, which `--strict` must refuse as
+    "rows changed since checking" (addition A).
 - **How it is made.** SVG written as text, by hand or by a small script in `tools/` that draws
   only primitives: lines, circles, rectangles, text. No symbol library and no template from any
-  drawing package are used. Each file stays under 100 KB, far under the 1 MB rule.
+  drawing package are used. Each SVG stays under 100 KB.
+- **How the images are made** (addition C). `tools/render_sheets.py` opens each SVG in the
+  Chromium that Playwright already installs for the screenshot runner, at a fixed size, and
+  saves a PNG; no image library is added. It writes the SVG's SHA-256 into the PNG as a `tEXt`
+  chunk (`openfactory-source`), with the standard library's `zlib` and `struct`, so a test can
+  tell a picture that was not rendered again after its SVG changed. Each PNG stays under 1 MB,
+  the repository's rule for binaries.
 - **What tests use it for.** `takeoff check` passes. `--strict` fails on the open questions.
   `scaffold` writes a scene that validates. The report accounts for every row, with AG-101 as
-  a stand-in. Changing EQ-11's `along` to 3.4 fails `check`, not `scaffold`. A test also reads
+  a stand-in. Changing EQ-11's `along` to 3400 fails `check`, not `scaffold`. Editing one row
+  of the checked takeoff fails `--strict` with "rows changed since checking". Converting the
+  takeoff's `layout` rows gives section 3.6's scene positions within 1 mm. A test also reads
   the CSV's `plc_tag` column and checks it against the takeoff's I/O rows, so the two cannot
-  drift. Nothing in a test reads the SVGs: reading a drawing is the assistant's and the
-  person's job. The SVGs are for 5.5 and 5.6, and for practice.
+  drift. Another checks that each PNG's recorded digest is its SVG's and that each is under
+  1 MB. No test reads what a drawing shows: reading a drawing is the assistant's and the
+  person's job. The SVGs are for 5.5 and 5.6. The PNGs are for practice and for the authoring
+  guide (5.13), which shows them.
 
 ### 3.8 Alternatives
 
@@ -993,10 +1101,12 @@ the first plant (5.4's two-area sample) is new, under `scenes/plants/`.
 
 ---
 
-## 5. Proposed tasks, each with a Done-when
+## 5. The tasks, each with a Done-when (ruled 2026-11-15)
 
-In this order, so each builds on the last. 5.3 and 5.2 are independent of each other. 5.1 needs
-both for its stand-ins and `plc_tag`s. 5.4 is independent and can run beside them.
+5.3 and 5.2 are independent of each other. 5.1 needs both for its stand-ins and `plc_tag`s.
+5.4 is independent. **The build order is ruled:** 5.3a, 5.2a, 5.2b, 5.2c, 5.1a, 5.1b, 5.1c,
+then 5.4. 5.3b is built when the work reaches it, and its run on the bench PLC stays with 2.2.
+PLAN's 5.14a and 5.14b come before all of them (5.14, ruling 6).
 
 - **5.3a `plc_tag` in the scene and the exports.** The key, its grammar, duplicate and
   case-duplicate errors (once the name rules are verified), `scene.area`,
@@ -1043,31 +1153,77 @@ both for its stand-ins and `plc_tag`s. 5.4 is independent and can run beside the
   docstring spec and a section in [the component reference](../components.md) cover
   `scenery`.
 - **5.1a The takeoff file and `takeoff check`.** The schema, its JSON Schema export,
-  and `--strict` (`--against` is 5.6).
-  *Done when:* the sample takeoff of section 3.6 passes `check`, and `--strict` fails it on its
-  six open questions. One test per error in section 3.3 fails with that row named, including
-  `along: 3.4` on the 3 m belt.
+  `--strict` (`--against` is 5.6), the `checked` mark with its rows digest and `--mark`
+  (addition A), and layout frames with positions as printed (addition B).
+  *Done when:*
+  - the sample takeoff of section 3.6 passes `check`, and `--strict` fails it on its six open
+    questions;
+  - one test per error in section 3.3 fails with that row named, including `along: 3400` on
+    the 3000 mm belt;
+  - `--mark XX` writes a mark with the rows digest and changes no other byte of the file, and
+    `check` then prints "checked: current";
+  - a test edits one row of the checked sample and sees `--strict` fail with "rows changed
+    since checking"; another changes a sheet's `rev` and sees it fail naming that sheet;
+  - a test converts the sample's `layout` and `mount` rows and gets section 3.6's scene
+    positions within 1 mm, and gets the same positions from a copy of the sheet's frame and
+    dimensions turned 90 degrees.
 - **5.1b `takeoff scaffold`.**
   *Done when:* the sample takeoff scaffolds to a scene that validates, its report accounts for
   all 32 rows (25 placed, 4 assumed, 3 stand-in), and AG-101 is a stand-in type carrying
-  IO-5 and IO-6. The exit code is
-  3. PE-201 and CYL-201 sit where `place_on_rail` puts them. Removing a row's `type` (making it
-  `unknown`) adds one stand-in and never removes a row. Running the scaffold twice writes the
-  same bytes.
-- **5.1c The sample drawing set.** Section 3.7's files, drawn by us.
-  *Done when:* the files are in `docs/samples/wash-skid/` with their license line, each is
-  under 100 KB, and the test that cross-checks the I/O CSV against the takeoff passes. Each
-  SVG has been opened and looked at.
+  IO-5 and IO-6. The exit code is 3. PE-201 and CYL-201 sit where `place_on_rail` puts them.
+  The report's positions line lists 9 rows from L-001, 2 on CV-201's rail and the 2 `at:`
+  rows, EQ-12 and EQ-13, as in scene metres with no layout sheet. Removing a row's `type`
+  (making it `unknown`) adds one stand-in and never removes a row. Running the scaffold twice
+  writes the same bytes.
+- **5.1c The sample drawing set.** Section 3.7's files, drawn by us, and each sheet as a PNG
+  rendered from its SVG (addition C).
+  *Done when:* the files are in `docs/samples/wash-skid/` with their license line, each SVG is
+  under 100 KB and each PNG under 1 MB, and the test that cross-checks the I/O CSV against the
+  takeoff passes. A test finds each PNG's recorded source digest equal to its SVG's. Each
+  sheet has been opened and looked at, as SVG and as PNG. The authoring guide (5.13) shows
+  the PNGs.
 - **5.4 `include:`, the plant lockfile and `--area`.**
   *Done when:* a two-area sample plant runs as one plant and passes its checks at 60 s and
   300 s. Each area runs alone with `--area` and passes its own checks. The address of every
   tag is the same in all three runs (read from the Modbus server). A duplicate id across areas
   is a load error naming both files. The editor opens the plant with the other areas dimmed
   and saves only the file it edits. The plant is held by PLAN §9 rule 13.
+  *A known limit, not a task:* two identical lines cannot share one area file. Ids and tags are
+  global and never prefixed (decision 9), so a second copy of an area clashes with the first;
+  each line is its own area file with its own ids and tags.
 
 ---
 
 ## 6. Decisions for the owner
+
+**Ruled by the owner, 2026-11-15.** All eleven decisions below as recommended: decision 2 as
+(a), with W215 and PLAN 5.3's Done-when reworded to "a plant name outside the HIS pattern loads
+and exports with no error; a binding left without a plant name in a mapped scene is a warning".
+Three additions, written into sections 3 and 5 and into PLAN's Done-whens:
+
+- **A. The `checked` mark carries a digest of the rows.** It covers `equipment`,
+  `connections`, `io` and `drawings`, not the mark itself. Any change to a row after checking
+  makes the mark stale, as a changed sheet revision does, and `takeoff check` prints which
+  reason it was. A test edits one row of a checked sample and sees `--strict` fail. (Section
+  3.2; task 5.1a.)
+- **B. Positions are recorded as the drawing gives them.** A layout sheet in `drawings` may
+  carry a `frame`: its units, the datum's place in the scene, and its rotation. An equipment
+  row gives its position as dimensions from that sheet's datum, as printed, with the
+  elevation, and the tool converts to scene metres. `at:` in scene metres stays allowed for a
+  row on no layout sheet and is reported as such. The worked example and the sample takeoff
+  use the drawing form. A test converts the sample's rows and gets the scene positions within
+  1 mm. (Sections 3.2, 3.4 and 3.6; tasks 5.1a and 5.1b.)
+- **C. Each sample sheet is also committed as an image.** 5.1c commits a PNG of each sheet,
+  rendered from its SVG and under 1 MB, so a practice run reads a picture, not SVG text. The
+  authoring guide (5.13) uses the images. (Section 3.7; task 5.1c.)
+
+The build order is ruled too (section 5): 5.3a, 5.2a, 5.2b, 5.2c, 5.1a, 5.1b, 5.1c, then 5.4,
+with 5.3b when the work reaches it and its bench run kept with 2.2.
+
+One change made while recording the rulings, not a ruling: the mount key is `conveyor:`, not
+`on:`, because PyYAML reads a bare `on` as the boolean true (section 3.2).
+
+The decisions as they were put:
 
 1. **5.3: the plant's name beside the scene's (`plc_tag:`), or instead of it?** Recommended:
    beside. The scene tag stays the key for everything inside OpenFactory, so the lockfiles

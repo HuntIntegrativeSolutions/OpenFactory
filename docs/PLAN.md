@@ -3382,8 +3382,12 @@ runs the sorting program against it; a box visibly gets pushed.
         - The working tree was unchanged after the run.
 
 
-### Milestone 5 — Plants from drawings (proposed 2026-11-14, for ruling)
-*Proposal, not ruled; no code until it is.* Given a plant's drawings (P&IDs, a general
+### Milestone 5 — Plants from drawings (proposed 2026-11-14; Phase B and 5.14 ruled 2026-11-15)
+*Proposed 2026-11-14. Ruled 2026-11-15: Phase B (5.1 to 5.4, split into the sub-tasks below)
+and 5.14, with the build order 5.14a, 5.14b, then 5.3a, 5.2a, 5.2b, 5.2c, 5.1a, 5.1b, 5.1c
+and 5.4; 5.3b when the work reaches it, its run on the bench PLC staying with 2.2; the rest of
+5.14 after 5.1 to 5.3. Phase A, Phase C, Phase D and the owner's questions at the end of this
+milestone are not ruled yet.* Given a plant's drawings (P&IDs, a general
 arrangement, an I/O list), an assistant builds a scene that looks like that plant, uses the
 plant's own tag names, runs against its PLC program, and is checked by a person before anyone
 trusts it.
@@ -3410,13 +3414,49 @@ trusts it.
       table against the drawing before a scene exists.
       *Done when:* our own sample P&ID has a takeoff in the repository, `scaffold` turns it into a
       scene that loads, and a row with an unknown type is reported, not dropped.
-      *Design proposed 2026-11-15, for ruling:* [the design note](research/plants-from-drawings-design.md), §3 and decisions 6 to 8 and 11:
-      the takeoff schema with a confidence mark and open questions per row, `takeoff check`
-      (an `along` past the belt is an error, never clamped), `takeoff scaffold` (an unknown type
-      becomes a stand-in carrying its I/O, every row reported, exit 3 when rows remain), and a
-      worked example. Recommended on the question left open on 2026-11-14: no stored
-      `mounted_on`; the takeoff holds the mount and the scene keeps plain positions from
-      `core/mounts.place_on_rail`.
+      *Ruled 2026-11-15* ([the design note](research/plants-from-drawings-design.md), §3; decisions 6 to 8 and 11 as recommended, with
+      additions A, B and C): the takeoff schema with a confidence mark and open questions per
+      row; `takeoff check` (an `along` past the belt is an error, never clamped); `takeoff
+      scaffold` (an unknown type becomes a stand-in carrying its I/O, every row reported, exit 3
+      when rows remain); one file-level `checked` mark (decision 6); no stored `mounted_on`, the
+      takeoff holds the mount and the scene keeps plain positions from
+      `core/mounts.place_on_rail` (decision 8, the question left open on 2026-11-14); the sample
+      set in SVG and CSV under CC-BY-4.0 (decision 11). Additions: (A) the `checked` mark also
+      carries a digest of the rows (`drawings`, `equipment`, `connections`, `io`; not the mark),
+      so a row changed after checking makes it stale as a changed sheet revision does, and
+      `takeoff check` prints which; (B) positions are recorded as the drawing gives them: a
+      layout sheet carries a `frame` (units, the datum's place in the scene, rotation), a row
+      gives `layout: {sheet, x, y, elevation}` as printed and the tool converts to scene metres,
+      and `at:` in scene metres stays for a row on no layout sheet, reported as such; (C) 5.1c
+      also commits each sheet as a PNG rendered from its SVG. The mount key is `conveyor:`, not
+      `on:` (PyYAML reads a bare `on` as true; found while recording the rulings).
+  - [ ] 5.1a The takeoff file and `takeoff check` (note §3.2, §3.3): the schema and its JSON
+        Schema export, `--strict` (`--against` is 5.6), the `checked` mark with its rows digest
+        and `--mark INITIALS` (A), and layout frames with positions as printed (B).
+        *Done when:* the sample takeoff (note §3.6) passes `check`, and `--strict` fails it on its
+        six open questions; one test per error of note §3.3 fails with that row named, including
+        `along: 3400` on the 3000 mm belt; `--mark XX` writes a mark with the rows digest and
+        changes no other byte of the file, and `check` then prints "checked: current"; a test
+        edits one row of the checked sample and sees `--strict` fail with "rows changed since
+        checking", and another changes a sheet's `rev` and sees it fail naming that sheet; a
+        test converts the sample's `layout` and `mount` rows and gets the note's scene positions
+        within 1 mm, and the same positions from a copy of the frame and dimensions turned 90
+        degrees.
+  - [ ] 5.1b `takeoff scaffold` (note §3.4).
+        *Done when:* the sample takeoff scaffolds to a scene that validates; its report accounts
+        for all 32 rows (25 placed, 4 assumed, 3 stand-in), and AG-101 is a stand-in type
+        carrying IO-5 and IO-6; the exit code is 3; PE-201 and CYL-201 sit where `place_on_rail`
+        puts them; the report's positions line lists 9 rows from L-001, 2 on CV-201's rail and
+        the 2 `at:` rows (EQ-12, EQ-13) as in scene metres with no layout sheet; removing a row's
+        `type` (making it `unknown`) adds one stand-in and never removes a row; running the
+        scaffold twice writes the same bytes.
+  - [ ] 5.1c The sample drawing set (note §3.7): `docs/samples/wash-skid/` with P-001 and L-001
+        as SVG drawn by us, `IO-001.csv` and the takeoff, and each sheet as a PNG rendered from
+        its SVG (C) by `tools/render_sheets.py` through Playwright's Chromium (no image library).
+        *Done when:* the files are there with their license line; each SVG is under 100 KB and
+        each PNG under 1 MB; the test that cross-checks the I/O CSV against the takeoff passes;
+        a test finds each PNG's recorded source digest equal to its SVG's; each sheet has been
+        opened and looked at, as SVG and as PNG; the authoring guide (5.13) shows the PNGs.
 - [ ] 5.2 Generic equipment. Something on the drawing has no component: it must still appear, with
       its I/O and a simple behaviour (a delay, a first-order lag, a permissive). First test how far
       a composite goes today (computed DIs exist, 2.16); add a `machine` primitive only for what a
@@ -3434,15 +3474,37 @@ trusts it.
       computed AI, no first-order lag or other state of the composite's own, and the instance has
       no `mesh` key of its own: it is drawn as its parts, each as its built-in type. A composite
       whose `io` is empty is W208.
-      *Design proposed 2026-11-15, for ruling:* [the design note](research/plants-from-drawings-design.md), §2 and decision 5: command names
-      and `AO` commands in io expressions, numeric `kind: AI` io and a conditional expression
-      (composite additions), `lag_s` on an AI binding (a 2.17 transform), and the 5.11 `scenery`
-      primitive brought forward for the body; no `machine` primitive.
+      *Ruled 2026-11-15* ([the design note](research/plants-from-drawings-design.md), §2; decision 5 as recommended): command names and `AO`
+      commands in io expressions, numeric `kind: AI` io and a conditional expression (composite
+      additions), `lag_s` on an AI binding (a 2.17 transform), and the 5.11 `scenery` primitive
+      brought forward for the body; no `machine` primitive.
+  - [ ] 5.2a Composite additions: command names in io expressions, `command: AO`, `kind: AI`
+        numeric io, the conditional expression, computed io reading computed io (cycles
+        refused).
+        *Done when:* a scene's composite reports `running` one tick after `start` with no part
+        having a running output; `on_delay_s: 2.0` on that binding makes it 100 ticks at 50 Hz;
+        a `speed_fb` AI follows `speed` while running and reads 0 when stopped; a cycle
+        `a <- b <- a` is a load error naming it; `test_expr.py`'s generated expressions still
+        raise only `ExprError`.
+  - [ ] 5.2b `lag_s` on an AI binding, in `TransformStage`, with the transmitter's
+        discretization.
+        *Done when:* a step from 0 to 100 through `lag_s: 4` reads within 0.5 of 63.2 at 4 s and
+        within 0.5 of 98.2 at 16 s at dt 0.02; the run is identical twice; the CSV's transform
+        column says `lag 4 s`.
+  - [ ] 5.2c The `scenery` primitive (5.11's type brought forward: `size`, `color`, `mesh`, no
+        I/O, no physics) and the `driven_item` and `variable_item` library composites (note
+        §2.2).
+        *Done when:* 5.2's own Done-when holds: a scene holds a `variable_item` drawn as a box and
+        then with a mesh, with its start, running, speed and speed feedback ports and a 2 s start
+        delay, and its tags export like any other; the screenshot is looked at; a unit test, a
+        docstring spec and a section in `docs/components.md` cover `scenery`.
 - [ ] 5.3 The plant's tag names. `plc_tag:` per binding (§6.2, named but not built), so a scene
       port maps to the plant's tag or UDT member, and an area prefix per scene.
       *Done when:* the I/O CSV, the L5X and the SCADA tag export carry the plant's names, the
-      lockfiles do not move, and lint flags a name outside the HIS pattern as a warning, not an
-      error.
+      lockfiles do not move, and a plant name outside the HIS pattern loads and exports with no
+      error; a binding left without a plant name in a mapped scene is a warning (W215).
+      *(Reworded 2026-11-15 by decision 2 of the design note. It said: "lint flags a name
+      outside the HIS pattern as a warning, not an error".)*
       *What exists today (2026-11-15):* a binding's tag must match `^[A-Z][A-Z0-9_]*_(DI|DO|AI|AO)$`
       and be at most 40 characters (`core/schema.py`): any other name is a load error, not a
       warning. §6.2 says the PLC tag name equals the scene's tag name by default, with an optional
@@ -3455,14 +3517,43 @@ trusts it.
       named by the component id, in one area folder named by `--area` or the scene name in
       capitals, its members named by port. The Modbus lockfiles map tag names
       to addresses (ADR-0004), one per scene file and analog encoding.
-      *Design proposed 2026-11-15, for ruling:* [the design note](research/plants-from-drawings-design.md), §1 and decisions 1 to 4: `plc_tag:`
-      beside the scene's tag, which stays the key (so the lockfiles cannot move), the L5X stub
-      by the form of the name, the Logix path from pycomm3 1.2.16's own source, and a re-reading
-      of the lint clause of the Done-when above.
+      *Ruled 2026-11-15* ([the design note](research/plants-from-drawings-design.md), §1; decisions 1 to 4 as recommended, decision 2 as (a)):
+      (1) `plc_tag:` beside the scene's tag, which stays the key for everything inside
+      OpenFactory, so the lockfiles cannot move; (2) no warning for a well-formed `plc_tag`,
+      W215 for a binding with no `plc_tag` in a scene where others have one, and the Done-when
+      above reworded; a malformed or duplicate `plc_tag` is a load error; (3) the L5X stub
+      declares controller and program tags and lists members, elements and bits in a comment
+      without declaring them; (4) the Logix path sets `init_program_tags=True` only when a
+      `Program:` name is present (pycomm3 1.2.16 replaces its tag cache when one program is
+      uploaded alone), the upload time on a large program to be measured on the bench PLC.
+  - [ ] 5.3a `plc_tag` in the scene and the exports: the key, its grammar, duplicate and
+        case-duplicate errors (once the name rules are verified against the vendor's published
+        manual), `scene.area`, `plc.heartbeat_plc_tag`, the CSV and `CONTEXT.md` column, the L5X
+        stub rules by form, the SCADA export parameter, and W215.
+        *Done when:* a copy of `sorting-by-height` with every binding given a `plc_tag` of each
+        form (controller, program, member, bit) exports a CSV whose `plc_tag` column equals the
+        scene's, an L5X with one controller tag, one program tag and the member and bit rows
+        listed in its comment, not declared, and a SCADA export whose device-path parameters
+        are the plant names; removing one binding's `plc_tag` raises W215 for that binding
+        only; every shipped scene's exports, lockfiles, kits and run references are
+        byte-identical (CI's gates); a test enumerates the grammar's accepted and refused names.
+  - [ ] 5.3b The Logix path by plant names: the client reads and writes `plc_tag`s, maps results
+        back to scene tags, sets `init_program_tags` when a `Program:` name is present, and runs
+        the connect-time type check with the bit split.
+        *Done when:* `tests/unit/test_logix.py`'s fake controller holds a program-scoped tag, a
+        structure with a `BOOL` member and a `REAL` member, and a `DINT` whose bit 4 is a DI; the
+        sorter copy exchanges all of them in one write and one read per cycle; a wrong-type
+        member is "mismatched" and left out; a bit on a `REAL` is refused at connect. The run on
+        the bench PLC stays 2.2's Done-when.
 - [ ] 5.4 Plants in several files. `include:` so one plant is one file per area with shared
       composites, one address map, and lint across areas.
       *Done when:* a two-area sample runs as one plant, each area also runs alone, and the address
-      map is the same either way.
+      map is the same either way. *As ruled 2026-11-15 (note §5):* the two-area sample plant
+      runs as one plant and passes its checks at 60 s and 300 s; each area runs alone with
+      `--area` and passes its own checks; the address of every tag is the same in all three
+      runs (read from the Modbus server); a duplicate id across areas is a load error naming
+      both files; the editor opens the plant with the other areas dimmed and saves only the
+      file it edits; the plant is held by PLAN §9 rule 13.
       *What exists today (2026-11-15):* nothing like `include:`; a scene is one file, and its
       model refuses unknown keys, so `include:` is a load error today. What is shared between
       files is composite types: `composites: [{library: name}]` loads `_library/<name>.yaml` from
@@ -3471,9 +3562,14 @@ trusts it.
       encoding (`<scene>.<encoding>.modbus.yaml`, ADR-0004). Lint runs on one scene at a time
       (`openfactory lint scenes` lints each file in turn). A bundle (`.ofz`, 2.18) carries one
       scene with the library composites and meshes it uses.
-      *Design proposed 2026-11-15, for ruling:* [the design note](research/plants-from-drawings-design.md), §4 and decisions 9 and 10: a plant
-      file with `include:`, global ids and tags, one plant lockfile, `--area` to run one area at
-      the plant's addresses; the editor opens one file at a time.
+      *Ruled 2026-11-15* ([the design note](research/plants-from-drawings-design.md), §4; decisions 9 and 10 as recommended): a plant file with
+      `include:`, ids and tags global across the plant and never prefixed (a clash is a load
+      error naming both files), one plant lockfile owned by the plant file, `--area` to run one
+      area at the plant's addresses; the editor opens one file at a time, with no save across
+      files.
+      *Known limit, not a task:* two identical lines cannot share one area file. Ids and tags
+      are global and never prefixed, so a second copy of an area clashes with the first; each
+      line is its own area file with its own ids and tags.
 - [ ] 5.5 Layout from topology. A P&ID has no geometry. `openfactory layout` places equipment and
       routes pipes when positions are missing; a general arrangement drawing overrides it.
       Depends on 4.1g (nozzle positions).
