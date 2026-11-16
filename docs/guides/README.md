@@ -91,6 +91,16 @@ draws one AI tag's last ten minutes, sampled at 2 Hz of simulated time, from
 tag's range is in the caption), so a 2 cm dip reads on a 2 m transmitter. A replay has no
 history.
 
+## Every tag change
+
+A live run keeps every tag change of its last 600 s of simulated time, up to 20,000 changes
+(PLAN 5.14a). `GET /api/iolog` lists them in order, each with its tick, its simulated time, the
+tag, the new value and who wrote it (`simulation` for a DI or AI, `plc` for a DO or AO).
+`?since_tick=N` gives only the changes after tick N, and `?tags=A,B` only those tags, for
+example `http://127.0.0.1:8000/api/iolog?since_tick=300&tags=PE_01_DI,CYL_01_EXT_DO` on
+`sorting-by-height`. `complete` is false when the cap has already dropped a change you asked
+for. A replay serves the same endpoint from the recording, up to the moment it is showing.
+
 ## Viewer quality
 
 The control at the bottom left of the viewer sets how the plant is lit (PLAN 4.14). There are

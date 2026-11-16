@@ -3658,7 +3658,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
       (5) the strip image is joined in the browser, and no image library is added; (6) 5.14a
       and 5.14b are built now, before the Phase B tasks, because the pilot (5.0) will use them;
       the rest after 5.1 to 5.3.
-  - [ ] 5.14a Tag change log in a live run. *What:* a ring of every tag change (tick, simulated
+  - [x] 5.14a Tag change log in a live run. *What:* a ring of every tag change (tick, simulated
         time, tag, value, and who wrote it: the simulation or the PLC), the last 600 s or
         20,000 changes, whichever is smaller; `GET /api/iolog?since_tick=N&tags=A,B`.
         *How:* `src/openfactory/core/iolog.py`, fed after each tick from the same change set the
@@ -3668,6 +3668,43 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         `CYL_01_EXT_DO`'s within the ticks the recording gives; the buffer never grows past its
         cap in a 600 s run; the tick time at 200 parts moves by less than 0.2 ms (measured and
         recorded here).
+        *Done (2026-11-16):* `src/openfactory/core/iolog.py`: `IoLog`, a ring of `(tick, tag,
+        value)`, capped at the last 600 s (`WINDOW_S`) or 20,000 changes (`MAX_CHANGES`),
+        whichever is smaller, with `dropped_to` (the newest tick a dropped change had), so a
+        reader is told `complete: false` when a change it asked for is gone. Time is `tick *
+        dt` and the writer comes from the tag's kind (`simulation` for DI and AI, `plc` for DO
+        and AO, `WRITER_FOR_KIND`), so neither is stored. **One diff:** `iolog.changed` is now
+        the function the recorder uses for its I/O lines too, so the log and a recording are
+        the same change set by construction. **The tick path:** under the step lock a tick
+        only copies the I/O table's values (`IOTable.values()`, or the snapshot's while
+        recording); the diff and the append run after the lock is released, under the log's
+        own lock, and no snapshot is built (2.9's rule). The first tick also logs every tag's
+        value before it, as a recording's tick 0 does. `Runtime.iolog_query` and `GET
+        /api/iolog?since_tick=N&tags=A,B`: `{dt, tick, since_tick, first_tick, complete,
+        changes: [{tick, t, tag, value, writer}]}`, 404 for a tag not in the scene, GET only,
+        behind the server's usual loopback bind and Host check. A replay builds an uncapped log
+        from the recording (`IoLog.from_changes`) and serves it up to the tick being shown.
+        Documented in the app's docstring and in `docs/guides/README.md` ("Every tag change").
+        **Tick time at 200 parts** (2026-11-16, i7-1260P, CPython 3.11.15): `Runtime._step` on
+        `tests/scenes/load-200.yaml` with every DO forced on (as `tools/bench.py` sets it up),
+        warmed 3000 ticks (190 parts on the belts), the code before this task (`runtime.py` at
+        39aee6a, loaded from git into the same process) and after it, in alternating blocks of
+        50 ticks in one session. Run 1, 40 blocks each: before 3.070 ms, after 3.126 ms
+        (+0.057 ms). Run 2, 80 blocks each: before 3.481 ms, after 3.554 ms (+0.073 ms). Under
+        the 0.2 ms limit both times. The two runs differ from each other by more than the change
+        (the machine's own drift, 2.9), which is why the comparison alternates within a run.
+        `tools/bench.py` times `LoadedScene.step`, not `Runtime._step`, so its baseline does
+        not see this cost and is not touched.
+        *Tests* (`tests/unit/test_iolog.py`, 7): the sorter under its stand-in script for 30 s
+        logs every change its kit recording holds for ticks 0 to 1500, tick for tick, which
+        includes `PE_01_DI`'s and `CYL_01_EXT_DO`'s rising edges, with their writers; `since_tick`
+        and `tags` filter, and an unknown tag is a KeyError naming it; a 600 s run of the sorter
+        keeps within the cap at every tick (it held 2,037 changes at the end, the window having
+        dropped tick 0's); the cap by count and by time, and a tick with more changes than the
+        ring; `GET /api/iolog` live (404 for an unknown tag, 405 for a POST) and in a replay
+        (stops at the tick shown, every recorded change up to it). Recordings, kits
+        (`build_kit.py --check`: all 12 current), run references, parity traces
+        (`parity_trace.py --check`) and lockfiles did not move.
   - [ ] 5.14b The plant in words: `openfactory look`. *What:* a text report of the plant now, or
         at a time in a recording: one line per component in plain words with its tags and
         values; each part and where it is ("P000007 tall, on CONV_01, 1.84 m from the infeed,

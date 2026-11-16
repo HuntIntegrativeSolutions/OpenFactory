@@ -27,8 +27,9 @@ crash mid-write): it returns what it could read, marked ``truncated``.
 :class:`ReplayRuntime` serves a recording to the normal web app with no simulation: the same
 ``/api/scene`` (with ``"mode": "replay"``, which tells the viewer to draw parts where the
 recording has them instead of simulating them), ``/ws/state`` frames at the recorded pace times
-``speed``, and ``/api/events`` as recorded. Fault and exam requests are refused with
-"replay: no simulation".
+``speed``, ``/api/events`` as recorded, and ``/api/iolog`` (PLAN 5.14a) from the recording's
+I/O lines, every change up to the tick being shown, uncapped. Fault and exam requests are
+refused with "replay: no simulation".
 """
 
 from __future__ import annotations
@@ -44,6 +45,8 @@ from collections import Counter, deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from openfactory.core.iolog import IoLog, changed
 
 FORMAT = "openfactory-recording"
 VERSION = 1
@@ -99,8 +102,7 @@ class Recorder:
 
     def _frame(self, snapshot: dict[str, Any]) -> None:
         """Tick 0's full I/O table, then only what changed; the frame holds the whole table."""
-        changes = {k: v for k, v in snapshot["io"].items() if k not in self._io or self._io[k] != v}
-        self._io.update(changes)
+        changes = changed(self._io, snapshot["io"])
         self._gz.write(_line({"k": snapshot["tick"], "io": changes, "frame": snapshot}))
 
     def _write(self) -> None:
@@ -111,9 +113,8 @@ class Recorder:
                 if tick % FRAME_EVERY == 0:
                     self._frame(data)
                     continue
-                changes = {k: v for k, v in data["io"].items() if self._io[k] != v}
+                changes = changed(self._io, data["io"])  # the live change log's diff (5.14a)
                 if changes:
-                    self._io.update(changes)
                     self._gz.write(_line({"k": tick, "io": changes}))
             elif kind == "event":
                 self._gz.write(_line({"k": data.get("core_tick", 0), "event": data}))
@@ -252,6 +253,12 @@ class ReplayRuntime:
         self.events: deque[dict[str, Any]] = deque(maxlen=1000)
         self.event_counts: Counter[str] = Counter()
         self.finished = False
+        #: Every recorded tag change (PLAN 5.14a), served up to the tick being shown.
+        self.iolog = IoLog.from_changes(
+            {t["name"]: t["kind"] for t in recording.header["scene"]["tags"]},
+            recording.dt,
+            recording.io,
+        )
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -319,6 +326,10 @@ class ReplayRuntime:
 
     def parity(self) -> dict[str, Any]:
         return {"core": [], "viewer": []}
+
+    def iolog_query(self, since_tick: int = -1, tags: list[str] | None = None) -> dict[str, Any]:
+        """The recorded tag changes after ``since_tick`` up to the tick being shown."""
+        return self.iolog.query(since_tick, tags, until_tick=self.snapshot["tick"])
 
     def apply_event(self, raw: dict[str, Any]) -> Any:
         from openfactory.server.runtime import ViewerEvent

@@ -54,6 +54,13 @@ in :attr:`Runtime.fault` and stops the run.
 Every tick also samples the AI tags into :attr:`Runtime.tag_history` (PLAN 3.6), ten minutes at
 2 Hz of simulated time each, which :meth:`Runtime.history` serves to ``GET /api/history``.
 
+Every tick's tag changes also go into :attr:`Runtime.iolog` (PLAN 5.14a,
+:mod:`openfactory.core.iolog`), the last 600 s or 20,000 changes, which :meth:`Runtime.iolog_query`
+serves to ``GET /api/iolog``. Under the step lock a tick only copies the I/O table's values (or,
+while recording, uses its snapshot's); the diff and the append happen after the lock is
+released, and no snapshot is built for it. The first tick also logs every tag's value before it,
+as a recording's tick 0 does, so the log and a recording of the same run list the same changes.
+
 For the live parity check (``tools/parity_trace.py --live``), the runtime also records the core's
 own raw photo-eye beam edges, ``{"id", "blocked", "tick"}`` after the tick that changed them, in
 :attr:`Runtime.sensor_edges` (the last 1000). These are the undebounced beam states the parity
@@ -71,6 +78,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
 
 from openfactory.core.history import TagHistory
+from openfactory.core.iolog import IoLog
 from openfactory.core.loader import LoadedScene
 from openfactory.core.scheduler import DEFAULT_RATE_HZ, RunStats, Scheduler
 from openfactory.core.stats import SceneStats
@@ -130,6 +138,10 @@ class Runtime:
         self.sensor_edges: deque[dict[str, Any]] = deque(maxlen=EVENT_LOG_SIZE)
         #: Ten minutes of every AI tag at 2 Hz of simulated time, for the trend panel (PLAN 3.6).
         self.tag_history = TagHistory(loaded.io)
+        #: Every tag change, the last 600 s or 20,000 of them (PLAN 5.14a); None turns it off.
+        self.iolog: IoLog | None = IoLog(
+            {t.name: t.kind for t in loaded.io.tags()}, self.scheduler.dt
+        )
         #: The scene's checks graded at ``duration_s`` (PLAN 4.1i), as ``openfactory test`` would
         #: grade them; None before then or with no ``checks:``.
         self.graded: list[Any] | None = None
@@ -154,7 +166,12 @@ class Runtime:
                 self._inject(*fault[1:])
 
     def _step(self, dt: float) -> None:
+        iolog = self.iolog
+        first: tuple[int, dict[str, Any]] | None = None
+        values: dict[str, Any] | None = None
         with self.lock:
+            if iolog is not None and iolog.tick < 0:  # the values before the first tick
+                first = (self.loaded.tick, self.loaded.io.values())
             self._apply_due_faults()
             if self.controller is not None:
                 try:
@@ -177,8 +194,17 @@ class Runtime:
             if self.recorder is not None:  # the recorder logs every tick: build it here
                 self._snapshot = self._take_snapshot()
                 self.recorder.tick(self._snapshot)
+                values = self._snapshot["io"]
             else:
                 self._snapshot = None  # the next reader builds it (PLAN 2.9)
+                if iolog is not None:
+                    values = self.loaded.io.values()  # a copy; diffed outside the lock
+            tick = self.loaded.tick
+        if iolog is not None:  # PLAN 5.14a: never under the step lock
+            if first is not None:
+                iolog.feed(*first)
+            if values is not None:
+                iolog.feed(tick, values)
 
     @property
     def snapshot(self) -> dict[str, Any]:
@@ -520,6 +546,14 @@ class Runtime:
         a tag that is not an AI tag of this scene."""
         with self.lock:
             return self.tag_history.series(tag, seconds)
+
+    def iolog_query(self, since_tick: int = -1, tags: list[str] | None = None) -> dict[str, Any]:
+        """The tag changes after ``since_tick`` (PLAN 5.14a), as ``GET /api/iolog`` serves
+        them; KeyError for a tag that is not in the scene. Reads the log under its own lock,
+        never the step lock."""
+        if self.iolog is None:
+            raise KeyError("this run keeps no tag change log")
+        return self.iolog.query(since_tick, tags)
 
     def parity(self) -> dict[str, Any]:
         """Core beam edges and browser sensor events, for ``tools/parity_trace.py --live``."""

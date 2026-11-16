@@ -44,6 +44,13 @@ Behavior spec
   :mod:`openfactory.core.history`): the last ten minutes (or ``S`` seconds) sampled at 2 Hz of
   simulated time, ``{tag, units, range, period_s, window_s, t: [s], v: [value]}``. 404 for a tag
   that is not an AI tag of the scene (with the reason) and in a replay; 400 for ``seconds`` <= 0.
+- ``GET /api/iolog?since_tick=N&tags=A,B`` (PLAN 5.14a, :mod:`openfactory.core.iolog`): the tag
+  changes after tick ``N`` (default: all held), each ``{tick, t, tag, value, writer}`` with
+  ``writer`` ``simulation`` or ``plc``, in the order they happened, optionally only the tags
+  named (comma-separated). Also ``dt``, the last ``tick`` logged, ``first_tick`` (the oldest
+  change held) and ``complete`` (false when a change after ``N`` was dropped by the cap: the
+  last 600 s or 20,000 changes). In a replay, every recorded change up to the tick being shown.
+  404 for a tag that is not in the scene. Read-only.
 - ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
   sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
 - ``WS /ws/state``: the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines, plus
@@ -474,6 +481,15 @@ def create_app(
             raise HTTPException(400, "seconds must be positive")
         try:
             return runtime.history(tag, seconds)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc.args[0])) from None
+
+    @app.get("/api/iolog")
+    def iolog(since_tick: int = -1, tags: str | None = None) -> dict[str, Any]:
+        """Every tag change after ``since_tick`` (PLAN 5.14a)."""
+        names = None if tags is None else [t for t in tags.split(",") if t]
+        try:
+            return runtime.iolog_query(since_tick, names)
         except KeyError as exc:
             raise HTTPException(404, str(exc.args[0])) from None
 
