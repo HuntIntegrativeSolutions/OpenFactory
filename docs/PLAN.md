@@ -3410,6 +3410,13 @@ trusts it.
       table against the drawing before a scene exists.
       *Done when:* our own sample P&ID has a takeoff in the repository, `scaffold` turns it into a
       scene that loads, and a row with an unknown type is reported, not dropped.
+      *Design proposed 2026-11-15, for ruling:* [the design note](research/plants-from-drawings-design.md), §3 and decisions 6 to 8 and 11:
+      the takeoff schema with a confidence mark and open questions per row, `takeoff check`
+      (an `along` past the belt is an error, never clamped), `takeoff scaffold` (an unknown type
+      becomes a stand-in carrying its I/O, every row reported, exit 3 when rows remain), and a
+      worked example. Recommended on the question left open on 2026-11-14: no stored
+      `mounted_on`; the takeoff holds the mount and the scene keeps plain positions from
+      `core/mounts.place_on_rail`.
 - [ ] 5.2 Generic equipment. Something on the drawing has no component: it must still appear, with
       its I/O and a simple behaviour (a delay, a first-order lag, a permissive). First test how far
       a composite goes today (computed DIs exist, 2.16); add a `machine` primitive only for what a
@@ -3427,6 +3434,10 @@ trusts it.
       computed AI, no first-order lag or other state of the composite's own, and the instance has
       no `mesh` key of its own: it is drawn as its parts, each as its built-in type. A composite
       whose `io` is empty is W208.
+      *Design proposed 2026-11-15, for ruling:* [the design note](research/plants-from-drawings-design.md), §2 and decision 5: command names
+      and `AO` commands in io expressions, numeric `kind: AI` io and a conditional expression
+      (composite additions), `lag_s` on an AI binding (a 2.17 transform), and the 5.11 `scenery`
+      primitive brought forward for the body; no `machine` primitive.
 - [ ] 5.3 The plant's tag names. `plc_tag:` per binding (§6.2, named but not built), so a scene
       port maps to the plant's tag or UDT member, and an area prefix per scene.
       *Done when:* the I/O CSV, the L5X and the SCADA tag export carry the plant's names, the
@@ -3444,6 +3455,10 @@ trusts it.
       named by the component id, in one area folder named by `--area` or the scene name in
       capitals, its members named by port. The Modbus lockfiles map tag names
       to addresses (ADR-0004), one per scene file and analog encoding.
+      *Design proposed 2026-11-15, for ruling:* [the design note](research/plants-from-drawings-design.md), §1 and decisions 1 to 4: `plc_tag:`
+      beside the scene's tag, which stays the key (so the lockfiles cannot move), the L5X stub
+      by the form of the name, the Logix path from pycomm3 1.2.16's own source, and a re-reading
+      of the lint clause of the Done-when above.
 - [ ] 5.4 Plants in several files. `include:` so one plant is one file per area with shared
       composites, one address map, and lint across areas.
       *Done when:* a two-area sample runs as one plant, each area also runs alone, and the address
@@ -3456,6 +3471,9 @@ trusts it.
       encoding (`<scene>.<encoding>.modbus.yaml`, ADR-0004). Lint runs on one scene at a time
       (`openfactory lint scenes` lints each file in turn). A bundle (`.ofz`, 2.18) carries one
       scene with the library composites and meshes it uses.
+      *Design proposed 2026-11-15, for ruling:* [the design note](research/plants-from-drawings-design.md), §4 and decisions 9 and 10: a plant
+      file with `include:`, global ids and tags, one plant lockfile, `--area` to run one area at
+      the plant's addresses; the editor opens one file at a time.
 - [ ] 5.5 Layout from topology. A P&ID has no geometry. `openfactory layout` places equipment and
       routes pipes when positions are missing; a general arrangement drawing overrides it.
       Depends on 4.1g (nozzle positions).
