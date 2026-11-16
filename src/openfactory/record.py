@@ -34,6 +34,7 @@ recording has them instead of simulating them), ``/ws/state`` frames at the reco
 from __future__ import annotations
 
 import gzip
+import hashlib
 import json
 import queue
 import threading
@@ -181,6 +182,49 @@ def read_recording(path: str | Path) -> Recording:
     if not rec.frames:
         raise ValueError(f"{path}: the recording has no state frames")
     return rec
+
+
+def run_lines(path: str | Path) -> list[tuple[int | None, bytes]]:
+    """Every line of a recording after its header, decompressed, as ``(tick, line)``; the end
+    record has tick ``None``. The header is left out: it carries the OpenFactory version and the
+    scene's own text, which change without the run changing (PLAN §9 rule 13)."""
+    with gzip.open(path, "rb") as fh:
+        lines = fh.read().splitlines()
+    out: list[tuple[int | None, bytes]] = []
+    for raw in lines[1:]:
+        obj = json.loads(raw)
+        out.append((None if "end" in obj else int(obj["k"]), raw))
+    return out
+
+
+def line_digest(line: bytes) -> str:
+    """A short digest of one recorded line, for a committed run reference (PLAN §9 rule 13)."""
+    return hashlib.sha256(line).hexdigest()[:16]
+
+
+def first_difference(
+    a: list[tuple[int | None, Any]], b: list[tuple[int | None, Any]], dt: float
+) -> str | None:
+    """Where two runs first part, as ``(tick, line)`` lists from :func:`run_lines` (or
+    ``(tick, digest)`` lists from a run reference):
+    ``None`` when they are the same, else a sentence naming the tick and simulated time."""
+    for (ka, la), (kb, lb) in zip(a, b, strict=False):
+        if (ka, la) == (kb, lb):
+            continue
+        if ka is None or kb is None:
+            return (
+                "the run summary (the end record) differs"
+                if ka == kb
+                else (f"one run ends before tick {ka if kb is None else kb}")
+            )
+        tick = min(ka, kb)
+        return f"first differs at tick {tick} (t = {tick * dt:.2f} s)"
+    if len(a) != len(b):
+        longer = a if len(a) > len(b) else b
+        tick = longer[min(len(a), len(b))][0]
+        where = "after its end record" if tick is None else f"at tick {tick}"
+        return f"one run has more lines, first {where}"
+    return None
 
 
 def io_table(rec: Recording) -> str:

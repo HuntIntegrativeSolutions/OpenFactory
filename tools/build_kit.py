@@ -24,7 +24,8 @@ part code can produce (ruled 2026-10-30):
   (``--format plantpax-udts`` and ``plantpax-faceplates``, PLAN 3.8);
 - a 60 s recording under the stand-in script (``test --script --record``, PLAN 2.12; the
   build fails if the scene's checks do), replayable with no scene file and identical on every
-  build (``--check`` compares it decompressed);
+  build (``--check`` compares it decompressed, and names the tick where a run first moved; a
+  recording is renewed only as PLAN §9 rule 13 says);
 - ``<scene>.CONTEXT.md`` (PLAN 2.19), written by those exports, which run on the kit's own copy
   of the scene so the context names the kit's files;
 - ``README.md``, the kit's index, listing every file and the commands to use it.
@@ -62,6 +63,7 @@ import grafcet_from_st as grafcet  # noqa: E402 - a sibling tool, not a package
 
 from openfactory.core.schema import load_scene  # noqa: E402
 from openfactory.export.plantpax import MAPS as PLANTPAX  # noqa: E402
+from openfactory.record import first_difference, read_recording, run_lines  # noqa: E402
 
 KITS = REPO / "kits"
 PE_HEADER = "generated, pending PE review"
@@ -81,12 +83,14 @@ ENCODING_SUFFIX = {"float32": "", "int16_scaled": "-int16"}
 RECORD_SECONDS = 60
 
 
-def openfactory(*args: str) -> None:
+def openfactory(*args: str) -> str:
+    """Run the CLI; its standard output, or exit with what it printed if it failed."""
     done = subprocess.run(
         [sys.executable, "-m", "openfactory", *args], cwd=REPO, capture_output=True, text=True
     )
     if done.returncode != 0:
         raise SystemExit(f"openfactory {' '.join(args)} failed:\n{done.stdout}{done.stderr}")
+    return done.stdout
 
 
 def source(scene: str) -> Path:
@@ -164,20 +168,31 @@ def build(scene: str, out: Path) -> None:
             ("plantpax-faceplates", f"{scene}-plantpax-faceplates.json"),
         ):
             openfactory("export", str(kit_scene), "--format", fmt, "-o", str(out / name))
-    # The recording runs a copy of the scene in a scratch folder, so `run` cannot touch scenes/.
+    record(scene, out / f"{scene}.ofrec")
+    (out / "README.md").write_text(readme(scene, out), encoding="utf-8")
+
+
+def record(scene: str, ofrec: Path, scene_file: Path | None = None) -> str:
+    """Record ``scene``'s 60 s run under its stand-in script into ``ofrec``; return the check
+    results ``openfactory test`` printed. The run uses a copy of the scene (``scene_file`` if
+    given, a changed copy in a test) in a scratch folder with its lockfiles and library
+    composites, so `test` cannot touch scenes/. Also used by ``tools/run_reference.py``."""
     with tempfile.TemporaryDirectory() as tmp:
-        scratch = Path(tmp) / src.name
-        shutil.copyfile(src, scratch)
+        scratch = Path(tmp) / f"{scene}.yaml"
+        shutil.copyfile(scene_file or source(scene), scratch)
         copy_libraries(scene, Path(tmp))
         for enc in ENCODING_SUFFIX:
             if lock(scene, enc).is_file():
                 shutil.copyfile(lock(scene, enc), Path(tmp) / lock(scene, enc).name)
         # `test` serves no protocol, and fails the build if the scene's checks fail
-        openfactory(
+        printed = openfactory(
             "test", str(scratch), "--script", str(script(scene)),
-            "--duration", str(RECORD_SECONDS), "--record", str(out / f"{scene}.ofrec"), "-q",
+            "--duration", str(RECORD_SECONDS), "--record", str(ofrec), "-q",
         )  # fmt: skip
-    (out / "README.md").write_text(readme(scene, out), encoding="utf-8")
+    lines = printed.splitlines()
+    start = lines.index("checks:")
+    end = next(i for i in range(start, len(lines)) if lines[i].startswith(("PASS:", "FAIL:")))
+    return "\n".join(lines[start : end + 1])
 
 
 def copy_libraries(scene: str, folder: Path) -> None:
@@ -286,6 +301,15 @@ def same(a: Path, b: Path) -> bool:
     return filecmp.cmp(a, b, shallow=False)
 
 
+def moved(committed: Path, fresh: Path) -> str:
+    """For a stale recording, where the run first moved (PLAN §9 rule 13): the tick, or that
+    only the header (the OpenFactory version or the scene's text) differs."""
+    if committed.suffix != ".ofrec":
+        return ""
+    where = first_difference(run_lines(committed), run_lines(fresh), read_recording(fresh).dt)
+    return f": the run {where}" if where else ": the header differs, the run is the same"
+
+
 def kit_names() -> list[str]:
     return sorted(p.name for p in KITS.iterdir() if p.is_dir()) if KITS.is_dir() else []
 
@@ -302,7 +326,7 @@ def check(scene: str) -> list[str]:
             if not (kit / name).is_file():
                 problems.append(f"{scene}: {name} missing")
             elif not same(kit / name, fresh / name):
-                problems.append(f"{scene}: {name} is stale")
+                problems.append(f"{scene}: {name} is stale{moved(kit / name, fresh / name)}")
         skill = {pattern.format(scene=scene) for pattern in SKILL_FILES}
         names = (p.relative_to(kit).as_posix() for p in kit.rglob("*") if p.is_file())
         extra = sorted(n for n in names if n not in set(generated(scene)) | skill)
@@ -332,6 +356,12 @@ def main(argv: list[str] | None = None) -> int:
             print(p, file=sys.stderr)
         if any("GRAFCET sequence" not in p for p in problems):
             print("rebuild with: uv run python tools/build_kit.py", file=sys.stderr)
+        if any(": the run " in p for p in problems):
+            print(
+                "a recording moved: rebuild only if the owner ruled the change to the run "
+                "intended, and say so in the commit (PLAN §9 rule 13)",
+                file=sys.stderr,
+            )
         if problems:
             return 1
         print(f"kits current: {', '.join(scenes)}")

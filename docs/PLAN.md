@@ -3579,6 +3579,21 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
    commercial 3D simulator is accepted into this project.").
    *Ruled 2026-11-12:* CHANGELOG.md is exempt from the check: it is generated from commit
    subjects (`tools/changelog.py`), and commit subjects are not rewritten.
+13. **Every scene under `scenes/` runs as it did** (added 2026-11-15). Each one's 60 s run under
+   its stand-in script is held by a committed reference, and a change to that run fails CI with
+   the scene's name and the tick where it first differs. The twelve scenes with a demo kit are
+   held by the kit's recording (`tools/build_kit.py --check`); a scene with no kit by
+   `tests/references/<scene>.run`, its check results and one digest per recorded line
+   (`tools/run_reference.py`, checked by `tests/integration/test_runs_unchanged.py`, which also
+   fails if a scene has neither). Today that is `accumulation-demo` alone. **A reference is
+   renewed only when the change to the run is intended, and the owner rules that it is.** The
+   renewal (`build_kit.py` for a kit, `run_reference.py --update <scene>` for a reference) goes
+   in the commit that changes the run, never in a later "refresh" commit, and that commit's body
+   names every scene renewed, the tick the check reported, why the run moved, and the ruling.
+   A change that should not move a run (a refactor, a new optional key, an editor feature) never
+   renews one: if the check fails, the change is wrong. A rebuilt kit whose recording is the same
+   run (the check says "the header differs, the run is the same", as after a version bump) is
+   not a renewal under this rule.
 
 ---
 

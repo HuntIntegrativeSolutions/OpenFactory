@@ -199,6 +199,14 @@ it on a classroom network only.
 A recording (`run --record FILE.ofrec`) contains the full scene file, comments included, so sharing
 a recording shares the scene.
 
+Every scene under `scenes/` is held to its run (PLAN §9 rule 13): a scene with a demo kit by the
+kit's 60 s recording (`tools/build_kit.py --check`), a scene with no kit by
+`tests/references/<scene>.run` (`tools/run_reference.py`), its check results and one short
+digest per recorded line, without the header. A change that moves a run fails with the scene and
+the tick where it first differs, for example `accumulation-demo: the run moved: it first differs
+at tick 5 (t = 0.10 s)`. A reference is renewed only when the owner rules the change intended, in
+the commit that makes it.
+
 ## `<scene>.CONTEXT.md`: generated context (PLAN 2.19)
 
 `openfactory run` and `openfactory export` write `<scene>.CONTEXT.md` beside the scene whenever it
