@@ -3614,6 +3614,166 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
       the takeoff file, what to ask the person. The HIS skill that runs it on a customer's
       drawings lives outside this repository.
 
+#### Seeing the plant together
+- [ ] 5.14 Seeing the plant together (ruled 2026-11-15). *Goal:* while a PLC program is being
+      written, the person and the assistant see the same plant at the same moment, and both can
+      answer "what happened and why". The person watches the viewer; the assistant reads text
+      and still images. Every sub-task gives both of them something.
+      *What exists today (read from the code, 2026-11-15; two lines corrected from the draft,
+      marked):*
+      - `GET /api/state`: the last tick's snapshot: `t`, `tick`, `components` (each one's
+        `state()`), `parts` (id, name, size, position, velocity, `carrier`, `spawn_tick`,
+        `spawn_position`, `follow`, `color`, and `yaw_deg` when turned) and `io` (every tag).
+        *(Corrected: the draft listed only some of a part's fields.)*
+      - `GET /api/events`: the last 1000 runtime events: injected and cleared faults, the comms
+        fault, exam switches, viewer button presses and selector turns, and the browser
+        physics' own `sensor` and `part` reports, which are kept for parity and never change a
+        tag. No tag changes. The core's own raw beam edges are in `GET /api/parity`, not here.
+        *(Corrected: the draft said it holds no sensor edges and left out the browser's
+        reports and the comms fault.)*
+      - `GET /api/history`: AI tags only, 2 Hz of simulated time, ten minutes. No history of a
+        DI, DO or AO in a live run, and none in a replay.
+      - `GET /api/checks`: each check `pending`, `passed` or `failed` with one sentence of
+        detail. A failure does not say when it happened or which part or component caused it
+        (`CheckResult` is name, passed, detail, settled).
+      - A recording (`run --record`, `.ofrec`, 2.12) holds every tag change at every tick, a full
+        state frame every 5th tick (10 Hz at 50 Hz) and every event. `openfactory replay` plays
+        it in the viewer at a speed (`--speed`, `--loop`, `--exit-at-end`), and `--io` prints
+        the change log. It cannot pause, seek or step.
+      - A live run cannot pause or step. (`openfactory edit` holds a scene whose simulation is
+        never started; that is not a pause of a run.)
+      - `tools/screenshot.py` runs a scene to a simulated time and saves one image from the
+        default framing. It has no camera option. The viewer has `framing.fitPose` and
+        `boxInView` (4.1j) and a test hook that reads the camera position
+        (`__openfactoryCamera`); nothing sets a view from outside. The only URL parameters are
+        `quality` and `trend`.
+      - Labels show a component's id, and a fault marker. They show no tag and no value.
+      - A stand-in script is `step(io, t)`. Its own state (which step of a sequence it is in)
+        is visible to nobody.
+      *Ruled 2026-11-15, all six as the draft recommended:* (1) order: 5.14a and 5.14b first
+      (text, no browser), then 5.14c and 5.14d, then 5.14e, 5.14f and 5.14g, then 5.14h, 5.14i
+      and 5.14j; (2) captures go to `openfactory-captures/` beside where `openfactory run` was
+      started; (3) the 60 s rolling buffer is always on in a live run, and its cost is measured
+      in 5.14e and reported; (4) pause with a real PLC attached is allowed, with the banner;
+      (5) the strip image is joined in the browser, and no image library is added; (6) 5.14a
+      and 5.14b are built now, before the Phase B tasks, because the pilot (5.0) will use them;
+      the rest after 5.1 to 5.3.
+  - [ ] 5.14a Tag change log in a live run. *What:* a ring of every tag change (tick, simulated
+        time, tag, value, and who wrote it: the simulation or the PLC), the last 600 s or
+        20,000 changes, whichever is smaller; `GET /api/iolog?since_tick=N&tags=A,B`.
+        *How:* `src/openfactory/core/iolog.py`, fed after each tick from the same change set the
+        recorder makes, outside the step lock, with memory fixed by the cap; a replay serves the
+        same endpoint from the recording.
+        *Done when:* a unit test runs the sorter 30 s and finds `PE_01_DI`'s rising edge and
+        `CYL_01_EXT_DO`'s within the ticks the recording gives; the buffer never grows past its
+        cap in a 600 s run; the tick time at 200 parts moves by less than 0.2 ms (measured and
+        recorded here).
+  - [ ] 5.14b The plant in words: `openfactory look`. *What:* a text report of the plant now, or
+        at a time in a recording: one line per component in plain words with its tags and
+        values; each part and where it is ("P000007 tall, on CONV_01, 1.84 m from the infeed,
+        moving 0.5 m/s"); what changed in the last N seconds; the checks; active faults.
+        Markdown, under 150 lines for a 15-component scene; `--component ID` and `--since S`
+        narrow it. *Why first:* text is the cheapest and most exact thing an assistant can read,
+        and it needs no browser.
+        *How:* `src/openfactory/observe.py`, a pure function of the scene document, a snapshot
+        and the change log. Each component type gives its own sentence through a `describe`
+        beside `state()`. `GET /api/look` (text) on a running server; `openfactory look [--url
+        URL]` and `openfactory look FILE.ofrec --at T`.
+        *Done when:* every registered type has a `describe` (a test fails for a type without
+        one); the report of the sorter at 6.0 s from its kit recording is a committed golden
+        file; the same call on a live run and on its recording at the same tick gives the same
+        text.
+  - [ ] 5.14c Aimed views and a plan view. *What:* `?look=ID` frames one component and what
+        touches it; `?view=px,py,pz,tx,ty,tz` sets an exact camera; `?view=top` is a straight-down
+        orthographic plan view with north up and a scale bar. `tools/screenshot.py` gains
+        `--look-at ID`, `--view ...` and `--view top`. A "Copy view" control puts the current
+        view's URL parameters on the clipboard.
+        *How:* `framing.fitPose` over one component's drawn box plus its connected neighbours,
+        grown 30 %; the plan view is a second camera, not a new renderer.
+        *Done when:* a Playwright test opens `?look=CYL_01` and finds CYL_01's screen box inside
+        the window and filling at least a fifth of its width; `--view top` of the sorter puts
+        every component on screen with no perspective (two points 1 m apart are the same pixel
+        distance at both ends of the plant); screenshots looked at.
+  - [ ] 5.14d Values in the picture. *What:* a labels control with three settings: ids (today),
+        tags (each component's bound tags with live values beside it), off. URL `?labels=tags`;
+        `tools/screenshot.py --labels tags`.
+        *How:* the scene document already lists each component's bindings; values come from the
+        frame's `io`. Text in the normal colour; alarm colours stay for faults only (the
+        ISA-101 rule in `isa101.ts`). Labels that would overlap are stacked, and past 40
+        components only the selected component and its neighbours show values.
+        *Done when:* a Playwright test reads CYL_01's label and finds `CYL_01_EXT_DO` with the
+        value `/api/state` gives at that tick; no two labels overlap in the sorter at 1280 px
+        (boxes compared); screenshot looked at.
+  - [ ] 5.14e Capture: "show the assistant what I see". *What:* a Capture button (and the C key)
+        writes a folder holding the picture as the person sees it, the camera, the selected
+        component, a typed note ("box jammed here"), the `look` report at that tick, the full
+        snapshot, and the last 60 s as a recording. `openfactory captures` lists them, newest
+        first, and prints the newest folder's path.
+        *How:* the live runtime keeps the last 60 s of frames and tag changes in memory (600
+        frames at 10 Hz, in the recorder's format, so the piece written is a valid `.ofrec`).
+        `POST /api/capture` takes the image and the camera; the server names the folder itself
+        (`openfactory-captures/<scene>/<tick>/` beside where `openfactory run` was started, ruling
+        2; git-ignored; the base set by `--capture-dir`). The buffer is always on (ruling 3);
+        its cost is measured here and reported.
+        *Security:* a write endpoint. Loopback only, Origin and JSON checked as the edit
+        endpoints are (4.1c fix 6), the image capped at 5 MB, no client-supplied path or file
+        name, off in exam mode for a trainee.
+        *Done when:* a Playwright test presses Capture during a sorter run and finds the folder
+        with all six files; the recording in it replays and ends at the capture's tick; a
+        request from another Origin and one over the size cap are refused; the note appears in
+        `report.md`; the buffer's cost per tick at 200 parts is measured and recorded.
+  - [ ] 5.14f Pause, seek and step in a replay; the film strip. *What:* `openfactory replay`
+        gains pause, a time slider, and a step forward or back by one frame, for the person.
+        `openfactory strip FILE.ofrec --at T --span 2 --frames 6 [--look-at ID] [--labels tags]`
+        gives the assistant motion: one image of six stills in a row, each stamped with its
+        time, and a text table of what changed between them (tags, and each part's carrier and
+        distance moved).
+        *How:* `ReplayRuntime.seek(tick)` and a paused mode, `POST /api/replay/seek` (replay
+        only). The strip drives the viewer with Playwright as the screenshot runner does, waits
+        on the viewer's own tick, and joins the stills in the page (a canvas), so no image
+        library is added (ruling 5). A capture folder (5.14e) is a valid input, so "what I just
+        saw" becomes a strip with one command.
+        *Done when:* seeking to tick 300 of the sorter's kit recording shows the frame the
+        recording holds at 300 (state compared); the strip around the first tall box's push
+        shows the plate retracted in the first still and extended in a later one (pixel sample
+        on the plate), and its table lists `CYL_01_EXT_DO` going true between the right two
+        stills; image looked at.
+  - [ ] 5.14g Why it happened: `openfactory explain`. *What:* for a failed check, or for one
+        part, the chain of events in order with times: where the part was spawned, each
+        conveyor it rode, each sensor it tripped, each command that acted on it and where the
+        part was at that moment, and where it ended. In the viewer, clicking a part draws its
+        trail and lists the same events.
+        *How:* `CheckResult` gains `at_tick` and `subject` (the part or component of the first
+        failure). The chain is worked out from a recording's frames (`carrier`, position) and
+        tag changes; which part tripped a sensor is whichever part was inside the beam at that
+        tick, from positions. `openfactory explain FILE.ofrec --check NAME | --part ID`; `GET
+        /api/explain` on a live run uses the 60 s buffer of 5.14e.
+        *Done when:* on a sorter run whose program fires the pusher 0.5 s late, `explain` for the
+        failed `parts_reached` check names the part, the tick of the late command, and how far
+        past the pusher the part was (within 2 cm of the recording); the trail is drawn and
+        looked at.
+  - [ ] 5.14h Pause and single-step a live run. *What:* Space pauses the simulation; a Step
+        button advances 0.1 s. For the person, at the moment something looks wrong.
+        *How:* the scheduler stops calling `step`; a stand-in script pauses with it. With a real
+        PLC the PLC keeps running, so its timers run on: the viewer shows "simulation paused,
+        PLC still running" (ruling 4: allowed, with the banner), and the heartbeat tag stops as
+        it already does when the simulation stops.
+        *Done when:* a test pauses a scripted run, sees the tick hold for two wall seconds, steps
+        five times and sees it advance five frames' worth; parity traces and recordings of an
+        unpaused run do not move.
+  - [ ] 5.14i The program's own state. *What:* a stand-in script can publish watch values, for
+        example `io.watch("step", 20)`. They show in `look`, in tag labels, in a recording and in
+        `explain`. They are not tags: no address, no export, and the lockfiles do not move.
+        *Later, with 2.2:* extra controller tags to watch, named in `openfactory.toml`, read
+        with the Logix path.
+        *Done when:* the sorter's stand-in script publishes its step, `look` prints it, and both
+        lockfiles and the I/O CSV are byte for byte unchanged.
+  - [ ] 5.14j Tell the assistant how to look. Each scene's generated `CONTEXT.md` gains a
+        "Looking at the plant" section with the `look`, `strip`, `explain`, `captures` and
+        screenshot commands for that scene.
+        *Done when:* the 2.19 golden files are renewed in the same commit and a test finds each
+        command in every shipped scene's context file.
+
 #### For the owner to rule
 1. Which drawing set is the pilot (5.0), and which private folder holds the scenes made from
    customer drawings?
