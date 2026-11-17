@@ -3522,11 +3522,29 @@ trusts it.
         raising `ExprError`, and 2,000 generated expressions with conditionals raising only
         `ExprError`, beside the existing fuzz, unchanged. Shipped scenes: `build_kit.py
         --check` current, `test_runs_unchanged.py` passes, `migrate --check` current.
-  - [ ] 5.2b `lag_s` on an AI binding, in `TransformStage`, with the transmitter's
+  - [x] 5.2b `lag_s` on an AI binding, in `TransformStage`, with the transmitter's
         discretization.
         *Done when:* a step from 0 to 100 through `lag_s: 4` reads within 0.5 of 63.2 at 4 s and
         within 0.5 of 98.2 at 16 s at dt 0.02; the run is identical twice; the CSV's transform
         column says `lag 4 s`.
+        *Done (2026-11-16):* `lag_s` (seconds, 0 is none) on `AiTagSpec`, so on any part's AI
+        port and on a composite's computed AI; refused with `window:` (a DI). `Transform.lag_s`,
+        shown as `lag 4 s` in the transform column. `TransformStage` builds an AI signal for an
+        AI binding with a lag (as it does for a computed AI, 5.2a); the component no longer
+        writes that tag itself (`Component.conditioned`), so the component's own value, the
+        viewer and `look`'s sentence are the unlagged ones and only the PLC's tag lags.
+        **Discretization:** the transmitter's, forward Euler `y += (u - y) * min(dt / lag_s,
+        1)`, stepped with `dt` only, no clock; the first value is taken as it is at load, as the
+        transmitter's is. **Readings** (dt 0.02, `lag_s: 4`, a step of the composite's speed
+        command from 0 to 100 while running): **63.3042 at 4 s** (200 ticks) and **98.1867 at
+        16 s** (800 ticks), against the continuous 63.21 and 98.17 and the Done-when's 63.2 and
+        98.2 within 0.5. Docs: `docs/scene-format.md`, a section; a YAML line for now. *Tests*
+        (`tests/unit/test_lag.py`, 5): the two readings, also equal to `100 (1 - (1 - dt /
+        4)^n)`; the run identical twice; the CSV column `expr(speed if running else 0); lag 4
+        s`; a transmitter's pv lagged again on its binding equals the filter of the port's raw
+        value every tick for 500 ticks, starting at the raw value; `lag_s` refused with a
+        window and below 0. Shipped scenes use no `lag_s`: kits current, run references
+        unchanged.
   - [ ] 5.2c The `scenery` primitive (5.11's type brought forward: `size`, `color`, `mesh`, no
         I/O, no physics) and the `driven_item` and `variable_item` library composites (note
         §2.2).

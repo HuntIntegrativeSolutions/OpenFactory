@@ -21,6 +21,14 @@ A DI binding may condition the component's raw output before the PLC sees it:
 
 Order: combine or window, then invert, then delays.
 
+An AI binding may take ``lag_s`` (PLAN 5.2b), a first-order lag on the value the PLC sees: a
+part's AI port, or a composite's computed AI. It is the transmitter's discretization
+(:mod:`openfactory.components.transmitter`, ``lag_s``): forward Euler, ``y += (u - y) * min(dt /
+lag_s, 1)`` each tick, stepped with ``dt`` and nothing else, so a run is the same every time and
+reads no clock. The first value is taken as it is (at load, :meth:`TransformStage.prime`), as the
+transmitter does, so a lag never ramps up from zero at start-up. At dt 0.02 a step from 0 to 100
+through ``lag_s: 4`` reads 63.30 at 4 s (the continuous 63.21) and 98.19 at 16 s (98.17).
+
 Additions of PLAN 5.2a: a computed io's expression may name the composite's commands and its
 other computed io (``Transform.names``, name -> tag); each reads its tag's value as the I/O table
 holds it when the signal is evaluated, so a command reads as the PLC wrote it this tick and a
@@ -65,8 +73,24 @@ class _Signal:
     expr: Expr | None = None  # a composite's computed DI (PLAN 2.16)
     unset: dict[str, float] = field(default_factory=dict)  # AI ports read 0.0 before a write
     io: IOTable | None = None  # for names that read tags (PLAN 5.2a)
-    analog: bool = False  # a computed AI (PLAN 5.2a)
+    analog: bool = False  # an AI: a computed AI (PLAN 5.2a) or a lagged AI port (5.2b)
     value: float = 0.0  # a computed AI's last value
+    lagged: float | None = None  # the lag's output (PLAN 5.2b); None before the first value
+
+    def analog_value(self, dt: float | None) -> float:
+        """An AI signal's value this tick: the expression or the port's raw value, then the lag
+        (PLAN 5.2b), forward Euler as the transmitter's; ``dt`` None takes the value as it is."""
+        if self.expr is not None:
+            u = self.number()
+        else:
+            comp, port = self.sources[0]
+            u = float(comp.raw.get(port, self.unset.get(port, 0.0)))
+        lag = self.transform.lag_s
+        if dt is None or self.lagged is None or lag <= 0:
+            self.lagged = u
+        else:
+            self.lagged += (u - self.lagged) * min(dt / lag, 1.0)
+        return self.lagged
 
     def env(self) -> dict[str, object]:
         raws = [comp.raw.get(port, self.unset.get(port, False)) for comp, port in self.sources]
@@ -129,8 +153,9 @@ class TransformStage:
         signals = []
         for b in bindings:
             t = b.transform
-            computed_ai = b.kind == "AI" and t.expr is not None  # PLAN 5.2a
-            if (b.kind != "DI" and not computed_ai) or not t:
+            # PLAN 5.2a: a computed AI; 5.2b: an AI binding with a lag
+            analog = b.kind == "AI" and (t.expr is not None or t.lag_s > 0)
+            if (b.kind != "DI" and not analog) or not t:
                 continue
             refs = t.sources if t.expr else (t.sources or (f"{b.component_id}.{b.port.name}",))
             sources = [(by_id[ref.split(".")[0]], ref.split(".")[1]) for ref in refs]
@@ -141,7 +166,7 @@ class TransformStage:
                 if instance_ports(comp.config)[port].kind == "AI"
             }
             signals.append(
-                _Signal(b.name, t, sources, expr=expr, unset=unset, io=io, analog=computed_ai)
+                _Signal(b.name, t, sources, expr=expr, unset=unset, io=io, analog=analog)
             )
         return cls(io, _in_dependency_order(signals))
 
@@ -149,14 +174,14 @@ class TransformStage:
         """Settle every tag from the initial raw values, ignoring delays (load time)."""
         for s in self.signals:
             if s.analog:
-                self.io.set(s.tag, s.number(), Writer.SIM)
+                self.io.set(s.tag, s.analog_value(None), Writer.SIM)
                 continue
             s.state = s.conditioned()
             self.io.set(s.tag, s.state, Writer.SIM)
 
     def step(self, dt: float) -> None:
         for s in self.signals:
-            self.io.set(s.tag, s.number() if s.analog else s.step(dt), Writer.SIM)
+            self.io.set(s.tag, s.analog_value(dt) if s.analog else s.step(dt), Writer.SIM)
 
 
 def _in_dependency_order(signals: list[_Signal]) -> list[_Signal]:

@@ -95,6 +95,27 @@ components:
 - The three keys are YAML lines for now: the editor's form (PLAN 4.7) does not edit them, and
   keeps them as written.
 
+## `lag_s:` on an AI binding (PLAN 5.2b)
+
+An AI binding may lag the value the PLC sees, a first-order lag with time constant `lag_s`
+seconds:
+
+```yaml
+io:
+  speed_fb: {tag: AG_101_SPD_AI, lag_s: 4.0}   # a composite's computed AI, or any part's AI port
+```
+
+- It is the transmitter's discretization (`transmitter`'s own `lag_s`): forward Euler, `y += (u -
+  y) * min(dt / lag_s, 1)` each tick, stepped with `dt` only, so a run is the same every time.
+  At dt 0.02 a step from 0 to 100 through `lag_s: 4` reads 63.30 at 4 s and 98.19 at 16 s (the
+  continuous lag: 63.21 and 98.17).
+- The first value is taken as it is, at load, so the lag never ramps up from zero at start-up.
+- It runs in the binding transform stage (PLAN 2.17), after the components step: the component
+  keeps its own value (the viewer, `look`'s sentence and faults see it), and only the tag lags.
+  The I/O list's transform column says `lag 4 s`.
+- Not with `window:`, which makes the binding a DI. A YAML line for now: the editor's form does
+  not edit binding options.
+
 ## `checks:`: exercise checks (PLAN 2.11)
 
 A scene may declare what a correct control program achieves. `openfactory test` runs the scene,

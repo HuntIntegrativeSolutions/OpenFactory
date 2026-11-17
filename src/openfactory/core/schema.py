@@ -194,6 +194,12 @@ class AiTagSpec(TagSpec, AnalogRange):
     window: tuple[float, float] | None = Field(
         None, description="[lo, hi] in the port's units: bind a _DI tag, true inside the window."
     )
+    lag_s: float = Field(
+        0.0,
+        ge=0,
+        description="First-order lag on the value the PLC sees, time constant in seconds (PLAN "
+        "5.2b), discretized as the transmitter's lag_s is; 0 is none.",
+    )
 
     @model_validator(mode="after")
     def _window_means_di(self) -> AiTagSpec:
@@ -205,6 +211,8 @@ class AiTagSpec(TagSpec, AnalogRange):
             raise ValueError(f"{self.tag}: window [lo, hi] needs lo <= hi")
         if self.window is not None and (self.range is not None or self.units is not None):
             raise ValueError(f"{self.tag}: a windowed binding is a DI and takes no range or units")
+        if self.window is not None and self.lag_s:
+            raise ValueError(f"{self.tag}: a windowed binding is a DI and takes no lag_s")
         return self
 
 
@@ -276,6 +284,8 @@ class Transform:
     expr: str | None = None
     #: Plain names in ``expr`` and the tags they read: a command or another computed io (5.2a).
     names: tuple[tuple[str, str], ...] = ()
+    #: First-order lag on an AI, time constant in seconds (PLAN 5.2b); 0 is none.
+    lag_s: float = 0.0
 
     def __bool__(self) -> bool:
         return self != Transform()
@@ -297,6 +307,8 @@ class Transform:
             parts.append(f"on-delay {self.on_delay_s:g} s")
         if self.off_delay_s:
             parts.append(f"off-delay {self.off_delay_s:g} s")
+        if self.lag_s:
+            parts.append(f"lag {self.lag_s:g} s")
         return "; ".join(parts)
 
 
@@ -310,6 +322,7 @@ def binding_transform(value: str | TagSpec) -> Transform:
         combine=getattr(value, "combine", None),
         sources=tuple(getattr(value, "from_", None) or ()),
         window=getattr(value, "window", None),
+        lag_s=getattr(value, "lag_s", 0.0),
     )
 
 

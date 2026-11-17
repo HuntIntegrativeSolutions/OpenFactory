@@ -98,6 +98,13 @@
           "default": null,
           "description": "[lo, hi] in the port's units: bind a _DI tag, true inside the window.",
           "title": "Window"
+        },
+        "lag_s": {
+          "default": 0.0,
+          "description": "First-order lag on the value the PLC sees, time constant in seconds (PLAN 5.2b), discretized as the transmitter's lag_s is; 0 is none.",
+          "minimum": 0,
+          "title": "Lag S",
+          "type": "number"
         }
       },
       "required": [
