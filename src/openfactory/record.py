@@ -7,9 +7,10 @@ two recordings of the same scripted run are byte-identical. Every line is one JS
 
 - ``{"header": {...}}`` first: the format and its version, the OpenFactory version, the scene's
   own YAML text, the resolved scene document the viewer loads (``/api/scene``), ``dt``, the analog
-  encoding, and ``frame_every``. The file alone is enough to replay the run: no scene file, no
-  lockfile. Nothing machine-specific goes in: no paths, host names, addresses, wall-clock times,
-  or tokens; every time is simulated.
+  encoding, and ``frame_every``; ``"exam": true`` only for a run in exam mode, whose frames hide
+  faults (PLAN 2.11; ``openfactory look`` says so, 5.14b). The file alone is enough to replay
+  the run: no scene file, no lockfile. Nothing machine-specific goes in: no paths, host names,
+  addresses, wall-clock times, or tokens; every time is simulated.
 - ``{"k": TICK, "io": {TAG: VALUE}}`` for every tick in which an I/O table tag changed (tick 0
   lists every tag), and ``{"k": TICK, "io": {...}, "frame": {...}}`` every ``frame_every`` ticks
   (and at tick 0) with the full state frame the viewer streams (``/ws/state``).
@@ -340,7 +341,8 @@ class ReplayRuntime:
         changes = self.iolog.entries(until_tick=int(snap["tick"]))
         plant = recording_plant(self.recording.header)
         document = self.recording.header["scene"]
-        return look(document, snap, changes, plant, since_s=since_s, component=component)
+        exam = bool(self.recording.header.get("exam"))
+        return look(document, snap, changes, plant, since_s=since_s, component=component, exam=exam)
 
     def apply_event(self, raw: dict[str, Any]) -> Any:
         from openfactory.server.runtime import ViewerEvent

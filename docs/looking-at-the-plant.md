@@ -17,8 +17,9 @@ OpenFactory is a training and demo tool, not a safety-rated simulation.
    components and parts it has.
 2. **Checks.** Each check the scene declares, in plain words, with what the plant shows of it
    now: each remover's count of each part name, the oldest part's age, or a tank's level.
-3. **Active faults.** Each component with an injected fault. Exam mode hides faults, so there
-   are none to show there.
+3. **Active faults.** Each component with an injected fault. In exam mode the section says
+   only "Faults are hidden in exam mode.": the report shows a trainee nothing the viewer's state
+   hides, such as a misaligned eye's real offset.
 4. **Components.** One sentence per component, with units, from its own type, then each bound
    tag and its value. Tags that no component owns, such as the simulator heartbeat, come last.
 5. **Parts.** Each part's id and name, the conveyor or deck carrying it, how far it is from that
@@ -28,7 +29,9 @@ OpenFactory is a training and demo tool, not a safety-rated simulation.
    listed with its time and tick. Each AI and AO tag gets one line: its first and last value and
    how many times it changed, so a process scene whose analog inputs move every tick still fits.
    A DI or DO that changed more than four times in the window, such as the heartbeat, also gets
-   one line.
+   one line. If the window reaches back past what the live change log still holds (below), the
+   heading gives the time the listing really starts from and says older changes are no longer
+   held.
 
 `--component ID` narrows the report to one component: its sentence and tags, what it is connected
 to, the parts it carries, and its own tags' changes. What it is connected to covers conveyor

@@ -140,11 +140,11 @@ class Runtime:
         #: Ten minutes of every AI tag at 2 Hz of simulated time, for the trend panel (PLAN 3.6).
         self.tag_history = TagHistory(loaded.io)
         #: Every tag change, the last 600 s or 20,000 of them (PLAN 5.14a); None turns it off.
-        #: The scene document as a recording stores it, built once for ``look`` (PLAN 5.14b).
-        self._look_document: dict[str, Any] | None = None
         self.iolog: IoLog | None = IoLog(
             {t.name: t.kind for t in loaded.io.tags()}, self.scheduler.dt
         )
+        #: The scene document as a recording stores it, built once for ``look`` (PLAN 5.14b).
+        self._look_document: dict[str, Any] | None = None
         #: The scene's checks graded at ``duration_s`` (PLAN 4.1i), as ``openfactory test`` would
         #: grade them; None before then or with no ``checks:``.
         self.graded: list[Any] | None = None
@@ -568,16 +568,26 @@ class Runtime:
         snap = self.snapshot
         tick = int(snap["tick"])
         changes: list[tuple[int, str, Any]] = []
+        dropped_to = -1
         if self.iolog is not None:
             # the log is fed just after the step lock is released: wait for this tick's changes
             deadline = time.monotonic() + 1.0
             while self.iolog.tick < tick and self.running and time.monotonic() < deadline:
                 time.sleep(0.001)
-            changes = self.iolog.entries(until_tick=tick)
+            changes, dropped_to = self.iolog.held(until_tick=tick)
         if self._look_document is None:
             self._look_document = self.scene_document(meshes=False, snaps=False)
         plant = Plant.from_scene(self.loaded.scene)
-        return look(self._look_document, snap, changes, plant, since_s=since_s, component=component)
+        return look(
+            self._look_document,
+            snap,
+            changes,
+            plant,
+            since_s=since_s,
+            component=component,
+            exam=self.loaded.exam is not None,  # the snapshot hides faults (PLAN 2.11)
+            dropped_to=dropped_to,
+        )
 
     def parity(self) -> dict[str, Any]:
         """Core beam edges and browser sensor events, for ``tools/parity_trace.py --live``."""

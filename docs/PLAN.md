@@ -3610,6 +3610,10 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
 #### Phase D: size and hand-over
 - [ ] 5.12 Plant-size scenes. Finish 2.9; then a 300-component, 1,000-tag sample holds its tick
       rate with one viewer, numbers recorded.
+      *Note (2026-11-16, review of 5.14a):* a live run now copies the whole tag table every
+      tick for the change log (`IoLog.feed`, PLAN 5.14a; +0.06 to +0.07 ms a tick on
+      `load-200`, which has 21 tags and 190 parts). Re-measure that copy and the diff at 1,000 tags as part of
+      this task, and say whether it needs to become a list of the tags written that tick.
 - [ ] 5.13 Authoring guide for assistants. `docs/authoring-from-drawings.md` (public): the steps,
       the takeoff file, what to ask the person. The HIS skill that runs it on a customer's
       drawings lives outside this repository.
@@ -3783,6 +3787,32 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         component (exit 1); a turntable mid-turn and a lift mid-move give the frame
         `KinematicModel._frame` carries parts in; a part held, falling or at rest. Kits:
         `build_kit.py --check` current; run references unchanged.
+        *Line count at the size limit:* no shipped scene has 15 components, so the stand-in is
+        `tests/scenes/load-200.yaml` (30 components, every belt and emitter forced on, no
+        script): 103 lines at 6 s (60 parts), at 30 s (200 parts, the cap) and at 60 s (190
+        parts), with 30 parts listed and the rest counted by carrier. Twice the components of the
+        limit, it stays under 150 lines.
+        *Review fixes (2026-11-16, the owner's reviewer on 857f0c3):* (1) **Exam mode.** An exam
+        run's snapshot hides faults, so the report said "Active faults: None." while a fault was
+        active. `look` now takes `exam`: in exam mode the section reads "Faults are hidden in
+        exam mode." and nothing else. A live run passes it from `loaded.exam`, and a recording
+        made with `--exam` carries `"exam": true` in its header (written only then, so no other
+        recording moves) for `look FILE` and a replay. Checked first: the report and the change
+        log show a trainee nothing `/api/state` does not, since `look` reads the same
+        exam-filtered snapshot (a misaligned eye's offset reads 0) and the log holds only the
+        tag values `/api/state` serves. (2) **A window longer than the log.** When the window
+        starts before the newest change the live log has dropped (`IoLog.dropped_to`, read
+        with the entries under the log's lock by the new `IoLog.held`), the heading gives the
+        time the listing really starts from: "Changes after 18.00 s, up to 30.00 s (the last
+        30.0 s were asked for; older changes are no longer held)". A recording holds every
+        change and is never short. (3) The two attribute comments in `Runtime.__init__` each
+        sit on their own attribute. The golden file did not move: the sorter's kit recording is
+        not an exam run and its log is complete. *Tests* (3 more in `test_look.py`): an exam run
+        of the sorter with its eye misaligned by 0.137 m at 2 s, where `look`, `look
+        --component PE_01`, `GET /api/look` and `GET /api/iolog` show neither `misaligned` nor
+        `0.137` and the log's last values equal `/api/state`'s, while the same run without exam
+        mode lists `PE_01: misaligned` and the offset; `run --exam --fault ... --record` then
+        `look` on the recording; a 40-change cap over a 30 s run, asked for 30 s.
   - [ ] 5.14c Aimed views and a plan view. *What:* `?look=ID` frames one component and what
         touches it; `?view=px,py,pz,tx,ty,tz` sets an exact camera; `?view=top` is a straight-down
         orthographic plan view with north up and a scale bar. `tools/screenshot.py` gains

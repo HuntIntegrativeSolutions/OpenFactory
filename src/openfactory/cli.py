@@ -661,6 +661,8 @@ def _simulate(
             "encoding": encoding or parsed.plc.analog_encoding,
             "frame_every": FRAME_EVERY,
         }
+        if loaded.exam is not None:  # its frames hide faults: `look` says so (PLAN 5.14b)
+            header["exam"] = True
         runtime.recorder = Recorder(record, header, runtime.snapshot)
         log.info("recording to %s", record)
     wall = time.perf_counter()

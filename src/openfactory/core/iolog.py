@@ -124,6 +124,14 @@ class IoLog:
             entries = list(self._ring)
         return entries if until_tick is None else [e for e in entries if e[0] <= until_tick]
 
+    def held(self, until_tick: int | None = None) -> tuple[list[tuple[int, str, Any]], int]:
+        """:meth:`entries` and :attr:`dropped_to`, read together under the log's lock."""
+        with self._lock:
+            entries, dropped_to = list(self._ring), self.dropped_to
+        if until_tick is not None:
+            entries = [e for e in entries if e[0] <= until_tick]
+        return entries, dropped_to
+
     def query(
         self,
         since_tick: int = -1,

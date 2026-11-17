@@ -22,8 +22,9 @@ The sections, in this order:
    grade itself is ``openfactory test``'s (or ``GET /api/checks``'s, live) at ``duration_s``:
    the snapshot does not hold what grading needs (the removal log, lost parts, a pump's starts),
    and a recording holds no grades.
-3. **Active faults:** every component whose state carries a fault (none in exam mode, which
-   hides them).
+3. **Active faults:** every component whose state carries a fault. In exam mode (PLAN 2.11)
+   the snapshot hides faults from trainees, so the section says only that faults are hidden in
+   exam mode; it never says "None" while a fault may be active.
 4. **Components:** one line each, the type's own sentence (:meth:`Component.describe`), then
    each bound tag and its value.
 5. **Parts:** each part's id and name, the component carrying it, its distance along that
@@ -34,7 +35,10 @@ The sections, in this order:
    AI and AO tag on one line (first and last value and how many changes), so a process scene
    whose analog inputs move every tick still fits. A DI or DO that changed more than
    :data:`MAX_TOGGLES` times in the window (the heartbeat, a chattering eye) is one line too.
-   Tick 0 holds the starting values, not changes, and is left out.
+   Tick 0 holds the starting values, not changes, and is left out. When the window reaches
+   back past what the change log still holds (a live log keeps 600 s or 20,000 changes,
+   whichever is fewer), the heading gives the time the listing really starts from and says older
+   changes are no longer held. A recording holds every change, so it is never short.
 
 Tags no component owns (the simulator heartbeat) are listed under the components as scene
 tags.
@@ -304,9 +308,14 @@ def look(
     *,
     since_s: float = SINCE_S,
     component: str | None = None,
+    exam: bool = False,
+    dropped_to: int = -1,
 ) -> str:
     """The report (see the module docstring). ``changes`` are ``(tick, tag, value)`` in order,
-    up to the snapshot's tick; later ones are ignored. KeyError for an unknown ``component``."""
+    up to the snapshot's tick; later ones are ignored. ``exam``: the run is in exam mode, so the
+    snapshot hides faults. ``dropped_to``: the newest tick whose change the log no longer holds
+    (:attr:`openfactory.core.iolog.IoLog.dropped_to`; -1 when it holds every change). KeyError
+    for an unknown ``component``."""
     plant = plant or Plant()
     dt = float(document["dt"])
     tick, t = int(snapshot["tick"]), float(snapshot["t"])
@@ -344,8 +353,11 @@ def look(
             )
             lines += _check_lines(checks, snapshot, dt, comps)
         lines += ["", "## Active faults", ""]
-        faults = [f"- {cid}: {s['fault']}" for cid, s in states.items() if s.get("fault")]
-        lines += faults or ["None."]
+        if exam:  # the snapshot hides them from trainees (PLAN 2.11): never say "None"
+            lines.append("Faults are hidden in exam mode.")
+        else:
+            faults = [f"- {cid}: {s['fault']}" for cid, s in states.items() if s.get("fault")]
+            lines += faults or ["None."]
 
     shown = [component] if component is not None else list(comps)
     lines += ["", "## Components" if component is None else f"## {component}", ""]
@@ -376,18 +388,26 @@ def look(
 
     since_ticks = round(since_s / dt)
     first = max(1, tick - since_ticks + 1)  # tick 0 holds starting values, not changes
+    short = dropped_to >= first  # the log no longer holds the start of the window
+    if short:
+        first = dropped_to + 1
     wanted = None if component is None else set(owned.get(component, []))
     window = [
         (k, tag, v)
         for k, tag, v in changes
         if first <= k <= tick and (wanted is None or tag in wanted)
     ]
-    lines += [
-        "",
-        f"## Changes in the last {num(since_s, 1)} s (after {num((first - 1) * dt)} s, "
-        f"up to {num(t)} s)",
-        "",
-    ]
+    if short:
+        heading = (
+            f"## Changes after {num((first - 1) * dt)} s, up to {num(t)} s (the last "
+            f"{num(since_s, 1)} s were asked for; older changes are no longer held)"
+        )
+    else:
+        heading = (
+            f"## Changes in the last {num(since_s, 1)} s (after {num((first - 1) * dt)} s, "
+            f"up to {num(t)} s)"
+        )
+    lines += ["", heading, ""]
     by_tag: dict[str, list[Change]] = {}
     for c in window:
         by_tag.setdefault(c[1], []).append(c)
@@ -447,4 +467,5 @@ def look_recording(
         recording_plant(rec.header),
         since_s=since_s,
         component=component,
+        exam=bool(rec.header.get("exam")),
     )

@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from openfactory.cli import app as cli
 from openfactory.core.component import REGISTRY, Component
+from openfactory.core.iolog import IoLog
 from openfactory.core.kinematics import KinematicModel
 from openfactory.core.loader import load
 from openfactory.observe import Plant, carrier_frame, look, look_recording, part_line
@@ -188,3 +189,103 @@ def test_report_without_checks_or_parts() -> None:
     snapshot = {"t": 0.0, "tick": 0, "components": {}, "parts": [], "io": {}}
     text = look(document, snapshot, [], Plant())
     assert "The scene declares no checks." in text and text.count("None.") == 3
+
+
+def _faulted_sorter(exam: bool) -> tuple[Runtime, TestClient]:
+    """The sorter under its script, its eye misaligned by 0.137 m (a value no other line of
+    the report could print) at 2 s, run to 6 s."""
+    runtime = scripted(
+        REPO / "scenes" / "sorting-by-height.yaml",
+        REPO / "examples" / "pyplc" / "sorting-by-height.py",
+    )
+    if exam:
+        runtime.loaded.enable_exam()
+    http = TestClient(create_app(runtime, web_dist=None), base_url="http://127.0.0.1")
+    for tick in range(300):
+        if tick == 100:
+            done = http.post(
+                "/api/fault",
+                json={"id": "PE_01", "kind": "misaligned", "params": {"offset_m": 0.137}},
+            )
+            assert done.status_code == 200, done.text
+        runtime._step(runtime.scheduler.dt)
+    return runtime, http
+
+
+def test_exam_mode_says_faults_are_hidden_and_shows_nothing_the_state_hides() -> None:
+    """Review of 2026-11-16, fix 1: in exam mode the faults section says they are hidden, and
+    neither ``look``, ``GET /api/look`` nor ``GET /api/iolog`` shows the fault's kind or the
+    eye's real offset, which ``GET /api/state`` hides; the same run without exam mode lists it."""
+    runtime, http = _faulted_sorter(exam=True)
+    assert http.get("/api/fault").json()["active"][0]["kind"] == "misaligned"  # it is active
+    eye = http.get("/api/state").json()["components"]["PE_01"]
+    assert "fault" not in eye and eye["beam_offset_m"] == 0.0
+    text = runtime.look()
+    assert http.get("/api/look").text == text
+    faults = text.split("## Active faults\n\n", 1)[1].split("\n\n", 1)[0]
+    assert faults == "Faults are hidden in exam mode."
+    narrow = runtime.look(component="PE_01")
+    log = http.get("/api/iolog").text
+    for shown in (text, narrow, log):
+        assert "misaligned" not in shown and "0.137" not in shown and "off its place" not in shown
+    # the log holds only tag values, and they are the ones /api/state serves
+    state_io = http.get("/api/state").json()["io"]
+    last: dict = {}
+    for change in http.get("/api/iolog").json()["changes"]:
+        last[change["tag"]] = change["value"]
+    assert all(state_io[tag] == value for tag, value in last.items())
+
+    plain, _ = _faulted_sorter(exam=False)
+    listed = plain.look()
+    assert "## Active faults\n\n- PE_01: misaligned\n" in listed
+    assert "beam 0.137 m off its place" in listed
+
+
+def test_a_recording_of_an_exam_run_says_faults_are_hidden(tmp_path: Path) -> None:
+    out = tmp_path / "exam.ofrec"
+    done = CliRunner().invoke(
+        cli,
+        [
+            "run", str(REPO / "scenes" / "sorting-by-height.yaml"),
+            "--script", str(REPO / "examples" / "pyplc" / "sorting-by-height.py"),
+            "--as-fast-as-possible", "--duration", "4", "--exam",
+            "--fault", "PE_01=misaligned:offset_m=0.137", "--record", str(out),
+        ],
+    )  # fmt: skip
+    assert done.exit_code == 0, done.output
+    rec = read_recording(out)
+    assert rec.header["exam"] is True
+    text = look_recording(rec, 4.0)
+    assert "Faults are hidden in exam mode." in text and "misaligned" not in text
+    assert "0.137" not in text
+    assert "exam" not in read_recording(KIT_REC).header  # a run without exam mode: as before
+
+
+def test_a_window_longer_than_the_log_says_where_the_listing_starts() -> None:
+    """Review of 2026-11-16, fix 2: with a small cap the log drops the window's start, and the
+    heading gives the time the listing really starts from."""
+    runtime = scripted(
+        REPO / "scenes" / "sorting-by-height.yaml",
+        REPO / "examples" / "pyplc" / "sorting-by-height.py",
+    )
+    runtime.iolog = IoLog(
+        {t.name: t.kind for t in runtime.loaded.io.tags()}, runtime.scheduler.dt, max_changes=40
+    )
+    for _ in range(1500):
+        runtime._step(runtime.scheduler.dt)
+    log = runtime.iolog_query()
+    assert log["complete"] is False and log["first_tick"] > 1
+    dropped_to = runtime.iolog.dropped_to
+    text = runtime.look(since_s=30.0)
+    start = f"{dropped_to * runtime.scheduler.dt:.2f}"
+    heading = (
+        f"## Changes after {start} s, up to 30.00 s (the last 30.0 s were asked for; "
+        "older changes are no longer held)"
+    )
+    assert heading in text
+    listed = text.split(heading, 1)[1]
+    assert "None." not in listed and listed.count("\n- ") >= 1
+    # a window the log still holds keeps the usual heading
+    assert "## Changes in the last 0.1 s (after 29.90 s, up to 30.00 s)" in runtime.look(
+        since_s=0.1
+    )
