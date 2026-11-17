@@ -501,3 +501,29 @@ export const colorSensor: Builder = (g, ctx) => {
     },
   };
 };
+
+/** The `#rrggbb` colour of a scenery body as a number; the neutral grey for anything else. */
+export function sceneryColor(value: unknown): number {
+  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? parseInt(value.slice(1), 16) : 0x8b939c;
+}
+
+/**
+ * Scenery (PLAN 5.2c): a box of `size` [x, y, z] in `color`, origin at its centre; no I/O, no
+ * physics (physics.ts makes no collider for it, so parts pass through). A `mesh` replaces the
+ * box, its housing, as for any component (PLAN 2.15).
+ */
+export const scenery: Builder = (g) => {
+  const group = placed(g);
+  const s = Array.isArray(g.size) && g.size.length === 3 ? (g.size as number[]) : [1, 1, 1];
+  const body = box([s[0], s[1], s[2]], sceneryColor(g.color));
+  group.add(body);
+  return {
+    id: g.id,
+    type: g.type,
+    object: group,
+    labelAnchor: new THREE.Vector3(0, s[1] / 2 + 0.1, 0),
+    pickable: [],
+    housing: [body],
+    update() {},
+  };
+};

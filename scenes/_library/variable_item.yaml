@@ -1,0 +1,24 @@
+# PLAN 5.2c library composite: a driven item with a speed command and a speed feedback.
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+composite:
+  type: variable_item
+  description: >-
+    A driven item with a variable speed, from a drawing that has no component of its own: as
+    driven_item (a body, start, running, a hand-off-auto selector starting in auto), plus a speed
+    command (AO, %) and a speed feedback (AI, %) that follows the command while running and reads
+    0 when stopped. A start delay is the instance's `on_delay_s` on running, and a ramp is its
+    `lag_s` on speed_fb.
+  params: {length: 1.0, width: 1.0, height: 1.0}
+  parts:
+    - {id: body, type: scenery, description: Body,
+       position: [0, "{height} / 2", 0], size: ["{length}", "{height}", "{width}"]}
+    - {id: hoa, type: selector_switch, description: Hand-Off-Auto Selector, positions: 3,
+       initial: b, position: ["{length} / 2 + 0.02", "{height} / 2 + 0.2", 0], rotation_deg: 90}
+  io:
+    start: {command: DO}
+    speed: {command: AO, range: [0, 100], units: "%"}
+    running: {from: "hoa.pos_a or (start and hoa.pos_b)"}
+    speed_fb: {from: "speed if running else 0", kind: AI, range: [0, 100], units: "%"}
+    hoa_hand: {from: hoa.pos_a}
+    hoa_auto: {from: hoa.pos_b}

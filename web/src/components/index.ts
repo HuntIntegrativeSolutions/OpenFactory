@@ -15,6 +15,7 @@ import {
   pilotLight,
   pushbutton,
   pusher,
+  scenery,
   selectorSwitch,
   stopper,
 } from "./devices";
@@ -50,6 +51,7 @@ export const BUILDERS: Record<string, Builder> = {
   heater,
   transmitter,
   vfd_motor: vfdMotor,
+  scenery,
 };
 
 export function buildComponent(g: ComponentGeometry, ctx: BuildContext): ComponentView {

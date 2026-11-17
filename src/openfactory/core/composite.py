@@ -59,6 +59,12 @@ Additions of PLAN 5.2a (ruled 2026-11-15, design note §2.2):
 - An expression with no ``part.port`` ref (``running: {from: "start"}``) belongs to the
   composite's first part in the exports.
 
+Addition of PLAN 5.2c: an instance's ``mesh:`` (PLAN 2.15's mapping, ``{file, ...}``) is given
+at expansion to the composite's one ``scenery`` part, the body, so a library composite drawn as a
+box in one scene can be drawn with a scene's own mesh in another; a composite with no scenery
+part, or more than one, refuses it. Only the expanded part carries it, so the viewer, the
+exports and the lint see a scenery component with a mesh, as for any built-in type.
+
 Load errors, each naming what is wrong: an unknown or duplicate type, a type that shadows a
 built-in, a recursive definition (the cycle is named, ``a -> b -> a``), nesting more than one
 level, a part ``io``, an ``io`` entry naming an unknown part or port or a port of the wrong
@@ -594,6 +600,17 @@ def _instance(
 
     d = defs[type_name]
     where = f"{inst_id} ({type_name})"
+    given = dict(given)
+    mesh = given.pop("mesh", None)  # PLAN 5.2c: the body's mesh, set per instance
+    body = None
+    if mesh is not None:
+        bodies = [p["id"] for p in d.parts if p["type"] == "scenery"]
+        if len(bodies) != 1:
+            raise ValueError(
+                f"{where}: `mesh` draws the composite's scenery body, and {type_name} has "
+                f"{len(bodies)} scenery parts; it needs exactly one"
+            )
+        body = bodies[0]
     unknown = sorted(set(given) - set(d.params))
     if unknown:
         known = ", ".join(sorted(d.params)) or "none"
@@ -634,6 +651,8 @@ def _instance(
         fields = {
             k: _resolve(v, params, f"{pwhere}.{k}") for k, v in part.items() if k not in _PLACEMENT
         }
+        if part["id"] == body:
+            fields["mesh"] = mesh
         try:
             world = to_world(position, rotation_deg, tuple(rel))  # type: ignore[arg-type]
         except (TypeError, ValueError):

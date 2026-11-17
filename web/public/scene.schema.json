@@ -957,6 +957,7 @@
               "pushbutton",
               "pusher",
               "roller_conveyor",
+              "scenery",
               "selector_switch",
               "stopper",
               "supply",
@@ -4172,6 +4173,116 @@
       "title": "SceneMeta",
       "type": "object"
     },
+    "Scenery": {
+      "additionalProperties": false,
+      "description": "A body with no I/O and no physics (PLAN 5.2c, 5.11's type brought forward): a box of\n``size`` [x, y, z] m in ``color``, or a ``mesh`` (PLAN 2.15) in its place. Origin: the centre\nof the box. Parts pass through it: nothing in the core or the viewer's physics collides with\nit. It is the body of a drawing item no component covers (the ``driven_item`` and\n``variable_item`` library composites) and, later, a plant's surroundings (5.11).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "type": {
+          "const": "scenery",
+          "title": "Type",
+          "type": "string"
+        },
+        "size": {
+          "default": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "description": "[x, y, z] in metres: length, height, width of the box.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            }
+          ],
+          "title": "Size",
+          "type": "array"
+        },
+        "color": {
+          "default": "#8b939c",
+          "description": "The box's colour, #rrggbb (default a neutral grey, ISA-101).",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "title": "Color",
+          "type": "string"
+        },
+        "io": {
+          "$ref": "#/$defs/SceneryIO",
+          "description": "Scenery has no I/O: leave io out, or empty."
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type"
+      ],
+      "title": "Scenery",
+      "type": "object"
+    },
+    "SceneryIO": {
+      "additionalProperties": false,
+      "description": "No ports: scenery has no I/O (PLAN 5.2c).",
+      "properties": {},
+      "title": "SceneryIO",
+      "type": "object"
+    },
     "SelectorSwitch": {
       "additionalProperties": false,
       "properties": {
@@ -5982,6 +6093,9 @@
           },
           {
             "$ref": "#/$defs/VfdMotor"
+          },
+          {
+            "$ref": "#/$defs/Scenery"
           },
           {
             "$ref": "#/$defs/CompositeInstance"

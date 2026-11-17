@@ -1,0 +1,22 @@
+# PLAN 5.2c library composite: any driven item a drawing shows that has no component of its own.
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+composite:
+  type: driven_item
+  description: >-
+    Any driven item from a drawing that has no component of its own: a body (a box, or the
+    instance's mesh) with a start command, a running feedback and a hand-off-auto selector on its
+    side. In auto (position b) running follows start; in hand (position a) it runs without the
+    PLC; off (centre) stops it. The selector starts in auto. A start delay is the instance's
+    `on_delay_s` on running.
+  params: {length: 1.0, width: 1.0, height: 1.0}
+  parts:
+    - {id: body, type: scenery, description: Body,
+       position: [0, "{height} / 2", 0], size: ["{length}", "{height}", "{width}"]}
+    - {id: hoa, type: selector_switch, description: Hand-Off-Auto Selector, positions: 3,
+       initial: b, position: ["{length} / 2 + 0.02", "{height} / 2 + 0.2", 0], rotation_deg: 90}
+  io:
+    start: {command: DO}
+    running: {from: "hoa.pos_a or (start and hoa.pos_b)"}
+    hoa_hand: {from: hoa.pos_a}
+    hoa_auto: {from: hoa.pos_b}

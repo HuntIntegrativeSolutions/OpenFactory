@@ -34,11 +34,11 @@ build_kit = run_reference.build_kit
 def test_every_scene_is_held_by_a_kit_or_a_reference():
     kits, refs = set(build_kit.kit_names()), set(run_reference.reference_names())
     scenes = set(run_reference.shipped())
-    assert len(scenes) == 13
+    assert len(scenes) == 14
     assert scenes - kits - refs == set(), "a scene no kit or reference holds"
     assert kits & refs == set(), "a scene held twice: drop its reference, the kit holds it"
     assert (kits | refs) - scenes == set(), "a kit or reference with no scene"
-    assert refs == {"accumulation-demo"}
+    assert refs == {"accumulation-demo", "variable-item-demo"}
     for ref in refs:  # a reference is text, far under the 1 MB rule
         assert (run_reference.REFERENCES / f"{ref}.run").stat().st_size < 100_000
 

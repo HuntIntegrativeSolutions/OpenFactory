@@ -975,3 +975,32 @@ with `reset` unbound, turning `run` off clears it. The drive runs again on the n
 Faults: `jammed`, `drift`.
 A jammed motor stalls and draws twice its rating, so the drive trips after `trip_s`; `drift`
 acts on `speed_fb`.
+
+## Scenery
+
+### `scenery`
+
+Origin: the centre of the box. A body and nothing else (PLAN 5.2c, the type of 5.11 brought
+forward): a box of `size` in `color`, or a `mesh` (PLAN 2.15) drawn in its place. It has **no
+I/O** (no ports, no tags), **no physics** and no behaviour, and it cannot be faulted. **Parts
+pass through it**: the core carries parts only on conveyors, decks and grippers and never tests
+them against scenery, and the viewer's physics makes no collider for it. It is the body of a
+drawing item that no component covers: the `driven_item` and `variable_item` library composites
+(`scenes/_library/`) give it a start command, a running feedback, a hand-off-auto selector and,
+for `variable_item`, a speed command and feedback, all from the composite (see
+[the scene format](scene-format.md), composites). An instance of either takes `mesh:`, given to
+its scenery body at expansion.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `size` | `[1.0, 1.0, 1.0]` | [x, y, z] in metres: length, height, width of the box |
+| `color` | `#8b939c` | The box's colour, `#rrggbb` (a neutral grey, never a status colour) |
+
+It has no ports.
+
+Faults: none.
+
+`openfactory look` describes it as "a 1.00 x 0.80 x 0.60 m body, no I/O". Example:
+`scenes/examples/variable-item-demo.yaml`, two `variable_item` instances, one drawn as its box
+and one with a mesh of our own (`scenes/examples/models/mixer-drive.glb`, made by
+`tools/make_item_mesh.py`).

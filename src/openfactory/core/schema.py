@@ -1391,6 +1391,29 @@ class VfdMotorIO(IOModel):
     fault: DiTag | None = port("DI", "Drive fault (overload trip)")
 
 
+class SceneryIO(IOModel):
+    """No ports: scenery has no I/O (PLAN 5.2c)."""
+
+
+class Scenery(ComponentBase):
+    """A body with no I/O and no physics (PLAN 5.2c, 5.11's type brought forward): a box of
+    ``size`` [x, y, z] m in ``color``, or a ``mesh`` (PLAN 2.15) in its place. Origin: the centre
+    of the box. Parts pass through it: nothing in the core or the viewer's physics collides with
+    it. It is the body of a drawing item no component covers (the ``driven_item`` and
+    ``variable_item`` library composites) and, later, a plant's surroundings (5.11)."""
+
+    type: Literal["scenery"]
+    size: Size3 = Field(
+        (1.0, 1.0, 1.0), description="[x, y, z] in metres: length, height, width of the box."
+    )
+    color: Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")] = Field(
+        "#8b939c", description="The box's colour, #rrggbb (default a neutral grey, ISA-101)."
+    )
+    io: SceneryIO = Field(
+        default_factory=SceneryIO, description="Scenery has no I/O: leave io out, or empty."
+    )
+
+
 class VfdMotor(ComponentBase):
     """Origin: the drive cabinet. A variable-frequency drive and its motor, driving one pump or
     one belt or roller conveyor in place of its run and speed ports (PLAN 3.2)."""
@@ -1457,7 +1480,8 @@ Component = Annotated[
     | Pump
     | Heater
     | Transmitter
-    | VfdMotor,
+    | VfdMotor
+    | Scenery,
     Field(discriminator="type"),
 ]
 
@@ -1493,6 +1517,7 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Heater,
         Transmitter,
         VfdMotor,
+        Scenery,
     )
 }
 
@@ -1679,6 +1704,7 @@ SceneComponent = Annotated[
     | Annotated[Heater, Tag("heater")]
     | Annotated[Transmitter, Tag("transmitter")]
     | Annotated[VfdMotor, Tag("vfd_motor")]
+    | Annotated[Scenery, Tag("scenery")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
 ]

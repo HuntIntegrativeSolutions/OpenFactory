@@ -361,6 +361,7 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `heater` | on, power (AO) | temp (AI) | Immersion heater in one tank: rated power times the command while covered, less the tank's UA loss; well mixed. | 3 (3.2) |
 | `transmitter` | — | pv (AI) | Level, temperature, fraction, flow or pressure over its range, with lag, seeded noise, and faults including NE 43 `signal_fail`. | 3 (3.2) |
 | `vfd_motor` | run, speed (AO), reset | running, speed_fb (AI), fault | Drives a pump or a belt/roller conveyor in place of its run and speed; ramps; trips on overload (a pump's shaft power above rating for `trip_s`), reset by edge. | 3 (3.2) |
+| `scenery` | — | — | A body only: a box of `size` in `color`, or a mesh; no I/O, no physics, parts pass through. The body of the `driven_item` and `variable_item` library composites. | 5 (5.2c) |
 
 #### Milestone 1 behavior as built
 
@@ -3457,7 +3458,7 @@ trusts it.
         each PNG under 1 MB; the test that cross-checks the I/O CSV against the takeoff passes;
         a test finds each PNG's recorded source digest equal to its SVG's; each sheet has been
         opened and looked at, as SVG and as PNG; the authoring guide (5.13) shows the PNGs.
-- [ ] 5.2 Generic equipment. Something on the drawing has no component: it must still appear, with
+- [x] 5.2 Generic equipment. Something on the drawing has no component: it must still appear, with
       its I/O and a simple behaviour (a delay, a first-order lag, a permissive). First test how far
       a composite goes today (computed DIs exist, 2.16); add a `machine` primitive only for what a
       composite cannot do.
@@ -3545,13 +3546,59 @@ trusts it.
         value every tick for 500 ticks, starting at the raw value; `lag_s` refused with a
         window and below 0. Shipped scenes use no `lag_s`: kits current, run references
         unchanged.
-  - [ ] 5.2c The `scenery` primitive (5.11's type brought forward: `size`, `color`, `mesh`, no
+  - [x] 5.2c The `scenery` primitive (5.11's type brought forward: `size`, `color`, `mesh`, no
         I/O, no physics) and the `driven_item` and `variable_item` library composites (note
         §2.2).
         *Done when:* 5.2's own Done-when holds: a scene holds a `variable_item` drawn as a box and
         then with a mesh, with its start, running, speed and speed feedback ports and a 2 s start
         delay, and its tags export like any other; the screenshot is looked at; a unit test, a
         docstring spec and a section in `docs/components.md` cover `scenery`.
+        *Done (2026-11-16), and with it 5.2's own Done-when, so 5.2 is ticked too:* **`scenery`**
+        (`components/scenery.py`, `Scenery` in the schema): `size` [x, y, z] m (default 1 m
+        each), `color` `#rrggbb` (default the neutral grey `#8b939c`), `mesh`; no ports, no
+        faults, an empty state, a `step` that does nothing; origin the centre of the box;
+        `describe` "a 1.00 x 0.80 x 0.60 m body, no I/O". Parts pass through it: the core never
+        tests parts against it and `web/src/physics.ts` makes no collider for it. The viewer
+        draws one box of its size and colour as its housing, which a mesh replaces (2.15). The
+        editor's palette offers it as `SCN_nn`, standing on the floor. **Library composites**
+        (`scenes/_library/driven_item.yaml`, `variable_item.yaml`, new files; no existing
+        library file changed): a `scenery` body sized by `length`, `height` and `width`, and a
+        three-position hand-off-auto selector on its +x face starting in auto; `start` (DO
+        command), `running`, `hoa_hand` and `hoa_auto`; `variable_item` adds `speed` (AO, %) and
+        `speed_fb` (AI, `speed if running else 0`). **Decisions beyond the ruling**, for the
+        owner to confirm: (1) **a mesh per instance:** an instance's `mesh:` is given at
+        expansion to the composite's one scenery part (refused with none or several), since a
+        library file's parts cannot know a scene's mesh; the viewer, parity and exports still
+        see only built-in types, which was the reason §2.3(b) refused a mesh key that the viewer
+        would read on a composite. (2) **`running` is `hoa.pos_a or (start and hoa.pos_b)`**,
+        not the note's `start and hoa.pos_b`: the selector's `pos_a` is a required port and
+        must be exposed (`hoa_hand`), and a hand position that did not run the item would be a
+        trap; off stops it whatever the PLC says. **The demo** is
+        `scenes/examples/variable-item-demo.yaml` with its script beside it: a short box line
+        (checks `parts_reached` and `none_lost`; 2 of 2 pass at 60 s, 19 boxes, and at 300 s, 99
+        boxes) and two `variable_item` instances, `MX_01` drawn as its box and `MX_02` with
+        `models/mixer-drive.glb` (ours, 14,900 bytes, built from boxes and cylinders by
+        `tools/make_item_mesh.py` with `make_models.py`'s writer; CC-BY-4.0 sidecar;
+        THIRD_PARTY.md and ATTRIBUTION.md regenerated), a 2 s start delay and a 4 s lag on its
+        speed feedback. It lints with no finding under its script. It is a new scene under
+        `scenes/`, so §9 rule 13 holds it by a new reference, `tests/references/
+        variable-item-demo.run` (new, not a renewal), and `test_runs_unchanged.py` counts 14
+        scenes. **Screenshots** (`tools/screenshot.py`, at 8 s, looked at): with the mesh, `MX_01`
+        is a plain grey box and `MX_02` a geared drive on a base plate (gearbox block, motor
+        barrel with its fan cover toward +x, terminal box, output flange on top), no box behind
+        it; with the scene's `mesh:` line removed, both are identical grey boxes. In both, the
+        selector is a small knob on each body's +x face and the boxes ride the belt to the
+        remover. *Tests* (`tests/unit/test_scenery.py`, 10): no I/O, no behaviour, its sentence,
+        no fault, one tag (the heartbeat); four refusals (a named colour, a short hex, a zero
+        size, an io port); parts pass through, a scenery box straddling the sorter's infeed belt
+        leaving every part's position the same as without it over 30 s; the mesh rebuilt byte
+        for byte, under 1 MB, its sidecar; the demo's box and mesh bodies, its ports and their
+        transforms; the 2 s delay (`running` read 101 ticks after `start`, 100 more than
+        without), hand runs without the PLC and off stops it; `driven_item` with a mesh, and a
+        mesh refused on a composite with no scenery part. `web`: one builder test (161 pass).
+        `docs/components.md` (a Scenery section), `docs/scene-format.md` (the two composites),
+        the §5 table row; the JSON Schema regenerated. Kits current; the other run references
+        unchanged.
 - [ ] 5.3 The plant's tag names. `plc_tag:` per binding (§6.2, named but not built), so a scene
       port maps to the plant's tag or UDT member, and an area prefix per scene.
       *Done when:* the I/O CSV, the L5X and the SCADA tag export carry the plant's names, the
@@ -4090,7 +4137,8 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
    held by the kit's recording (`tools/build_kit.py --check`); a scene with no kit by
    `tests/references/<scene>.run`, its check results and one digest per recorded line
    (`tools/run_reference.py`, checked by `tests/integration/test_runs_unchanged.py`, which also
-   fails if a scene has neither). Today that is `accumulation-demo` alone. **A reference is
+   fails if a scene has neither). Today that is `accumulation-demo` and, since 2026-11-16,
+   `variable-item-demo` (PLAN 5.2c, a new scene: its reference is new, not a renewal). **A reference is
    renewed only when the change to the run is intended, and the owner rules that it is.** The
    renewal (`build_kit.py` for a kit, `run_reference.py --update <scene>` for a reference) goes
    in the commit that changes the run, never in a later "refresh" commit, and that commit's body

@@ -1,0 +1,72 @@
+# PLAN 5.2c library example (not a kit scene): two variable_item library composites, a drawing
+# item no component covers, beside a short box line. MX_01 is drawn as its box; MX_02 is the
+# same type drawn with a mesh of our own (models/mixer-drive.glb), with a 2 s start delay and a
+# 4 s lag on its speed feedback. The stand-in script beside it (variable-item-demo.py) runs the
+# line and starts both items. Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: variable-item-demo
+  description: Two variable-speed drawing items, one a box and one a mesh, beside a box line.
+  author: HIS Controls
+  seed: 7
+plc:
+  protocol: modbus_tcp
+checks:
+  duration_s: 60
+  parts_reached: {REM_01: box}
+  none_lost: true
+composites:
+  - {library: variable_item}
+components:
+  - id: CONV_01
+    type: belt_conveyor
+    description: Item Line Belt Conveyor
+    position: [0, 0.8, 0]
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.5
+    io:
+      run: CONV_01_RUN_DO
+  - id: EMT_01
+    type: box_emitter
+    description: Item Line Box Source
+    position: [0.3, 0.955, 0]
+    interval_s: 3.0
+    parts:
+      - {name: box, size: [0.3, 0.3, 0.3], weight: 1.0}
+    io:
+      enable: EMT_01_EN_DO
+  - id: REM_01
+    type: part_remover
+    description: Item Line Discharge Part Remover
+    position: [3.15, 0.8, 0]
+    size: [0.3, 1.0, 1.0]
+  - id: MX_01
+    type: variable_item
+    description: Mixer 1 Drive
+    position: [0.8, 0, 1.4]
+    length: 1.0
+    height: 0.8
+    width: 0.6
+    io:
+      start: MX_01_RUN_DO
+      speed: MX_01_SPD_AO
+      running: MX_01_RUN_DI
+      speed_fb: MX_01_SPD_AI
+      hoa_hand: MX_01_HAND_DI
+      hoa_auto: MX_01_AUTO_DI
+  - id: MX_02
+    type: variable_item
+    description: Mixer 2 Drive
+    position: [2.3, 0, 1.4]
+    length: 1.0
+    height: 0.8
+    width: 0.6
+    mesh: {file: models/mixer-drive.glb}
+    io:
+      start: MX_02_RUN_DO
+      speed: MX_02_SPD_AO
+      running: {tag: MX_02_RUN_DI, on_delay_s: 2.0}    # start delay
+      speed_fb: {tag: MX_02_SPD_AI, lag_s: 4.0}        # the drive ramps
+      hoa_hand: MX_02_HAND_DI
+      hoa_auto: MX_02_AUTO_DI

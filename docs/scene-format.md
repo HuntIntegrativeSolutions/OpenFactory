@@ -522,3 +522,44 @@ A composite can stand for a drawing item no component covers, with behaviour of 
 - The new keys are YAML lines for now: the editor's form does not edit a composite's
   definition.
 - Example: `tests/scenes/composite-additions.yaml`.
+
+### `driven_item` and `variable_item`: drawing items with no component (PLAN 5.2c)
+
+Two library composites (`scenes/_library/`) stand for any driven item a drawing shows that has
+no component of its own. Their body is a [`scenery`](components.md) box sized by the `length`,
+`height` and `width` parameters (default 1 m each), with a three-position hand-off-auto selector
+on its +x face, starting in auto.
+
+| io | Kind | Meaning |
+|---|---|---|
+| `start` | DO command | Start (both) |
+| `running` | DI | `hoa.pos_a or (start and hoa.pos_b)`: hand runs, off stops, auto follows start |
+| `hoa_hand`, `hoa_auto` | DI | The selector in hand (a) or auto (b); both must be bound, `pos_a` being required |
+| `speed` | AO command, 0 to 100 % | Speed command (`variable_item` only) |
+| `speed_fb` | AI, 0 to 100 % | `speed if running else 0` (`variable_item` only) |
+
+```yaml
+  - id: MX_02
+    type: variable_item
+    description: Mixer 2 Drive
+    position: [2.3, 0, 1.4]
+    length: 1.0
+    height: 0.8
+    width: 0.6
+    mesh: {file: models/mixer-drive.glb}               # drawn in place of the box
+    io:
+      start: MX_02_RUN_DO
+      speed: MX_02_SPD_AO
+      running: {tag: MX_02_RUN_DI, on_delay_s: 2.0}    # start delay
+      speed_fb: {tag: MX_02_SPD_AI, lag_s: 4.0}        # ramp
+      hoa_hand: MX_02_HAND_DI
+      hoa_auto: MX_02_AUTO_DI
+```
+
+- **`mesh:` on an instance** (PLAN 2.15's mapping) is given at expansion to the composite's one
+  `scenery` part, so the mesh is drawn in the body's frame, its origin the centre of the box. A
+  composite with no scenery part, or more than one, refuses it. The path is relative to the
+  scene's folder, as for any mesh.
+- The start delay is the instance's `on_delay_s` on `running`; `speed_fb` sees the delayed
+  `running`, so it stays 0 through the delay. A ramp is `lag_s` on `speed_fb` (PLAN 5.2b).
+- Example: `scenes/examples/variable-item-demo.yaml`, with its stand-in script beside it.

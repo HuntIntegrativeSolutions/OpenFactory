@@ -57,6 +57,7 @@ PREFIX: dict[str, str] = {
     "pushbutton": "PB",
     "pusher": "CYL",
     "roller_conveyor": "RCONV",
+    "scenery": "SCN",
     "selector_switch": "SS",
     "stopper": "STP",
     "supply": "SUP",
@@ -87,7 +88,12 @@ STARTERS: dict[str, dict[str, Any]] = {
     "pusher": {"stroke": 0.6, "extend_time_s": 0.5},
     "transmitter": {"range": [0.0, 2.0]},
 }
-HEIGHT: dict[str, float] = {"photo_eye": 0.1, "box_emitter": 0.3, "pusher": 0.175}
+HEIGHT: dict[str, float] = {
+    "photo_eye": 0.1,
+    "box_emitter": 0.3,
+    "pusher": 0.175,
+    "scenery": 0.5,  # the default 1 m box, its origin at its centre, standing on the floor
+}
 
 #: Fields that name another component: (type field, the types it may name, a suffix appended).
 REFERENCES: dict[str, list[tuple[str, tuple[str, ...], str]]] = {

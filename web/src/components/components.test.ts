@@ -27,6 +27,16 @@ describe("component mesh builders", () => {
     }
   });
 
+  it("draws scenery as one box of its size and colour, the housing a mesh replaces (PLAN 5.2c)", () => {
+    const view = buildComponent(geom("scenery", { size: [1.0, 0.8, 0.6], color: "#336699" }), ctx);
+    expect(view.housing).toHaveLength(1);
+    const body = view.housing![0] as THREE.Mesh<THREE.BoxGeometry>;
+    expect([body.geometry.parameters.width, body.geometry.parameters.height, body.geometry.parameters.depth]).toEqual([1.0, 0.8, 0.6]);
+    expect(color(body)).toBe(0x336699);
+    expect(body.position.toArray()).toEqual([0, 0, 0]); // the origin is the box's centre
+    expect(color(buildComponent(geom("scenery", { color: "grey" }), ctx).housing![0])).toBe(0x8b939c);
+  });
+
   it("colors a conveyor belt green while running and grey when stopped", () => {
     const view = buildComponent(geom("belt_conveyor", { length: 4, width: 0.5 }), ctx);
     const belt = view.object.getObjectByName("belt");
