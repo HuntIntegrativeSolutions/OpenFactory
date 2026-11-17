@@ -1356,6 +1356,48 @@ def takeoff_check(
         raise typer.Exit(1)
 
 
+@takeoff_app.command("scaffold")
+def takeoff_scaffold(
+    takeoff: Annotated[Path, typer.Argument(help="The takeoff file.", metavar="TAKEOFF")],
+    output: Annotated[
+        Path, typer.Option("--output", "-o", help="The scene file to write.", metavar="SCENE")
+    ],
+    force: Annotated[
+        bool, typer.Option("--force", help="Overwrite an existing scene file.")
+    ] = False,
+    in_scenes: Annotated[
+        bool,
+        typer.Option("--in-scenes", help="Allow writing inside the project's scenes/ folder."),
+    ] = False,
+) -> None:
+    """Write a scene skeleton from a takeoff (PLAN 5.1b) and report every row's outcome: exit 0
+    when all are placed with no question, 3 when the scene was written with rows to resolve, 1
+    when nothing was written."""
+    import yaml
+
+    from openfactory import takeoff as tk
+    from openfactory.core.composite import project_root
+    from openfactory.scaffold import scaffold
+
+    target = output.resolve()
+    root = project_root(target.parent if target.parent.exists() else Path.cwd())
+    if root is not None and not in_scenes and target.is_relative_to(root / "scenes"):
+        typer.echo(f"error: {output} is inside {root / 'scenes'}; pass --in-scenes to write there",
+                   err=True)  # fmt: skip
+        raise typer.Exit(1)
+    if output.exists() and not force:
+        typer.echo(f"error: {output} exists; pass --force to overwrite it", err=True)
+        raise typer.Exit(1)
+    try:
+        result = scaffold(tk.load(takeoff))
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        typer.echo(f"error: {takeoff}: {exc}", err=True)
+        raise typer.Exit(1) from None
+    output.write_bytes(result.text.encode("utf-8"))
+    typer.echo(result.report().replace(result.scene_name, output.name, 1), nl=False)
+    raise typer.Exit(result.exit_code())
+
+
 def main() -> None:
     app()
 

@@ -215,6 +215,8 @@
           "title": "Id"
         },
         "type": {
+          "default": "unknown",
+          "description": "A built-in type, or unknown (the default): a stand-in.",
           "pattern": "^[a-z][a-z0-9_]*$",
           "title": "Type",
           "type": "string"
@@ -282,7 +284,6 @@
         "confidence",
         "row",
         "tag",
-        "type",
         "description"
       ],
       "title": "Equipment",

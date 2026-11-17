@@ -145,7 +145,9 @@ class Equipment(_Row):
     row: RowId
     tag: Annotated[str, StringConstraints(min_length=1, max_length=40)]
     id: str | None = Field(None, description="The scene id, if not the tag with '-' as '_'.")
-    type: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")]
+    type: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")] = Field(
+        "unknown", description="A built-in type, or unknown (the default): a stand-in."
+    )
     description: Annotated[str, StringConstraints(min_length=1)]
     params: dict[str, Any] = Field(default_factory=dict)
     layout: Layout | None = None

@@ -126,3 +126,54 @@ to anyone.
 sheet with its revision, and the rows digest. It replaces only the `checked:` key (or adds it at
 the end), so no other byte of the file changes. It does not need `--strict` to pass: marking is
 how a person records that the open questions were read.
+
+## `openfactory takeoff scaffold TAKEOFF -o SCENE`
+
+```bash
+openfactory takeoff scaffold docs/samples/wash-skid/wash-skid.takeoff.yaml -o wash-skid.yaml
+```
+
+It writes a scene skeleton from a takeoff that passes `check` and prints a report. It refuses a
+takeoff with any error and writes nothing; it never overwrites a scene without `--force`, and
+never writes inside the project's `scenes/` folder without `--in-scenes`. It writes only the
+path it is given.
+
+**Every row has exactly one outcome**, and the report shows they add up to the takeoff's rows:
+
+| Row | What the scene gets | Reported as |
+|---|---|---|
+| A known type with what it needs | the component, its description and parameters, a comment naming the row and sheet | placed |
+| A row marked `assumed` | the same, the comment saying `assumed` | assumed |
+| `type: unknown` (or no `type`) | a stand-in: a local composite `standin_<id>`, a `scenery` body sized from `length`, `width`, `height` (else 1 m) whose io are exactly the row's I/O rows: each DO and AO a command, the first DI following the first DO, the first AI the first AO, any other DI false and any other AI the low end of its range; its description starts `PLACEHOLDER` | stand-in, with each of its I/O rows |
+| No position, or a parameter with no default missing | placed in a holding row past the plant's far edge, 1.5 m apart (a missing parameter is a comment to fill in) | unplaced |
+| A connection between two conveyors | a `connections:` entry | placed |
+| A connection into a valve or pump | that link's `from` | placed |
+| A connection from a link to a tank nozzle, supply, drain or junction, or between two of those | a `pipe` (`PIPE_101`, ...) sized from the line number (`25-W-101`: 25 mm), and the link's `to` names it | placed |
+| Any other connection (a conveyor to a tank) | a `# NOT CONNECTED` comment at the end | not connected |
+| An I/O row | the binding `{tag, plc_tag}` with its `range` and `units` | placed |
+
+Each open question, on any row, is a `# QUESTION (<row>): <text>` comment above its component,
+and is listed apart. The report also says where each position came from: a layout sheet's
+dimensions, a rail, or scene metres with no layout sheet. Devices on a rail sit where
+`place_on_rail` puts them.
+
+The sample's report:
+
+```text
+wash-skid.takeoff.yaml -> wash-skid.yaml: 32 rows (13 equipment, 4 connections, 15 I/O)
+  placed         25
+  assumed         4   EQ-1 SUP-101; EQ-8 DR-101; EQ-12 EMT-201; EQ-13 REM-201
+  stand-in        3   EQ-5 AG-101 (type unknown: standin_ag_101); IO-5 -> run; IO-6 -> running
+  unplaced        0
+  not connected   0
+  25 + 4 + 3 + 0 + 0 = 32: every row accounted for
+positions: 9 from L-001 dimensions (EQ-1, EQ-2, EQ-3, EQ-4, EQ-5, EQ-6, EQ-7, EQ-8, EQ-9); 2 on CV-201's left rail (L-001) (EQ-10, EQ-11); 2 in scene metres with no layout sheet (EQ-12 EMT-201, EQ-13 REM-201)
+open questions, written as # QUESTION comments (6): EQ-1, EQ-5, EQ-8, EQ-12, EQ-13, IO-15
+```
+
+**Exit codes:** 0 when every row is placed with no stand-in, no assumption and no question; 3
+when the scene was written with rows to resolve; 1 when nothing was written. A script cannot
+mistake 3 for a clean build. The scene has no `checks:` and no stand-in script: those come from
+the plant's sequence of operations, which a takeoff does not hold. Until a PLC program is
+written against it, `openfactory lint` reports only W201 and W202 ("no PLC side") on it. Two
+runs write the same bytes.

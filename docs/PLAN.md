@@ -3498,7 +3498,7 @@ trusts it.
         never evaluated; the JSON Schema current and closed. The sample takeoff is committed
         here, at `docs/samples/wash-skid/wash-skid.takeoff.yaml`, the note's text with a
         header; its sheets come in 5.1c.
-  - [ ] 5.1b `takeoff scaffold` (note §3.4).
+  - [x] 5.1b `takeoff scaffold` (note §3.4).
         *Done when:* the sample takeoff scaffolds to a scene that validates; its report accounts
         for all 32 rows (25 placed, 4 assumed, 3 stand-in), and AG-101 is a stand-in type
         carrying IO-5 and IO-6; the exit code is 3; PE-201 and CYL-201 sit where `place_on_rail`
@@ -3506,6 +3506,40 @@ trusts it.
         the 2 `at:` rows (EQ-12, EQ-13) as in scene metres with no layout sheet; removing a row's
         `type` (making it `unknown`) adds one stand-in and never removes a row; running the
         scaffold twice writes the same bytes.
+        *Done (2026-11-16):* `src/openfactory/scaffold.py` and `openfactory takeoff scaffold
+        TAKEOFF -o SCENE [--force] [--in-scenes]`. It refuses a takeoff with any `check` error
+        and writes nothing (exit 1); it writes only the `-o` path, never over an existing file
+        without `--force`, and never inside the project's `scenes/` without `--in-scenes`.
+        **Outcomes** as note §3.4, one per row, in the takeoff's row order, with the sum
+        printed: placed, assumed, stand-in (a local `standin_<id>` composite on a `scenery`
+        body, its io exactly the row's I/O rows), unplaced (a holding row past the far edge,
+        1.5 m apart) and not connected (a comment at the end). **Connections:** two conveyors a
+        `connections:` entry; into a valve or pump that link's `from`; out of a link to a node,
+        or node to node, a `pipe` (`PIPE_101` on) at the ends' midpoint, its diameter from the
+        line number's size (25 mm), the link's `to` naming it. A parameter that names another
+        row's tag (`measures: TK-101.level`) is written with its scene id. Each binding is
+        `{tag, plc_tag}` with the I/O row's `range` and `units`. **Decisions beyond the
+        ruling:** (1) an equipment row's `type` defaults to `unknown`, so removing it makes a
+        stand-in; (2) a stand-in on a rail is placed where `place_on_rail` puts a photo eye; (3)
+        a type parameter with no default that the row does not give (a transmitter's
+        `measures`, a link's `from`) is a comment to fill in, and the row is reported unplaced,
+        since the scene cannot load until a person gives it; the note's "missing a required
+        parameter ... at its documented default" cannot arise, as a parameter with a default is
+        left to it; (4) `--in-scenes`, so a scaffold never lands among the shipped scenes by
+        accident. **The sample:** 32 rows, 25 placed, 4 assumed (EQ-1, EQ-8, EQ-12, EQ-13), 3
+        stand-in (EQ-5 AG-101 as `standin_ag_101`, IO-5 -> run, IO-6 -> running), exit 3; the
+        positions line lists 9 rows from L-001, 2 on CV-201's left rail and EQ-12 and EQ-13 in
+        scene metres with no layout sheet; the scene validates, and `openfactory lint` reports
+        15 warnings, all W201 and W202 ("no PLC side"), as expected with no program. Docs:
+        `docs/takeoff.md`. *Tests* (`tests/unit/test_scaffold.py`, 9): the sample's report and
+        counts, exit 3, the scene loading with AG-101's stand-in carrying `AG101.Run` and
+        `AG101.Running`, the six `# QUESTION` comments; lint only W201 and W202; PE-201 and
+        CYL-201 equal to `place_on_rail`'s output, (1.2, 0.1, 2.5) and (2.0, 0.1375, 2.2); the
+        positions line; LT-101 and PE-201 each with its `type` removed add one stand-in and keep
+        32 rows, and still load; two runs the same bytes; an existing file, `scenes/` and an
+        invalid takeoff refused with nothing written; a row with no position (the holding row,
+        3.15 + 1.5 m) and a conveyor-to-tank connection (not connected) reported, 33 = 33; a
+        clean takeoff exits 0.
   - [ ] 5.1c The sample drawing set (note §3.7): `docs/samples/wash-skid/` with P-001 and L-001
         as SVG drawn by us, `IO-001.csv` and the takeoff, and each sheet as a PNG rendered from
         its SVG (C) by `tools/render_sheets.py` through Playwright's Chromium (no image library).
