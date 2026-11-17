@@ -21,6 +21,13 @@ A DI binding may condition the component's raw output before the PLC sees it:
 
 Order: combine or window, then invert, then delays.
 
+Additions of PLAN 5.2a: a computed io's expression may name the composite's commands and its
+other computed io (``Transform.names``, name -> tag); each reads its tag's value as the I/O table
+holds it when the signal is evaluated, so a command reads as the PLC wrote it this tick and a
+computed io as written earlier this tick. Signals are evaluated in dependency order (a cycle is a
+load error, :mod:`openfactory.core.composite`). A computed io with ``kind: AI`` writes a number;
+a reading it cannot use that tick (a division by zero) keeps its last value.
+
 On a DO binding, ``invert: true`` makes the component act on the opposite of what the PLC wrote
 (:meth:`openfactory.core.component.Component.read`).
 
@@ -57,17 +64,38 @@ class _Signal:
     pending_s: float | None = None  # how long the input has differed from `state`
     expr: Expr | None = None  # a composite's computed DI (PLAN 2.16)
     unset: dict[str, float] = field(default_factory=dict)  # AI ports read 0.0 before a write
+    io: IOTable | None = None  # for names that read tags (PLAN 5.2a)
+    analog: bool = False  # a computed AI (PLAN 5.2a)
+    value: float = 0.0  # a computed AI's last value
+
+    def env(self) -> dict[str, object]:
+        raws = [comp.raw.get(port, self.unset.get(port, False)) for comp, port in self.sources]
+        env: dict[str, object] = dict(zip(self.transform.sources, raws, strict=True))
+        for name, tag in self.transform.names:  # a command or another computed io (5.2a)
+            value = self.io.get(tag)  # type: ignore[union-attr]
+            env[name] = value if isinstance(value, bool) else float(value)
+        return env
+
+    def number(self) -> float:
+        """A computed AI's value this tick; its last value when the reading cannot be used."""
+        try:
+            value = self.expr.evaluate(self.env())  # type: ignore[union-attr, arg-type]
+        except ExprError:
+            return self.value
+        if not isinstance(value, bool):
+            self.value = float(value)
+        return self.value
 
     def conditioned(self) -> bool:
-        raws = [comp.raw.get(port, self.unset.get(port, False)) for comp, port in self.sources]
         t = self.transform
         if self.expr is not None:
-            env = {ref: raw for ref, raw in zip(t.sources, raws, strict=True)}
             try:
-                on = bool(self.expr.evaluate(env))
+                on = bool(self.expr.evaluate(self.env()))  # type: ignore[arg-type]
             except ExprError:
                 on = False  # e.g. a division by a zero reading: the DI reads off that tick
-        elif t.window is not None:
+            return on != t.invert
+        raws = [comp.raw.get(port, self.unset.get(port, False)) for comp, port in self.sources]
+        if t.window is not None:
             value = float(raws[0])
             on = t.window[0] - _EPS <= value <= t.window[1] + _EPS
         elif t.combine == "and":
@@ -101,9 +129,10 @@ class TransformStage:
         signals = []
         for b in bindings:
             t = b.transform
-            if b.kind != "DI" or not t:
+            computed_ai = b.kind == "AI" and t.expr is not None  # PLAN 5.2a
+            if (b.kind != "DI" and not computed_ai) or not t:
                 continue
-            refs = t.sources or (f"{b.component_id}.{b.port.name}",)
+            refs = t.sources if t.expr else (t.sources or (f"{b.component_id}.{b.port.name}",))
             sources = [(by_id[ref.split(".")[0]], ref.split(".")[1]) for ref in refs]
             expr = parse(t.expr, refs=True) if t.expr else None
             unset = {
@@ -111,15 +140,41 @@ class TransformStage:
                 for comp, port in sources
                 if instance_ports(comp.config)[port].kind == "AI"
             }
-            signals.append(_Signal(b.name, t, sources, expr=expr, unset=unset))
-        return cls(io, signals)
+            signals.append(
+                _Signal(b.name, t, sources, expr=expr, unset=unset, io=io, analog=computed_ai)
+            )
+        return cls(io, _in_dependency_order(signals))
 
     def prime(self) -> None:
         """Settle every tag from the initial raw values, ignoring delays (load time)."""
         for s in self.signals:
+            if s.analog:
+                self.io.set(s.tag, s.number(), Writer.SIM)
+                continue
             s.state = s.conditioned()
             self.io.set(s.tag, s.state, Writer.SIM)
 
     def step(self, dt: float) -> None:
         for s in self.signals:
-            self.io.set(s.tag, s.step(dt), Writer.SIM)
+            self.io.set(s.tag, s.number() if s.analog else s.step(dt), Writer.SIM)
+
+
+def _in_dependency_order(signals: list[_Signal]) -> list[_Signal]:
+    """``signals`` with each computed io after the computed io it reads (PLAN 5.2a), otherwise in
+    their own order; cycles were refused at load."""
+    by_tag = {s.tag: s for s in signals}
+    out: list[_Signal] = []
+    placed: set[str] = set()
+
+    def place(s: _Signal) -> None:
+        if s.tag in placed:
+            return
+        placed.add(s.tag)
+        for _, tag in s.transform.names:
+            if tag in by_tag:
+                place(by_tag[tag])
+        out.append(s)
+
+    for s in signals:
+        place(s)
+    return out

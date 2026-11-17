@@ -1,0 +1,32 @@
+# PLAN 5.2a test scene (tests only, not shipped): a driven item no component covers, made as a
+# composite whose only part is a lamp. Its running feedback follows the start command and its
+# speed feedback follows the speed command while running; no part has a running output.
+# Training and demo use only. Not a safety-rated simulation.
+openfactory: "0.1"
+scene:
+  name: composite-additions
+  description: A drive with a start command, a running feedback and a speed feedback of its own.
+composites:
+  - type: lamp_drive
+    description: >-
+      A driven item with no component of its own: running follows the start command, and the
+      speed feedback follows the speed command while running and reads 0 when stopped.
+    parts:
+      - {id: lamp, type: pilot_light, description: Running Lamp, position: [0, 1.2, 0]}
+    io:
+      start: {command: DO}
+      speed: {command: AO, range: [0, 100], units: "%"}
+      running: {from: "start"}
+      speed_fb: {from: "speed if running else 0", kind: AI, range: [0, 100], units: "%"}
+    logic:
+      lamp.on: "start"
+components:
+  - id: MX_01
+    type: lamp_drive
+    description: Wash Tank Mixer Drive
+    position: [0, 0, 0]
+    io:
+      start: MX_01_RUN_DO
+      speed: MX_01_SPD_AO
+      running: MX_01_RUN_DI
+      speed_fb: MX_01_SPD_AI

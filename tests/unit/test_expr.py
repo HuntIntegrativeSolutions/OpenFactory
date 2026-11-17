@@ -68,7 +68,8 @@ def test_refs_are_listed_in_order():
         ("x[0]", "Subscript"),
         ("a.b.c", "not allowed"),
         ("lambda: 1", "Lambda"),
-        ("1 if a else 2", "IfExp"),
+        ("1 if a else 2", "the test of 'if ... else' takes true/false"),
+        ("1 if true else", "does not parse"),
         ("1 in a", "only < <= > >= == != compare"),
         ("~1", "unary"),
         ("1 +", "does not parse"),
@@ -170,3 +171,74 @@ def test_fuzz_numeric_part_fields_evaluate_or_raise_cleanly():
         assert isinstance(value, float) and math.isfinite(value), text
         outcomes["value"] += 1
     assert outcomes["value"] >= 20 and outcomes["error"] >= 50, outcomes
+
+
+# --- the conditional (PLAN 5.2a) ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("speed if running else 0", 40.0),
+        ("speed if not running else 0", 0.0),
+        ("1 if gate.raised else 2", 1.0),
+        ("true if dist.distance < 0.3 else false", False),
+        ("speed / dist.distance if dist.distance != 0 else 0", 80.0),
+        ("0 if running else 1 / 0", 0.0),  # the branch not taken is never evaluated
+        ("(1 if running else 2) + (3 if not running else 4)", 5.0),
+    ],
+)
+def test_conditional(text, expected):
+    env = {"speed": 40.0, "running": True, **PORTS, "dist.distance": 0.5}
+    assert parse(text, refs=True).evaluate(env) == expected
+
+
+def test_conditional_nested_50_deep_is_refused():
+    text = "1"
+    for _ in range(50):
+        text = f"(1 if true else {text})"
+    with pytest.raises(ExprError, match="the limit is 500"):  # 851 characters
+        parse(text, refs=True).evaluate({})
+    chained = "a if a else " * 50 + "1"  # 601 characters, 50 deep
+    with pytest.raises(ExprError):
+        parse(chained, refs=True).evaluate({"a": False})
+    short = "a if a else " * 41 + "1"  # under the length limit: the depth limit refuses it
+    assert len(short) < MAX_LENGTH
+    with pytest.raises(ExprError, match="nested deeper"):
+        parse(short, refs=True)
+    assert parse("a if a else " * 20 + "1", refs=True).evaluate({"a": False}) == 1.0
+
+
+def test_conditional_with_a_huge_literal_raises_expr_error():
+    huge = "9" * 400
+    for text in (f"{huge} if true else 0", f"0 if false else {huge}", "1e999 if true else 0"):
+        with pytest.raises(ExprError):
+            parse(text, refs=True).evaluate({})
+    assert parse(f"0 if true else {huge}", refs=True).evaluate({}) == 0.0
+
+
+def generated_with_if(rng: random.Random, depth: int = 0) -> str:
+    """:func:`generated`, with a conditional at some levels."""
+    if depth < 3 and rng.random() < 0.3:
+        a, t, b = (generated_with_if(rng, depth + 1) for _ in range(3))
+        return f"{a} if {t} else {b}"
+    return generated(rng, depth)
+
+
+def test_fuzz_conditionals_evaluate_or_raise_cleanly():
+    rng = random.Random(5021)
+    env = {"length": 2.0, "gap": 0.2, **PORTS}
+    outcomes = {"value": 0, "error": 0}
+    texts = {generated_with_if(rng) for _ in range(2000)}
+    assert sum(" if " in t for t in texts) >= 200
+    for text in sorted(texts):
+        try:
+            value = parse(text, refs=True).evaluate(env)
+        except ExprError:
+            outcomes["error"] += 1
+            continue
+        except Exception as exc:  # noqa: BLE001 - the point of the test
+            pytest.fail(f"{text!r} raised {type(exc).__name__}: {exc}")
+        assert isinstance(value, bool) or (isinstance(value, float) and math.isfinite(value)), text
+        outcomes["value"] += 1
+    assert outcomes["value"] >= 50 and outcomes["error"] >= 50, outcomes

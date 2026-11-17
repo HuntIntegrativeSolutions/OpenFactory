@@ -8,11 +8,16 @@ A composite's parts and I/O use small expressions, evaluated by this module, nev
   the result must be a finite number.
 - **Boolean**, in an I/O ``from:``: ``"gate.raised and not belt.running"``. ``part.port`` names a
   DI (true/false) or AI (a number, for comparisons) port of one of the composite's parts; the
-  result must be true or false.
+  result must be true or false. A plain name in an I/O ``from:`` is one of the composite's own
+  ``command`` io or another computed io (PLAN 5.2a, :mod:`openfactory.core.composite`).
+- **Numeric**, in an I/O ``from:`` with ``kind: AI`` (PLAN 5.2a): the same names and refs, and
+  the result must be a finite number.
 
 The grammar is numbers, ``true``/``false`` (or ``True``/``False``), names (parameters, or
 ``part.port`` references in a boolean expression), ``+ - * /``, unary ``-`` and ``+``,
-parentheses, comparisons ``< <= > >= == !=`` (chains allowed), and ``and``, ``or``, ``not``. There
+parentheses, comparisons ``< <= > >= == !=`` (chains allowed), ``and``, ``or``, ``not``, and the
+conditional ``A if TEST else B`` (PLAN 5.2a), whose test must be true or false; only the branch
+the test picks is evaluated, so ``x / y if y != 0 else 0`` never divides by zero. There
 are no function calls, attribute access beyond ``part.port``, subscripts, strings, or powers.
 Arithmetic takes numbers only, ``and``/``or``/``not`` take true/false only, and comparisons
 ``<``-``>=`` take numbers. The text is parsed with :func:`ast.parse` and every node is checked
@@ -154,6 +159,9 @@ def _check(node: ast.AST, text: str, refs: bool, names: list, found: list, depth
             raise ExprError(f"expression {text!r}: only < <= > >= == != compare")
         for value in (node.left, *node.comparators):
             _check(value, text, refs, names, found, nxt)
+    elif isinstance(node, ast.IfExp):  # PLAN 5.2a: A if TEST else B
+        for value in (node.test, node.body, node.orelse):
+            _check(value, text, refs, names, found, nxt)
     else:
         raise ExprError(f"expression {text!r}: {type(node).__name__} is not allowed")
 
@@ -202,6 +210,9 @@ def _eval(node: ast.AST, env: Mapping[str, Value], text: str) -> Value:
         what = "'and'" if isinstance(node.op, ast.And) else "'or'"
         values = [_bool(_eval(v, env, text), text, what) for v in node.values]
         return all(values) if isinstance(node.op, ast.And) else any(values)
+    if isinstance(node, ast.IfExp):
+        test = _bool(_eval(node.test, env, text), text, "the test of 'if ... else'")
+        return _eval(node.body if test else node.orelse, env, text)
     if isinstance(node, ast.Compare):
         left = _eval(node.left, env, text)
         for op, right_node in zip(node.ops, node.comparators, strict=True):

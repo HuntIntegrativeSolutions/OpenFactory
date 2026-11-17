@@ -468,3 +468,36 @@ A composite can carry its own control, join its own conveyors, and live in a sha
   zone ahead empties. It exposes `release` and `zone1_eye` to `zone4_eye` (DI). Example:
   `scenes/examples/accumulation-demo.yaml` with its script (not a shipped scene; a scene in
   `tests/scenes/` would not find `scenes/_library/`).
+
+### Commands and computed io in expressions, AI io, the conditional (PLAN 5.2a)
+
+A composite can stand for a drawing item no component covers, with behaviour of its own:
+
+```yaml
+    io:
+      start: {command: DO}
+      speed: {command: AO, range: [0, 100], units: "%"}
+      running: {from: "start"}                                  # no part has a running output
+      speed_fb: {from: "speed if running else 0", kind: AI, range: [0, 100], units: "%"}
+```
+
+- **Names in an io expression.** Beside `part.port` refs, an io `from:` expression may name the
+  composite's own `command` io and its other expression io. A command reads as its tag holds it
+  that tick (as the PLC last wrote it); an expression io reads as its own tag, written earlier in
+  the same tick, so `speed_fb` sees `running` after `running`'s own delays. Expression io are
+  evaluated in the order they read each other; a cycle (`a <- b <- a`) is a load error naming
+  it. An instance must bind an expression io another one reads.
+- **`{command: AO, range, units}`**: a numeric command, as `command: DO`; `logic:` and io
+  expressions read it as a number.
+- **`kind: AI`** with `range` (and `units`) on an expression io: the result must be a number,
+  and the tag is an AI. A reading it cannot use that tick (a division by zero) keeps its last
+  value. `kind: DI`, the default, must give true or false; both are checked at load with typed
+  readings, each true/false reading tried both ways.
+- **The conditional** `A if TEST else B`: the test must be true or false, and only the branch it
+  picks is evaluated, so `x / y if y != 0 else 0` never divides by zero.
+- **Start delay**: the instance's binding of a DI expression io takes `on_delay_s` and
+  `off_delay_s` (PLAN 2.17) as any computed DI: `running: {tag: MX_01_RUN_DI, on_delay_s: 2.0}`.
+- An expression with no `part.port` ref belongs to the composite's first part in the I/O list.
+- The new keys are YAML lines for now: the editor's form does not edit a composite's
+  definition.
+- Example: `tests/scenes/composite-additions.yaml`.

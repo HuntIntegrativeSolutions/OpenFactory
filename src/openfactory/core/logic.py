@@ -63,8 +63,9 @@ class LogicStage:
                 ref: comp.raw.get(port, 0.0 if analog else False)
                 for ref, comp, port, analog in d.refs
             }
-            for name, tag in d.commands.items():
-                env[name] = bool(self.io.get(tag))
+            for name, tag in d.commands.items():  # DO true/false, AO a number (PLAN 5.2a)
+                value = self.io.get(tag)
+                env[name] = value if isinstance(value, bool) else float(value)
             try:
                 value = bool(d.expr.evaluate(env))
             except ExprError:

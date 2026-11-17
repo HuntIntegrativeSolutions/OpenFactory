@@ -3478,7 +3478,7 @@ trusts it.
       commands in io expressions, numeric `kind: AI` io and a conditional expression (composite
       additions), `lag_s` on an AI binding (a 2.17 transform), and the 5.11 `scenery` primitive
       brought forward for the body; no `machine` primitive.
-  - [ ] 5.2a Composite additions: command names in io expressions, `command: AO`, `kind: AI`
+  - [x] 5.2a Composite additions: command names in io expressions, `command: AO`, `kind: AI`
         numeric io, the conditional expression, computed io reading computed io (cycles
         refused).
         *Done when:* a scene's composite reports `running` one tick after `start` with no part
@@ -3486,6 +3486,42 @@ trusts it.
         a `speed_fb` AI follows `speed` while running and reads 0 when stopped; a cycle
         `a <- b <- a` is a load error naming it; `test_expr.py`'s generated expressions still
         raise only `ExprError`.
+        *Done (2026-11-16):* **Grammar** (`core/expr.py`): the conditional `A if TEST else B`
+        is the only new node; its test must be true or false and only the branch it picks is
+        evaluated, so `x / y if y != 0 else 0` is safe; every other rule is as before.
+        **Composites** (`core/composite.py`, `CompositeIo`): `command: AO` with `range` and
+        `units`; `kind: AI` with `range` (and `units`) on an expression io; an io expression may
+        name the composite's commands and its other expression io by io name. **Decisions:** (1)
+        a command reads as its tag holds it when the transform stage runs (the PLC's write that
+        tick) and an expression io as its own tag, written earlier the same tick, so a feedback
+        sees the other io after its delays (`speed_fb` follows the delayed `running` the PLC
+        sees); the stage evaluates signals in dependency order, and `_check_cycles_in_io`
+        refuses a cycle at load, "io expressions read each other: a <- b <- a". (2) `_probe`
+        now types a result as the io's kind (DI true/false, AI a number) and tries each
+        true/false reading both ways, so both branches of a conditional are typed at load; an AO
+        command probes as a number, in `logic:` too, where `LogicStage` now reads an AO command
+        as a number instead of `bool()`. (3) A computed AI keeps its last value on a reading it
+        cannot use (a division by zero); a computed DI reads false, as before. (4) An expression
+        with no part ref belongs to the composite's first part (it had no owner before). (5) A
+        command binding may be a mapping (5.3a) and is validated as a DO or AO binding; the
+        command's I/O list description is unchanged, so the accumulation demo's exports did
+        not move. The Done-when scene is `tests/scenes/composite-additions.yaml`: `lamp_drive`,
+        whose only part is a pilot light, with `start` (DO), `speed` (AO), `running: {from:
+        "start"}` and `speed_fb: {from: "speed if running else 0", kind: AI}`. Docs:
+        `docs/scene-format.md`, a section; the keys are YAML lines for now (the editor's form
+        does not edit a composite's definition). *Tests*
+        (`tests/unit/test_composite_additions.py`, 14; `tests/unit/test_expr.py`, 11 more):
+        the PLC reads `running` one tick after writing `start`, from no part's output, and 101
+        ticks after with `on_delay_s: 2.0` (100 more at 50 Hz); `speed_fb` reads 0 stopped,
+        40 and then 75.5 running, 0 stopped again, and with a 0.1 s start delay stays 0 for the
+        5 ticks `running` does; the four tags export as DO, AO, DI and AI owned by `MX_01_LAMP`
+        with their ranges; `a <- b <- a` and `a <- a` are load errors naming the cycle; eight
+        more load errors; an AO command read by `logic:`; the conditional's values, branch not
+        taken, a conditional 50 deep refused (851 characters over the length limit; chained 41
+        deep under it, refused by the depth limit), a huge literal (400 digits, `1e999`)
+        raising `ExprError`, and 2,000 generated expressions with conditionals raising only
+        `ExprError`, beside the existing fuzz, unchanged. Shipped scenes: `build_kit.py
+        --check` current, `test_runs_unchanged.py` passes, `migrate --check` current.
   - [ ] 5.2b `lag_s` on an AI binding, in `TransformStage`, with the transmitter's
         discretization.
         *Done when:* a step from 0 to 100 through `lag_s: 4` reads within 0.5 of 63.2 at 4 s and

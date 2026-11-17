@@ -272,8 +272,10 @@ class Transform:
     combine: str | None = None
     sources: tuple[str, ...] = ()  # COMPONENT.port, for combine (and the refs of `expr`)
     window: tuple[float, float] | None = None
-    #: A composite's computed DI (PLAN 2.16): a boolean expression over ``sources``.
+    #: A composite's computed io (PLAN 2.16): an expression over ``sources``.
     expr: str | None = None
+    #: Plain names in ``expr`` and the tags they read: a command or another computed io (5.2a).
+    names: tuple[tuple[str, str], ...] = ()
 
     def __bool__(self) -> bool:
         return self != Transform()
@@ -1497,16 +1499,37 @@ class CompositeIo(StrictModel):
         'DI/AI ports, e.g. "gate.raised and not belt.running" (a computed DI).',
     )
     invert: bool = Field(False, description="With `to` on a DO: the part acts on the opposite.")
-    command: Literal["DO"] | None = Field(
+    command: Literal["DO", "AO"] | None = Field(
         None,
-        description="A PLC command (DO) read only by the composite's logic: block, by its io "
-        "name (PLAN 2.5b); no part port is bound to it.",
+        description="A PLC command no part port is bound to, read by the composite's logic: "
+        "block and io expressions by its io name (PLAN 2.5b, 5.2a): DO true/false, or AO a "
+        "number with `range` and `units`.",
+    )
+    kind: Literal["DI", "AI"] | None = Field(
+        None,
+        description="With an expression `from`: DI (the default) for a true/false result, or AI "
+        "for a numeric one with `range` and `units` (PLAN 5.2a).",
+    )
+    range: tuple[float, float] | None = Field(
+        None, description="[lo, hi] of an AO command or an AI expression io (PLAN 5.2a)."
+    )
+    units: Annotated[str, StringConstraints(max_length=16)] | None = Field(
+        None, description="Units of an AO command or an AI expression io (PLAN 5.2a)."
     )
 
     @model_validator(mode="after")
     def _one_direction(self) -> CompositeIo:
         if sum(v is not None for v in (self.to, self.from_, self.command)) != 1:
             raise ValueError("a composite io entry has exactly one of `to`, `from` or `command`")
+        if self.kind is not None and self.from_ is None:
+            raise ValueError("`kind` goes with an expression `from`")
+        analog = self.command == "AO" or self.kind == "AI"
+        if analog and self.range is None:
+            raise ValueError("an AO command or an AI expression io needs `range: [lo, hi]`")
+        if not analog and (self.range is not None or self.units is not None):
+            raise ValueError("`range` and `units` are for an AO command or an AI expression io")
+        if self.range is not None and not self.range[0] < self.range[1]:
+            raise ValueError("range [lo, hi] needs lo < hi")
         return self
 
 
@@ -1895,24 +1918,30 @@ class Scene(StrictModel):
         self._instance_type = expansion.instance_type
         self._libraries = expansion.libraries
         self._logic = expansion.logic
-        for after, name, binding, owner in expansion.commands:
-            spec = PortSpec(name, "DO", f"{name}: command read by the composite's logic", False,
-                            None, None)  # fmt: skip
-            command = TagBinding(binding_tag(binding), "DO", after, spec,
+        for after, name, binding, owner, io_spec in expansion.commands:
+            kind = io_spec.command
+            rng = tuple(io_spec.range) if io_spec.range else None
+            spec = PortSpec(name, kind, f"{name}: command read by the composite's logic",
+                            False, rng, io_spec.units)  # fmt: skip
+            command = TagBinding(binding_tag(binding), kind, after, spec,
                                  binding_address(binding), binding_initial(binding),
                                  tag_description=f"{owner} — {name} command",
                                  plc_tag=binding_plc_tag(binding))  # fmt: skip
             self._computed.setdefault(after, []).append(command)
-        for after, name, binding, text, local in expansion.computed:
-            t = binding_transform(binding)
-            refs = parse(text, refs=True).refs
-            spec = PortSpec(name, "DI", f"{name}: {local}", False, None, None)
-            computed = TagBinding(binding_tag(binding), "DI", refs[0].split(".")[0], spec,
-                                  binding_address(binding), None,
-                                  replace(t, sources=refs, expr=text),
-                                  getattr(binding, "exam", None) == "switch",
-                                  plc_tag=binding_plc_tag(binding))  # fmt: skip
-            self._computed.setdefault(after, []).append(computed)
+        for c in expansion.computed:
+            t = binding_transform(c.binding)
+            refs = parse(c.text, refs=True).refs
+            kind = c.spec.kind or "DI"
+            rng = tuple(c.spec.range) if c.spec.range else None
+            spec = PortSpec(c.name, kind, f"{c.name}: {c.local}", False, rng, c.spec.units)
+            computed = TagBinding(binding_tag(c.binding), kind, c.owner, spec,
+                                  binding_address(c.binding), None,
+                                  replace(t, sources=refs, expr=c.text,
+                                          names=tuple(c.names.items())),
+                                  getattr(c.binding, "exam", None) == "switch",
+                                  units_label=binding_units_label(c.binding),
+                                  plc_tag=binding_plc_tag(c.binding))  # fmt: skip
+            self._computed.setdefault(c.after, []).append(computed)
         return self
 
     @model_validator(mode="after")

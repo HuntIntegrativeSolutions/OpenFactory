@@ -45,6 +45,20 @@ Additions of PLAN 2.5b:
   ``openfactory.toml`` or ``.git``; with none, the scene's folder only; :func:`library_folders`,
   PLAN 4.1c fix 5); the files used are listed for bundles (PLAN 2.18).
 
+Additions of PLAN 5.2a (ruled 2026-11-15, design note §2.2):
+
+- ``name: {command: AO, range: [lo, hi], units: U}``: a numeric command, as ``command: DO``.
+- An io expression (``from: "<expression>"``) may name the composite's own ``command`` io and
+  its other expression io by their io names, beside parts' ``part.port`` refs. A command reads
+  as its tag's value that tick (as the PLC last wrote it); an expression io reads as its own
+  tag's value that tick, so expression io are evaluated in dependency order, and a cycle
+  (``a <- b <- a``) is a load error naming it.
+- ``kind: AI`` with ``range`` (and ``units``) on an expression io: a numeric result, an AI tag;
+  ``kind: DI`` (the default) is true/false. Both use the grammar's conditional, ``speed if
+  running else 0``.
+- An expression with no ``part.port`` ref (``running: {from: "start"}``) belongs to the
+  composite's first part in the exports.
+
 Load errors, each naming what is wrong: an unknown or duplicate type, a type that shadows a
 built-in, a recursive definition (the cycle is named, ``a -> b -> a``), nesting more than one
 level, a part ``io``, an ``io`` entry naming an unknown part or port or a port of the wrong
@@ -89,6 +103,20 @@ class LogicDrive:
     commands: dict[str, str]  # command io name -> the instance's tag
 
 
+@dataclass(frozen=True)
+class Computed:
+    """One computed io of an instance, after expansion (PLAN 2.16, 5.2a)."""
+
+    after: str  # expanded component id the tag is listed after
+    name: str  # io name
+    binding: Any  # the instance's binding, validated as a DI or AI binding
+    text: str  # the expression with expanded part refs
+    local: str  # the expression as the composite wrote it
+    spec: Any  # the composite's CompositeIo
+    names: dict[str, str]  # plain name in the expression -> the tag it reads (PLAN 5.2a)
+    owner: str  # expanded component id that owns the tag in the exports
+
+
 @dataclass
 class Expansion:
     """What :func:`expand` adds to a scene besides its flat component list."""
@@ -97,12 +125,11 @@ class Expansion:
     composite_of: dict[str, str] = field(default_factory=dict)
     #: Top-level instance id -> its composite type.
     instance_type: dict[str, str] = field(default_factory=dict)
-    #: Computed DIs (expression ``from:``): (after component id, io name, binding, expanded
-    #: expression, the expression as the composite wrote it).
-    computed: list[tuple[str, str, Any, str, str]] = field(default_factory=list)
+    #: Computed io (expression ``from:``, PLAN 2.16 and 5.2a).
+    computed: list[Computed] = field(default_factory=list)
     #: Command io (PLAN 2.5b): (owner part id, io name, the instance's binding, the instance's
-    #: description).
-    commands: list[tuple[str, str, Any, str]] = field(default_factory=list)
+    #: description, the composite's CompositeIo).
+    commands: list[tuple[str, str, Any, str, Any]] = field(default_factory=list)
     #: Part ports driven by logic: blocks (PLAN 2.5b).
     logic: list[LogicDrive] = field(default_factory=list)
     #: Connections between composites' own parts, expanded ids (PLAN 2.5b).
@@ -129,7 +156,7 @@ def ports_of(type_name: str, defs: dict[str, CompositeDef]) -> dict[str, str]:
         sub = ports_of(inner["type"], defs).get(port) if inner and SINGLE_REF.match(
             spec.to or spec.from_ or ""
         ) else None  # fmt: skip
-        kinds[name] = sub or "DI"  # an expression is a DI
+        kinds[name] = sub or spec.kind or "DI"  # an expression is a DI unless `kind: AI`
     return kinds
 
 
@@ -198,9 +225,46 @@ def _check_cycles(defs: dict[str, CompositeDef]) -> None:
         walk(type_name, [type_name])
 
 
+def expression_io(d: CompositeDef) -> dict[str, str]:
+    """A composite's expression io: name -> its kind (DI or AI)."""
+    return {
+        name: spec.kind or "DI"
+        for name, spec in d.io.items()
+        if spec.from_ is not None and not SINGLE_REF.match(spec.from_)
+    }
+
+
+def _own_names(d: CompositeDef) -> dict[str, str]:
+    """Plain names an io expression may read (PLAN 5.2a): commands and expression io, by the
+    kind they are probed with (a DO command or a DI reads true/false, AO and AI a number)."""
+    out = {n: ("DI" if s.command == "DO" else "AI") for n, s in d.io.items() if s.command}
+    out.update(expression_io(d))
+    return out
+
+
+def _check_cycles_in_io(d: CompositeDef) -> None:
+    """An expression io reading itself, directly or through others, is a load error naming the
+    cycle as ``a <- b <- a`` (each reads the next)."""
+    reads = {}
+    for name in expression_io(d):
+        expr = parse(d.io[name].from_ or "", refs=True)
+        reads[name] = [n for n in expr.names if n in expression_io(d)]
+
+    def walk(name: str, path: list[str]) -> None:
+        for nxt in reads[name]:
+            if nxt in path:
+                cycle = " <- ".join([*path[path.index(nxt) :], nxt])
+                raise ValueError(f"composite {d.type}: io expressions read each other: {cycle}")
+            walk(nxt, [*path, nxt])
+
+    for name in reads:
+        walk(name, [name])
+
+
 def _check_io(d: CompositeDef, defs: dict[str, CompositeDef]) -> None:
     parts = {p["id"]: p for p in d.parts}
     driven: dict[str, str] = {}
+    own = _own_names(d)
     for name, spec in d.io.items():
         where = f"composite {d.type}: io.{name}"
         if spec.command:
@@ -209,6 +273,8 @@ def _check_io(d: CompositeDef, defs: dict[str, CompositeDef]) -> None:
         single = SINGLE_REF.match(text)
         if spec.to and not single:
             raise ValueError(f"{where}: `to` must name one part port, like belt.run")
+        if spec.kind is not None and single:
+            raise ValueError(f"{where}: `kind` is for an expression; a pass-through has its port's")
         refs = [single.groups()] if single else []
         expr = None
         if spec.from_ and not single:
@@ -216,8 +282,13 @@ def _check_io(d: CompositeDef, defs: dict[str, CompositeDef]) -> None:
                 expr = parse(text, refs=True)
             except ExprError as exc:
                 raise ValueError(f"{where}: {exc}") from None
-            if expr.names:
-                raise ValueError(f"{where}: {expr.names[0]!r} is not a part.port reference")
+            unknown = [n for n in expr.names if n not in own]
+            if unknown:
+                known = ", ".join(sorted(own)) or "none"
+                raise ValueError(
+                    f"{where}: {unknown[0]!r} is not a part.port reference, a command or an "
+                    f"expression io of {d.type} (its commands and expression io: {known})"
+                )
             refs = [r.split(".") for r in expr.refs]
         for part_id, port in refs:
             if part_id not in parts:
@@ -238,7 +309,8 @@ def _check_io(d: CompositeDef, defs: dict[str, CompositeDef]) -> None:
                 raise ValueError(f"{where}: an expression reads built-in parts' ports only")
         if expr is not None:
             kinds = {f"{p}.{port}": ports_of(parts[p]["type"], defs)[port] for p, port in refs}
-            _probe(expr, kinds, where)
+            kinds.update({n: own[n] for n in expr.names})
+            _probe(expr, kinds, where, spec.kind or "DI")
         if spec.invert and (
             not spec.to or ports_of(parts[refs[0][0]]["type"], defs)[refs[0][1]] != "DO"
         ):
@@ -248,6 +320,7 @@ def _check_io(d: CompositeDef, defs: dict[str, CompositeDef]) -> None:
             if target in driven:
                 raise ValueError(f"{where}: {target} is already bound by io.{driven[target]}")
             driven[target] = name
+    _check_cycles_in_io(d)
     for target in _check_logic(d, defs, driven):
         driven[target] = f"logic {target}"
     _check_connections(d)
@@ -302,7 +375,8 @@ def _check_logic(
                 f"{where}: {unknown[0]!r} is not a command io of {d.type} (commands: {known}); "
                 "use part.port for a part's DI/AI"
             )
-        kinds_of_refs: dict[str, str] = dict.fromkeys(expr.names, "DI")
+        # a DO command reads true/false and an AO command a number (PLAN 5.2a)
+        kinds_of_refs = {n: ("AI" if d.io[n].command == "AO" else "DI") for n in expr.names}
         for ref in expr.refs:
             ref_part, ref_port = ref.split(".")
             if ref_part not in parts or parts[ref_part]["type"] not in COMPONENT_MODELS:
@@ -405,22 +479,36 @@ def _library(name: str, scene_dir: Path | None) -> tuple[CompositeDef, Path]:
 _PROBES = (0.5371, 1.9213)
 
 
-def _probe(expr: Any, kinds: dict[str, str], where: str) -> None:
-    """Evaluate a computed DI once with typed readings (DI true, AI a number): a type error or a
-    result that is not true/false is a load error, not a DI that silently reads false."""
+def _probe(expr: Any, kinds: dict[str, str], where: str, want: str = "DI") -> None:
+    """Evaluate a computed io once with typed readings (DI true, AI a number): a type error, or a
+    result that is not true/false for a DI or not a number for an AI (PLAN 5.2a), is a load
+    error, not an io that silently reads false. Each true/false reading is tried both ways, so a
+    conditional's two branches are both typed."""
+    flags = [n for n, kind in kinds.items() if kind in ("DI", "DO")]
+    evaluated = False
     for reading in _PROBES:
-        env = {ref: (True if kind == "DI" else reading) for ref, kind in kinds.items()}
-        try:
-            value = expr.evaluate(env)
-        except ExprError as exc:
-            if "division by zero" in str(exc):
-                continue
-            raise ValueError(f"{where}: {exc}") from None
-        if not isinstance(value, bool):
-            raise ValueError(
-                f"{where}: {expr.text!r} gives a number; a DI needs true/false "
-                "(compare it, e.g. `dist.distance < 0.3`)"
-            )
+        for flip in (False, True) if flags else (False,):
+            env = {
+                ref: ((not flip) if kind in ("DI", "DO") else reading)
+                for ref, kind in kinds.items()
+            }
+            try:
+                value = expr.evaluate(env)
+            except ExprError as exc:
+                if "division by zero" in str(exc):
+                    continue
+                raise ValueError(f"{where}: {exc}") from None
+            if want == "DI" and not isinstance(value, bool):
+                raise ValueError(
+                    f"{where}: {expr.text!r} gives a number; a DI needs true/false "
+                    "(compare it, e.g. `dist.distance < 0.3`, or give the io `kind: AI`)"
+                )
+            if want == "AI" and isinstance(value, bool):
+                raise ValueError(
+                    f"{where}: {expr.text!r} gives true/false; a `kind: AI` io needs a number"
+                )
+            evaluated = True
+    if evaluated:
         return
     raise ValueError(f"{where}: {expr.text!r} divides by zero for every reading")
 
@@ -502,7 +590,7 @@ def _instance(
     defs: dict[str, CompositeDef],
     out: Expansion,
 ) -> list[Any]:
-    from openfactory.core.schema import Component, DiTag, DoTag
+    from openfactory.core.schema import AiTag, AoTag, Component, DiTag, DoTag
 
     d = defs[type_name]
     where = f"{inst_id} ({type_name})"
@@ -579,13 +667,14 @@ def _instance(
         built.append(model)
     commands = {name: io[name] for name, spec in d.io.items() if spec.command}
     for name, binding in commands.items():  # a mapping too, {tag, plc_tag, ...} (PLAN 5.3a)
+        kind = d.io[name].command
         try:
-            commands[name] = TypeAdapter(DoTag).validate_python(binding)
+            commands[name] = TypeAdapter(DoTag if kind == "DO" else AoTag).validate_python(binding)
         except ValidationError as exc:
-            raise ValueError(f"{where}: io.{name} is a command (DO): {exc}") from None
+            raise ValueError(f"{where}: io.{name} is a command ({kind}): {exc}") from None
     if commands and built:
         for name, binding in commands.items():
-            out.commands.append((built[0].id, name, binding, description))
+            out.commands.append((built[0].id, name, binding, description, d.io[name]))
     from openfactory.core.schema import binding_tag
 
     command_tags = {name: binding_tag(binding) for name, binding in commands.items()}
@@ -597,14 +686,31 @@ def _instance(
         )
     for conn in d.connections:
         out.connections.append((f"{inst_id}_{conn.from_.upper()}", f"{inst_id}_{conn.to.upper()}"))
-    for name, spec in d.io.items():
+    computed = {}
+    for name, kind in expression_io(d).items():
         binding = io.get(name)
-        if binding is None or not spec.from_ or SINGLE_REF.match(spec.from_):
+        if binding is None:
             continue
         try:
-            binding = TypeAdapter(DiTag).validate_python(binding)
+            computed[name] = TypeAdapter(DiTag if kind == "DI" else AiTag).validate_python(binding)
         except ValidationError as exc:
-            raise ValueError(f"{where}: io.{name} is a computed DI: {exc}") from None
-        text = _REF_IN_TEXT.sub(lambda m: f"{inst_id}_{m[1].upper()}.{m[2]}", spec.from_)
-        out.computed.append((built[-1].id, name, binding, text, spec.from_))
+            raise ValueError(f"{where}: io.{name} is a computed {kind}: {exc}") from None
+    # PLAN 5.2a: a plain name in an io expression reads that command's or io's tag
+    tags = {**command_tags, **{n: binding_tag(b) for n, b in computed.items()}}
+    for name, binding in computed.items():
+        spec = d.io[name]
+        local = spec.from_ or ""
+        names = parse(local, refs=True).names
+        unbound = [n for n in names if n not in tags]
+        if unbound:
+            raise ValueError(
+                f"{where}: io.{name} reads io.{unbound[0]}, which this instance leaves unbound"
+            )
+        text = _REF_IN_TEXT.sub(lambda m: f"{inst_id}_{m[1].upper()}.{m[2]}", local)
+        refs = parse(text, refs=True).refs
+        owner = refs[0].split(".")[0] if refs else built[0].id
+        out.computed.append(
+            Computed(built[-1].id, name, binding, text, local, spec, {n: tags[n] for n in names},
+                     owner)
+        )  # fmt: skip
     return built

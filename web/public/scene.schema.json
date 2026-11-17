@@ -1047,7 +1047,10 @@
         "command": {
           "anyOf": [
             {
-              "const": "DO",
+              "enum": [
+                "DO",
+                "AO"
+              ],
               "type": "string"
             },
             {
@@ -1055,8 +1058,62 @@
             }
           ],
           "default": null,
-          "description": "A PLC command (DO) read only by the composite's logic: block, by its io name (PLAN 2.5b); no part port is bound to it.",
+          "description": "A PLC command no part port is bound to, read by the composite's logic: block and io expressions by its io name (PLAN 2.5b, 5.2a): DO true/false, or AO a number with `range` and `units`.",
           "title": "Command"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "DI",
+                "AI"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "With an expression `from`: DI (the default) for a true/false result, or AI for a numeric one with `range` and `units` (PLAN 5.2a).",
+          "title": "Kind"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "[lo, hi] of an AO command or an AI expression io (PLAN 5.2a).",
+          "title": "Range"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Units of an AO command or an AI expression io (PLAN 5.2a).",
+          "title": "Units"
         }
       },
       "title": "CompositeIo",
