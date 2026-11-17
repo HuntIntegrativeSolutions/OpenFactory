@@ -90,6 +90,14 @@ for scene in scenes/*.yaml; do
   echo "--- $name"
   uv run openfactory test "$scene" --script "examples/pyplc/$name.py" -q
 done
+# the example scenes under scenes/examples/, each with its stand-in script beside it (added
+# 2026-11-16, review of 996e1c8): they are shipped scenes too (PLAN §9 rule 13)
+for scene in scenes/examples/*.yaml; do
+  case "$scene" in *.modbus.yaml) continue ;; esac
+  name="$(basename "$scene" .yaml)"
+  echo "--- examples/$name"
+  uv run openfactory test "$scene" --script "scenes/examples/$name.py" -q
+done
 
 step "web: npm ci, npm run build, npm test"
 node --version

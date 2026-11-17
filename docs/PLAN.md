@@ -2825,6 +2825,23 @@ runs the sorting program against it; a box visibly gets pushed.
         `test_sceneedit.py` (+1: the sorter's parts set whole keeps the block, comments and an
         exact undo; a block mapping; an emptied list). Screenshots `editor-fix-rename-refused.png`,
         `editor-fix-draft-kept.png` looked at.
+  - [ ] 4.1k The form edits the keys that are YAML-only today (added 2026-11-16, review of
+        996e1c8): a binding's `plc_tag` (5.3a) and `lag_s` (5.2b), `scene.area` and
+        `plc.heartbeat_plc_tag` (5.3a), the composite io additions in a scene's own `composites:`
+        definitions (`command: AO`, `kind: AI`, `range`, `units`, command and io names in a
+        `from` expression; 5.2a), `scenery`'s `size` and `color` (5.2c), and a composite
+        instance's `mesh` (5.2c). Today each is a YAML line the form keeps as written and does
+        not show.
+        *Done when:* a Playwright test opens a scene in the editor and, through the form only,
+        sets a `plc_tag` of each form (controller, program, member, bit) and sees W215 appear
+        and clear as one binding is left without and then given one; sets `lag_s` on an AI
+        binding and `scene.area`; adds an AO command and a `kind: AI` io to a scene composite,
+        with its range, and an instance binding them; sets a `scenery`'s size and colour and
+        sees the box redrawn; picks a mesh for a `variable_item` instance and sees it drawn;
+        saves, and the file reloads with each value and every comment it had; a malformed
+        `plc_tag`, a `kind: AI` with no range and a mesh on a composite with no scenery part
+        are refused in the form with the load error's text, and nothing is written. Screenshots
+        looked at.
 - [x] 4.2 CC-BY GLTF models for the top ten components; `ATTRIBUTION.md`
       *Defined (ruled 2026-11-07):* models authored by our own scripts or taken from CC0/CC-BY
       sources with attribution, each under the 1 MB rule with a license sidecar, drawn through
@@ -3580,8 +3597,8 @@ trusts it.
         `models/mixer-drive.glb` (ours, 14,900 bytes, built from boxes and cylinders by
         `tools/make_item_mesh.py` with `make_models.py`'s writer; CC-BY-4.0 sidecar;
         THIRD_PARTY.md and ATTRIBUTION.md regenerated), a 2 s start delay and a 4 s lag on its
-        speed feedback. It lints with no finding under its script. It is a new scene under
-        `scenes/`, so §9 rule 13 holds it by a new reference, `tests/references/
+        speed feedback. It lints with no finding under its script. It is a new scene in
+        `scenes/examples/` (beside `accumulation-demo`), so §9 rule 13 holds it by a new reference, `tests/references/
         variable-item-demo.run` (new, not a renewal), and `test_runs_unchanged.py` counts 14
         scenes. **Screenshots** (`tools/screenshot.py`, at 8 s, looked at): with the mesh, `MX_01`
         is a plain grey box and `MX_02` a geared drive on a base plate (gearbox block, motor
@@ -3599,6 +3616,13 @@ trusts it.
         `docs/components.md` (a Scenery section), `docs/scene-format.md` (the two composites),
         the §5 table row; the JSON Schema regenerated. Kits current; the other run references
         unchanged.
+        *Ruled 2026-11-16 (owner, review of 996e1c8):* the five decisions made beyond the
+        rulings in 5.2a and 5.2c are confirmed as built: (1) an instance's `mesh:` goes to its
+        composite's one `scenery` part; (2) `driven_item`'s and `variable_item`'s `running` is
+        `hoa.pos_a or (start and hoa.pos_b)`; (3) an io expression with no part reference
+        belongs to the composite's first part in the exports; (4) AO commands read as numbers in
+        `logic:`; (5) the load-time type check tries each true/false reading both ways, so both
+        branches of a conditional are typed.
 - [ ] 5.3 The plant's tag names. `plc_tag:` per binding (§6.2, named but not built), so a scene
       port maps to the plant's tag or UDT member, and an area prefix per scene.
       *Done when:* the I/O CSV, the L5X and the SCADA tag export carry the plant's names, the
@@ -4138,7 +4162,9 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
    `tests/references/<scene>.run`, its check results and one digest per recorded line
    (`tools/run_reference.py`, checked by `tests/integration/test_runs_unchanged.py`, which also
    fails if a scene has neither). Today that is `accumulation-demo` and, since 2026-11-16,
-   `variable-item-demo` (PLAN 5.2c, a new scene: its reference is new, not a renewal). **A reference is
+   `variable-item-demo` (PLAN 5.2c, a new scene: its reference is new, not a renewal). Since 2026-11-16 CI's
+   `openfactory test` loop also runs each scene in `scenes/examples/` under the script beside
+   it at 60 s (about 10 s for the two). **A reference is
    renewed only when the change to the run is intended, and the owner rules that it is.** The
    renewal (`build_kit.py` for a kit, `run_reference.py --update <scene>` for a reference) goes
    in the commit that changes the run, never in a later "refresh" commit, and that commit's body
