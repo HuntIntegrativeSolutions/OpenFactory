@@ -14,6 +14,23 @@ and changes nothing else. Each name is checked against the Logix name rule
 description, plus ``[lo to hi units]`` for an analog tag, and ``ExternalAccess="Read/Write"``
 because the simulator (or Modbus mapping logic) writes the inputs and reads the outputs.
 
+**The plant's names (PLAN 5.3a).** A row with a ``plc_tag`` names a tag the plant's program
+already has, so the stub follows the name's form (:mod:`openfactory.core.plctag`):
+
+- a controller-scope name (``LT101_PV``): one controller ``Base`` tag of that name;
+- a program-scope name (``Program:Transfer.P101_Run``): one tag of that name in that program's
+  ``<Tags>``, under ``<Programs><Program Use="Context" Name="Transfer">``;
+- a structure member, an array element or a bit (``CV201.Running``, ``Word[3]``,
+  ``Line2_DI_Word.4``): **not declared**, because it is part of a tag the plant's program
+  declares with a type the stub cannot know. Each is listed in an XML comment at the top of the
+  file, with its scene tag, and ``openfactory export`` prints their count on standard error.
+
+``--prefix`` applies only to rows without a ``plc_tag`` (a plant name is already the plant's full
+name), and it defaults to the scene's ``scene.area`` when there is one. A row's ``plc_tag`` is
+checked by the shape of :func:`~openfactory.core.plctag.parse_plc_tag` at load; the controller's
+own length and case rules are not checked yet (PLAN 5.3a blocker). A scene with no ``plc_tag``
+and no ``scene.area`` gives exactly the file it gave before 5.3a.
+
 The root is ``RSLogix5000Content`` with ``SchemaRevision="1.0"``, ``SoftwareRevision="35.00"``
 (default), ``TargetType="Controller"`` and ``ContainsContext="true"``, the controller wrapped as
 ``Use="Context"`` so Studio 5000 imports only the tags. The L5X format reference is Rockwell
@@ -38,8 +55,9 @@ from pathlib import Path
 from xml.sax.saxutils import quoteattr
 
 from openfactory.core.loader import build_iotable
+from openfactory.core.plctag import DECLARED, PlcTag, parse_plc_tag
 from openfactory.core.schema import Scene
-from openfactory.export.io_list_csv import io_list_rows
+from openfactory.export.io_list_csv import PLC_TAG_COLUMN, io_list_rows, plant_names
 from openfactory.protocols.modbus import Encoding
 
 SOFTWARE_REVISION = "35.00"
@@ -66,6 +84,23 @@ def _description(row: dict[str, str], units: str | None) -> str:
     return text
 
 
+def undeclared_plc_tags(scene: Scene) -> list[tuple[str, PlcTag]]:
+    """``(scene tag, plc_tag)`` for each plant name that is a member, element or bit, which the
+    stub lists in its comment and does not declare (PLAN 5.3a)."""
+    parsed = [(tag, parse_plc_tag(name)) for tag, name in plant_names(scene).items()]
+    return [(tag, p) for tag, p in parsed if p.form not in DECLARED]
+
+
+def _tag(name: str, row: dict[str, str], description: str) -> list[str]:
+    data_type, radix = DATA_TYPE[row["dtype"]]
+    return [
+        f'<Tag Name={quoteattr(name)} TagType="Base" DataType="{data_type}"'
+        f' Radix="{radix}" Constant="false" ExternalAccess="Read/Write">',
+        f"<Description>{_cdata(description)}</Description>",
+        "</Tag>",
+    ]
+
+
 def l5x_stub(
     scene: Scene,
     encoding: Encoding | None = None,
@@ -78,6 +113,8 @@ def l5x_stub(
 ) -> str:
     """The L5X text (UTF-8, ``\\n`` line endings). ``scene_path`` and ``write_lock`` are as for
     the I/O list, whose rows these tags are."""
+    if prefix is None:
+        prefix = scene.scene.area  # PLAN 5.3a: the scene's area is the default prefix
     area = (prefix or "").rstrip("_")
     if prefix is not None and not AREA_PREFIX.match(area):
         raise ValueError(f"prefix {prefix!r}: use capitals and digits, letter first (e.g. AREA1)")
@@ -94,23 +131,58 @@ def l5x_stub(
         f'<Controller Use="Context" Name={quoteattr(controller)}>',
         "<Tags>",
     ]
+    tags: list[str] = []
+    programs: dict[str, list[str]] = {}
+    undeclared: list[tuple[str, PlcTag]] = []
     for row in rows:
+        text = _description(row, table.tag(row["tag"]).units)
+        plant = row.get(PLC_TAG_COLUMN)
+        if plant:  # the plant's own name, by its form (PLAN 5.3a); no prefix
+            parsed = parse_plc_tag(plant)
+            if parsed.form not in DECLARED:
+                undeclared.append((row["tag"], parsed))
+                continue
+            if plant in seen:
+                raise ValueError(f"{plant}: duplicate tag")
+            seen.add(plant)
+            if parsed.program is not None:
+                local = plant.split(".", 1)[1]
+                programs.setdefault(parsed.program, []).extend(_tag(local, row, text))
+            else:
+                tags += _tag(plant, row, text)
+            continue
         name = f"{area}_{row['tag']}" if area else row["tag"]
         if not LOGIX_NAME.match(name):
             raise ValueError(f"{name}: not a valid Logix tag name (^[A-Z][A-Z0-9_]{{0,39}}$)")
         if name in seen:
             raise ValueError(f"{name}: duplicate tag")
         seen.add(name)
-        data_type, radix = DATA_TYPE[row["dtype"]]
-        text = _description(row, table.tag(row["tag"]).units)
-        description = f"{area} — {text}" if area else text
-        lines += [
-            f'<Tag Name="{name}" TagType="Base" DataType="{data_type}" Radix="{radix}"'
-            ' Constant="false" ExternalAccess="Read/Write">',
-            f"<Description>{_cdata(description)}</Description>",
-            "</Tag>",
+        tags += _tag(name, row, f"{area} — {text}" if area else text)
+    if undeclared:  # after the declaration, before the root: a comment, never a tag
+        listed = [
+            f"  {p.name} ({p.form} of {p.base}) for {tag}"
+            for tag, p in sorted(undeclared, key=lambda u: u[1].name)
         ]
-    lines += ["</Tags>", "</Controller>", "</RSLogix5000Content>", ""]
+        lines[1:1] = [
+            "<!-- Plant tags that are members, elements or bits of the plant's own tags. The",
+            "  plant's program declares them; this file does not (OpenFactory, PLAN 5.3a):",
+            *listed,
+            "-->",
+        ]
+    lines += tags
+    lines.append("</Tags>")
+    if programs:
+        lines.append("<Programs>")
+        for program in sorted(programs):
+            lines += [
+                f'<Program Use="Context" Name={quoteattr(program)}>',
+                "<Tags>",
+                *programs[program],
+                "</Tags>",
+                "</Program>",
+            ]
+        lines.append("</Programs>")
+    lines += ["</Controller>", "</RSLogix5000Content>", ""]
     text = "\n".join(lines)
     ET.fromstring(text.encode("utf-8"))  # well-formed, or raise before anything is written
     return text

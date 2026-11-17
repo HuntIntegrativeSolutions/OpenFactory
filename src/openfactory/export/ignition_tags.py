@@ -34,7 +34,12 @@ Two sources for the OPC item paths:
   index (:mod:`openfactory.protocols.opcua`);
 - a Logix controller through Ignition's driver (``--device NAME``): ``opcServer`` ``Ignition OPC
   UA Server`` and path ``ns=1;s=[NAME]<TAG>``, the controller-scoped form, for tags made from the
-  2.3 L5X stubs. The device name is the gateway's alias, never an address.
+  2.3 L5X stubs. The device name is the gateway's alias, never an address. With a device, a
+  binding's ``plc_tag`` (PLAN 5.3a) is what ``Tag_<Member>`` holds, the plant's own name, and
+  ``plc.heartbeat_plc_tag`` the heartbeat's; without a device the scene tag stays, because it is
+  the OPC UA node name.
+
+The area folder defaults to the scene's ``scene.area`` when there is one (PLAN 5.3a).
 
 No alarms: a scene has no rationalized alarm setpoints (ISA-18.2), so none are invented. The
 output is deterministic (sorted keys, two-space indent). It has not been imported into a gateway
@@ -102,7 +107,7 @@ def ignition_tags(
     """The tag import document (see the module docstring)."""
     from openfactory.core.loader import build_iotable  # the I/O table, heartbeat included
 
-    area = area or default_area(scene)
+    area = area or scene.scene.area or default_area(scene)
     if not NAME.match(area):
         raise ValueError(f"area {area!r} is not a valid Ignition tag name")
     if device is not None and not NAME.match(device):
@@ -141,7 +146,9 @@ def ignition_tags(
         bound = {pascal(b.port.name): b for b in own}
         for member in members[comp.type]:
             b = bound.get(member)
-            params[f"Tag_{member}"] = {"dataType": "String", "value": b.name if b else ""}
+            # PLAN 5.3a: through a device, the plant's own name; OpenFactory's server: the node
+            name = (b.plc_tag or b.name if device is not None else b.name) if b else ""
+            params[f"Tag_{member}"] = {"dataType": "String", "value": name}
             if b is None:
                 overrides.append({"name": member, "enabled": False})
                 continue
@@ -163,8 +170,9 @@ def ignition_tags(
         instances.append(instance)
     beat = table.tag(HEARTBEAT_TAG)
     heartbeat = _atomic("SIM_HEARTBEAT", beat.kind, beat.dtype, "", server, beat.description)
+    beat_name = scene.plc.heartbeat_plc_tag or HEARTBEAT_TAG
     heartbeat["opcItemPath"] = (
-        f"ns=1;s=[{device}]{HEARTBEAT_TAG}" if device else f"nsu={NAMESPACE};s={HEARTBEAT_TAG}"
+        f"ns=1;s=[{device}]{beat_name}" if device else f"nsu={NAMESPACE};s={HEARTBEAT_TAG}"
     )
     return {
         "version": VERSION,

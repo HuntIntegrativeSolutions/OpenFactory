@@ -502,7 +502,7 @@ def _instance(
     defs: dict[str, CompositeDef],
     out: Expansion,
 ) -> list[Any]:
-    from openfactory.core.schema import Component, DiTag
+    from openfactory.core.schema import Component, DiTag, DoTag
 
     d = defs[type_name]
     where = f"{inst_id} ({type_name})"
@@ -578,6 +578,11 @@ def _instance(
                 object.__setattr__(model.io, specs[port].attr or port, None)
         built.append(model)
     commands = {name: io[name] for name, spec in d.io.items() if spec.command}
+    for name, binding in commands.items():  # a mapping too, {tag, plc_tag, ...} (PLAN 5.3a)
+        try:
+            commands[name] = TypeAdapter(DoTag).validate_python(binding)
+        except ValidationError as exc:
+            raise ValueError(f"{where}: io.{name} is a command (DO): {exc}") from None
     if commands and built:
         for name, binding in commands.items():
             out.commands.append((built[0].id, name, binding, description))

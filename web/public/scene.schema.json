@@ -63,6 +63,19 @@
           "description": "Pinned zero-based Modbus address (ADR-0004).",
           "title": "Address"
         },
+        "plc_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The point's name in the plant's own controller program (PLAN 5.3): NAME, Program:PROGRAM.NAME, NAME.MEMBER, NAME[i] or NAME.BIT. The scene's tag stays the key inside OpenFactory; the I/O list, CONTEXT.md, the L5X stub and the SCADA export with a device path use this name.",
+          "title": "Plc Tag"
+        },
         "window": {
           "anyOf": [
             {
@@ -155,6 +168,19 @@
           "default": null,
           "description": "Pinned zero-based Modbus address (ADR-0004).",
           "title": "Address"
+        },
+        "plc_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The point's name in the plant's own controller program (PLAN 5.3): NAME, Program:PROGRAM.NAME, NAME.MEMBER, NAME[i] or NAME.BIT. The scene's tag stays the key inside OpenFactory; the I/O list, CONTEXT.md, the L5X stub and the SCADA export with a device path use this name.",
+          "title": "Plc Tag"
         },
         "initial": {
           "anyOf": [
@@ -1234,6 +1260,19 @@
           "description": "Pinned zero-based Modbus address (ADR-0004).",
           "title": "Address"
         },
+        "plc_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The point's name in the plant's own controller program (PLAN 5.3): NAME, Program:PROGRAM.NAME, NAME.MEMBER, NAME[i] or NAME.BIT. The scene's tag stays the key inside OpenFactory; the I/O list, CONTEXT.md, the L5X stub and the SCADA export with a device path use this name.",
+          "title": "Plc Tag"
+        },
         "invert": {
           "default": false,
           "description": "Normally closed: the PLC sees the opposite state.",
@@ -1638,6 +1677,19 @@
           "default": null,
           "description": "Pinned zero-based Modbus address (ADR-0004).",
           "title": "Address"
+        },
+        "plc_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The point's name in the plant's own controller program (PLAN 5.3): NAME, Program:PROGRAM.NAME, NAME.MEMBER, NAME[i] or NAME.BIT. The scene's tag stays the key inside OpenFactory; the I/O list, CONTEXT.md, the L5X stub and the SCADA export with a device path use this name.",
+          "title": "Plc Tag"
         },
         "invert": {
           "default": false,
@@ -3338,6 +3390,19 @@
           "default": null,
           "description": "Named connection resolved from openfactory.toml (Logix client role).",
           "title": "Connection"
+        },
+        "heartbeat_plc_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SIM_HEARTBEAT_DI's name in the plant's controller program (PLAN 5.3a), as a binding's plc_tag; without it the heartbeat keeps its name.",
+          "title": "Heartbeat Plc Tag"
         }
       },
       "title": "PlcConfig",
@@ -4019,6 +4084,21 @@
           "maximum": 2,
           "title": "Friction",
           "type": "number"
+        },
+        "area": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The plant area (PLAN 5.3a): the default for the L5X stub's --prefix and the SCADA export's --area. It never changes a tag or a plc_tag.",
+          "title": "Area"
         }
       },
       "required": [
@@ -5733,7 +5813,8 @@
         "bind": null,
         "port": null,
         "analog_encoding": "float32",
-        "connection": null
+        "connection": null,
+        "heartbeat_plc_tag": null
       }
     },
     "composites": {

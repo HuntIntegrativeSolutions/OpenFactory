@@ -3537,6 +3537,53 @@ trusts it.
         are the plant names; removing one binding's `plc_tag` raises W215 for that binding
         only; every shipped scene's exports, lockfiles, kits and run references are
         byte-identical (CI's gates); a test enumerates the grammar's accepted and refused names.
+        *Blocker (2026-11-16), so 5.3a stays unticked:* the controller's name rules were not
+        read. The vendor's published programming manual (publication 1756-PM004, the I/O and
+        tag data programming manual) answered 403 at the vendor's literature library, and a
+        second try at a public copy elsewhere was refused by the session's permissions. So no
+        rule is written from memory: the grammar is the shape pycomm3 1.2.16 splits a request on
+        (`_parse_tag_request`, cited in `core/plctag.py`), and these are left out until the
+        manual is read and cited by section: a length limit, whether a name may start with `_`
+        or hold doubled or trailing underscores, the bit range per data type, and whether names
+        that differ only in case are one name (the case-duplicate error). `test_plc_tag.py`
+        holds three names that pass today only for want of those rules (60 characters,
+        `Tag__Name_`, `Word.99`), to be turned round when they are. *To unblock:* the owner puts
+        the manual's PDF in the session's scratch folder or names a URL a session can read.
+        *Built (2026-11-16), all but the rules above:* `src/openfactory/core/plctag.py`:
+        `parse_plc_tag(name)`, the shape and the form (controller, program, member, element,
+        bit). **Keys:** `plc_tag` on every binding mapping (`TagSpec`, so DI, DO, AI and AO; and
+        a composite instance's pass-through and command io, whose mapping form a command now
+        takes, validated as a DO binding), `scene.area` (capitals and digits, letter first) and
+        `plc.heartbeat_plc_tag`, in the schema, the exported JSON Schema and
+        `docs/scene-format.md`; YAML lines for now, which the editor's text operations keep as
+        written. **Load errors:** a malformed `plc_tag`; a name two points share, where a point
+        with none counts by its scene tag and the heartbeat by its `heartbeat_plc_tag` or
+        `SIM_HEARTBEAT_DI`, so a plant name cannot collide with an unmapped point either; exact
+        duplicates only (case: the blocker). **Exports:** the I/O CSV's `plc_tag` column and
+        `CONTEXT.md`'s "Plant tag" column, written only when some point has one; the L5X stub by
+        form: a controller name one controller tag, a `Program:` name one tag under
+        `<Programs><Program Use="Context">`, a member, element or bit listed in a comment before
+        the root with its form, its base and its scene tag and not declared, and `export
+        --format l5x` prints their count on standard error; `--prefix` only on rows without a
+        `plc_tag`, defaulting to `scene.area`; the SCADA export's `Tag_<Member>` (and the
+        heartbeat's path) is the plant name with `--device` and the scene tag without, its area
+        folder `scene.area` by default. **Lint:** W215, one per binding without a `plc_tag` in
+        a scene where others have one (`lint.py`, `docs/scene-format.md`). **Look:** a tag with
+        a plant name shows it, `PE_01_DI [plant Sorter_DI_Word.4] = false`; the scene document
+        (and so a recording's header) carries `plc_tag` on a tag and `area` on the scene only
+        when set, so the 12 kits are current and the golden file did not move. The Logix path is
+        5.3b's and still uses scene tags. *Tests* (`tests/unit/test_plc_tag.py`, 46): 15 accepted
+        names with their forms and 21 refused; the three unchecked names; a malformed name and
+        three kinds of duplicate as load errors naming the bindings; the Done-when's sorter copy
+        (one program, one controller, five member, three bit and one element names, the
+        heartbeat a bit): its CSV column equals the scene's, its L5X declares one controller tag
+        (`Conv1_Speed`, REAL) and one program tag (`Program:Sorter.Conv1_Run`) and lists ten in
+        the comment, its SCADA export with a device carries the plant names and without one the
+        scene tags, its `CONTEXT.md` the column; one `plc_tag` removed gives W215 for that
+        binding only; the sorter exports as before (no column, no comment, no W215); `scene.area`
+        prefixes only the unmapped row; a composite's command and pass-through io carry it;
+        `look` shows it. Shipped scenes: `build_kit.py --check` current, `migrate --check`
+        current, every lockfile unchanged.
   - [ ] 5.3b The Logix path by plant names: the client reads and writes `plc_tag`s, maps results
         back to scene tags, sets `init_program_tags` when a `Program:` name is present, and runs
         the connect-time type check with the bit split.

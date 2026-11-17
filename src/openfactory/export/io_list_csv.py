@@ -26,6 +26,10 @@ simulator's ``SIM_HEARTBEAT_DI`` (blank ``component``; PLAN §6.1), in Modbus re
   place of the port's, PLAN 3.7) and the values at raw 0 and raw 32767 (analog tags only).
 - ``transform``: the binding's signal conditioning (PLAN 2.17), for example
   ``or(PE_01.detect, PE_02.detect); NC (inverted); on-delay 0.2 s``; empty when there is none.
+- ``plc_tag``: the point's name in the plant's controller program (PLAN 5.3a), the binding's
+  ``plc_tag`` (the heartbeat's is ``plc.heartbeat_plc_tag``), blank for a point without one. The
+  column is written **only** when the scene gives some point a ``plc_tag``, so a scene without
+  one exports exactly the columns above.
 
 PLAN 1.8 lists ``kind`` and no ``address`` column; ``/io-validate`` requires ``io_type`` and
 ``address``, so those two names follow the validator (see the note under task 1.8).
@@ -57,6 +61,9 @@ COLUMNS = (
     "transform",
 )
 
+#: Written after COLUMNS only when some point has a plant name (PLAN 5.3a).
+PLC_TAG_COLUMN = "plc_tag"
+
 ENCODING_LABEL = {"float32": "float32 high word first", "int16_scaled": "int16_scaled 0-32767"}
 
 
@@ -84,6 +91,7 @@ def io_list_rows(
     transforms = {b.name: b.transform.describe(b.port.units) for b in bindings}
     #: a binding's `units` label replaces the units column, and only it (ruled 2026-11-08)
     shown = {b.name: b.shown_units for b in bindings}
+    plant = plant_names(scene)
     for a in register_map.assignments:
         tag = table.tag(a.tag)
         analog = tag.kind in ("AI", "AO")
@@ -102,9 +110,21 @@ def io_list_rows(
                 "range_min": _number(lo) if analog and lo is not None else "",
                 "range_max": _number(hi) if analog and hi is not None else "",
                 "transform": transforms.get(tag.name, ""),
+                **({PLC_TAG_COLUMN: plant.get(tag.name, "")} if plant else {}),
             }
         )
     return rows
+
+
+def plant_names(scene: Scene) -> dict[str, str]:
+    """Scene tag -> ``plc_tag`` for every point the scene gives a plant name (PLAN 5.3a), the
+    heartbeat's included; empty when the scene gives none."""
+    from openfactory.core.heartbeat import HEARTBEAT_TAG
+
+    out = {b.name: b.plc_tag for b in scene.tag_bindings() if b.plc_tag}
+    if scene.plc.heartbeat_plc_tag:
+        out[HEARTBEAT_TAG] = scene.plc.heartbeat_plc_tag
+    return out
 
 
 def io_list_csv(
@@ -116,9 +136,11 @@ def io_list_csv(
 ) -> str:
     """The I/O list as CSV text (UTF-8, ``\\n`` line endings, header row first)."""
     buf = _io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=COLUMNS, lineterminator="\n")
+    rows = io_list_rows(scene, encoding, scene_path=scene_path, write_lock=write_lock)
+    columns = COLUMNS + ((PLC_TAG_COLUMN,) if rows and PLC_TAG_COLUMN in rows[0] else ())
+    writer = csv.DictWriter(buf, fieldnames=columns, lineterminator="\n")
     writer.writeheader()
-    writer.writerows(io_list_rows(scene, encoding, scene_path=scene_path, write_lock=write_lock))
+    writer.writerows(rows)
     return buf.getvalue()
 
 

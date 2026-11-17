@@ -78,6 +78,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.history import TagHistory
 from openfactory.core.iolog import IoLog
 from openfactory.core.loader import LoadedScene
@@ -330,9 +331,15 @@ class Runtime:
             inst = scene.composite_of(comp_id)
             return {"composite": {"id": inst, "type": scene.instance_type(inst)}} if inst else {}
 
+        meta = scene.scene.model_dump()
+        if meta.get("area") is None:  # PLAN 5.3a: written only when set, so documents and
+            meta.pop("area", None)  # recordings of scenes without it stay as they were
+        plant = {b.name: b.plc_tag for b in scene.tag_bindings() if b.plc_tag}
+        if scene.plc.heartbeat_plc_tag:
+            plant[HEARTBEAT_TAG] = scene.plc.heartbeat_plc_tag
         return {
             "openfactory": scene.openfactory,
-            "scene": scene.scene.model_dump(),
+            "scene": meta,
             "plc": {"protocol": scene.plc.protocol, "role": scene.plc.role},
             "dt": self.scheduler.dt,
             "components": [
@@ -353,6 +360,8 @@ class Runtime:
                     "dtype": t.dtype,
                     "owner": t.owner,
                     "description": t.description,
+                    # the plant's name (PLAN 5.3a), only when the scene gives one
+                    **({"plc_tag": plant[t.name]} if t.name in plant else {}),
                 }
                 for t in self.loaded.io.tags()
             ],

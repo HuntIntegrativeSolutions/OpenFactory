@@ -48,6 +48,7 @@ from pydantic import (
 
 from openfactory.core.expr import parse
 from openfactory.core.heartbeat import HEARTBEAT_TAG
+from openfactory.core.plctag import parse_plc_tag
 
 SCHEMA_VERSION = "0.1"
 TAG_MAX_LEN = 40
@@ -85,6 +86,20 @@ class TagSpec(StrictModel):
     address: int | None = Field(
         None, ge=0, le=65535, description="Pinned zero-based Modbus address (ADR-0004)."
     )
+    plc_tag: str | None = Field(
+        None,
+        description="The point's name in the plant's own controller program (PLAN 5.3): NAME, "
+        "Program:PROGRAM.NAME, NAME.MEMBER, NAME[i] or NAME.BIT. The scene's tag stays the key "
+        "inside OpenFactory; the I/O list, CONTEXT.md, the L5X stub and the SCADA export with a "
+        "device path use this name.",
+    )
+
+    @field_validator("plc_tag")
+    @classmethod
+    def _plc_tag_shape(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse_plc_tag(value)
+        return value
 
 
 PortRef = Annotated[
@@ -219,6 +234,11 @@ def binding_tag(value: str | TagSpec) -> str:
 def binding_address(value: str | TagSpec) -> int | None:
     """The pinned Modbus address of a port binding, or None when allocation chooses."""
     return value.address if isinstance(value, TagSpec) else None
+
+
+def binding_plc_tag(value: str | TagSpec) -> str | None:
+    """The binding's ``plc_tag`` (PLAN 5.3a), or None when the plant name is the scene's tag."""
+    return getattr(value, "plc_tag", None)
 
 
 def binding_initial(value: str | TagSpec) -> bool | float | None:
@@ -413,6 +433,13 @@ class SceneMeta(StrictModel):
         "acceleration on a belt at mu x 9.81 m/s2 and limits the belt speed a landing part takes "
         "at impact to mu x its fall speed; the viewer gives belts and parts this friction.",
     )
+    area: Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z0-9]*$", max_length=40)] | None = (
+        Field(
+            None,
+            description="The plant area (PLAN 5.3a): the default for the L5X stub's --prefix and "
+            "the SCADA export's --area. It never changes a tag or a plc_tag.",
+        )
+    )
 
 
 class PlcConfig(StrictModel):
@@ -433,6 +460,18 @@ class PlcConfig(StrictModel):
     connection: str | None = Field(
         None, description="Named connection resolved from openfactory.toml (Logix client role)."
     )
+    heartbeat_plc_tag: str | None = Field(
+        None,
+        description="SIM_HEARTBEAT_DI's name in the plant's controller program (PLAN 5.3a), as a "
+        "binding's plc_tag; without it the heartbeat keeps its name.",
+    )
+
+    @field_validator("heartbeat_plc_tag")
+    @classmethod
+    def _heartbeat_plc_tag_shape(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse_plc_tag(value)
+        return value
 
     @field_validator("bind")
     @classmethod
@@ -1652,6 +1691,8 @@ class TagBinding:
     #: The binding's ``units`` label, shown in place of the port's units by the I/O list CSV and
     #: CONTEXT.md only (PLAN 3.7, ruled 2026-11-08).
     units_label: str | None = None
+    #: The point's name in the plant's controller program (PLAN 5.3a), or None.
+    plc_tag: str | None = None
 
     @property
     def shown_units(self) -> str | None:
@@ -1859,7 +1900,8 @@ class Scene(StrictModel):
                             None, None)  # fmt: skip
             command = TagBinding(binding_tag(binding), "DO", after, spec,
                                  binding_address(binding), binding_initial(binding),
-                                 tag_description=f"{owner} — {name} command")  # fmt: skip
+                                 tag_description=f"{owner} — {name} command",
+                                 plc_tag=binding_plc_tag(binding))  # fmt: skip
             self._computed.setdefault(after, []).append(command)
         for after, name, binding, text, local in expansion.computed:
             t = binding_transform(binding)
@@ -1868,7 +1910,8 @@ class Scene(StrictModel):
             computed = TagBinding(binding_tag(binding), "DI", refs[0].split(".")[0], spec,
                                   binding_address(binding), None,
                                   replace(t, sources=refs, expr=text),
-                                  getattr(binding, "exam", None) == "switch")  # fmt: skip
+                                  getattr(binding, "exam", None) == "switch",
+                                  plc_tag=binding_plc_tag(binding))  # fmt: skip
             self._computed.setdefault(after, []).append(computed)
         return self
 
@@ -1984,6 +2027,7 @@ class Scene(StrictModel):
                     f"{where}: initial {binding.initial:g} for {binding.name} is outside the "
                     f"port's range {rng[0]:g} to {rng[1]:g} {binding.port.units or ''}".rstrip()
                 )
+        self._plc_tags_unique()
         return self
 
     @model_validator(mode="after")
@@ -2050,6 +2094,25 @@ class Scene(StrictModel):
                         )
         return self
 
+    def _plc_tags_unique(self) -> None:
+        """PLAN 5.3a: no two points of a mapped scene reach the controller by the same name. A
+        binding without a ``plc_tag`` is reached by its scene tag, so in a scene with any
+        ``plc_tag`` that name counts too, as does the heartbeat's. Only exact duplicates: the
+        controller's case rule is not verified yet (PLAN 5.3a blocker)."""
+        bindings = self.tag_bindings()
+        if not any(b.plc_tag for b in bindings) and self.plc.heartbeat_plc_tag is None:
+            return
+        seen: dict[str, str] = {}
+        named = [(b.plc_tag or b.name, f"{b.component_id}.io.{b.port.name}") for b in bindings]
+        named.append((self.plc.heartbeat_plc_tag or HEARTBEAT_TAG, "plc.heartbeat_plc_tag"))
+        for name, where in named:
+            if name in seen:
+                raise ValueError(
+                    f"plc_tag {name!r} names two points ({seen[name]} and {where}); each point "
+                    "in the plant's controller needs its own name"
+                )
+            seen[name] = where
+
     def tag_bindings(self) -> list[TagBinding]:
         """All bound tags in scene order (component order, then port declaration order)."""
         out: list[TagBinding] = []
@@ -2070,6 +2133,7 @@ class Scene(StrictModel):
                             transform,
                             getattr(value, "exam", None) == "switch",
                             units_label=binding_units_label(value),
+                            plc_tag=binding_plc_tag(value),
                         )
                     )
             out += self._computed.get(comp.id, [])  # a composite's computed DIs (PLAN 2.16)

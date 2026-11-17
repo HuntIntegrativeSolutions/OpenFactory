@@ -26,7 +26,9 @@ The sections, in this order:
    the snapshot hides faults from trainees, so the section says only that faults are hidden in
    exam mode; it never says "None" while a fault may be active.
 4. **Components:** one line each, the type's own sentence (:meth:`Component.describe`), then
-   each bound tag and its value.
+   each bound tag and its value. A tag the scene gives a plant name (``plc_tag``, PLAN 5.3a, in
+   the scene document's tag list) shows it beside the scene tag: ``CONV_01_RUN_DO [plant
+   Program:Sort.Conv_Run] = true``.
 5. **Parts:** each part's id and name, the component carrying it, its distance along that
    component from the infeed end, and its speed. A part carried by nothing is held by a
    gripper, falling, or at rest, with its position. At most :data:`MAX_PARTS` are listed, then a
@@ -326,6 +328,12 @@ def look(
     owned: dict[str, list[str]] = {}
     for tag in document["tags"]:
         owned.setdefault(tag["owner"], []).append(tag["name"])
+    plant_tags = {t["name"]: t["plc_tag"] for t in document["tags"] if t.get("plc_tag")}
+
+    def tag_text(name: str) -> str:
+        label = f"{name} [plant {plant_tags[name]}]" if name in plant_tags else name
+        return f"{label} = {value_text(io[name])}"
+
     if component is not None and component not in comps:
         raise KeyError(f"no component {component!r} in this scene")
 
@@ -367,10 +375,10 @@ def look(
         lines.append(f"- `{cid}` ({comp['type']}{inside}): {describe(comp, states.get(cid, {}))}.")
         tags = owned.get(cid, [])
         if tags:
-            lines.append("  " + ", ".join(f"{name} = {value_text(io[name])}" for name in tags))
+            lines.append("  " + ", ".join(tag_text(name) for name in tags))
     others = [name for owner, names in owned.items() if owner not in comps for name in names]
     if component is None and others:
-        lines.append("- Scene tags: " + ", ".join(f"{n} = {value_text(io[n])}" for n in others))
+        lines.append("- Scene tags: " + ", ".join(tag_text(n) for n in others))
     if component is not None:
         near = _connected(component, document, plant)
         lines.append(f"- Connected to: {', '.join(near) if near else 'nothing'}.")

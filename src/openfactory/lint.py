@@ -78,6 +78,12 @@ centre line, and the plate height after the loader's default.
   device's origin with the belt top 0 to 1 m below it
   (:func:`openfactory.core.mounts.short_of_belt`).
   Turntable and lift decks are not checked; pushers are W207's.
+- ``W215`` a half-mapped scene (PLAN 5.3a, ruled 2026-11-15, decision 2(a)): some bindings give
+  the plant's name (``plc_tag``) and this one does not, so the Logix path would look for the
+  scene's tag in the plant's controller. One warning per binding without one; none in a scene
+  where no binding has a ``plc_tag``, and none for a well-formed ``plc_tag`` outside the HIS
+  pattern (a malformed or duplicate one is a load error). The heartbeat is not a binding: its
+  plant name is ``plc.heartbeat_plc_tag``.
 
 - ``W208`` a composite type (PLAN 2.16) that exposes no I/O: its ``io:`` block is empty, so no
   PLC can command or read any instance of it.
@@ -275,6 +281,15 @@ def lint_scene(
                 )  # fmt: skip
     for comp_id, message in short_of_belt([c.config for c in loaded.components]):  # W214
         findings.append(Finding("warning", "W214", f"{named(comp_id)}: {message}"))
+    bindings = scene.tag_bindings()
+    mapped = sum(bool(b.plc_tag) for b in bindings)
+    for b in bindings if mapped else []:  # W215: the row a takeoff missed (PLAN 5.3a)
+        if not b.plc_tag:
+            findings.append(
+                Finding("warning", "W215", f"{b.name} ({b.component_id}.io.{b.port.name}) has "
+                        f"no plc_tag while {mapped} other bindings have one; the Logix path will "
+                        f"look for {b.name} in the controller")
+            )  # fmt: skip
     for d in scene.composites:
         if hasattr(d, "io") and not d.io:  # a {library: name} entry was checked in its file
             findings.append(

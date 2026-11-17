@@ -41,6 +41,60 @@ io:
 - Not with `window:`, which makes the binding a DI. An `initial` outside the binding's range
   fails at load.
 
+## `plc_tag:`, `scene.area` and `plc.heartbeat_plc_tag`: the plant's tag names (PLAN 5.3a)
+
+A binding in mapping form may name the point in the plant's own controller program:
+
+```yaml
+scene:
+  name: wash-skid
+  area: WASH                                                       # optional
+plc:
+  heartbeat_plc_tag: "Skid_DI_Word.0"                              # optional
+components:
+  - id: LT_101
+    io:
+      pv: {tag: LT_101_PV_AI, plc_tag: "LT101_PV"}                     # controller scope
+  - id: P_101
+    io:
+      run: {tag: P_101_RUN_DO, plc_tag: "Program:Transfer.P101_Run"}   # program scope
+      running: {tag: P_101_RUN_DI, plc_tag: "P101.Running"}            # a structure member
+  - id: PE_201
+    io:
+      detect: {tag: PE_201_DI, plc_tag: "Line2_DI_Word.4"}             # a bit of an integer
+```
+
+- **The scene's `tag` stays the key** for everything inside OpenFactory, and keeps its pattern
+  and its load rule: the I/O table, the stand-in scripts, the checks, the viewer, recordings, the
+  Modbus server and its lockfile (which therefore never move), and OpenFactory's own OPC UA
+  server and Sparkplug publisher.
+- **`plc_tag`** is used where OpenFactory faces the plant: the I/O list CSV gains a `plc_tag`
+  column at the end, and `CONTEXT.md` a "Plant tag" column, **only** in a scene where some point
+  has one; `openfactory look` shows it beside the tag (`PE_201_DI [plant Line2_DI_Word.4] =
+  false`); the SCADA export with `--device` puts it in each member's `Tag_<Member>` parameter
+  (without `--device` the members address OpenFactory's own server, by scene tag); the L5X stub
+  follows its form: a controller-scope name is one controller tag, a `Program:` name one tag in
+  that program, and a member, array element or bit is part of a tag the plant's program already
+  declares, so it is listed in a comment at the top of the file and not declared (`export`
+  prints how many). The Logix path (PLAN 5.3b) does not use it yet.
+- **The shape** is checked at load: an optional `Program:<name>.`, a name, any number of
+  `.member` or `[i]`, `[i,j]`, `[i,j,k]`, and an optional final `.<bit>`; each name a letter or
+  `_` then letters, digits or `_`. A malformed name is a load error, and so is a name two points
+  share (a point without a `plc_tag` counts by its scene tag, and the heartbeat by its
+  `heartbeat_plc_tag` or `SIM_HEARTBEAT_DI`). **Not checked yet:** the controller's own length,
+  underscore, bit-range and case rules, which are to come from the vendor's published
+  programming manual (PLAN 5.3a, blocker of 2026-11-16).
+- **`scene.area`** (capitals and digits, letter first) is the default for the L5X stub's
+  `--prefix`, which applies only to rows without a `plc_tag`, and for the SCADA export's
+  `--area`. It never changes a tag or a `plc_tag`.
+- **`plc.heartbeat_plc_tag`** names `SIM_HEARTBEAT_DI` in the plant's program; without it the
+  heartbeat keeps its name.
+- **Lint:** no warning for a well-formed `plc_tag`, however far from the HIS pattern. **W215**
+  warns on each binding without a `plc_tag` in a scene where other bindings have one: the row a
+  takeoff missed, which the Logix path would look for by its scene tag.
+- The three keys are YAML lines for now: the editor's form (PLAN 4.7) does not edit them, and
+  keeps them as written.
+
 ## `checks:`: exercise checks (PLAN 2.11)
 
 A scene may declare what a correct control program achieves. `openfactory test` runs the scene,

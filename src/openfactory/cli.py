@@ -1227,12 +1227,14 @@ def export(
         str | None,
         typer.Option(
             help="l5x: an area prefix, e.g. AREA1, prepended to every tag name (AREA1_PE_01_DI) "
-            "and description.",
+            "and description, except a binding's plc_tag (default: the scene's scene.area).",
         ),
     ] = None,
     area: Annotated[
         str | None,
-        typer.Option(help="ignition: the area folder (default: the scene name in capitals)."),
+        typer.Option(
+            help="ignition: the area folder (default: scene.area, else the scene name in capitals)."
+        ),
     ] = None,
     opc_server: Annotated[
         str,
@@ -1250,7 +1252,7 @@ def export(
     (updates the lockfile)."""
     from openfactory.export.ignition_tags import ignition_tags_json
     from openfactory.export.io_list_csv import io_list_csv
-    from openfactory.export.l5x_stub import l5x_stub
+    from openfactory.export.l5x_stub import l5x_stub, undeclared_plc_tags
     from openfactory.export.plantpax import plantpax_l5x
     from openfactory.export.plantpax_hmi import as_json, plantpax_faceplates, plantpax_udts
 
@@ -1265,6 +1267,12 @@ def export(
             text = l5x_stub(
                 parsed, encoding, scene_path=scene, controller=controller, prefix=prefix
             )
+            if undeclared := undeclared_plc_tags(parsed):  # PLAN 5.3a
+                typer.echo(
+                    f"{len(undeclared)} plant tags are members, elements or bits of the plant's "
+                    "own tags and are not declared here",
+                    err=True,
+                )
         elif format_ == "plantpax":
             text = plantpax_l5x(parsed, encoding, scene_path=scene, controller=controller)
         elif format_ == "plantpax-udts":

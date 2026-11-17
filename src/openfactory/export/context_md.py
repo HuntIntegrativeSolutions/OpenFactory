@@ -10,7 +10,8 @@ instead of reverse-engineering the YAML and the lockfiles:
   folder that holds the scene, with the stand-in script found the way ``bundle`` finds it
   (``<scene>.py`` beside the scene, else ``examples/pyplc/<scene>.py`` above it, up to the
   project root);
-- every tag, in Modbus register-map order: kind, component and port, description, transform
+- every tag, in Modbus register-map order: its plant name (PLAN 5.3a, a column written only
+  when the scene gives some point a ``plc_tag``), kind, component and port, description, transform
   (PLAN 2.17), units and range, and its Modbus address in both analog encodings (ADR-0004), read
   from each lockfile when it exists and otherwise computed as ``run`` would first write it; then
   any address a lockfile reserves for a removed tag;
@@ -38,6 +39,7 @@ from typing import get_args
 from openfactory.core.component import REGISTRY
 from openfactory.core.loader import build_iotable
 from openfactory.core.schema import Scene, port_specs
+from openfactory.export.io_list_csv import plant_names
 from openfactory.protocols.modbus import Encoding, lockfile_path, scene_register_map
 
 CONTEXT_SUFFIX = ".CONTEXT.md"
@@ -178,6 +180,8 @@ def _tags(scene: Scene, scene_path: Path) -> list[str]:
     maps = {e: scene_register_map(scene, e, scene_path=scene_path, write=False) for e in encodings}
     labels = {e: {a.tag: a.label for a in m.assignments} for e, m in maps.items()}
     order = [a.tag for a in maps[scene.plc.analog_encoding].assignments]
+    plant = plant_names(scene)  # PLAN 5.3a: a "Plant tag" column only when the scene has one
+    first = "| Tag | Plant tag |" if plant else "| Tag |"
     lines = ["## Tags", ""]
     for e in encodings:
         lock = lockfile_path(scene_path, e)
@@ -189,10 +193,10 @@ def _tags(scene: Scene, scene_path: Path) -> list[str]:
         "  int16_scaled takes one, 0 to 32767 across the range.",
         "- DO and AO are written by the PLC; DI and AI are written by the simulation.",
         "",
-        "| Tag | Kind | Component.port | Description | Transform | Units, range | "
+        f"{first} Kind | Component.port | Description | Transform | Units, range | "
         + " | ".join(encodings)
         + " |",
-        "|---|---|---|---|---|---|" + "---|" * len(encodings),
+        "|---|---|---|---|---|---|" + "---|" * (len(encodings) + bool(plant)),
     ]
     for name in order:
         tag = table.tag(name)
@@ -203,7 +207,10 @@ def _tags(scene: Scene, scene_path: Path) -> list[str]:
         if tag.kind in ("AI", "AO") and tag.range:
             units = binding.shown_units if binding else tag.units  # the label (2026-11-08)
             span = f"{units or ''} {tag.range[0]:g} to {tag.range[1]:g}".strip()
-        cells = [f"`{name}`", tag.kind, where, _cell(tag.description), _cell(transform), span]
+        cells = [f"`{name}`"]
+        if plant:
+            cells.append(f"`{plant[name]}`" if name in plant else "")
+        cells += [tag.kind, where, _cell(tag.description), _cell(transform), span]
         cells += [labels[e].get(name, "") for e in encodings]
         lines.append("| " + " | ".join(cells) + " |")
     lines.append("")
