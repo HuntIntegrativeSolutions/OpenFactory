@@ -1,0 +1,11 @@
+The wash-skid sample drawing set: P-001.svg and P-001.png (P&ID), L-001.svg and L-001.png
+(layout), IO-001.csv (I/O list) and wash-skid.takeoff.yaml (the takeoff read from them).
+
+Author: HIS Controls (Hunt Integrative Solutions, LLC), for OpenFactory
+License: CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/)
+Source: drawn for this repository by tools/make_sample_sheets.py (SVG primitives only) and
+rendered by tools/render_sheets.py; no outside asset, symbol library or title block is used.
+
+A plant of our own invention: it names no real plant, customer, vendor or product. Instrument
+bubbles follow the public ISA-5.1 convention. Not for construction. OpenFactory is a training
+and demo tool, not a safety-rated simulation.

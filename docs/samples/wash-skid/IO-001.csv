@@ -1,0 +1,16 @@
+tag,io_type,dtype,description,component,address,modbus_address,modbus_encoding,units,range_min,range_max,transform,plc_tag
+LV_101_POS_AO,AO,float32,Wash Water Tank Level Control Valve — Position command,LV_101,,,,,,,,LV101_CV
+LV_101_ZT_AI,AI,float32,Wash Water Tank Level Control Valve — Position feedback,LV_101,,,,,,,,LV101_POS
+TK_101_LSH_DI,DI,bool,Wash Water Tank — High level switch (on at hi_level),TK_101,,,,,,,,LSH101
+LT_101_PV_AI,AI,float32,Wash Water Tank Level Transmitter — Process value,LT_101,,,,m,0,1.8,,LT101_PV
+AG_101_RUN_DO,DO,bool,Wash Water Tank Agitator — Run command,AG_101,,,,,,,,AG101.Run
+AG_101_RUN_DI,DI,bool,Wash Water Tank Agitator — Running feedback,AG_101,,,,,,,,AG101.Running
+P_101_RUN_DO,DO,bool,Wash Water Transfer Pump — Run command,P_101,,,,,,,,Program:Transfer.P101_Run
+P_101_RUN_DI,DI,bool,Wash Water Transfer Pump — Running feedback,P_101,,,,,,,,Program:Transfer.P101_Running
+FT_101_PV_AI,AI,float32,Wash Water Transfer Flow Transmitter — Process value,FT_101,,,,m3/h,0,5,,FT101_PV
+CV_201_RUN_DO,DO,bool,Carton Reject Belt Conveyor — Run command,CV_201,,,,,,,,CV201.Run
+CV_201_RUN_DI,DI,bool,Carton Reject Belt Conveyor — Running feedback,CV_201,,,,,,,,CV201.Running
+PE_201_DI,DI,bool,Carton Reject Belt Photo Eye — Part detected,PE_201,,,,,,,,Line2_DI_Word.4
+CYL_201_EXT_DO,DO,bool,Carton Reject Pusher — Extend command,CYL_201,,,,,,,,CYL201.Ext_Cmd
+CYL_201_EXT_DI,DI,bool,Carton Reject Pusher — Extended limit switch,CYL_201,,,,,,,,CYL201.Ext_LS
+CYL_201_RET_DI,DI,bool,Carton Reject Pusher — Retracted limit switch,CYL_201,,,,,,,,CYL201 RET

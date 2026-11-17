@@ -10,6 +10,34 @@ OpenFactory is a training and demo tool, not a safety-rated simulation. A custom
 and the takeoff and scene made from them, never enter this repository; the sample here is a
 plant of our own invention, `docs/samples/wash-skid/`.
 
+## The sample drawing set
+
+`docs/samples/wash-skid/` is a plant of our own invention, drawn for practice and for tests
+(CC-BY-4.0, `LICENSE.txt` beside it): a P&ID, a layout, an I/O list, and the takeoff read from
+them. A practice run reads the PNGs, as it would a scanned or exported customer sheet.
+
+- **P-001**, the P&ID: a make-up supply through level control valve LV-101 into tank TK-101,
+  with LT-101, LSH-101 and agitator AG-101; transfer pump P-101 through FT-101 to the washer,
+  off the drawing. Line numbers on every line; zones A to E across, 1 to 4 down.
+
+  ![P-001, the wash-water skid P&ID](samples/wash-skid/P-001.png)
+
+- **L-001**, the layout in plan, north up, dimensioned in millimetres from a building column
+  (the datum, with its axes drawn), elevations as `EL`, the belt's devices from its infeed end.
+
+  ![L-001, the skid and reject belt layout](samples/wash-skid/L-001.png)
+
+- **IO-001.csv**, the I/O list, in the I/O CSV's columns plus `plc_tag`. Row 15 is printed
+  abbreviated (`CYL201 RET`), as real lists sometimes are; the takeoff's IO-15 infers the member
+  name and asks about it.
+- **wash-skid.takeoff.yaml**, the takeoff. It passes `check`; `--strict` fails it on its six
+  open questions, as it should until they are answered and the file is marked again.
+
+The SVGs are written by `tools/make_sample_sheets.py` from primitives only (lines, rectangles,
+circles, polygons, text; instrument bubbles after the public ISA-5.1 convention) and rendered
+to PNG by `tools/render_sheets.py` through Playwright's Chromium, which records each SVG's
+SHA-256 in its PNG.
+
 ## The file
 
 `<plant>.takeoff.yaml` is YAML with its own version, `takeoff: "0.1"`, and a JSON Schema,

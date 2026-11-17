@@ -3424,7 +3424,7 @@ trusts it.
       list re-orders or cuts the tasks below.
 
 #### Phase B: what any drawing needs
-- [ ] 5.1 Takeoff file: the reviewed middle step. A `takeoff.yaml` between the drawing and the
+- [x] 5.1 Takeoff file: the reviewed middle step. A `takeoff.yaml` between the drawing and the
       scene: equipment (tag, type, size, sheet and grid reference), connections, I/O points, a
       confidence mark and open questions per row. `openfactory takeoff check` validates it;
       `openfactory takeoff scaffold` writes a scene skeleton from it and reports every row it
@@ -3448,6 +3448,9 @@ trusts it.
       and `at:` in scene metres stays for a row on no layout sheet, reported as such; (C) 5.1c
       also commits each sheet as a PNG rendered from its SVG. The mount key is `conveyor:`, not
       `on:` (PyYAML reads a bare `on` as true; found while recording the rulings).
+      *Done (2026-11-16)* by 5.1a, 5.1b and 5.1c: the sample P&ID has its takeoff in the
+      repository, `scaffold` turns it into a scene that loads, and the agitator's unknown type
+      is reported as a stand-in, not dropped (5.1c's guide clause waits for 5.13).
   - [x] 5.1a The takeoff file and `takeoff check` (note §3.2, §3.3): the schema and its JSON
         Schema export, `--strict` (`--against` is 5.6), the `checked` mark with its rows digest
         and `--mark INITIALS` (A), and layout frames with positions as printed (B).
@@ -3540,13 +3543,46 @@ trusts it.
         invalid takeoff refused with nothing written; a row with no position (the holding row,
         3.15 + 1.5 m) and a conveyor-to-tank connection (not connected) reported, 33 = 33; a
         clean takeoff exits 0.
-  - [ ] 5.1c The sample drawing set (note §3.7): `docs/samples/wash-skid/` with P-001 and L-001
+  - [x] 5.1c The sample drawing set (note §3.7): `docs/samples/wash-skid/` with P-001 and L-001
         as SVG drawn by us, `IO-001.csv` and the takeoff, and each sheet as a PNG rendered from
         its SVG (C) by `tools/render_sheets.py` through Playwright's Chromium (no image library).
         *Done when:* the files are there with their license line; each SVG is under 100 KB and
         each PNG under 1 MB; the test that cross-checks the I/O CSV against the takeoff passes;
         a test finds each PNG's recorded source digest equal to its SVG's; each sheet has been
         opened and looked at, as SVG and as PNG; the authoring guide (5.13) shows the PNGs.
+        *Done (2026-11-16), but for the authoring guide, which does not exist yet:* 5.13 now
+        carries "shows the sample's PNGs"; until then `docs/takeoff.md` shows them.
+        `docs/samples/wash-skid/`: `P-001.svg` and `L-001.svg` (10.8 KB and 14.8 KB), written by
+        `tools/make_sample_sheets.py` from SVG primitives only (no symbol library, no template,
+        a title block of our own; instrument bubbles after ISA-5.1); `P-001.png` and
+        `L-001.png` (68 KB and 83 KB, 1400 by 1000 and 1400 by 1100) rendered by
+        `tools/render_sheets.py` in Playwright's Chromium, each with the SVG's SHA-256 in a
+        `tEXt` chunk `openfactory-source`; `IO-001.csv` (the I/O CSV's columns and `plc_tag`,
+        row 15 abbreviated as `CYL201 RET` on purpose); the takeoff (from 5.1a); `LICENSE.txt`
+        (CC-BY-4.0, a plant of our own invention, no real plant, customer, vendor or product).
+        **Looked at, as PNG** (and as SVG text): P-001 shows the zone grid A to E and 1 to 4, the
+        make-up supply in A1 dropping on line 25-W-100 to control valve LV-101 in B2, line
+        25-W-101 into the top of TK-101 in C2, agitator AG-101's motor in C1 with its shaft
+        into the tank, LSH-101 at the tank's top and LT-101 in C3 on dashed signal lines, pump
+        P-101 in D2 on suction line 25-W-102, discharge 25-W-103 through FE and FT-101 (D3) to
+        "TO WASHER" in E2, four notes and our title block. L-001 shows the zone grid, the datum
+        at a building column with +X, +Y and north, X ordinates 1000 to 5600 along the top and
+        Y ordinates 4000 and 1500 at the left, the skid on its line at Y 4000 with each item's
+        EL, the tank's circle with the agitator on it, and CV-201 (3000 by 500, flow +X) with
+        PE-201 and CYL-201 on its north rail dimensioned 1200 and 2000 from its infeed. Two
+        rounds of fixes before that: labels crossing the skid outline, the ordinate lines and
+        the tank. **A known mismatch:** the note's L-001 grid references cannot all hold on one
+        even zone grid (P-101 at X 4200 in C and PE-201 at X 4200 in B cannot both hold); the
+        grid of 1600 mm columns from X 700 keeps every reference but PE-201's, which sits 300 mm
+        into C. The takeoff's references, and its checked mark, are left as ruled; no test reads
+        what a drawing shows. *Tests* (`tests/unit/test_sample_set.py`, 5): the files, their
+        licence lines and sizes; the SVGs current and made of primitives only, with no link or
+        script; each PNG's recorded digest equal to its SVG's and its size the SVG's (a render
+        is not the same bytes on every machine, so pixels are not compared); the I/O list
+        against the takeoff, row by row, the inferred IO-15 against its question's quote; the
+        sample passes `check`, fails `--strict` on its questions, and a copy with them answered
+        is stale until marked, then passes `--strict`. Scaffolding the sample gives the worked
+        example's counts, 25 placed, 4 assumed, 3 stand-in (5.1b's test).
 - [x] 5.2 Generic equipment. Something on the drawing has no component: it must still appear, with
       its I/O and a simple behaviour (a delay, a first-order lag, a permissive). First test how far
       a composite goes today (computed DIs exist, 2.16); add a `machine` primitive only for what a
@@ -3862,6 +3898,8 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
       the takeoff file, what to ask the person. The HIS skill that runs it on a customer's
       drawings lives outside this repository.
 
+      *Carried from 5.1c (2026-11-16):* the guide shows the sample's PNGs,
+      `docs/samples/wash-skid/P-001.png` and `L-001.png`.
 #### Seeing the plant together
 - [ ] 5.14 Seeing the plant together (ruled 2026-11-15). *Goal:* while a PLC program is being
       written, the person and the assistant see the same plant at the same moment, and both can
