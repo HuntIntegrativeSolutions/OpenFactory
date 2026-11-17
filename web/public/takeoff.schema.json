@@ -1,0 +1,678 @@
+{
+  "$defs": {
+    "Checked": {
+      "additionalProperties": false,
+      "description": "The file-level review mark, written by ``takeoff check --mark`` (decision 6, addition A).",
+      "properties": {
+        "by": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "By",
+          "type": "string"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Date"
+        },
+        "drawings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Drawings",
+          "type": "array"
+        },
+        "rows": {
+          "pattern": "^[0-9a-f]{16}$",
+          "title": "Rows",
+          "type": "string"
+        }
+      },
+      "required": [
+        "by",
+        "date",
+        "drawings",
+        "rows"
+      ],
+      "title": "Checked",
+      "type": "object"
+    },
+    "Connection": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "items": {
+            "$ref": "#/$defs/Ref"
+          },
+          "title": "Ref",
+          "type": "array"
+        },
+        "confidence": {
+          "enum": [
+            "read",
+            "inferred",
+            "assumed"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Questions",
+          "type": "array"
+        },
+        "row": {
+          "maxLength": 20,
+          "pattern": "^[A-Z]+-[0-9]+$",
+          "title": "Row",
+          "type": "string"
+        },
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "title": "To",
+          "type": "string"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line"
+        }
+      },
+      "required": [
+        "confidence",
+        "row",
+        "from",
+        "to"
+      ],
+      "title": "Connection",
+      "type": "object"
+    },
+    "Drawing": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "pid",
+            "layout",
+            "io_list",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "rev": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "description": "The sheet's revision.",
+          "title": "Rev"
+        },
+        "frame": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Frame"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Layout sheets only (addition B)."
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "rev"
+      ],
+      "title": "Drawing",
+      "type": "object"
+    },
+    "Equipment": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "items": {
+            "$ref": "#/$defs/Ref"
+          },
+          "title": "Ref",
+          "type": "array"
+        },
+        "confidence": {
+          "enum": [
+            "read",
+            "inferred",
+            "assumed"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Questions",
+          "type": "array"
+        },
+        "row": {
+          "maxLength": 20,
+          "pattern": "^[A-Z]+-[0-9]+$",
+          "title": "Row",
+          "type": "string"
+        },
+        "tag": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Tag",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The scene id, if not the tag with '-' as '_'.",
+          "title": "Id"
+        },
+        "type": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Type",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Layout"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mount": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Mount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "at": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Scene metres: only for a row on no layout sheet.",
+          "title": "At"
+        }
+      },
+      "required": [
+        "confidence",
+        "row",
+        "tag",
+        "type",
+        "description"
+      ],
+      "title": "Equipment",
+      "type": "object"
+    },
+    "Frame": {
+      "additionalProperties": false,
+      "description": "A layout sheet's frame: its units, its datum in the scene, its rotation (addition B).",
+      "properties": {
+        "units": {
+          "description": "What dimensions are printed in.",
+          "enum": [
+            "mm",
+            "m",
+            "in",
+            "ft"
+          ],
+          "title": "Units",
+          "type": "string"
+        },
+        "datum": {
+          "description": "Where the sheet's datum is, in scene metres.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Datum",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "The sheet's axes turned about +y, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "units",
+        "datum"
+      ],
+      "title": "Frame",
+      "type": "object"
+    },
+    "IoRow": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "items": {
+            "$ref": "#/$defs/Ref"
+          },
+          "title": "Ref",
+          "type": "array"
+        },
+        "confidence": {
+          "enum": [
+            "read",
+            "inferred",
+            "assumed"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Questions",
+          "type": "array"
+        },
+        "row": {
+          "maxLength": 20,
+          "pattern": "^[A-Z]+-[0-9]+$",
+          "title": "Row",
+          "type": "string"
+        },
+        "equipment": {
+          "title": "Equipment",
+          "type": "string"
+        },
+        "port": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Port",
+          "type": "string"
+        },
+        "signal": {
+          "enum": [
+            "DI",
+            "DO",
+            "AI",
+            "AO"
+          ],
+          "title": "Signal",
+          "type": "string"
+        },
+        "scene_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Tag"
+        },
+        "plc_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plc Tag"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Range"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Units"
+        }
+      },
+      "required": [
+        "confidence",
+        "row",
+        "equipment",
+        "port",
+        "signal"
+      ],
+      "title": "IoRow",
+      "type": "object"
+    },
+    "Layout": {
+      "additionalProperties": false,
+      "description": "A position as printed on a layout sheet (addition B).",
+      "properties": {
+        "sheet": {
+          "maxLength": 40,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Sheet",
+          "type": "string"
+        },
+        "x": {
+          "description": "To the right on the sheet, from its datum, in its units.",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "Up the sheet, from its datum, in its units.",
+          "title": "Y",
+          "type": "number"
+        },
+        "elevation": {
+          "description": "Above the datum, in the sheet's units.",
+          "title": "Elevation",
+          "type": "number"
+        },
+        "heading_deg": {
+          "default": 0.0,
+          "description": "The item's direction on the sheet, turned as rotation_deg is.",
+          "title": "Heading Deg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "sheet",
+        "x",
+        "y",
+        "elevation"
+      ],
+      "title": "Layout",
+      "type": "object"
+    },
+    "Mount": {
+      "additionalProperties": false,
+      "description": "A device on a conveyor's rail (decision 8).",
+      "properties": {
+        "conveyor": {
+          "description": "The conveyor's tag.",
+          "title": "Conveyor",
+          "type": "string"
+        },
+        "sheet": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The layout sheet `along` is printed on.",
+          "title": "Sheet"
+        },
+        "along": {
+          "description": "From the infeed end, in the sheet's units (else metres).",
+          "title": "Along",
+          "type": "number"
+        },
+        "rail": {
+          "description": "left or right, looking from the infeed.",
+          "title": "Rail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conveyor",
+        "along",
+        "rail"
+      ],
+      "title": "Mount",
+      "type": "object"
+    },
+    "PlantMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author"
+        }
+      },
+      "required": [
+        "name",
+        "description"
+      ],
+      "title": "PlantMeta",
+      "type": "object"
+    },
+    "Ref": {
+      "additionalProperties": false,
+      "properties": {
+        "sheet": {
+          "maxLength": 40,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "title": "Sheet",
+          "type": "string"
+        },
+        "grid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The zone on a drawing, e.g. C3.",
+          "title": "Grid"
+        },
+        "row": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The row on a list.",
+          "title": "Row"
+        }
+      },
+      "required": [
+        "sheet"
+      ],
+      "title": "Ref",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A takeoff file, takeoff: \"0.1\" (PLAN 5.1; docs/takeoff.md). Training and demo tool, not safety-rated.",
+  "properties": {
+    "takeoff": {
+      "const": "0.1",
+      "title": "Takeoff",
+      "type": "string"
+    },
+    "plant": {
+      "$ref": "#/$defs/PlantMeta"
+    },
+    "drawings": {
+      "items": {
+        "$ref": "#/$defs/Drawing"
+      },
+      "title": "Drawings",
+      "type": "array"
+    },
+    "checked": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Checked"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "equipment": {
+      "items": {
+        "$ref": "#/$defs/Equipment"
+      },
+      "title": "Equipment",
+      "type": "array"
+    },
+    "connections": {
+      "items": {
+        "$ref": "#/$defs/Connection"
+      },
+      "title": "Connections",
+      "type": "array"
+    },
+    "io": {
+      "items": {
+        "$ref": "#/$defs/IoRow"
+      },
+      "title": "Io",
+      "type": "array"
+    }
+  },
+  "required": [
+    "takeoff",
+    "plant",
+    "drawings"
+  ],
+  "title": "OpenFactory takeoff file",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

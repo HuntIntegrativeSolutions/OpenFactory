@@ -3448,7 +3448,7 @@ trusts it.
       and `at:` in scene metres stays for a row on no layout sheet, reported as such; (C) 5.1c
       also commits each sheet as a PNG rendered from its SVG. The mount key is `conveyor:`, not
       `on:` (PyYAML reads a bare `on` as true; found while recording the rulings).
-  - [ ] 5.1a The takeoff file and `takeoff check` (note §3.2, §3.3): the schema and its JSON
+  - [x] 5.1a The takeoff file and `takeoff check` (note §3.2, §3.3): the schema and its JSON
         Schema export, `--strict` (`--against` is 5.6), the `checked` mark with its rows digest
         and `--mark INITIALS` (A), and layout frames with positions as printed (B).
         *Done when:* the sample takeoff (note §3.6) passes `check`, and `--strict` fails it on its
@@ -3460,6 +3460,44 @@ trusts it.
         test converts the sample's `layout` and `mount` rows and gets the note's scene positions
         within 1 mm, and the same positions from a copy of the frame and dimensions turned 90
         degrees.
+        *Done (2026-11-16):* `src/openfactory/takeoff.py` and `openfactory takeoff check TAKEOFF
+        [--strict] [--mark INITIALS]` (a `takeoff` command group). **The file is data:** read
+        with PyYAML's safe loader, at most 2 MB (`MAX_BYTES`), validated by `Takeoff`, whose
+        every model refuses unknown keys; nothing in it is evaluated (a parameter is a literal
+        for the scene). Its JSON Schema is `web/public/takeoff.schema.json`, written by `python -m
+        openfactory.takeoff` and held current by `--check` in CI's schema step and a test.
+        **The mark (A):** `rows_digest` as the note specifies; the sample's mark, computed on
+        2026-11-15, is current (`2c9c61b4ae244f3a`). `mark_state` gives the reasons a mark is
+        stale: "rows changed since checking", "<sheet> is rev B, checked at rev A", a sheet not
+        checked or no longer listed. `--mark` writes only when there is no error, through the
+        4.7 `Document` writer: it replaces the `checked` value (a flow mapping on one line) or
+        adds the key at the end, and keeps the file's other bytes and line endings. **Positions
+        (B):** `layout_position` is the note's rule; `position_of` adds the mount
+        (`place_on_rail`, `along` in the sheet's units, an emitter's tallest part for a pusher)
+        and `at`. **Findings** each name their row and sheet (a position's sheet, else the first
+        ref's, else "no sheet"; a ref to a missing sheet names that sheet). **Decisions beyond
+        the ruling:** (1) `layout.heading_deg` (default 0), the item's direction on the sheet,
+        added to the frame's rotation for its scene heading; without it a belt on a turned
+        sheet would turn with the sheet, and the 90-degree test could not hold for the mounted
+        devices. (2) The note's sentence "a row is never `read` with open questions" is not an
+        error: §3.3 does not list it, and the worked example's own EQ-5 is `read` with a
+        question about its type; the sample must pass. (3) A duplicate derived scene tag and a
+        scene id that is not capitals, digits and `_` are errors too (the note lists the scene
+        tag; the id follows). Docs: `docs/takeoff.md`, in the site's Reference. *Tests*
+        (`tests/unit/test_takeoff.py`, 34): the sample passes, and `--strict` fails on its six
+        open questions (EQ-1, EQ-5, EQ-8, EQ-12, EQ-13, IO-15); 26 errors, one each, every one
+        naming its row and sheet and exiting 1 (among them `along: 3400` on the 3000 mm belt,
+        "along 3400 mm is 3.4 m, outside CV-201 (0 to 3 m); it is not clamped"); the two
+        warnings; `--mark` writes the mark with the digest, every other byte as it was, then
+        "checked: current", adds a mark to a file without one, and writes nothing with an error;
+        one row edited fails `--strict` with "rows changed since checking"; L-001 at rev B fails
+        it with "L-001 is rev B, checked at rev A" and no rows reason; the 13 rows' positions
+        within 1 mm of the note's (0 mm in fact), and the same from a copy turned 90 degrees
+        (dimensions `x' = y`, `y' = -x`, `heading_deg: -90`); a Python tag refused by the safe
+        loader, a file over the limit refused, an unknown key an error, a brace in a parameter
+        never evaluated; the JSON Schema current and closed. The sample takeoff is committed
+        here, at `docs/samples/wash-skid/wash-skid.takeoff.yaml`, the note's text with a
+        header; its sheets come in 5.1c.
   - [ ] 5.1b `takeoff scaffold` (note §3.4).
         *Done when:* the sample takeoff scaffolds to a scene that validates; its report accounts
         for all 32 rows (25 placed, 4 assumed, 3 stand-in), and AG-101 is a stand-in type

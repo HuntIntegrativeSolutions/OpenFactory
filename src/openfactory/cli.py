@@ -1298,6 +1298,64 @@ def export(
         typer.echo(f"wrote {output}", err=True)
 
 
+takeoff_app = typer.Typer(
+    help="The takeoff file between a plant's drawings and a scene (PLAN 5.1; docs/takeoff.md).",
+    no_args_is_help=True,
+)
+app.add_typer(takeoff_app, name="takeoff")
+
+
+@takeoff_app.command("check")
+def takeoff_check(
+    takeoff: Annotated[Path, typer.Argument(help="The takeoff file.", metavar="TAKEOFF")],
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="Also fail on open questions and on a missing or stale checked mark.",
+        ),
+    ] = False,
+    mark: Annotated[
+        str | None,
+        typer.Option(
+            "--mark",
+            metavar="INITIALS",
+            help="With no error, write the checked mark (who, today, each sheet's rev, the rows "
+            "digest), changing no other byte of the file.",
+        ),
+    ] = None,
+) -> None:
+    """Check a takeoff (PLAN 5.1a): exit 1 on any error (or, with --strict, on open questions or
+    a missing or stale checked mark). Writes nothing unless --mark is given."""
+    import yaml
+
+    from openfactory import takeoff as tk
+
+    try:
+        loaded = tk.load(takeoff)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        typer.echo(f"error: {takeoff}: {exc}", err=True)
+        raise typer.Exit(1) from None
+    if mark is not None:
+        rep = tk.report(loaded)
+        if rep.errors:
+            typer.echo(tk.format_report(loaded, rep, strict=False), nl=False)
+            typer.echo("not marked: fix the errors first", err=True)
+            raise typer.Exit(1)
+        try:
+            text = tk.write_mark(loaded, mark)
+        except ValueError as exc:
+            typer.echo(f"error: {exc}", err=True)
+            raise typer.Exit(1) from None
+        takeoff.write_bytes(text.encode("utf-8"))  # the text as read: line endings kept
+        loaded = tk.load(takeoff)
+        typer.echo(f"marked {takeoff} as checked by {mark}")
+    rep = tk.report(loaded)
+    typer.echo(tk.format_report(loaded, rep, strict=strict), nl=False)
+    if rep.errors or (strict and rep.strict_failures()):
+        raise typer.Exit(1)
+
+
 def main() -> None:
     app()
 

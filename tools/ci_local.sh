@@ -79,6 +79,8 @@ uv run ruff format --check .
 step "scene schema and shipped scenes"
 uv run python -m openfactory.core.schema --check
 echo "web/public/scene.schema.json is current"
+uv run python -m openfactory.takeoff --check  # PLAN 5.1a
+echo "web/public/takeoff.schema.json is current"
 uv run openfactory validate scenes
 uv run openfactory lint scenes
 uv run openfactory migrate --check scenes scenes/examples scenes/_library  # PLAN 4.7

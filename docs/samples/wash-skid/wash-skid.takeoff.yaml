@@ -1,0 +1,112 @@
+# The sample takeoff of the wash-water skid (PLAN 5.1; design note §3.6). A plant of our own
+# invention, read from our own sheets in this folder: P-001 (P&ID), L-001 (layout) and IO-001
+# (I/O list). CC-BY-4.0 (LICENSE.txt). Training and demo use only. Not a safety-rated simulation.
+takeoff: "0.1"
+plant:
+  name: wash-skid
+  description: Wash-water tank with level control and a transfer pump, and a carton reject belt.
+  author: HIS Controls
+drawings:
+  - {id: P-001, kind: pid, title: Wash Water Skid P&ID, rev: A}
+  - {id: L-001, kind: layout, title: Wash Water Skid and Reject Belt Layout, rev: A,
+     frame: {units: mm, datum: [-3.0, 0, 4.0], rotation_deg: 0}}
+  - {id: IO-001, kind: io_list, title: Wash Water Skid I/O List, rev: A}
+checked: {by: XX, date: 2026-11-15, drawings: [P-001@A, L-001@A, IO-001@A],
+          rows: 2c9c61b4ae244f3a}
+equipment:
+  - {row: EQ-1, tag: SUP-101, type: supply, description: Wash Water Make-Up Supply,
+     params: {pressure_bar: 2.0}, ref: [{sheet: P-001, grid: A1}, {sheet: L-001, grid: A2}],
+     layout: {sheet: L-001, x: 1000, y: 4000, elevation: 2400},
+     confidence: assumed, questions: ["Make-up pressure not shown; 2 bar assumed."]}
+  - {row: EQ-2, tag: LV-101, type: valve_control,
+     description: Wash Water Tank Level Control Valve, params: {kv: 6},
+     ref: [{sheet: P-001, grid: B2}, {sheet: L-001, grid: A2}],
+     layout: {sheet: L-001, x: 1800, y: 4000, elevation: 2400}, confidence: read, questions: []}
+  - {row: EQ-3, tag: TK-101, type: tank, description: Wash Water Tank,
+     params: {diameter: 1.2, height: 1.8, initial_level: 0.9, hi_level: 1.6},
+     ref: [{sheet: P-001, grid: C2}, {sheet: L-001, grid: B2}],
+     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 500}, confidence: read, questions: []}
+  - {row: EQ-4, tag: LT-101, type: transmitter,
+     description: Wash Water Tank Level Transmitter,
+     params: {measures: TK-101.level, range: [0, 1.8], lag_s: 1.0},
+     ref: [{sheet: P-001, grid: C3}, {sheet: L-001, grid: B2}],
+     layout: {sheet: L-001, x: 3700, y: 4000, elevation: 1400}, confidence: read, questions: []}
+  - {row: EQ-5, tag: AG-101, type: unknown, description: Wash Water Tank Agitator,
+     params: {length: 0.3, width: 0.3, height: 0.6},
+     ref: [{sheet: P-001, grid: C1}, {sheet: L-001, grid: B2}],
+     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 2400}, confidence: read,
+     questions: ["No agitator type yet (5.9); a stand-in until then."]}
+  - {row: EQ-6, tag: P-101, type: pump, description: Wash Water Transfer Pump,
+     params: {design_flow_m3h: 3.0, design_head_m: 6.0},
+     ref: [{sheet: P-001, grid: D2}, {sheet: L-001, grid: C2}],
+     layout: {sheet: L-001, x: 4200, y: 4000, elevation: 300}, confidence: read, questions: []}
+  - {row: EQ-7, tag: FT-101, type: transmitter,
+     description: Wash Water Transfer Flow Transmitter,
+     params: {measures: P-101.flow, range: [0, 5.0], lag_s: 0.5},
+     ref: [{sheet: P-001, grid: D3}, {sheet: L-001, grid: C2}],
+     layout: {sheet: L-001, x: 4800, y: 4000, elevation: 600}, confidence: read, questions: []}
+  - {row: EQ-8, tag: DR-101, type: drain, description: Wash Water To Washer,
+     ref: [{sheet: P-001, grid: E2}, {sheet: L-001, grid: D2}],
+     layout: {sheet: L-001, x: 5600, y: 4000, elevation: 300}, confidence: assumed,
+     questions: ["The washer is off this drawing; an open drain stands for it."]}
+  - {row: EQ-9, tag: CV-201, type: belt_conveyor, description: Carton Reject Belt Conveyor,
+     params: {length: 3.0, width: 0.5, speed_mps: 0.4}, ref: [{sheet: L-001, grid: B4}],
+     layout: {sheet: L-001, x: 3000, y: 1500, elevation: 0}, confidence: read, questions: []}
+  - {row: EQ-10, tag: PE-201, type: photo_eye, description: Carton Reject Belt Photo Eye,
+     params: {beam_length: 0.6}, ref: [{sheet: L-001, grid: B4}],
+     mount: {conveyor: CV-201, sheet: L-001, along: 1200, rail: left}, confidence: read, questions: []}
+  - {row: EQ-11, tag: CYL-201, type: pusher, description: Carton Reject Pusher,
+     params: {stroke: 0.6, extend_time_s: 0.4}, ref: [{sheet: L-001, grid: C4}],
+     mount: {conveyor: CV-201, sheet: L-001, along: 2000, rail: left}, confidence: read,
+     questions: []}
+  - {row: EQ-12, tag: EMT-201, type: box_emitter, description: Carton Reject Belt Carton Source,
+     params: {interval_s: 4.0, parts: [{name: carton, size: [0.3, 0.3, 0.3], weight: 1.0}]},
+     ref: [], at: [0.3, 0.155, 2.5], confidence: assumed,
+     questions: ["Not on the drawing: a parts source for the demo."]}
+  - {row: EQ-13, tag: REM-201, type: part_remover, description: Carton Reject Belt Discharge,
+     params: {size: [0.3, 1.0, 1.0]}, ref: [], at: [3.15, 0, 2.5],
+     confidence: assumed, questions: ["Not on the drawing: the belt's discharge."]}
+connections:
+  - {row: CN-1, from: SUP-101, to: LV-101, line: 25-W-100, ref: [{sheet: P-001, grid: A2}],
+     confidence: read, questions: []}
+  - {row: CN-2, from: LV-101, to: TK-101.top, line: 25-W-101, ref: [{sheet: P-001, grid: B2}],
+     confidence: read, questions: []}
+  - {row: CN-3, from: TK-101.bottom, to: P-101.suction, line: 25-W-102,
+     ref: [{sheet: P-001, grid: D2}], confidence: read, questions: []}
+  - {row: CN-4, from: P-101.discharge, to: DR-101, line: 25-W-103,
+     ref: [{sheet: P-001, grid: E2}], confidence: read, questions: []}
+io:
+  - {row: IO-1, equipment: LV-101, port: position, signal: AO, plc_tag: LV101_CV,
+     ref: [{sheet: IO-001, row: 1}], confidence: read, questions: []}
+  - {row: IO-2, equipment: LV-101, port: position_fb, signal: AI, plc_tag: LV101_POS,
+     ref: [{sheet: IO-001, row: 2}], confidence: read, questions: []}
+  - {row: IO-3, equipment: TK-101, port: hi_sw, signal: DI, plc_tag: LSH101,
+     ref: [{sheet: IO-001, row: 3}], confidence: read, questions: []}
+  - {row: IO-4, equipment: LT-101, port: pv, signal: AI, plc_tag: LT101_PV,
+     range: [0, 1.8], units: m, ref: [{sheet: IO-001, row: 4}], confidence: read,
+     questions: []}
+  - {row: IO-5, equipment: AG-101, port: run, signal: DO, plc_tag: AG101.Run,
+     ref: [{sheet: IO-001, row: 5}], confidence: read, questions: []}
+  - {row: IO-6, equipment: AG-101, port: running, signal: DI, plc_tag: AG101.Running,
+     ref: [{sheet: IO-001, row: 6}], confidence: read, questions: []}
+  - {row: IO-7, equipment: P-101, port: run, signal: DO, plc_tag: "Program:Transfer.P101_Run",
+     ref: [{sheet: IO-001, row: 7}], confidence: read, questions: []}
+  - {row: IO-8, equipment: P-101, port: running, signal: DI,
+     plc_tag: "Program:Transfer.P101_Running", ref: [{sheet: IO-001, row: 8}],
+     confidence: read, questions: []}
+  - {row: IO-9, equipment: FT-101, port: pv, signal: AI, plc_tag: FT101_PV,
+     range: [0, 5.0], units: m3/h, ref: [{sheet: IO-001, row: 9}], confidence: read,
+     questions: []}
+  - {row: IO-10, equipment: CV-201, port: run, signal: DO, plc_tag: CV201.Run,
+     ref: [{sheet: IO-001, row: 10}], confidence: read, questions: []}
+  - {row: IO-11, equipment: CV-201, port: running, signal: DI, plc_tag: CV201.Running,
+     ref: [{sheet: IO-001, row: 11}], confidence: read, questions: []}
+  - {row: IO-12, equipment: PE-201, port: detect, signal: DI, plc_tag: Line2_DI_Word.4,
+     ref: [{sheet: IO-001, row: 12}], confidence: read, questions: []}
+  - {row: IO-13, equipment: CYL-201, port: extend, signal: DO, plc_tag: CYL201.Ext_Cmd,
+     ref: [{sheet: IO-001, row: 13}], confidence: read, questions: []}
+  - {row: IO-14, equipment: CYL-201, port: extended, signal: DI, plc_tag: CYL201.Ext_LS,
+     ref: [{sheet: IO-001, row: 14}], confidence: read, questions: []}
+  - {row: IO-15, equipment: CYL-201, port: retracted, signal: DI, plc_tag: CYL201.Ret_LS,
+     ref: [{sheet: IO-001, row: 15}], confidence: inferred,
+     questions: ["IO-001 row 15 reads 'CYL201 RET'; the member name is inferred."]}
