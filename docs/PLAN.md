@@ -4071,6 +4071,21 @@ trusts it.
         file, and runs the plant-wide lint on save.
         *Done when:* a test saves an edit under `--area` and finds only that file changed and
         a clash with another area refused; the screenshot with the dimmed areas is looked at.
+        *Not built (2026-11-17), so 5.4e and 5.4 stay unticked:* the rest of 5.4 took this
+        run. Until it is built, `openfactory edit PLANT` refuses a plant file, saying to edit
+        an area's own file (which the editor opens as a plain scene) and then `lint` the plant,
+        since a plant opened today would show its areas' components as if editable while its
+        saves could only write the plant file (`test_the_editor_refuses_a_plant_until_5_4e`).
+        *What is left:* (1) an `EditSession` for a plant (`edit PLANT [--area NAME]`) whose
+        edited file is the plant's or the area's, whose preview document is the merged plant
+        with the edited file's text in place (5.4a's `merge` taking the unsaved text of one
+        file), each component marked with its source file (`Scene.plant.sources` has it) and
+        read-only when not in the edited file; (2) the viewer drawing those components dimmed,
+        and selecting one showing "in areas/x.yaml: open that file to edit it" instead of the
+        form; (3) save writing only the edited file, after the plant-wide lint of the merged
+        text, so a clash with another area is refused; (4) the tests of the Done-when and the
+        screenshot. Editing an area's file alone runs that file's lint only, so an id or tag
+        clash with another area is found when the plant next loads or is linted, not on save.
       *Not in the Done-when, so not built here:* a bundle of a plant (note §4.2, "Bundles");
       `bundle` refuses a plant file, saying so, rather than pack a part of it.
 - [ ] 5.5 Layout from topology. A P&ID has no geometry. `openfactory layout` places equipment and

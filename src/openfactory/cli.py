@@ -1072,6 +1072,14 @@ def edit(
     if is_bundle(scene) or not scene.is_file():
         typer.echo(f"error: {scene}: not a scene file (unpack a bundle first)", err=True)
         raise typer.Exit(1)
+    if _is_plant(scene):  # PLAN 5.4e is not built: a plant's areas would look editable
+        typer.echo(
+            f"error: {scene} is a plant file (include:); the editor does not open a plant yet "
+            "(PLAN 5.4e). Edit an area's own file (openfactory edit areas/<area>.yaml), then "
+            f"run `openfactory lint {scene.name}` to check the plant",
+            err=True,
+        )
+        raise typer.Exit(1)
     try:
         session = EditSession(scene)
         loaded = build(load_scene(scene), base_dir=scene.parent)

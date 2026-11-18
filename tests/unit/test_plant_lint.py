@@ -84,3 +84,10 @@ def test_a_folder_lint_lints_each_area_once_inside_its_plant(tmp_path) -> None:
         assert f"{folder / 'b.yaml'}" not in done.output
     done = CliRunner().invoke(cli, ["lint", str(folder)])
     assert "2 scene(s)" in done.output
+
+
+def test_the_editor_refuses_a_plant_until_5_4e(tmp_path) -> None:
+    plant = make(tmp_path / "p")
+    done = CliRunner().invoke(cli, ["edit", str(plant)])
+    assert done.exit_code == 1
+    assert "is a plant file (include:); the editor does not open a plant yet" in done.output
