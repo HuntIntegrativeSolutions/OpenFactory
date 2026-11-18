@@ -119,12 +119,70 @@ def test_the_grammar_refuses(name: str) -> None:
         parse_plc_tag(name)
 
 
-def test_unchecked_until_the_manual_is_read() -> None:
-    """The blocker under 5.3a: no length limit and no case rule are checked yet. These are
-    accepted by shape alone and must be revisited when the vendor's rules are cited."""
-    assert parse_plc_tag("A" * 60).form == "controller"
-    assert parse_plc_tag("Tag__Name_").form == "controller"
-    assert parse_plc_tag("Word.99").form == "bit"
+#: The controller's name rules, from the vendor's manual (publication 1756-PM004L-EN-P, rev L,
+#: November 2023, ch. 2): rule -> (names accepted, names refused).
+RULES = {
+    "a tag name has at most 40 characters (Guidelines for tags)": (
+        ["A" * 40, "Program:P.%s" % ("B" * 40), "%s.Member" % ("C" * 40), "D" * 40 + "[3]"],
+        ["A" * 41, "A" * 60, "Program:P.%s" % ("B" * 41), "%s.Member" % ("C" * 41)],
+    ),
+    "no two underscores together in a tag name (Guidelines for tags)": (
+        ["Tag_Name", "_Tag", "T_a_g"],
+        ["Tag__Name", "__Tag", "Program:P.Tag__Name", "Tag__Name.Member"],
+    ),
+    "no underscore at the end of a tag name (Guidelines for tags)": (
+        ["Tag_Name", "_A"],
+        ["Tag_", "Tag__Name_", "_", "Program:P.Tag_", "Tag_.Member", "Tag_[2]"],
+    ),
+    "a bit is a bit of a SINT, INT or DINT, so 0 to 31 (Address tag data, Data type)": (
+        ["Word.0", "Word.31", "Word[3].31", "Program:P.Word.31", "Tag.Member.7"],
+        ["Word.32", "Word.99", "Word[3].32", "Program:P.Word.40"],
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("rule", "name"), [(r, n) for r, (ok, _) in RULES.items() for n in ok]
+)  # fmt: skip
+def test_each_rule_accepts(rule: str, name: str) -> None:
+    parse_plc_tag(name)
+
+
+@pytest.mark.parametrize(
+    ("rule", "name"), [(r, n) for r, (_, bad) in RULES.items() for n in bad]
+)  # fmt: skip
+def test_each_rule_refuses(rule: str, name: str) -> None:
+    with pytest.raises(ValueError, match="1756-PM004L-EN-P, ch. 2"):
+        parse_plc_tag(name)
+
+
+def test_the_three_names_that_passed_for_want_of_the_rules_are_turned_round() -> None:
+    """They passed by shape alone until the manual was read (5.3a, blocker of 2026-11-16)."""
+    for name, why in [
+        ("A" * 60, "has 60 characters; a tag name has at most 40"),
+        ("Tag__Name_", "two underscores together or one at its end"),
+        ("Word.99", "bit 99 is past bit 31"),
+    ]:
+        with pytest.raises(ValueError, match=why):
+            parse_plc_tag(name)
+
+
+def test_names_that_differ_only_in_the_case_of_their_tag_name_are_one_name() -> None:
+    from openfactory.core.plctag import plc_tag_key
+
+    assert plc_tag_key("CV201.Running") == plc_tag_key("cv201.Running")
+    assert plc_tag_key("Program:P.Tag") == plc_tag_key("Program:P.TAG")
+    # the manual states no case rule for program or member names: kept apart
+    assert plc_tag_key("CV201.Running") != plc_tag_key("CV201.RUNNING")
+    assert plc_tag_key("Program:P.Tag") != plc_tag_key("Program:p.Tag")
+    doc = mapped_doc()
+    doc["components"][0]["io"]["running"]["plc_tag"] = "conv1_speed"  # Conv1_Speed's, in case
+    with pytest.raises(ValidationError, match="differ only in case, and tag names are not case"):
+        Scene.model_validate(doc)
+    doc = mapped_doc()
+    doc["plc"]["heartbeat_plc_tag"] = "SORTER_DI_WORD.4"  # PE_01_DI's Sorter_DI_Word.4
+    with pytest.raises(ValidationError, match="plc.heartbeat_plc_tag"):
+        Scene.model_validate(doc)  # the heartbeat counts too
 
 
 def test_a_malformed_plc_tag_is_a_load_error_naming_it() -> None:

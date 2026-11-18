@@ -27,9 +27,9 @@ already has, so the stub follows the name's form (:mod:`openfactory.core.plctag`
 
 ``--prefix`` applies only to rows without a ``plc_tag`` (a plant name is already the plant's full
 name), and it defaults to the scene's ``scene.area`` when there is one. A row's ``plc_tag`` is
-checked by the shape of :func:`~openfactory.core.plctag.parse_plc_tag` at load; the controller's
-own length and case rules are not checked yet (PLAN 5.3a blocker). A scene with no ``plc_tag``
-and no ``scene.area`` gives exactly the file it gave before 5.3a.
+checked at load by :func:`~openfactory.core.plctag.parse_plc_tag`, its shape and the
+controller's name rules (PLAN 5.3a, publication 1756-PM004L-EN-P, ch. 2). A scene with no
+``plc_tag`` and no ``scene.area`` gives exactly the file it gave before 5.3a.
 
 The root is ``RSLogix5000Content`` with ``SchemaRevision="1.0"``, ``SoftwareRevision="35.00"``
 (default), ``TargetType="Controller"`` and ``ContainsContext="true"``, the controller wrapped as

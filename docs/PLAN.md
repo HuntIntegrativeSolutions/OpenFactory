@@ -3807,7 +3807,7 @@ trusts it.
       without declaring them; (4) the Logix path sets `init_program_tags=True` only when a
       `Program:` name is present (pycomm3 1.2.16 replaces its tag cache when one program is
       uploaded alone), the upload time on a large program to be measured on the bench PLC.
-  - [ ] 5.3a `plc_tag` in the scene and the exports: the key, its grammar, duplicate and
+  - [x] 5.3a `plc_tag` in the scene and the exports: the key, its grammar, duplicate and
         case-duplicate errors (once the name rules are verified against the vendor's published
         manual), `scene.area`, `plc.heartbeat_plc_tag`, the CSV and `CONTEXT.md` column, the L5X
         stub rules by form, the SCADA export parameter, and W215.
@@ -3818,7 +3818,7 @@ trusts it.
         are the plant names; removing one binding's `plc_tag` raises W215 for that binding
         only; every shipped scene's exports, lockfiles, kits and run references are
         byte-identical (CI's gates); a test enumerates the grammar's accepted and refused names.
-        *Blocker (2026-11-16), so 5.3a stays unticked:* the controller's name rules were not
+        *Blocker (2026-11-16), lifted 2026-11-17 (below):* the controller's name rules were not
         read. The vendor's published programming manual (publication 1756-PM004, the I/O and
         tag data programming manual) answered 403 at the vendor's literature library, and a
         second try at a public copy elsewhere was refused by the session's permissions. So no
@@ -3865,6 +3865,36 @@ trusts it.
         prefixes only the unmapped row; a composite's command and pass-through io carry it;
         `look` shows it. Shipped scenes: `build_kit.py --check` current, `migrate --check`
         current, every lockfile unchanged.
+        *Done (2026-11-17):* the rules, from the manual the owner supplied (publication
+        1756-PM004L-EN-P, revision L, November 2023, "I/O and Tag Data" programming manual),
+        read at the pages below and stated in our own words; the PDF stays out of the
+        repository (excluded on the owner's machine only, and no test needs it). **Checked**
+        (`core/plctag.py`, each cited in its code comment and error message): (1) **length**: a
+        tag name has at most 40 characters (ch. 2, "Guidelines for tags"); it is the declared
+        tag's name that is measured (`Tag` in `Tag`, `Program:P.Tag`, `Tag.Member`, `Tag[3]`,
+        `Tag.4`), as the rule is for a tag name; (2) **underscores**: no two together and none
+        at the end of a tag name (same section; a leading `_` is allowed there, as the shape
+        already allowed); (3) **bit range**: a bit is a bit of a SINT, INT or DINT (ch. 2,
+        "Address tag data"), the widest 32 bits (ch. 2, "Data type"), so a bit above 31 is
+        refused by the parser; the range for the tag's own type needs its data type, which a
+        name does not carry, and is 5.3b's connect-time type check; (4) **case**: tag names are
+        not case sensitive (ch. 2, "Guidelines for tags"), so `plc_tag_key` folds the tag
+        name's case and the scene's duplicate check (bindings, unmapped scene tags and the
+        heartbeat) and the takeoff's compare keys: names that differ only in that case are a
+        load error saying so. **Not checked, as the manual does not state them:** any rule for
+        a program's name or a structure member's name beyond the shape (their length,
+        underscores or case; so `CV201.Running` and `CV201.RUNNING` stay two names); the bit
+        range by the tag's own type (5.3b, as above). The takeoff check uses the same parser and
+        key, and the sample's fifteen `plc_tag`s still pass (`takeoff check` on the sample: 0
+        errors). Shipped scenes carry no `plc_tag`, so their exports, lockfiles, kits and run
+        references do not move (`build_kit.py --check`, `migrate --check`, the lockfile and
+        golden-file tests). *Tests* (`tests/unit/test_plc_tag.py`, 79): per rule, the names
+        accepted and refused (four rules, 14 accepted and 18 refused, each refusal citing the
+        publication); the three names that passed for want of the rules turned round (60
+        characters, `Tag__Name_`, `Word.99`, each refused with its reason); names differing only
+        in the tag name's case a load error, the heartbeat included, and program and member
+        case kept apart; `test_takeoff.py`: a `plc_tag` differing only in case a duplicate
+        naming both rows, and `.99` refused.
   - [ ] 5.3b The Logix path by plant names: the client reads and writes `plc_tag`s, maps results
         back to scene tags, sets `init_program_tags` when a `Program:` name is present, and runs
         the connect-time type check with the bit split.

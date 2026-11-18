@@ -48,7 +48,7 @@ from pydantic import (
 
 from openfactory.core.expr import parse
 from openfactory.core.heartbeat import HEARTBEAT_TAG
-from openfactory.core.plctag import parse_plc_tag
+from openfactory.core.plctag import parse_plc_tag, plc_tag_key
 
 SCHEMA_VERSION = "0.1"
 TAG_MAX_LEN = 40
@@ -2165,21 +2165,28 @@ class Scene(StrictModel):
     def _plc_tags_unique(self) -> None:
         """PLAN 5.3a: no two points of a mapped scene reach the controller by the same name. A
         binding without a ``plc_tag`` is reached by its scene tag, so in a scene with any
-        ``plc_tag`` that name counts too, as does the heartbeat's. Only exact duplicates: the
-        controller's case rule is not verified yet (PLAN 5.3a blocker)."""
+        ``plc_tag`` that name counts too, as does the heartbeat's. Tag names are not case
+        sensitive (1756-PM004L-EN-P, ch. 2, Guidelines for tags), so names that differ only in
+        the case of their tag name are one name (``plc_tag_key``)."""
         bindings = self.tag_bindings()
         if not any(b.plc_tag for b in bindings) and self.plc.heartbeat_plc_tag is None:
             return
         seen: dict[str, str] = {}
         named = [(b.plc_tag or b.name, f"{b.component_id}.io.{b.port.name}") for b in bindings]
         named.append((self.plc.heartbeat_plc_tag or HEARTBEAT_TAG, "plc.heartbeat_plc_tag"))
+        first: dict[str, str] = {}
         for name, where in named:
-            if name in seen:
+            key = plc_tag_key(name)
+            if key in seen:
+                same = "" if first[key] == name else (
+                    f" ({first[key]!r} and {name!r} differ only in case, and tag names are not "
+                    "case sensitive)"
+                )  # fmt: skip
                 raise ValueError(
-                    f"plc_tag {name!r} names two points ({seen[name]} and {where}); each point "
-                    "in the plant's controller needs its own name"
+                    f"plc_tag {name!r} names two points ({seen[key]} and {where}){same}; each "
+                    "point in the plant's controller needs its own name"
                 )
-            seen[name] = where
+            seen[key], first[key] = where, name
 
     def tag_bindings(self) -> list[TagBinding]:
         """All bound tags in scene order (component order, then port declaration order)."""

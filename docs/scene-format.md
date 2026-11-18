@@ -81,9 +81,15 @@ components:
   `.member` or `[i]`, `[i,j]`, `[i,j,k]`, and an optional final `.<bit>`; each name a letter or
   `_` then letters, digits or `_`. A malformed name is a load error, and so is a name two points
   share (a point without a `plc_tag` counts by its scene tag, and the heartbeat by its
-  `heartbeat_plc_tag` or `SIM_HEARTBEAT_DI`). **Not checked yet:** the controller's own length,
-  underscore, bit-range and case rules, which are to come from the vendor's published
-  programming manual (PLAN 5.3a, blocker of 2026-11-16).
+  `heartbeat_plc_tag` or `SIM_HEARTBEAT_DI`).
+- **The controller's name rules** are checked at load too, from the vendor's published
+  programming manual (publication 1756-PM004L-EN-P, rev L, November 2023, chapter 2): the tag
+  name (`Tag` in `Tag`, `Program:P.Tag`, `Tag.Member`, `Tag[3]`, `Tag.4`) has at most 40
+  characters and no two underscores together or one at its end; a bit is a bit of a SINT, INT
+  or DINT, so at most bit 31 (the range for the tag's own type is checked when the Logix path
+  connects, PLAN 5.3b); and tag names are not case sensitive, so two names that differ only in
+  the case of their tag name are one name, a duplicate. That manual states no rule for program
+  or member names beyond their shape, so none is checked.
 - **`scene.area`** (capitals and digits, letter first) is the default for the L5X stub's
   `--prefix`, which applies only to rows without a `plc_tag`, and for the SCADA export's
   `--area`. It never changes a tag or a `plc_tag`.

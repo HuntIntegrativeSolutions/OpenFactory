@@ -618,7 +618,7 @@ def check(loaded: Loaded) -> list[Finding]:
     if loaded.model is None:
         return list(loaded.findings)
     from openfactory.core.mounts import MOUNT_TYPES
-    from openfactory.core.plctag import parse_plc_tag
+    from openfactory.core.plctag import parse_plc_tag, plc_tag_key
 
     model = loaded.model
     out: list[Finding] = []
@@ -640,22 +640,26 @@ def check(loaded: Loaded) -> list[Finding]:
             out.append(Finding("error", "drawings", d.id, f"sheet {d.id} is listed twice"))
         seen_ids[d.id] = d.id
 
-    def duplicates(rows: list[Any], key: Any, what: str) -> None:
-        first: dict[str, str] = {}
+    def duplicates(rows: list[Any], name: Any, what: str, fold: Any = None) -> None:
+        first: dict[str, tuple[str, str]] = {}
         for r in rows:
-            k = key(r)
-            if k is None:
+            n = name(r)
+            if n is None:
                 continue
+            k = fold(n) if fold else n
             if k in first:
-                err(r, f"duplicate {what} {k!r} (also row {first[k]})")
+                row, was = first[k]
+                case = "" if was == n else f", {was!r} differing only in case"
+                err(r, f"duplicate {what} {n!r} (also row {row}{case})")
             else:
-                first[k] = r.row
+                first[k] = (r.row, n)
 
     duplicates(model.rows(), lambda r: r.row, "row")
     duplicates(model.equipment, lambda r: r.tag, "tag")
     duplicates(model.equipment, scene_id, "scene id")
     duplicates(model.io, lambda r: scene_tag(r, by_tag), "scene tag")
-    duplicates(model.io, lambda r: r.plc_tag, "plc_tag")
+    # tag names are not case sensitive (1756-PM004L-EN-P, ch. 2, Guidelines for tags)
+    duplicates(model.io, lambda r: r.plc_tag, "plc_tag", plc_tag_key)
 
     for r in model.rows():
         for ref in r.ref:

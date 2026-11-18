@@ -398,3 +398,16 @@ def test_a_pipe_id_equal_to_an_equipment_rows_scene_id_is_an_error_naming_both(t
         "ERROR CN-2 (P-001): scaffold makes this line pipe PIPE_101, which is also the scene id "
         "of EQ-12 EMT-201; give EQ-12 another `id:`"
     ]
+
+
+def test_plc_tags_that_differ_only_in_the_case_of_their_tag_name_are_duplicates(tmp_path) -> None:
+    """The takeoff uses the scene's parser and key (PLAN 5.3a, 1756-PM004L-EN-P ch. 2)."""
+    data = sample()
+    row(data, "IO-2")["plc_tag"] = "lv101_cv"  # IO-1 is LV101_CV
+    errors = [str(f) for f in findings(tmp_path, data) if f.level == "error"]
+    assert errors == [
+        "ERROR IO-2 (IO-001): duplicate plc_tag 'lv101_cv' (also row IO-1, 'LV101_CV' differing "
+        "only in case)"
+    ]
+    row(data, "IO-2")["plc_tag"] = "LV101_POS.99"
+    assert any("bit 99 is past bit 31" in f.message for f in findings(tmp_path, data))

@@ -22,12 +22,26 @@ https://github.com/ottowayi/pycomm3, ``pycomm3/logix_driver.py``): a base that s
 ``[i,j,k]`` index a segment; a last segment made only of digits is a bit. Each name in it is a
 letter or ``_`` followed by letters, digits or ``_``.
 
-**Not checked yet** (PLAN 5.3a, blocker of 2026-11-16): the controller's own name rules, which
-are to come from the vendor's published programming manual. Until they are read and cited, this
-module checks no length limit, no rule on leading, doubled or trailing underscores, no bit
-range per data type, and no duplicate that differs only in case. A scene's exact duplicates are
-refused at load (:class:`openfactory.core.schema.Scene`), which is OpenFactory's own rule, not
-the controller's.
+**The controller's name rules** (PLAN 5.3a; the vendor's published programming manual,
+publication 1756-PM004L-EN-P, revision L, November 2023, chapter 2), each checked here and
+stated in our own words:
+
+- a **tag name** has at most 40 characters, and holds no two underscores together and no
+  underscore at its end (section "Guidelines for tags"); letters, digits and ``_``, starting
+  with a letter or ``_``, as the shape above already requires;
+- tag names are **not case sensitive** (same section), so two names that differ only in the
+  case of their tag name are one tag: :func:`plc_tag_key` folds the tag name's case, and the
+  scene's and the takeoff's duplicate checks compare keys;
+- a **bit** is a bit of an integer tag, a SINT, INT or DINT (section "Address tag data"), and
+  the widest of those is 32 bits (section "Data type"), so a bit number above 31 is refused
+  here. The range for the tag's own type (0 to 7 for a SINT, 0 to 15 for an INT) needs the
+  tag's data type, which a name does not carry: that is the connect-time type check of 5.3b.
+
+**Not checked, because that manual does not state them** (listed in PLAN 5.3a): rules for a
+program's name or a structure member's name (their length, their underscores, their case),
+beyond the shape above. A "tag name" in these rules is the declared tag's name: ``Tag`` in
+``Tag``, ``Program:P.Tag``, ``Tag.Member``, ``Tag[3]`` and ``Tag.4``. A scene's duplicates are
+refused at load (:class:`openfactory.core.schema.Scene`).
 
 Not a safety-rated simulation. OpenFactory is a training and demo tool.
 """
@@ -45,6 +59,12 @@ PLC_TAG = re.compile(
     rf"(?P<rest>(?:\.{_IDENT}(?:{_INDEX})?)*)"
     rf"(?:\.(?P<bit>\d+))?$"
 )
+
+#: A tag name's longest length (1756-PM004L-EN-P, ch. 2, "Guidelines for tags").
+TAG_NAME_MAX = 40
+#: The highest bit number of the widest integer tag a bit can name, a 32-bit DINT
+#: (1756-PM004L-EN-P, ch. 2, "Address tag data" and "Data type").
+BIT_MAX = 31
 
 #: The forms a plc_tag can take, in the order the L5X comment lists them.
 FORMS = ("controller", "program", "member", "element", "bit")
@@ -76,6 +96,22 @@ def parse_plc_tag(name: str) -> PlcTag:
             "Program:PROGRAM.NAME, NAME.MEMBER, NAME[i] or NAME.BIT, each name a letter or _ "
             "then letters, digits or _"
         )
+    tag = m["base"]
+    if len(tag) > TAG_NAME_MAX:
+        raise ValueError(
+            f"plc_tag {name!r}: the tag name {tag!r} has {len(tag)} characters; a tag name has "
+            f"at most {TAG_NAME_MAX} (1756-PM004L-EN-P, ch. 2, Guidelines for tags)"
+        )
+    if "__" in tag or tag.endswith("_"):
+        raise ValueError(
+            f"plc_tag {name!r}: the tag name {tag!r} has two underscores together or one at "
+            "its end, which a tag name may not (1756-PM004L-EN-P, ch. 2, Guidelines for tags)"
+        )
+    if m["bit"] is not None and int(m["bit"]) > BIT_MAX:
+        raise ValueError(
+            f"plc_tag {name!r}: bit {int(m['bit'])} is past bit {BIT_MAX}; a bit names a bit of "
+            "a SINT, INT or DINT, at most 32 bits (1756-PM004L-EN-P, ch. 2, Address tag data)"
+        )
     program = m["program"]
     base = f"Program:{program}.{m['base']}" if program else m["base"]
     if m["bit"] is not None:
@@ -87,3 +123,15 @@ def parse_plc_tag(name: str) -> PlcTag:
     else:
         form = "program" if program else "controller"
     return PlcTag(name, form, program, base)
+
+
+def plc_tag_key(name: str) -> str:
+    """The name as the controller compares it: tag names are not case sensitive
+    (1756-PM004L-EN-P, ch. 2, Guidelines for tags), so the tag name's case is folded; the
+    program and member names are kept as written, since that manual states no case rule for
+    them. A name that does not parse is its own key."""
+    m = PLC_TAG.match(name) if isinstance(name, str) else None
+    if m is None:
+        return name
+    start, end = m.span("base")
+    return name[:start] + name[start:end].casefold() + name[end:]
