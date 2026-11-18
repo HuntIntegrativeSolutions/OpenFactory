@@ -94,11 +94,14 @@ def openfactory(*args: str) -> str:
 
 
 def source(scene: str) -> Path:
-    """The scene file: ``scenes/<scene>.yaml``, else ``scenes/examples/<scene>.yaml``."""
-    for folder in (REPO / "scenes", REPO / "scenes" / "examples"):
+    """The scene file: ``scenes/<scene>.yaml``, else ``scenes/examples/<scene>.yaml``, else a
+    plant's, ``scenes/plants/<scene>/<scene>.yaml`` (PLAN 5.4d)."""
+    folders = (REPO / "scenes", REPO / "scenes" / "examples", REPO / "scenes" / "plants" / scene)
+    for folder in folders:
         if (folder / f"{scene}.yaml").is_file():
             return folder / f"{scene}.yaml"
-    raise SystemExit(f"no scene scenes/{scene}.yaml or scenes/examples/{scene}.yaml")
+    raise SystemExit(f"no scene scenes/{scene}.yaml, scenes/examples/{scene}.yaml or "
+                     f"scenes/plants/{scene}/{scene}.yaml")  # fmt: skip
 
 
 def script(scene: str) -> Path:
@@ -179,11 +182,17 @@ def record(scene: str, ofrec: Path, scene_file: Path | None = None) -> str:
     composites, so `test` cannot touch scenes/. Also used by ``tools/run_reference.py``."""
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp) / f"{scene}.yaml"
+        if source(scene).parent.parent.name == "plants":  # a plant: its folder, areas and all
+            plant = Path(tmp) / scene
+            shutil.copytree(source(scene).parent, plant,
+                            ignore=shutil.ignore_patterns("__pycache__", "*.ofrec"))  # fmt: skip
+            (Path(tmp) / "openfactory.toml").write_text("", encoding="utf-8")  # the project root
+            scratch = plant / f"{scene}.yaml"
         shutil.copyfile(scene_file or source(scene), scratch)
         copy_libraries(scene, Path(tmp))
         for enc in ENCODING_SUFFIX:
             if lock(scene, enc).is_file():
-                shutil.copyfile(lock(scene, enc), Path(tmp) / lock(scene, enc).name)
+                shutil.copyfile(lock(scene, enc), scratch.parent / lock(scene, enc).name)
         # `test` serves no protocol, and fails the build if the scene's checks fail
         printed = openfactory(
             "test", str(scratch), "--script", str(script(scene)),

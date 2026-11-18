@@ -1,0 +1,96 @@
+# OpenFactory sample plant, area WASH (PLAN 5.4d): training and demo use only. Not a
+# safety-rated simulation. A plant of our own invention. This area also runs alone, as a plain
+# scene, or at the plant's addresses with `--area WASH` on ../wash-plant.yaml.
+openfactory: "0.1"
+scene:
+  name: wash-plant-wash
+  description: A wash belt under a spray fed from a level-controlled wash-water tank, with a vapour fan.
+  author: HIS Controls
+  seed: 12
+plc:
+  protocol: modbus_tcp
+composites:
+  - {library: driven_item}         # shared with the LOAD area: one type in the plant
+checks:                            # running alone: no cartons arrive; the wash water is graded
+  duration_s: 60
+  level_within: {TK_201: {band: [0.25, 1.05], after_s: 0}}
+  never_overflow: [TK_201]
+  never_dry: [P_201]
+  max_starts: {P_201: 1}
+components:
+  - id: FAN_201
+    type: driven_item
+    description: Wash Area Vapour Extraction Fan
+    position: [4.5, 0, 1.5]
+    length: 0.8
+    width: 0.8
+    height: 1.2
+    io:
+      start: FAN_201_START_DO
+      running: FAN_201_RUN_DI
+      hoa_hand: FAN_201_HAND_DI
+      hoa_auto: FAN_201_AUTO_DI
+  - id: CV_201
+    type: belt_conveyor
+    description: Wash Belt Conveyor
+    position: [3.0, 0, 0]
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.4
+    io:
+      run: CV_201_RUN_DO
+      running: CV_201_RUN_DI
+  - id: PE_201
+    type: photo_eye
+    description: Wash Belt Discharge Photo Eye
+    position: [5.7, 0.1, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_201_DI
+  - id: REM_201
+    type: part_remover
+    description: Wash Belt Discharge
+    position: [6.15, 0, 0]
+    size: [0.3, 1.0, 1.0]
+  - id: SUP_201
+    type: supply
+    description: Wash Water Make-Up Supply
+    position: [3.0, 2.0, -2.0]
+    pressure_bar: 2.0
+  - id: XV_201
+    type: valve_onoff
+    description: Wash Water Make-Up Valve
+    position: [3.6, 2.0, -2.0]
+    from: SUP_201
+    to: TK_201.top
+    kv: 6
+    io:
+      open: XV_201_OPEN_DO
+  - id: TK_201
+    type: tank
+    description: Wash Water Tank
+    position: [4.5, 0, -2.0]
+    diameter: 0.8
+    height: 1.2
+    initial_level: 0.6
+    hi_level: 0.9
+    lo_level: 0.4
+    io:
+      level: TK_201_LVL_AI
+      hi_sw: TK_201_LSH_DI
+      lo_sw: TK_201_LSL_DI
+  - id: P_201
+    type: pump
+    description: Wash Spray Pump
+    position: [5.2, 0.25, -2.0]
+    from: TK_201.bottom
+    to: DR_201
+    design_flow_m3h: 2.0
+    design_head_m: 6
+    io:
+      run: P_201_RUN_DO
+      running: P_201_RUN_DI
+  - id: DR_201
+    type: drain
+    description: Wash Spray Drain
+    position: [6.0, 0.25, -2.0]

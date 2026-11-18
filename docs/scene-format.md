@@ -104,7 +104,9 @@ components:
 ## `include:`: a plant in several files (PLAN 5.4)
 
 A **plant file** names its areas, each an ordinary scene file that also loads alone, and runs
-them as one plant:
+them as one plant. The shipped sample is `scenes/plants/wash-plant/`: a parts-wash line of our
+own invention in two areas, LOAD and WASH, whose extraction fans are one library composite
+(`driven_item`) and whose infeed belt hands cartons to the wash belt across the areas.
 
 ```yaml
 openfactory: "0.1"

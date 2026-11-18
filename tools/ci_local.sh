@@ -83,7 +83,13 @@ uv run python -m openfactory.takeoff --check  # PLAN 5.1a
 echo "web/public/takeoff.schema.json is current"
 uv run openfactory validate scenes
 uv run openfactory lint scenes
-uv run openfactory migrate --check scenes scenes/examples scenes/_library  # PLAN 4.7
+uv run openfactory validate scenes/plants/*/  # PLAN 5.4d: each plant, its areas inside it
+for plant in scenes/plants/*/; do
+  name="$(basename "$plant")"
+  uv run openfactory lint "$plant$name.yaml" --script "$plant$name.py"
+done
+uv run openfactory migrate --check scenes scenes/examples scenes/_library \
+  scenes/plants/*/ scenes/plants/*/areas  # PLAN 4.7
 
 step "exercise checks: every shipped scene under its stand-in script (PLAN 2.11)"
 for scene in scenes/*.yaml; do
@@ -99,6 +105,17 @@ for scene in scenes/examples/*.yaml; do
   name="$(basename "$scene" .yaml)"
   echo "--- examples/$name"
   uv run openfactory test "$scene" --script "scenes/examples/$name.py" -q
+done
+# the plants under scenes/plants/<plant>/ (PLAN 5.4d): the plant, then each area alone at the
+# plant's addresses (--area), each graded by its own checks, under the plant's stand-in script
+for plant in scenes/plants/*/; do
+  name="$(basename "$plant")"
+  echo "--- plants/$name"
+  uv run openfactory test "$plant$name.yaml" --script "$plant$name.py" -q
+  for area in $(sed -n 's/^ *- {area: \([A-Z][A-Z0-9]*\),.*/\1/p' "$plant$name.yaml"); do
+    echo "--- plants/$name --area $area"
+    uv run openfactory test "$plant$name.yaml" --area "$area" --script "$plant$name.py" -q
+  done
 done
 
 step "web: npm ci, npm run build, npm test"

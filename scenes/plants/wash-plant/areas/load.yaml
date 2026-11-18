@@ -1,0 +1,55 @@
+# OpenFactory sample plant, area LOAD (PLAN 5.4d): training and demo use only. Not a
+# safety-rated simulation. A plant of our own invention. This area also runs alone, as a plain
+# scene, or at the plant's addresses with `--area LOAD` on ../wash-plant.yaml.
+openfactory: "0.1"
+scene:
+  name: wash-plant-load
+  description: Cartons loaded onto the infeed belt of a parts-wash line, under a dust extraction fan.
+  author: HIS Controls
+  seed: 11
+plc:
+  protocol: modbus_tcp
+composites:
+  - {library: driven_item}         # shared with the WASH area: one type in the plant
+checks:                            # running alone: the belt keeps cartons moving (they leave its end)
+  duration_s: 60
+  max_cycle_s: 15
+components:
+  - id: FAN_101
+    type: driven_item
+    description: Load Area Dust Extraction Fan
+    position: [1.5, 0, 1.5]
+    length: 0.8
+    width: 0.8
+    height: 1.2
+    io:
+      start: FAN_101_START_DO
+      running: FAN_101_RUN_DI
+      hoa_hand: FAN_101_HAND_DI
+      hoa_auto: FAN_101_AUTO_DI
+  - id: CV_101
+    type: belt_conveyor
+    description: Infeed Belt Conveyor
+    position: [0, 0, 0]
+    length: 3.0
+    width: 0.5
+    speed_mps: 0.4
+    io:
+      run: CV_101_RUN_DO
+      running: CV_101_RUN_DI
+  - id: EMT_101
+    type: box_emitter
+    description: Infeed Belt Carton Source
+    position: [0.3, 0.155, 0]       # a 0.3 m carton, 5 mm above the belt
+    interval_s: 4.0
+    parts:
+      - {name: carton, size: [0.3, 0.3, 0.3], weight: 1.0}
+    io:
+      enable: EMT_101_EN_DO
+  - id: PE_101
+    type: photo_eye
+    description: Infeed Belt Discharge Photo Eye
+    position: [2.7, 0.1, 0]
+    beam_length: 0.6
+    io:
+      detect: PE_101_DI

@@ -1,7 +1,8 @@
 """A committed reference of a shipped scene's run, for the scenes no demo kit holds (PLAN §9
 rule 13).
 
-Every shipped scene (``scenes/*.yaml`` and ``scenes/examples/*.yaml``) must run as it did, and a
+Every shipped scene (``scenes/*.yaml``, ``scenes/examples/*.yaml`` and the plants in
+``scenes/plants/``) must run as it did, and a
 change to its run must fail a test that names the scene and the tick where the run first moved.
 A scene with a demo kit is held by the kit's 60 s recording, which ``tools/build_kit.py --check``
 compares line for line in CI. A scene with no kit is held here: ``tests/references/<scene>.run``
@@ -45,11 +46,18 @@ HEAD = "# OpenFactory run reference (PLAN §9 rule 13). Renew only as that rule 
 
 
 def shipped() -> list[str]:
-    """Every shipped scene's name: ``scenes/*.yaml`` and ``scenes/examples/*.yaml``."""
+    """Every shipped scene's name: ``scenes/*.yaml``, ``scenes/examples/*.yaml``, and each
+    plant's file ``scenes/plants/<plant>/<plant>.yaml`` (PLAN 5.4d; its area files are run
+    inside the plant, and with --area in CI, not as scenes of their own)."""
     folders = (REPO / "scenes", REPO / "scenes" / "examples")
-    return sorted(
+    names = [
         p.stem for f in folders for p in f.glob("*.yaml") if not p.name.endswith(".modbus.yaml")
-    )
+    ]
+    plants = REPO / "scenes" / "plants"
+    names += [d.name for d in plants.iterdir() if (d / f"{d.name}.yaml").is_file()] if (
+        plants.is_dir()
+    ) else []  # fmt: skip
+    return sorted(names)
 
 
 def reference_names() -> list[str]:

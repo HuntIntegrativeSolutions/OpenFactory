@@ -4029,7 +4029,7 @@ trusts it.
         areas overlapping give W205 in the plant and in neither area; a folder holding a plant,
         its two areas and another scene lints and validates two files, the areas only inside
         the plant.
-  - [ ] 5.4d The two-area sample plant, held by PLAN §9 rule 13: `scenes/plants/<plant>/`
+  - [x] 5.4d The two-area sample plant, held by PLAN §9 rule 13: `scenes/plants/<plant>/`
         with the plant file, two area files, the plant lockfile and the stand-in script; a
         shared composite used in both areas and a connection across them; CI's scene loops
         run the plant and each area (`--area`) under the script; a run reference holds the
@@ -4037,6 +4037,34 @@ trusts it.
         *Done when:* the plant passes its checks at 60 s and 300 s, each area alone passes
         its own at 60 s and 300 s, `tests/references/<plant>.run` is current, and the
         address comparison of 5.4b holds on this sample.
+        *Done (2026-11-17):* `scenes/plants/wash-plant/`, a parts-wash line of our own
+        invention (no real plant, customer or product): `wash-plant.yaml` (the plant: its
+        scene, `plc`, the include of two areas, the connection `CV_101 -> CV_201` across them,
+        and seven checks), `areas/load.yaml` (LOAD: carton source EMT_101, infeed belt CV_101,
+        photo eye PE_101, dust fan FAN_101; checks alone: `max_cycle_s: 15`, cartons keep
+        moving and leave the belt's end), `areas/wash.yaml` (WASH: wash belt CV_201, photo eye
+        PE_201, discharge REM_201, make-up supply SUP_201 through on/off valve XV_201 into
+        wash-water tank TK_201 with high and low level switches, spray pump P_201 to drain
+        DR_201, vapour fan FAN_201; checks alone: the level band, no overflow, no dry run, one
+        pump start), the two lockfiles, `wash-plant.CONTEXT.md`, and `wash-plant.py`, one
+        stand-in script for the plant and each area (each section runs only when its tags are
+        in the run, `"TAG" in io`; the infeed waits for the wash belt only when it is there).
+        **Why it exercises the two:** both fans are the library composite `driven_item`,
+        declared in each area, so the plant merges one type from two files; the infeed belt in
+        LOAD feeds the wash belt in WASH only through the plant file's connection, so cartons
+        reach REM_201 in the plant and leave CV_101's end when LOAD runs alone. Results, under
+        the script: the plant 7 of 7 at 60 s (12 cartons reached REM_201, none lost, level 0.466
+        to 0.600 m) and at 300 s (72 cartons, level 0.399 to 0.901 m as the valve cycles); LOAD
+        alone 1 of 1 and WASH alone 4 of 4 at both. **Rule 13:** `tests/references/wash-plant.run`
+        (65 KB) holds the plant's run; `run_reference.shipped()` lists each
+        `scenes/plants/<plant>/<plant>.yaml` (not its areas), and `build_kit.source` and `record`
+        find a plant and copy its folder; CI validates and lints each plant with its script,
+        checks its formats with `migrate --check`, and tests the plant and each area (`--area`,
+        the areas read from the plant file) at 60 s. *Tests*
+        (`tests/integration/test_plant_addresses.py`, 7 more): the sample's address comparison
+        over the three runs against its committed lockfile, which no run writes; the plant and
+        each area at 60 s and 300 s; `test_runs_unchanged.py` counts 15 shipped scenes and three
+        references.
   - [ ] 5.4e The editor (note §4.3): `edit PLANT` shows the whole plant with the included
         areas dimmed and not editable ("in areas/x.yaml: open that file to edit it"); `edit
         PLANT --area NAME` edits that area's file with the others dimmed, saves only that

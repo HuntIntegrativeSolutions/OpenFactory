@@ -1,0 +1,28 @@
+# OpenFactory sample plant (PLAN 5.4d): training and demo use only. Not a safety-rated
+# simulation. A parts-wash line of our own invention in two areas, one file each: LOAD puts
+# cartons on an infeed belt, WASH carries them under a spray fed from a wash-water tank. Both
+# areas use the same library composite (driven_item) for their extraction fans, and the infeed
+# belt hands cartons to the wash belt across the areas (the connection below). Each area also
+# runs alone: `openfactory test wash-plant.yaml --area LOAD --script wash-plant.py`.
+openfactory: "0.1"
+scene:
+  name: wash-plant
+  description: A parts-wash line in two areas, LOAD and WASH, run as one plant.
+  author: HIS Controls
+  seed: 10
+plc:
+  protocol: modbus_tcp
+include:
+  - {area: LOAD, file: areas/load.yaml}
+  - {area: WASH, file: areas/wash.yaml}
+connections:                       # across the areas
+  - {from: CV_101, to: CV_201}
+checks:                            # the plant: cartons washed end to end, the wash water held
+  duration_s: 60
+  parts_reached: {REM_201: carton}
+  none_lost: true
+  max_cycle_s: 25
+  level_within: {TK_201: {band: [0.25, 1.05], after_s: 0}}
+  never_overflow: [TK_201]
+  never_dry: [P_201]
+  max_starts: {P_201: 1}

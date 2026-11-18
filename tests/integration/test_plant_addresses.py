@@ -168,3 +168,51 @@ def test_area_on_the_commands(tmp_path) -> None:
                                "--duration", "1"])  # fmt: skip
     assert done.exit_code == 1
     assert "no area 'C'; its areas are A, B" in done.output
+
+
+# --- the shipped sample plant (PLAN 5.4d) ---------------------------------------------------
+
+SAMPLE = Path(__file__).resolve().parents[2] / "scenes" / "plants" / "wash-plant"
+
+
+def sample_copy(tmp_path: Path) -> Path:
+    import shutil
+
+    folder = tmp_path / "wash-plant"
+    shutil.copytree(SAMPLE, folder, ignore=shutil.ignore_patterns("__pycache__", "*.CONTEXT.md"))
+    (tmp_path / "_library").mkdir()
+    shutil.copyfile(SAMPLE.parents[1] / "_library" / "driven_item.yaml",
+                    tmp_path / "_library" / "driven_item.yaml")  # fmt: skip
+    (tmp_path / "openfactory.toml").write_text("", encoding="utf-8")  # a project root
+    return folder / "wash-plant.yaml"
+
+
+def test_the_sample_plant_keeps_one_address_map_in_all_three_runs(tmp_path) -> None:
+    plant = sample_copy(tmp_path)
+    lock = lockfile_path(plant, "float32")
+    before = lock.read_bytes()
+    plant_map = scene_register_map(load_scene(plant), scene_path=plant, write=False)
+    runs = {area: read_back(plant, area, plant_map) for area in (None, "LOAD", "WASH")}
+    for area, run in runs.items():
+        for name in plant_map.by_tag:
+            if name in run["tags"]:
+                assert run["got"][name] == pytest.approx(run["expected"][name], abs=1e-6)
+            else:
+                assert run["got"][name] in (False, 0.0, "refused"), (area, name)
+    assert {n for n in runs["LOAD"]["tags"] if n.startswith("TK_")} == set()
+    assert "TK_201_LVL_AI" in runs["WASH"]["tags"] and "CV_101_RUN_DO" not in runs["WASH"]["tags"]
+    assert lock.read_bytes() == before == (SAMPLE / lock.name).read_bytes()
+
+
+@pytest.mark.parametrize("seconds", [60, 300])
+@pytest.mark.parametrize("area", [None, "LOAD", "WASH"])
+def test_the_sample_plant_and_each_area_pass_their_checks(tmp_path, area, seconds) -> None:
+    plant = sample_copy(tmp_path)
+    args = ["test", str(plant), "--script", str(plant.with_suffix(".py")), "-q",
+            "--duration", str(seconds)] + (["--area", area] if area else [])  # fmt: skip
+    done = CliRunner().invoke(cli, args)
+    assert done.exit_code == 0, done.output
+    expected = {None: "PASS: 7 of 7", "LOAD": "PASS: 1 of 1", "WASH": "PASS: 4 of 4"}[area]
+    assert expected in done.output
+    if area is None:
+        assert "carton: " in done.output and "reached REM_201, none anywhere else" in done.output
