@@ -974,12 +974,34 @@ def look(
 
 
 def _scene_files(paths: list[Path]) -> list[Path]:
+    """The scene files named, a folder as its ``*.yaml`` (no lockfiles). A file that a plant in
+    the same folder includes is left out: it is checked inside its plant (PLAN 5.4c)."""
     out: list[Path] = []
     for path in paths:
         if path.is_dir():
-            out += sorted(p for p in path.glob("*.yaml") if not p.name.endswith(LOCKFILE_SUFFIX))
+            found = sorted(p for p in path.glob("*.yaml") if not p.name.endswith(LOCKFILE_SUFFIX))
+            included = {f for p in found for f in _included(p)}
+            out += [p for p in found if p.resolve() not in included]
         else:
             out.append(path)
+    return out
+
+
+def _included(path: Path) -> set[Path]:
+    """The resolved files a plant file includes; empty for any other file."""
+    import yaml
+
+    from openfactory.core.plant import PlantError, include_path
+
+    if not _is_plant(path):
+        return set()
+    data = yaml.safe_load(read_scene_text(path))
+    out = set()
+    for entry in data.get("include") or []:
+        try:
+            out.add(include_path(path.resolve(), entry["file"], path.resolve().parent))
+        except (PlantError, KeyError, TypeError):
+            continue  # the plant's own lint reports it
     return out
 
 

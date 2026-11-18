@@ -155,6 +155,13 @@ openfactory test scenes/plants/wash-plant/wash-plant.yaml --area LOAD --script s
 - A connection of the plant file with an end outside the area is left out, and the run says
   so once. The area's own `checks:` grade the run, and the include's `area` is its default
   `scene.area` for exports. An area run writes no `CONTEXT.md`.
+- **Lint across areas.** `openfactory lint PLANT` lints the plant as one scene, so its checks
+  run across the areas: W205 finds two belts of two areas overlapping, which neither area
+  alone has. It says once per included file, as `INFO I216`, that the file's own `scene`,
+  `plc` and `checks` are for running it alone, and warns **W216** when an included file has a
+  Modbus lockfile beside it (run alone it has its own address map; run it with `--area`).
+  `lint` and `validate` on a folder leave out the files a plant in that folder includes:
+  they are checked inside their plant.
 - On `export`, `--area` already named the SCADA export's area folder (PLAN 2.4). On a plant
   file it selects the area, whose name is also that folder by default; on any other scene it
   names the folder, as before.

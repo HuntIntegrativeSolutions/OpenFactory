@@ -4010,13 +4010,25 @@ trusts it.
         an area run with no plant lockfile, or one lacking a tag, is refused and writes
         nothing; `export --area B` exports only B's rows and leaves the lockfile as it was,
         and `run --area C` exits 1 naming the areas A and B.
-  - [ ] 5.4c Lint across areas (note §4.2, "Lint across areas"). `lint PLANT` lints the plant
+  - [x] 5.4c Lint across areas (note §4.2, "Lint across areas"). `lint PLANT` lints the plant
         as one scene; an included file's own `scene`, `plc` and `checks` are reported once per
         file as info; W216 for a file a plant includes with a lockfile beside it; `lint` and
         `validate` on a folder skip the files a plant in it includes.
         *Done when:* a test of each: the info lines, W216, a W205 overlap across the area
         boundary found only in the plant, and a folder lint that lints each area once, inside
         its plant.
+        *Done (2026-11-17):* `lint_scene` on a plant file lints the merged plant (5.4a), so every
+        check runs across the areas; `_plant_findings` adds `I216` (a new level, info, printed
+        `INFO` and never counted toward the exit code) once per included file, and `W216` for an
+        included file with a lockfile of either encoding beside it. `cli._scene_files` leaves
+        out of a folder the files a plant in that folder includes (`_included`, through 5.4a's
+        `include_path`), for `lint` and `validate`. The lockfile checks (W201, W202, E101) read
+        the plant's lockfile, as the plant file is the scene path. Docs: `lint.py`'s spec,
+        `docs/scene-format.md` ("Lint across areas"). *Tests* (`tests/unit/test_plant_lint.py`,
+        4): the two `I216` lines; `W216` for `areas/b.float32.modbus.yaml`; two belts of two
+        areas overlapping give W205 in the plant and in neither area; a folder holding a plant,
+        its two areas and another scene lints and validates two files, the areas only inside
+        the plant.
   - [ ] 5.4d The two-area sample plant, held by PLAN §9 rule 13: `scenes/plants/<plant>/`
         with the plant file, two area files, the plant lockfile and the stand-in script; a
         shared composite used in both areas and a connection across them; CI's scene loops

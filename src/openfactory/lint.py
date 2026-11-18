@@ -85,6 +85,17 @@ centre line, and the plate height after the loader's default.
   pattern (a malformed or duplicate one is a load error). The heartbeat is not a binding: its
   plant name is ``plc.heartbeat_plc_tag``.
 
+- ``W216`` a file that a plant includes (PLAN 5.4c) with a Modbus lockfile beside it: run alone it
+  has its own address map, which is not the plant's; ``--area`` runs it at the plant's.
+
+Info (never changes the exit code):
+
+- ``I216`` once per file a plant includes (PLAN 5.4c): its own ``scene``, ``plc`` and ``checks``
+  are kept for running it alone and are not the plant's.
+
+Linting a plant file lints the plant as one scene (PLAN 5.4c), so the checks above run across the
+areas (W205 finds two belts of two areas overlapping, which neither area alone has).
+
 - ``W208`` a composite type (PLAN 2.16) that exposes no I/O: its ``io:`` block is empty, so no
   PLC can command or read any instance of it.
 
@@ -130,12 +141,13 @@ _ACCESS = re.compile(r"""io\[\s*["']([A-Z][A-Z0-9_]*)["']\s*\]""")
 
 @dataclass(frozen=True)
 class Finding:
-    level: str  # "error" | "warning"
+    level: str  # "error" | "warning" | "info"
     code: str
     message: str
 
     def __str__(self) -> str:
-        return f"{'ERROR' if self.level == 'error' else 'WARN '} {self.code} {self.message}"
+        word = {"error": "ERROR", "warning": "WARN ", "info": "INFO "}[self.level]
+        return f"{word} {self.code} {self.message}"
 
 
 def script_tags(paths: list[Path]) -> tuple[set[str], set[str]]:
@@ -165,6 +177,26 @@ def _footprint(comp) -> tuple[float, float, float, float]:
     return min(xs), max(xs), min(zs), max(zs)
 
 
+def _plant_findings(scene: Any) -> list[Finding]:
+    """I216 and W216 for a plant's included files (PLAN 5.4c)."""
+    plant = getattr(scene, "plant", None)
+    if plant is None:
+        return []
+    out = []
+    folder = plant.path.parent.resolve()
+    for a in plant.areas:
+        rel = a.path.relative_to(folder).as_posix()
+        out.append(Finding("info", "I216", f"{rel} (area {a.name}): its own scene, plc and "
+                           "checks are for running it alone; the plant's apply here"))  # fmt: skip
+        for enc in get_args(Encoding):
+            lock = lockfile_path(a.path, enc)
+            if lock.is_file():
+                out.append(Finding("warning", "W216", f"{rel} (area {a.name}) has its own lockfile "
+                                   f"{lock.name}: run alone it has its own address map, not the "
+                                   f"plant's; run it with --area {a.name} instead"))  # fmt: skip
+    return out
+
+
 def lint_scene(
     path: Path, scripts: list[Path] | None = None, *, text: str | None = None
 ) -> list[Finding]:
@@ -178,7 +210,7 @@ def lint_scene(
         scene_dir = path.parent  # `path` is reused below for a pusher's push path
     except (OSError, ValueError, ValidationError) as exc:
         return [Finding("error", "E100", f"{path}: does not load:\n{exc}")]
-    findings: list[Finding] = []
+    findings: list[Finding] = _plant_findings(scene)
     locked: set[str] = set()
     encodings = [e for e in get_args(Encoding) if lockfile_path(path, e).is_file()]
     for enc in encodings:
