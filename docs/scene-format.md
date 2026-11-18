@@ -137,6 +137,28 @@ checks: {duration_s: 60, none_lost: true}
 - `include` and `area` are YAML lines for now: the editor's form does not show them (4.1k), and
   a bundle of a plant is not built yet (`bundle` refuses a plant file).
 
+**One address map.** The plant's Modbus lockfile is the plant file's
+(`wash-plant.float32.modbus.yaml`), with ADR-0004's rules. An area file in a plant has no
+lockfile of its own.
+
+**One area alone: `--area NAME`** on `openfactory run`, `test` and `export`:
+
+```bash
+openfactory test scenes/plants/wash-plant/wash-plant.yaml --area LOAD --script scenes/plants/wash-plant/wash-plant.py
+```
+
+- Only that area's components run, served at the **plant's** addresses: the plant lockfile is
+  read and never written, and it must already hold every one of the area's tags (run, test or
+  export the whole plant once). The other areas' addresses are holes: a read inside a table
+  gives 0 or false, a read past a table's end and a write to a hole are refused (ILLEGAL
+  ADDRESS).
+- A connection of the plant file with an end outside the area is left out, and the run says
+  so once. The area's own `checks:` grade the run, and the include's `area` is its default
+  `scene.area` for exports. An area run writes no `CONTEXT.md`.
+- On `export`, `--area` already named the SCADA export's area folder (PLAN 2.4). On a plant
+  file it selects the area, whose name is also that folder by default; on any other scene it
+  names the folder, as before.
+
 ## `lag_s:` on an AI binding (PLAN 5.2b)
 
 An AI binding may lag the value the PLC sees, a first-order lag with time constant `lag_s`

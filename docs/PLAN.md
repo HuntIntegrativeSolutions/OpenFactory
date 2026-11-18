@@ -3979,7 +3979,7 @@ trusts it.
         `areas/b.yaml: line 10`; an id and a tag in two areas, and an id in an area and the
         plant file, naming both files; one composite in two areas one type, a differing one an
         error naming both files.
-  - [ ] 5.4b The plant lockfile and `--area` (note §4.2, "One address map", "One area
+  - [x] 5.4b The plant lockfile and `--area` (note §4.2, "One address map", "One area
         alone"). The lockfile is the plant file's; `run`, `test` and `export` take `--area
         NAME`, which loads only that area's components at the plant's addresses, reads the
         plant lockfile and never writes it, refuses an area tag the lockfile lacks, drops a
@@ -3989,6 +3989,27 @@ trusts it.
         from the Modbus server: the same address in all three runs, the other areas' addresses
         holes (0 or false); an area run leaves the plant lockfile byte-identical; an unknown
         `--area` is an error naming the areas.
+        *Done (2026-11-17):* `scene_register_map` (`protocols/modbus.py`) knows an area run
+        (`Scene.plant.area`): it reads the plant file's lockfile, never writes it, and refuses
+        a run when the lockfile does not exist or lacks one of the area's tags ("run, test or
+        export the whole plant once"); every command that serves or exports addresses goes
+        through it. `--area NAME` on `run`, `test` and `export` (`cli.AreaOption`, `_load`) loads
+        the plant cut to that area (5.4a's `merge`), logs each dropped cross-area connection
+        once, grades with the area's own `checks:`, takes the area's name as `scene.area`, and
+        writes no `CONTEXT.md` (it would replace the plant's). The holes behave as the design
+        note says, as the Modbus server already treated a retired lockfile entry: 0 or false
+        inside a table, ILLEGAL ADDRESS past its end. **Decision beyond the ruling:** `export`
+        already had `--area` for the SCADA export's folder (PLAN 2.4); on a plant file it now
+        selects the area (whose name is that folder by default), and on any other scene it
+        means the folder, as before. Docs: `docs/scene-format.md` ("One area alone").
+        *Tests* (`tests/integration/test_plant_addresses.py`, 3): a two-area plant served three
+        times (the plant, A alone, B alone), every tag of the plant read from the Modbus server
+        at the plant's address with a pymodbus client: each run's own tags read back their
+        values, the other area's addresses read 0 or false or are refused past the table's
+        end, the addresses equal the plant's, and the plant lockfile is byte-identical after;
+        an area run with no plant lockfile, or one lacking a tag, is refused and writes
+        nothing; `export --area B` exports only B's rows and leaves the lockfile as it was,
+        and `run --area C` exits 1 naming the areas A and B.
   - [ ] 5.4c Lint across areas (note §4.2, "Lint across areas"). `lint PLANT` lints the plant
         as one scene; an included file's own `scene`, `plc` and `checks` are reported once per
         file as info; W216 for a file a plant includes with a lockfile beside it; `lint` and

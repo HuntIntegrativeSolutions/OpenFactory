@@ -436,16 +436,36 @@ def scene_register_map(
     """The register map for a scene in ``encoding`` (default: the scene's ``plc.analog_encoding``):
     pins from its bindings, plus that encoding's lockfile when ``scene_path`` is given. With
     ``write``, the lockfile is created or updated if its content changed. Lockfiles of other
-    encodings are never read or written."""
+    encodings are never read or written. One area of a plant (PLAN 5.4b, ``Scene.plant.area``)
+    is served at the plant lockfile's addresses: the lockfile is read, never written, and must
+    already hold every one of the area's tags; the other areas' addresses are holes."""
     from openfactory.core.loader import build_iotable  # runtime import: loader is heavier
 
     enc: Encoding = encoding or scene.plc.analog_encoding
     pins = {b.name: b.address for b in scene.tag_bindings() if b.address is not None}
+    plant = getattr(scene, "plant", None)
+    area = plant.area if plant is not None else None
     path = None
     if scene_path is not None:
         _check_no_legacy_lock(scene_path)
         path = lockfile_path(scene_path, enc)
     lock = read_lock(path) if path is not None else None
+    if area is not None:  # PLAN 5.4b: one area at the plant's addresses, never a new one
+        write = False
+        name = path.name if path is not None else "the plant's lockfile"
+        if lock is None:
+            raise AddressError(
+                f"{name} does not exist yet: run, test or export the whole plant once, so the "
+                f"area {area} is served at the plant's addresses"
+            )
+        missing = sorted(
+            t.name for t in build_iotable(scene).tags() if t.name not in lock.addresses
+        )
+        if missing:
+            raise AddressError(
+                f"{', '.join(missing)} not in {name}: run, test or export the whole plant once "
+                f"to give the area {area} its addresses; an area run never adds one"
+            )
     if path is not None and lock is None:
         lock = seed_digital_lock(scene_path, enc)  # type: ignore[arg-type]
     register_map = allocate(build_iotable(scene).tags(), enc, pins=pins, lock=lock)

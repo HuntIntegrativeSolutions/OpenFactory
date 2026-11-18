@@ -94,7 +94,7 @@ from openfactory.bundle import BundleError, collect, is_bundle, open_bundle, wri
 from openfactory.core.config import Endpoint, load_settings, resolve_endpoint
 from openfactory.core.iotable import Writer
 from openfactory.core.loader import LoadedScene, build
-from openfactory.core.schema import PLC_WRITES, Scene, load_scene
+from openfactory.core.schema import PLC_WRITES, Scene, load_scene, read_scene_text
 from openfactory.protocols.comms import CommsFault
 from openfactory.protocols.modbus import (
     LOCKFILE_SUFFIX,
@@ -154,10 +154,34 @@ def _loader_quiet() -> Iterator[None]:
         logger.setLevel(level)
 
 
-def _load(path: Path) -> tuple[Scene, LoadedScene]:
+AreaOption = Annotated[
+    str | None,
+    typer.Option(
+        "--area",
+        metavar="NAME",
+        help="With a plant file (include:, PLAN 5.4): only this area, at the plant's Modbus "
+        "addresses (its lockfile is read, never written), with the area's own checks.",
+    ),
+]
+
+
+def _is_plant(path: Path) -> bool:
+    """Whether ``path`` is a plant file (``include:`` at its top level, PLAN 5.4)."""
+    import yaml
+
+    try:
+        data = yaml.safe_load(read_scene_text(path))
+    except (OSError, ValueError, yaml.YAMLError):
+        return False  # _load reports it
+    return isinstance(data, dict) and data.get("include") is not None
+
+
+def _load(path: Path, area: str | None = None) -> tuple[Scene, LoadedScene]:
     if path.name.endswith(LOCKFILE_SUFFIX):
         raise ValueError(f"{path} is a Modbus address lockfile, not a scene")
-    scene = load_scene(path)
+    scene = load_scene(path, area=area)
+    for note in scene.plant.notes if scene.plant is not None else []:
+        log.warning("%s", note)  # once per run (PLAN 5.4b)
     return scene, build(scene, base_dir=path.parent)
 
 
@@ -204,6 +228,8 @@ def _write_context(parsed: Scene, scene: Path) -> None:
     warning: the run or export itself goes on (a lockfile conflict is reported by it)."""
     from openfactory.export.context_md import write_context
 
+    if parsed.plant is not None and parsed.plant.area is not None:
+        return  # one area of a plant: the plant's context file is not this run's (PLAN 5.4b)
     try:
         written = write_context(parsed, scene)
     except (OSError, ValueError) as exc:
@@ -293,6 +319,7 @@ def run(
         Path,
         typer.Argument(help="Scene file (scenes/<name>.yaml) or .ofz bundle.", metavar="SCENE"),
     ],
+    area: AreaOption = None,
     headless: Annotated[bool, typer.Option(help="No viewer or API server.")] = False,
     as_fast_as_possible: Annotated[
         bool,
@@ -398,7 +425,7 @@ def run(
     scene, carried = _scene_source(ctx, scene, bundled_script)
     script = carried or script
     try:
-        parsed, loaded = _load(scene)
+        parsed, loaded = _load(scene, area)
     except (OSError, ValueError, ValidationError) as exc:
         typer.echo(f"error: {scene}: {exc}", err=True)
         raise typer.Exit(1) from None
@@ -445,6 +472,7 @@ def test(
         Path,
         typer.Argument(help="Scene file or .ofz bundle with a checks: block.", metavar="SCENE"),
     ],
+    area: AreaOption = None,
     script: Annotated[
         Path | None,
         typer.Option(help="Grade a stand-in PLC script (step(io, t)); runs as fast as possible."),
@@ -494,7 +522,7 @@ def test(
     scene, carried = _scene_source(ctx, scene, bundled_script)
     script = carried or script
     try:
-        parsed, loaded = _load(scene)
+        parsed, loaded = _load(scene, area)
     except (OSError, ValueError, ValidationError) as exc:
         typer.echo(f"error: {scene}: {exc}", err=True)
         raise typer.Exit(1) from None
@@ -1233,7 +1261,9 @@ def export(
     area: Annotated[
         str | None,
         typer.Option(
-            help="ignition: the area folder (default: scene.area, else the scene name in capitals)."
+            help="With a plant file (include:, PLAN 5.4): export only this area, at the plant's "
+            "Modbus addresses (its lockfile is read, never written). ignition: the area folder "
+            "(default: scene.area, else the scene name in capitals; for a plant's area, its name).",
         ),
     ] = None,
     opc_server: Annotated[
@@ -1262,7 +1292,7 @@ def export(
         )
     encoding = _encoding(analog_encoding)
     try:
-        parsed, _ = _load(scene)
+        parsed, _ = _load(scene, area if _is_plant(scene) else None)
         if format_ == "l5x":
             text = l5x_stub(
                 parsed, encoding, scene_path=scene, controller=controller, prefix=prefix
