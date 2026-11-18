@@ -2137,6 +2137,32 @@
       "title": "HeaterIO",
       "type": "object"
     },
+    "Include": {
+      "additionalProperties": false,
+      "description": "One area of a plant (PLAN 5.4a): its name and its file.",
+      "properties": {
+        "area": {
+          "description": "The area's name: what --area selects, and its exports' default scene.area.",
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9]*$",
+          "title": "Area",
+          "type": "string"
+        },
+        "file": {
+          "description": "The area's scene file, relative to this file and inside its folder: no absolute path, no '..' that leaves it, no symlink out of it.",
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "area",
+        "file"
+      ],
+      "title": "Include",
+      "type": "object"
+    },
     "Junction": {
       "additionalProperties": false,
       "description": "Origin: the junction point. Where links meet; its head is solved (PLAN 3.2).",
@@ -6125,6 +6151,23 @@
       ],
       "default": null,
       "description": "Exercise checks for `openfactory test`."
+    },
+    "include": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Include"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "A plant file (PLAN 5.4): the area files whose components and connections it runs as one plant, one level deep, ids and tags global; its own connections link the areas, and its scene, plc and checks apply.",
+      "title": "Include"
     }
   },
   "required": [

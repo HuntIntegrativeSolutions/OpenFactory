@@ -3928,6 +3928,90 @@ trusts it.
       *Known limit, not a task:* two identical lines cannot share one area file. Ids and tags
       are global and never prefixed, so a second copy of an area clashes with the first; each
       line is its own area file with its own ids and tags.
+      *Sub-tasks (written 2026-11-17, before the build, in the ruled order of note §4 and §5;
+      ruled additions of 2026-11-17: paths relative to the including file, inside the plant's
+      folder, read with the scene's safe loader and size limit; a cycle a load error naming the
+      files; an error in an included file naming that file and its line):*
+  - [x] 5.4a `include:` at load. A plant file's `include: [{area, file}]`, its own
+        `connections:` for links across areas, and the merge (note §4.2, "Load"): each area's
+        components and connections, then the plant file's; the plant's `scene`, `plc` and
+        `checks` apply; `composites` merged by type name; ids and tags global, never prefixed.
+        Paths: relative to the including file, no absolute path, no `..` that leaves the
+        plant's folder, no symlink out of it; each file read with the scene's safe loader and
+        one size limit shared with scenes (new, as a scene had none). One level deep; a cycle
+        is a load error naming the files. Keys in the schema, its JSON Schema and
+        `docs/scene-format.md`, and a YAML line for the editor's form for now.
+        *Done when:* a test per path rule (absolute, `..` out of the folder, a symlink out, a
+        file over the limit, a YAML tag) refuses the plant naming the file; a plant that
+        includes itself (by another spelling, and through a symlink) is a cycle naming the
+        files; an area with `include:` is refused (one level); a schema error in an area names
+        that file and its line; a duplicate id, and a duplicate tag, across two areas is a load
+        error naming both files; an identical composite in two areas loads once and a
+        differing one is a load error naming both files; a scene without `include:` loads
+        exactly as before (every shipped scene's kit, lockfile and run reference unchanged).
+        *Done (2026-11-17):* `src/openfactory/core/plant.py` (`merge`, `include_path`,
+        `line_of`) and, in `core/schema.py`, the `include` key (`Include`: `area`, `file`),
+        `read_scene_text` with `MAX_SCENE_BYTES` (4 MB), and `parse_scene(text, scene_dir, *,
+        source, area)` / `load_scene(path, area=None)`, which merge a plant before validating
+        it; `Scene.plant` (the files, each component's source file, the area run alone, notes).
+        **Each area is validated alone first**, so its errors carry its file and line (the
+        error's `loc` walked through the composed YAML); then ids (expanded) and tags are
+        compared across files, then composites merged by type name, then the merged scene is
+        validated as any scene. **Paths:** absolute (POSIX, drive letter or UNC), a lexical
+        `..` out of the folder, and a resolved path outside it (a symlink) are refused, each
+        naming the plant file; a plant reaching itself (any spelling, or a symlink) and an area
+        including the plant are cycles naming the files; an area with `include:` is refused as
+        one level deep. **Decisions beyond the ruling:** (1) a scene size limit did not exist,
+        so "the same size limit as a scene" made one, `MAX_SCENE_BYTES` = 4 MB, for every scene
+        file and included file (and for text the editor and lint parse); (2) the plant file
+        may hold components of its own, which belong to no area (left out of an `--area` run);
+        (3) `mesh.file` in an area is rebased onto the plant's folder; (4) `bundle` refuses a
+        plant file (bundles are outside 5.4's Done-when); (5) the `--area` cut lives here too
+        (5.4b uses it). `include` and `area` are in the schema, `web/public/scene.schema.json`
+        and `docs/scene-format.md` ("`include:`"), and are YAML lines for now (4.1k). No
+        shipped scene changes; the scene document carries no `include`, so kits and recordings
+        are as they were. *Tests* (`tests/unit/test_plant.py`, 15): the plant and an area
+        alone; a scene without `include` has no areas; five path rules (absolute POSIX, drive,
+        UNC, `..`, `areas/../..`) and a symlink out; an included file over the limit and one
+        with a Python tag, each naming the file; three spellings of the plant including itself
+        and a symlink to it, cycles naming the files; an area including the plant (a cycle) and
+        an area including another (one level); a schema error in an area naming
+        `areas/b.yaml: line 10`; an id and a tag in two areas, and an id in an area and the
+        plant file, naming both files; one composite in two areas one type, a differing one an
+        error naming both files.
+  - [ ] 5.4b The plant lockfile and `--area` (note §4.2, "One address map", "One area
+        alone"). The lockfile is the plant file's; `run`, `test` and `export` take `--area
+        NAME`, which loads only that area's components at the plant's addresses, reads the
+        plant lockfile and never writes it, refuses an area tag the lockfile lacks, drops a
+        cross-area connection with an end outside the area and says so once, grades with the
+        area's own `checks:`, and takes the include's `area` as the default `scene.area`.
+        *Done when:* a test runs the plant and each area alone, and reads every tag's address
+        from the Modbus server: the same address in all three runs, the other areas' addresses
+        holes (0 or false); an area run leaves the plant lockfile byte-identical; an unknown
+        `--area` is an error naming the areas.
+  - [ ] 5.4c Lint across areas (note §4.2, "Lint across areas"). `lint PLANT` lints the plant
+        as one scene; an included file's own `scene`, `plc` and `checks` are reported once per
+        file as info; W216 for a file a plant includes with a lockfile beside it; `lint` and
+        `validate` on a folder skip the files a plant in it includes.
+        *Done when:* a test of each: the info lines, W216, a W205 overlap across the area
+        boundary found only in the plant, and a folder lint that lints each area once, inside
+        its plant.
+  - [ ] 5.4d The two-area sample plant, held by PLAN §9 rule 13: `scenes/plants/<plant>/`
+        with the plant file, two area files, the plant lockfile and the stand-in script; a
+        shared composite used in both areas and a connection across them; CI's scene loops
+        run the plant and each area (`--area`) under the script; a run reference holds the
+        plant; `run_reference.shipped()` learns `scenes/plants/*/`.
+        *Done when:* the plant passes its checks at 60 s and 300 s, each area alone passes
+        its own at 60 s and 300 s, `tests/references/<plant>.run` is current, and the
+        address comparison of 5.4b holds on this sample.
+  - [ ] 5.4e The editor (note §4.3): `edit PLANT` shows the whole plant with the included
+        areas dimmed and not editable ("in areas/x.yaml: open that file to edit it"); `edit
+        PLANT --area NAME` edits that area's file with the others dimmed, saves only that
+        file, and runs the plant-wide lint on save.
+        *Done when:* a test saves an edit under `--area` and finds only that file changed and
+        a clash with another area refused; the screenshot with the dimmed areas is looked at.
+      *Not in the Done-when, so not built here:* a bundle of a plant (note §4.2, "Bundles");
+      `bundle` refuses a plant file, saying so, rather than pack a part of it.
 - [ ] 5.5 Layout from topology. A P&ID has no geometry. `openfactory layout` places equipment and
       routes pipes when positions are missing; a general arrangement drawing overrides it.
       Depends on 4.1g (nozzle positions).

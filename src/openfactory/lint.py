@@ -173,7 +173,7 @@ def lint_scene(
     preview does (PLAN 4.1a)."""
     scripts = scripts or []
     try:
-        scene = load_scene(path) if text is None else parse_scene(text, path.parent)
+        scene = load_scene(path) if text is None else parse_scene(text, path.parent, source=path)
         loaded = build(scene, base_dir=path.parent)
         scene_dir = path.parent  # `path` is reused below for a pusher's push path
     except (OSError, ValueError, ValidationError) as exc:

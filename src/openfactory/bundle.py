@@ -201,6 +201,12 @@ def collect(
     if scene_path.name.endswith(LOCKFILE_SUFFIX):
         raise BundleError(f"{scene_path} is a Modbus address lockfile, not a scene")
     scene = load_scene(scene_path)
+    if scene.plant is not None:
+        raise BundleError(
+            f"{scene_path.name} is a plant file (include:); a bundle of a plant is not built yet "
+            "(PLAN 5.4, outside its Done-when): bundle each area's file, or run the plant from "
+            "its folder"
+        )
     files = [BundleFile(scene_path.name, "scene", scene_path.read_bytes())]
     if scene.plc.protocol == "modbus_tcp":
         files += _lockfiles(scene, scene_path)

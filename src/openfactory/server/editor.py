@@ -94,7 +94,7 @@ class EditSession:
         from openfactory.core.schema import parse_scene
         from openfactory.server.runtime import Runtime
 
-        loaded = build(parse_scene(text, path.parent), base_dir=path.parent)
+        loaded = build(parse_scene(text, path.parent, source=path), base_dir=path.parent)
         self.meshes = dict(getattr(loaded, "meshes", {}) or {})
         doc = {**Runtime(loaded, realtime=False).scene_document(), "mode": "edit"}
         for comp in doc.get("components", []):
@@ -180,7 +180,7 @@ class EditSession:
         )
         if raw is None:
             raise ValueError(f"no component {comp_id!r} in the scene")
-        scene = parse_scene(text, self.path.parent)
+        scene = parse_scene(text, self.path.parent, source=self.path)
         loaded = build(scene, base_dir=self.path.parent)
         conveyor = next((c.config for c in loaded.components if c.id == conveyor_id), None)
         if conveyor is None:

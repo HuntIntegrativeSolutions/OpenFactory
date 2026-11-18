@@ -101,6 +101,42 @@ components:
 - The three keys are YAML lines for now: the editor's form (PLAN 4.7) does not edit them, and
   keeps them as written.
 
+## `include:`: a plant in several files (PLAN 5.4)
+
+A **plant file** names its areas, each an ordinary scene file that also loads alone, and runs
+them as one plant:
+
+```yaml
+openfactory: "0.1"
+scene: {name: wash-plant, description: ..., author: HIS Controls, seed: 1}
+plc: {protocol: modbus_tcp}
+include:
+  - {area: LOAD, file: areas/load.yaml}
+  - {area: WASH, file: areas/wash.yaml}
+connections:                       # links that cross areas are written here
+  - {from: CV_101, to: CV_201}
+checks: {duration_s: 60, none_lost: true}
+```
+
+- **The plant** is each area's components and connections, in `include` order, then the plant
+  file's own; the plant file's `scene`, `plc` and `checks` apply (an area's own are kept for
+  running it alone). `composites` are merged by type name: the same definition in two files is
+  one type, and two different definitions of one name are a load error naming both files.
+- **Ids and tags are global** across the plant and never prefixed: an id or a tag in two files
+  is a load error naming both. Give an area's ids and tags a common prefix (the HIS form
+  `AREA_EQUIP_NNN` does) and a clash is rare by design.
+- **What may be included.** `file` is relative to the plant file and stays inside its folder:
+  no absolute path, no `..` that leaves it, no symlink out of it. Each file is read as a scene
+  is: YAML's safe loader, at most 4 MB (`MAX_SCENE_BYTES`, a limit that now holds for every
+  scene file). `include` is one level deep: an area cannot include, and a plant that includes
+  itself, by any spelling or through a symlink, is a cycle, a load error naming the files.
+- **Errors in an area** name its file and line (`areas/wash.yaml: line 10:
+  components.0.belt_conveyor.speed_mps: ...`), since each area is validated alone first.
+- A component's `mesh.file` stays relative to its own file's folder; library composites are
+  looked up from the plant's folder upwards.
+- `include` and `area` are YAML lines for now: the editor's form does not show them (4.1k), and
+  a bundle of a plant is not built yet (`bundle` refuses a plant file).
+
 ## `lag_s:` on an AI binding (PLAN 5.2b)
 
 An AI binding may lag the value the PLC sees, a first-order lag with time constant `lag_s`

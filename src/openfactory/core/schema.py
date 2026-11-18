@@ -1876,6 +1876,18 @@ class Checks(StrictModel):
         return {r: [n] if isinstance(n, str) else list(n) for r, n in self.parts_reached.items()}
 
 
+class Include(StrictModel):
+    """One area of a plant (PLAN 5.4a): its name and its file."""
+
+    area: Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z0-9]*$", max_length=40)] = Field(
+        description="The area's name: what --area selects, and its exports' default scene.area."
+    )
+    file: Annotated[str, StringConstraints(min_length=1, max_length=255)] = Field(
+        description="The area's scene file, relative to this file and inside its folder: no "
+        "absolute path, no '..' that leaves it, no symlink out of it."
+    )
+
+
 class Scene(StrictModel):
     """A complete scene file (PLAN §4)."""
 
@@ -1903,7 +1915,16 @@ class Scene(StrictModel):
         "turntable) or level (a lift) with one.",
     )
     checks: Checks | None = Field(None, description="Exercise checks for `openfactory test`.")
+    include: list[Include] | None = Field(
+        None,
+        min_length=1,
+        description="A plant file (PLAN 5.4): the area files whose components and connections "
+        "it runs as one plant, one level deep, ids and tags global; its own connections link "
+        "the areas, and its scene, plc and checks apply.",
+    )
 
+    #: The plant's files when the scene is a plant (PLAN 5.4a), set by load_scene.
+    _plant: Any = PrivateAttr(default=None)
     #: Expanded component id -> composite instance id; instance id -> its type (PLAN 2.16).
     _composite_of: dict[str, str] = PrivateAttr(default_factory=dict)
     _instance_type: dict[str, str] = PrivateAttr(default_factory=dict)
@@ -2016,6 +2037,12 @@ class Scene(StrictModel):
     def logic_drives(self) -> list[Any]:
         """Part ports driven by composites' logic: blocks (:class:`composite.LogicDrive`)."""
         return list(self._logic)
+
+    @property
+    def plant(self) -> Any:
+        """The plant's files (:class:`openfactory.core.plant.Plant`) when the scene was loaded
+        from a plant file (PLAN 5.4a), else None."""
+        return self._plant
 
     def composite_of(self, component_id: str) -> str | None:
         """The composite instance an expanded component came from, or None (PLAN 2.16)."""
@@ -2306,17 +2333,54 @@ _SceneYamlLoader.add_implicit_resolver(
 )
 
 
-def parse_scene(text: str, scene_dir: str | Path | None = None) -> Scene:
+#: The largest scene file read, bytes, and the largest file a plant includes (PLAN 5.4a, which
+#: added it: a scene had no limit before). A 300-component plant (5.12) is a few hundred KB.
+MAX_SCENE_BYTES = 4_000_000
+
+
+def read_scene_text(path: str | Path) -> str:
+    """A scene file's text, refused past :data:`MAX_SCENE_BYTES`."""
+    path = Path(path)
+    size = path.stat().st_size
+    if size > MAX_SCENE_BYTES:
+        raise ValueError(f"{path.name}: {size} bytes; a scene file is at most {MAX_SCENE_BYTES}")
+    return path.read_text(encoding="utf-8")
+
+
+def parse_scene(
+    text: str,
+    scene_dir: str | Path | None = None,
+    *,
+    source: str | Path | None = None,
+    area: str | None = None,
+) -> Scene:
     """Parse and validate scene YAML text. ``scene_dir`` (the scene file's folder) is where
-    library composites are looked up (PLAN 2.5b); without it a scene using one fails."""
+    library composites are looked up (PLAN 2.5b); without it a scene using one fails. A plant
+    (``include:``, PLAN 5.4a) needs ``source``, its file's path, and may be cut to one ``area``."""
+    if len(text.encode("utf-8")) > MAX_SCENE_BYTES:
+        raise ValueError(f"a scene file is at most {MAX_SCENE_BYTES} bytes")
     data = yaml.load(text, Loader=_SceneYamlLoader)  # noqa: S506 - SafeLoader subclass
+    plant = None
+    if isinstance(data, dict) and data.get("include") is not None:
+        from openfactory.core.plant import merge
+
+        if source is None:
+            raise ValueError("a plant file (include:) is loaded from its path")
+        data, plant = merge(Path(source), data, area)
+    elif area is not None:
+        name = Path(source).name if source else "the scene"
+        raise ValueError(f"{name} has no include:, so it is not a plant and has no areas")
+    if scene_dir is None and source is not None:
+        scene_dir = Path(source).parent
     context = {"scene_dir": Path(scene_dir)} if scene_dir is not None else None
-    return Scene.model_validate(data, context=context)
+    scene = Scene.model_validate(data, context=context)
+    scene._plant = plant
+    return scene
 
 
-def load_scene(path: str | Path) -> Scene:
-    """Load and validate a scene file."""
-    return parse_scene(Path(path).read_text(encoding="utf-8"), Path(path).parent)
+def load_scene(path: str | Path, area: str | None = None) -> Scene:
+    """Load and validate a scene file (a plant's, PLAN 5.4a, cut to ``area`` when given)."""
+    return parse_scene(read_scene_text(path), Path(path).parent, source=path, area=area)
 
 
 def scene_json_schema() -> str:
