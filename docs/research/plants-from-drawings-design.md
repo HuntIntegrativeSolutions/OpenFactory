@@ -558,6 +558,11 @@ questions are listed apart, since a placed row may still have one.
 | A connection scaffold cannot make (a conveyor to a tank, say) | a YAML comment at the end of the scene, the connection as written | not connected: `<why>` |
 | An open question (on any row, whatever its outcome) | a `# QUESTION (<row>): <text>` comment above the component | listed under open questions |
 
+*As built (5.1b, confirmed 2026-11-17):* a parameter left out that has a documented default is
+left out of the scene, so the default applies, and is not marked; there is no `# ASSUMED
+<param>` comment. A required parameter with no default makes the row unplaced. A connection or
+I/O row marked `assumed` is assumed too.
+
 Besides the outcomes, the report says where each equipment row's position came from
 (addition B): converted from a layout sheet's dimensions, placed on a rail from a sheet's
 `along`, or given in scene metres with no layout sheet (`at:`). That is a note beside the
@@ -610,6 +615,11 @@ A plant of our own invention, drawn on three sheets:
 
 **The takeoff, in full:**
 
+*Changed 2026-11-17 (ruled):* PE-201's grid reference is C4, where the drawn L-001 puts it (it
+was B4, which no even zone grid could hold beside the others), and the sample was marked again,
+so the mark's date and rows digest below are the new ones (`1e822ddb5b17bd3a`; it was
+`2c9c61b4ae244f3a`).
+
 ```yaml
 takeoff: "0.1"
 plant:
@@ -621,8 +631,8 @@ drawings:
   - {id: L-001, kind: layout, title: Wash Water Skid and Reject Belt Layout, rev: A,
      frame: {units: mm, datum: [-3.0, 0, 4.0], rotation_deg: 0}}
   - {id: IO-001, kind: io_list, title: Wash Water Skid I/O List, rev: A}
-checked: {by: XX, date: 2026-11-15, drawings: [P-001@A, L-001@A, IO-001@A],
-          rows: 2c9c61b4ae244f3a}
+checked: {by: XX, date: 2026-11-17, drawings: [P-001@A, L-001@A, IO-001@A],
+          rows: 1e822ddb5b17bd3a}
 equipment:
   - {row: EQ-1, tag: SUP-101, type: supply, description: Wash Water Make-Up Supply,
      params: {pressure_bar: 2.0}, ref: [{sheet: P-001, grid: A1}, {sheet: L-001, grid: A2}],
@@ -663,7 +673,7 @@ equipment:
      params: {length: 3.0, width: 0.5, speed_mps: 0.4}, ref: [{sheet: L-001, grid: B4}],
      layout: {sheet: L-001, x: 3000, y: 1500, elevation: 0}, confidence: read, questions: []}
   - {row: EQ-10, tag: PE-201, type: photo_eye, description: Carton Reject Belt Photo Eye,
-     params: {beam_length: 0.6}, ref: [{sheet: L-001, grid: B4}],
+     params: {beam_length: 0.6}, ref: [{sheet: L-001, grid: C4}],
      mount: {conveyor: CV-201, sheet: L-001, along: 1200, rail: left}, confidence: read, questions: []}
   - {row: EQ-11, tag: CYL-201, type: pusher, description: Carton Reject Pusher,
      params: {stroke: 0.6, extend_time_s: 0.4}, ref: [{sheet: L-001, grid: C4}],

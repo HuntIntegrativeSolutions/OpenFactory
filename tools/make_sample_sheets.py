@@ -154,7 +154,7 @@ def _title_block(svg: Svg, x: float, y: float, title: str, sheet: str, scale: st
 
 
 def p001() -> str:
-    svg = Svg(1400, 1000, "P-001 Wash Water Skid P&ID")
+    svg = Svg(1400, 1020, "P-001 Wash Water Skid P&ID")
     x0, y0, cw, rh = 50, 50, 260, 200
     _zones(svg, x0, y0, 5, 4, cw, rh)
     thick = {"stroke-width": "2.5"}
@@ -231,7 +231,8 @@ def p001() -> str:
         "4. MAKE-UP PRESSURE IS NOT SHOWN ON THIS DRAWING.",
     ]):  # fmt: skip
         svg.text(80, 700 + 22 * i, note, 12, weight="bold" if i == 0 else "normal")
-    _title_block(svg, 790, 860, "WASH WATER SKID P&ID", "P-001", "NOT TO SCALE")
+    # below the zone letters along the bottom edge (y 868), not over D and E
+    _title_block(svg, 790, 884, "WASH WATER SKID P&ID", "P-001", "NOT TO SCALE")
     return svg.done()
 
 

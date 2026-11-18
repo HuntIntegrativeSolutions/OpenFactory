@@ -51,14 +51,14 @@ drawings:
   - {id: L-001, kind: layout, title: Wash Water Skid and Reject Belt Layout, rev: A,
      frame: {units: mm, datum: [-3.0, 0, 4.0], rotation_deg: 0}}
   - {id: IO-001, kind: io_list, title: Wash Water Skid I/O List, rev: A}
-checked: {by: XX, date: 2026-11-15, drawings: [P-001@A, L-001@A, IO-001@A], rows: 2c9c61b4ae244f3a}
+checked: {by: XX, date: 2026-11-17, drawings: [P-001@A, L-001@A, IO-001@A], rows: 1e822ddb5b17bd3a}
 equipment:
   - {row: EQ-3, tag: TK-101, type: tank, description: Wash Water Tank,
      params: {diameter: 1.2, height: 1.8, initial_level: 0.9, hi_level: 1.6},
      ref: [{sheet: P-001, grid: C2}, {sheet: L-001, grid: B2}],
      layout: {sheet: L-001, x: 3000, y: 4000, elevation: 500}, confidence: read, questions: []}
   - {row: EQ-10, tag: PE-201, type: photo_eye, description: Carton Reject Belt Photo Eye,
-     params: {beam_length: 0.6}, ref: [{sheet: L-001, grid: B4}],
+     params: {beam_length: 0.6}, ref: [{sheet: L-001, grid: C4}],
      mount: {conveyor: CV-201, sheet: L-001, along: 1200, rail: left}, confidence: read, questions: []}
 connections:
   - {row: CN-3, from: TK-101.bottom, to: P-101.suction, line: 25-W-102,
@@ -126,7 +126,14 @@ It prints the rows by confidence, every finding with its row and its sheet, the 
 by row, and whether the mark is current. It writes nothing, except with `--mark`. Exit 1 on any
 error.
 
-**Errors:** the schema (an unknown key, a wrong value); a duplicate row id, tag, scene id, scene
+**Refused before any check** (the file is read as data, never as code): a file over 2 MB; a
+YAML tag; a key written twice in one mapping (YAML would keep the last one silently), named with
+its line; an anchor, alias or merge key (`&`, `*`, `<<`), which a takeoff has no use for.
+
+**Errors:** the schema (an unknown key, a wrong value; text holding a line break, a tab or any
+other control character, since every text is one line); a parameter in `params` that the row's
+type does not have, of the wrong type, or one of `id`, `type`, `description`, `position`,
+`rotation_deg`, `mesh` and `io`, which the row sets itself; a duplicate row id, tag, scene id, scene
 tag or `plc_tag`; a `ref` to a sheet not in `drawings`; an unknown type (write `unknown` for an
 item with no type yet); a connection end that is not an equipment tag, or a port its type does
 not have (a tank's `bottom`, `top` and nozzles, a link's pipe ports); an I/O row on a missing
@@ -135,7 +142,8 @@ scene tag that is not a valid tag (give `scene_tag:`); `range` on a discrete sig
 of `layout`, `mount` and `at`; a `layout` or `mount` on a sheet not in `drawings` or with no
 `frame`; a frame with another unit or a datum that is not three numbers; a `mount` on something
 that is not a belt or roller conveyor, of a type not placed on a rail, on a rail other than
-`left` or `right`, or with `along` outside the belt.
+`left` or `right`, or with `along` outside the belt; a line the scaffold would make into a pipe
+whose id (`PIPE_101`, ...) is another row's scene id (give that row an `id:`).
 
 **Warnings:** `type: unknown` (the scaffold places a stand-in carrying its I/O); an `at:` row
 whose `ref` names a layout sheet (the drawing could have given its position).
@@ -171,7 +179,7 @@ path it is given.
 | Row | What the scene gets | Reported as |
 |---|---|---|
 | A known type with what it needs | the component, its description and parameters, a comment naming the row and sheet | placed |
-| A row marked `assumed` | the same, the comment saying `assumed` | assumed |
+| A row marked `assumed`: equipment, connection or I/O | the same, the component's comment saying `assumed` | assumed |
 | `type: unknown` (or no `type`) | a stand-in: a local composite `standin_<id>`, a `scenery` body sized from `length`, `width`, `height` (else 1 m) whose io are exactly the row's I/O rows: each DO and AO a command, the first DI following the first DO, the first AI the first AO, any other DI false and any other AI the low end of its range; its description starts `PLACEHOLDER` | stand-in, with each of its I/O rows |
 | No position, or a parameter with no default missing | placed in a holding row past the plant's far edge, 1.5 m apart (a missing parameter is a comment to fill in) | unplaced |
 | A connection between two conveyors | a `connections:` entry | placed |
@@ -180,8 +188,17 @@ path it is given.
 | Any other connection (a conveyor to a tank) | a `# NOT CONNECTED` comment at the end | not connected |
 | An I/O row | the binding `{tag, plc_tag}` with its `range` and `units` | placed |
 
+A row's outcome is the first that applies: unplaced or not connected, then stand-in (a
+stand-in's I/O rows too), then assumed, then placed. A parameter a row leaves out that has a
+documented default is left out of the scene too, so the type's default applies; it is not
+marked in the scene and does not make the row assumed.
+
 Each open question, on any row, is a `# QUESTION (<row>): <text>` comment above its component,
-and is listed apart. The report also says where each position came from: a layout sheet's
+and is listed apart. Every comment is one line: a line break can never reach the scene from a
+takeoff. Before it writes, `scaffold` loads the scene it made (a key written twice refused, then
+the scene loader); a scene that does not load is a bug in `scaffold`, reported with the loader's
+message, exit 1, and nothing is written. That load is skipped only when a row is unplaced for a
+parameter with no default, since that scene cannot load until a person gives it. The report also says where each position came from: a layout sheet's
 dimensions, a rail, or scene metres with no layout sheet. Devices on a rail sit where
 `place_on_rail` puts them.
 

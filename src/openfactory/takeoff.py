@@ -55,7 +55,7 @@ from types import SimpleNamespace
 from typing import Annotated, Any, Literal
 
 import yaml
-from pydantic import Field, StringConstraints, ValidationError, field_validator
+from pydantic import AfterValidator, Field, StringConstraints, ValidationError, field_validator
 
 from openfactory.core.geometry import rotate_y
 from openfactory.core.schema import COMPONENT_MODELS, StrictModel, port_specs
@@ -77,6 +77,25 @@ PORT_CODES = {
 }  # fmt: skip
 TAG_MAX_LEN = 40
 
+#: What a takeoff's text may not hold: C0 and C1 control characters, DEL, and the line and
+#: paragraph separators PyYAML also reads as line breaks. Text is one line, so nothing in it can
+#: become a line of the scene that ``scaffold`` writes (ruled 2026-11-17).
+CONTROL = re.compile("[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+
+
+def _one_line(value: str) -> str:
+    found = CONTROL.search(value)
+    if found:
+        raise ValueError(
+            f"holds the control character U+{ord(found.group()):04X} (a line break, tab or other "
+            "control); a takeoff's text is one line"
+        )
+    return value
+
+
+#: One line of text: no control character, no line break.
+Text = Annotated[str, AfterValidator(_one_line)]
+
 RowId = Annotated[str, StringConstraints(pattern=r"^[A-Z]+-[0-9]+$", max_length=20)]
 SheetId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$", max_length=40)]
 Confidence = Literal["read", "inferred", "assumed"]
@@ -94,23 +113,23 @@ class Frame(StrictModel):
 class Drawing(StrictModel):
     id: SheetId
     kind: Literal["pid", "layout", "io_list", "other"]
-    title: str
-    rev: str | int = Field(description="The sheet's revision.")
+    title: Text
+    rev: Text | int = Field(description="The sheet's revision.")
     frame: Frame | None = Field(None, description="Layout sheets only (addition B).")
 
 
 class Checked(StrictModel):
     """The file-level review mark, written by ``takeoff check --mark`` (decision 6, addition A)."""
 
-    by: Annotated[str, StringConstraints(min_length=1, max_length=40)]
-    date: _dt.date | str
-    drawings: list[str]
+    by: Annotated[Text, StringConstraints(min_length=1, max_length=40)]
+    date: _dt.date | Text
+    drawings: list[Text]
     rows: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{16}$")]
 
 
 class Ref(StrictModel):
     sheet: SheetId
-    grid: str | None = Field(None, description="The zone on a drawing, e.g. C3.")
+    grid: Text | None = Field(None, description="The zone on a drawing, e.g. C3.")
     row: int | None = Field(None, description="The row on a list.")
 
 
@@ -129,26 +148,26 @@ class Layout(StrictModel):
 class Mount(StrictModel):
     """A device on a conveyor's rail (decision 8)."""
 
-    conveyor: str = Field(description="The conveyor's tag.")
+    conveyor: Text = Field(description="The conveyor's tag.")
     sheet: SheetId | None = Field(None, description="The layout sheet `along` is printed on.")
     along: float = Field(description="From the infeed end, in the sheet's units (else metres).")
-    rail: str = Field(description="left or right, looking from the infeed.")
+    rail: Text = Field(description="left or right, looking from the infeed.")
 
 
 class _Row(StrictModel):
     ref: list[Ref] = Field(default_factory=list)
     confidence: Confidence
-    questions: list[str] = Field(default_factory=list)
+    questions: list[Text] = Field(default_factory=list)
 
 
 class Equipment(_Row):
     row: RowId
-    tag: Annotated[str, StringConstraints(min_length=1, max_length=40)]
-    id: str | None = Field(None, description="The scene id, if not the tag with '-' as '_'.")
+    tag: Annotated[Text, StringConstraints(min_length=1, max_length=40)]
+    id: Text | None = Field(None, description="The scene id, if not the tag with '-' as '_'.")
     type: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")] = Field(
         "unknown", description="A built-in type, or unknown (the default): a stand-in."
     )
-    description: Annotated[str, StringConstraints(min_length=1)]
+    description: Annotated[Text, StringConstraints(min_length=1)]
     params: dict[str, Any] = Field(default_factory=dict)
     layout: Layout | None = None
     mount: Mount | None = None
@@ -157,26 +176,26 @@ class Equipment(_Row):
 
 class Connection(_Row):
     row: RowId
-    from_: str = Field(alias="from")
-    to: str
-    line: str | None = None
+    from_: Text = Field(alias="from")
+    to: Text
+    line: Text | None = None
 
 
 class IoRow(_Row):
     row: RowId
-    equipment: str
+    equipment: Text
     port: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$")]
     signal: Literal["DI", "DO", "AI", "AO"]
-    scene_tag: str | None = None
-    plc_tag: str | None = None
+    scene_tag: Text | None = None
+    plc_tag: Text | None = None
     range: tuple[float, float] | None = None
-    units: str | None = None
+    units: Text | None = None
 
 
 class PlantMeta(StrictModel):
     name: Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9-]*$", max_length=64)]
-    description: Annotated[str, StringConstraints(min_length=1)]
-    author: str | None = None
+    description: Annotated[Text, StringConstraints(min_length=1)]
+    author: Text | None = None
 
 
 class Takeoff(StrictModel):
@@ -233,15 +252,55 @@ class Loaded:
 # --- loading ----------------------------------------------------------------------------------
 
 
+class UniqueKeys:
+    """A loader mixin that refuses a mapping holding one key twice (PyYAML keeps the last one
+    silently) and the merge key ``<<``, naming the key and its line (ruled 2026-11-17)."""
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> Any:
+        first: dict[Any, int] = {}
+        for key_node, _ in node.value:
+            line = key_node.start_mark.line + 1
+            if key_node.tag == "tag:yaml.org,2002:merge":
+                raise ValueError(f"line {line}: the merge key << is not allowed")
+            key = self.construct_object(key_node, deep=True)  # type: ignore[attr-defined]
+            try:
+                hash(key)
+            except TypeError:
+                raise ValueError(f"line {line}: a key must be text or a number") from None
+            if key in first:
+                raise ValueError(
+                    f"line {line}: key {key!r} appears twice in one mapping (first on line "
+                    f"{first[key]}); YAML would keep only the last"
+                )
+            first[key] = line
+        return super().construct_mapping(node, deep)  # type: ignore[misc]
+
+
+class TakeoffLoader(UniqueKeys, yaml.SafeLoader):
+    """PyYAML's safe loader with no duplicate key, no merge key and no anchor or alias. A
+    takeoff has no use for them, and an alias chain can make the data (and so the digest and the
+    validation) far larger than the file. Refused as they are met, before anything expands."""
+
+    def compose_node(self, parent: Any, index: Any) -> Any:
+        event = self.peek_event()
+        if isinstance(event, yaml.AliasEvent) or getattr(event, "anchor", None) is not None:
+            raise ValueError(
+                f"line {event.start_mark.line + 1}: anchors and aliases (& and *) are not "
+                "allowed in a takeoff"
+            )
+        return super().compose_node(parent, index)
+
+
 def load(path: str | Path) -> Loaded:
-    """Read a takeoff: the safe loader, a size limit, the schema. Schema problems become error
-    findings naming the row; nothing in the file is evaluated."""
+    """Read a takeoff: the safe loader (no duplicate keys, anchors or aliases), a size limit,
+    the schema. Schema problems become error findings naming the row; nothing in the file is
+    evaluated."""
     path = Path(path)
     size = path.stat().st_size
     if size > MAX_BYTES:
         raise ValueError(f"{path}: {size} bytes; a takeoff is at most {MAX_BYTES} bytes")
     text = path.read_bytes().decode("utf-8")  # line endings as written, for --mark
-    data = yaml.safe_load(text)
+    data = yaml.load(text, Loader=TakeoffLoader)  # noqa: S506 - a SafeLoader subclass
     if not isinstance(data, dict):
         raise ValueError(f"{path}: not a YAML mapping at the top level")
     try:
@@ -413,6 +472,53 @@ def scene_tag(io: IoRow, by_tag: dict[str, Equipment]) -> str:
     return "_".join(p for p in (ident, code, io.signal) if p)
 
 
+#: Component fields a takeoff row sets itself, never through ``params`` (ruled 2026-11-17).
+PLACEMENT = ("id", "type", "description", "position", "rotation_deg", "mesh", "io")
+
+
+def resolve_tags(value: Any, ids: dict[str, str]) -> Any:
+    """A parameter naming another row's tag (``TK-101.level``) names its scene id instead."""
+    if isinstance(value, str):
+        tag, dot, rest = value.partition(".")
+        if tag in ids:
+            return ids[tag] + dot + rest
+    if isinstance(value, list):
+        return [resolve_tags(v, ids) for v in value]
+    if isinstance(value, dict):
+        return {k: resolve_tags(v, ids) for k, v in value.items()}
+    return value
+
+
+def param_problems(row: Equipment, ids: dict[str, str]) -> list[str]:
+    """What is wrong with a known-type row's ``params``, checked against that type's model: a
+    placement key, a name the type does not have, a value of the wrong type. A parameter the row
+    leaves out is not a problem here (scaffold leaves it to its default, or reports the row
+    unplaced when it has none)."""
+    model = COMPONENT_MODELS[row.type]
+    names = {x for n, info in model.model_fields.items() for x in (n, info.alias or n)}
+    out, given = [], {}
+    for key, value in row.params.items():
+        if key in PLACEMENT:
+            out.append(f"params.{key}: set by the row itself, not a parameter")
+        elif key not in names:
+            out.append(f"params.{key}: a {row.type} has no parameter {key!r}")
+        else:
+            given[key] = resolve_tags(value, ids)
+    candidate = {"id": "TAKEOFF_ROW", "type": row.type, "description": "x",
+                 "position": [0.0, 0.0, 0.0], **given}  # fmt: skip
+    try:
+        model.model_validate(candidate)
+    except ValidationError as exc:
+        errors = exc.errors()
+        missing = any(e["type"] == "missing" for e in errors)
+        for e in errors:
+            loc = [str(p) for p in e["loc"]]
+            if e["type"] == "missing" or (loc and loc[0] not in given) or (not loc and missing):
+                continue
+            out.append(f"params.{'.'.join(loc) or row.type}: {e['msg']}")
+    return out
+
+
 def _model_default(type_name: str, field: str) -> Any:
     info = COMPONENT_MODELS[type_name].model_fields.get(field)
     return None if info is None else info.default
@@ -556,6 +662,14 @@ def check(loaded: Loaded) -> list[Finding]:
             if ref.sheet not in sheets:
                 err(r, f"ref names sheet {ref.sheet}, which is not in drawings", ref.sheet)
 
+    ids = {e.tag: scene_id(e) for e in model.equipment}
+    bad_params: set[str] = set()
+    for e in model.equipment:
+        if e.type in COMPONENT_MODELS:
+            for problem in param_problems(e, ids):
+                err(e, problem)
+                bad_params.add(e.tag)
+
     for e in model.equipment:
         if not re.fullmatch(r"[A-Z][A-Z0-9_]*", scene_id(e)) or len(scene_id(e)) > TAG_MAX_LEN:
             err(e, f"scene id {scene_id(e)!r} is not capitals, digits and _ (give `id:`)")
@@ -573,8 +687,8 @@ def check(loaded: Loaded) -> list[Finding]:
                 err(e, f"layout names sheet {e.layout.sheet}, which is not in drawings")
             elif sheet.frame is None:
                 err(e, f"layout sheet {sheet.id} has no frame (units, datum, rotation_deg)")
-        if e.mount is not None:
-            _check_mount(e, model, err, MOUNT_TYPES)
+        if e.mount is not None and e.tag not in bad_params:
+            _check_mount(e, model, err, MOUNT_TYPES, bad_params)
         if e.at is not None and any(sheets.get(r.sheet) and sheets[r.sheet].kind == "layout"
                                     for r in e.ref):  # fmt: skip
             warn(e, "at: is in scene metres, yet ref names a layout sheet: give layout: as "
@@ -616,6 +730,17 @@ def check(loaded: Loaded) -> list[Finding]:
         if len(tag) > TAG_MAX_LEN or not re.fullmatch(rf"[A-Z][A-Z0-9_]*_{io.signal}", tag):
             err(io, f"scene tag {tag!r} is not a valid tag (capitals, at most 40 characters, "
                     f"ending _{io.signal}); give scene_tag:")  # fmt: skip
+
+    if not any(f.level == "error" for f in out):  # the pipes scaffold would make (ruled 2026-11-17)
+        from openfactory.scaffold import plan_connections
+
+        rows_by_id = {scene_id(e): e for e in model.equipment}
+        for pipe in plan_connections(model).pipes:
+            clash = rows_by_id.get(pipe["id"])
+            if clash is not None:
+                c = next(r for r in model.connections if r.row == pipe["row"])
+                err(c, f"scaffold makes this line pipe {pipe['id']}, which is also the scene id "
+                       f"of {clash.row} {clash.tag}; give {clash.row} another `id:`")  # fmt: skip
     return out
 
 
@@ -627,7 +752,9 @@ def _row_sheet(row: Any) -> str:
     return row.ref[0].sheet if row.ref else "no sheet"
 
 
-def _check_mount(e: Equipment, model: Takeoff, err: Any, mount_types: Any) -> None:
+def _check_mount(
+    e: Equipment, model: Takeoff, err: Any, mount_types: Any, bad_params: set[str]
+) -> None:
     m = e.mount
     assert m is not None
     sheets = model.sheets()
@@ -651,6 +778,8 @@ def _check_mount(e: Equipment, model: Takeoff, err: Any, mount_types: Any) -> No
     if belt.mount is not None or (belt.layout is None and belt.at is None):
         err(e, f"mount conveyor {m.conveyor} has no position of its own")
         return
+    if belt.tag in bad_params:
+        return  # its params are reported on its own row
     length = float(belt.params.get("length", _model_default(belt.type, "length")))
     along = mount_along_m(m, model)
     if not -1e-9 <= along <= length + 1e-9:

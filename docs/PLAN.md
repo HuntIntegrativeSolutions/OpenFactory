@@ -3451,6 +3451,54 @@ trusts it.
       *Done (2026-11-16)* by 5.1a, 5.1b and 5.1c: the sample P&ID has its takeoff in the
       repository, `scaffold` turns it into a scene that loads, and the agitator's unknown type
       is reported as a stand-in, not dropped (5.1c's guide clause waits for 5.13).
+      *Ruled 2026-11-17 (the owner, on review of 5.1a to 5.1c):* (1) the sample fails `--strict`
+      on its six open questions, as 5.1a's Done-when says (the prompt that asked it to pass was
+      wrong); (2) confirmed as built: `layout.heading_deg`; "a `read` row has no questions" is not
+      enforced; duplicate scene ids and scene tags are errors; an equipment row's `type`
+      defaults to `unknown`; a stand-in on a rail is placed as a photo eye would be; a missing
+      parameter with no default is "unplaced"; `--in-scenes` is required to write inside
+      `scenes/`; (3) a parameter left at its type's default is not marked in the scene (the
+      text that said `# ASSUMED <param>` was corrected to what the code does); (4) 5.1c's
+      authoring-guide clause is carried to 5.13.
+      *Review fixes (2026-11-17), each with a test that failed before:* (1) **one-line text**:
+      every text in a takeoff (tag, `ref.grid`, `line`, `questions`, `rail`, `conveyor`,
+      `from`, `to`, `description` and the rest) refuses control characters, line breaks
+      (including U+0085, U+2028 and U+2029, which PyYAML also breaks on) and tabs, an error
+      naming the row; and `scaffold` writes every comment through one helper (`comment`) that
+      turns any of them into a space, and every value through `flow`, which is one line or an
+      error. A question holding a line break had become a line of scene YAML: a component no
+      row names, while the report said every row was accounted for
+      (`test_text_with_a_line_break_or_control_character_is_an_error_naming_its_row`, 63
+      cases; `test_the_scaffolded_scene_has_exactly_the_components_its_rows_account_for`,
+      which feeds a question past the schema; `test_comment_never_holds_a_line_break`). (2)
+      **duplicate keys**: the loader (`TakeoffLoader`) refuses a key written twice in one
+      mapping, naming the key and its line, and refuses anchors, aliases and the merge key
+      before anything expands (`test_a_key_written_twice_is_refused_naming_the_key_and_its_line`,
+      `test_anchors_aliases_and_merge_keys_are_refused`,
+      `test_an_alias_chain_is_refused_before_it_expands`). (3) **parameters**: `check` validates
+      each known-type row's `params` against its type's model (`param_problems`): an unknown
+      name, a wrong-typed value (`length: "long"` raised ValueError in `check` before) and a
+      placement key (`id`, `type`, `description`, `position`, `rotation_deg`, `mesh`, `io`) are
+      errors naming the row (`test_params_are_checked_against_the_rows_type`, 9 cases). (4)
+      **self-load**: before writing, `scaffold` loads its own scene, keys written twice
+      refused, then the scene loader and `build`, unless a row is unplaced for a parameter with
+      no default; a failure is a bug in scaffold, exit 1, nothing written, the loader's message
+      printed (`test_a_scene_that_does_not_load_is_a_scaffold_bug_exit_1_nothing_written`,
+      `test_a_measures_naming_no_row_fails_the_self_load_not_the_run`). (5) **assumed I/O and
+      connection rows** have the outcome "assumed"; the order is unplaced or not connected,
+      stand-in, assumed, placed; the sample's counts do not move
+      (`test_an_assumed_io_or_connection_row_is_assumed`). (6) **pipe ids**: `check` runs the
+      scaffold's `plan_connections` and makes a pipe id that equals an equipment row's scene
+      id an error on the connection row naming both rows
+      (`test_a_pipe_id_equal_to_an_equipment_rows_scene_id_is_an_error_naming_both`). (7) **the
+      sample**: PE-201's ref is C4, where L-001 draws it; the sample was marked again (`--mark
+      XX`), so its rows digest is now `1e822ddb5b17bd3a` (was `2c9c61b4ae244f3a`), and the
+      tests, `docs/takeoff.md` and the design note quote it; P-001's title block moved below
+      the bottom zone letters (the sheet is 20 px taller, 1400 by 1020), both PNGs rendered
+      again (L-001's bytes did not change) and looked at. (8) **a stand-in with two DIs and two
+      AIs**: the scene builds and runs, the second DI reads false and the second AI the low end
+      of its range, and that AI's comment now says so (it said "follows the first AO")
+      (`test_a_stand_in_with_two_dis_and_two_ais`).
   - [x] 5.1a The takeoff file and `takeoff check` (note §3.2, §3.3): the schema and its JSON
         Schema export, `--strict` (`--against` is 5.6), the `checked` mark with its rows digest
         and `--mark INITIALS` (A), and layout frames with positions as printed (B).
@@ -3470,7 +3518,8 @@ trusts it.
         for the scene). Its JSON Schema is `web/public/takeoff.schema.json`, written by `python -m
         openfactory.takeoff` and held current by `--check` in CI's schema step and a test.
         **The mark (A):** `rows_digest` as the note specifies; the sample's mark, computed on
-        2026-11-15, is current (`2c9c61b4ae244f3a`). `mark_state` gives the reasons a mark is
+        2026-11-15, is current (`2c9c61b4ae244f3a`; `1e822ddb5b17bd3a` since the review fixes of
+        2026-11-17, when PE-201's ref became C4). `mark_state` gives the reasons a mark is
         stale: "rows changed since checking", "<sheet> is rev B, checked at rev A", a sheet not
         checked or no longer listed. `--mark` writes only when there is no error, through the
         4.7 `Document` writer: it replaces the `checked` value (a flow mapping on one line) or
@@ -3555,7 +3604,7 @@ trusts it.
         `docs/samples/wash-skid/`: `P-001.svg` and `L-001.svg` (10.8 KB and 14.8 KB), written by
         `tools/make_sample_sheets.py` from SVG primitives only (no symbol library, no template,
         a title block of our own; instrument bubbles after ISA-5.1); `P-001.png` and
-        `L-001.png` (68 KB and 83 KB, 1400 by 1000 and 1400 by 1100) rendered by
+        `L-001.png` (68 KB and 83 KB, 1400 by 1000, 1020 since 2026-11-17, and 1400 by 1100) rendered by
         `tools/render_sheets.py` in Playwright's Chromium, each with the SVG's SHA-256 in a
         `tEXt` chunk `openfactory-source`; `IO-001.csv` (the I/O CSV's columns and `plc_tag`,
         row 15 abbreviated as `CYL201 RET` on purpose); the takeoff (from 5.1a); `LICENSE.txt`
@@ -3571,11 +3620,10 @@ trusts it.
         EL, the tank's circle with the agitator on it, and CV-201 (3000 by 500, flow +X) with
         PE-201 and CYL-201 on its north rail dimensioned 1200 and 2000 from its infeed. Two
         rounds of fixes before that: labels crossing the skid outline, the ordinate lines and
-        the tank. **A known mismatch:** the note's L-001 grid references cannot all hold on one
-        even zone grid (P-101 at X 4200 in C and PE-201 at X 4200 in B cannot both hold); the
-        grid of 1600 mm columns from X 700 keeps every reference but PE-201's, which sits 300 mm
-        into C. The takeoff's references, and its checked mark, are left as ruled; no test reads
-        what a drawing shows. *Tests* (`tests/unit/test_sample_set.py`, 5): the files, their
+        the tank. **Grid references:** the note's L-001 references could not all hold on one even
+        zone grid (P-101 at X 4200 in C and PE-201 at X 4200 in B); the grid of 1600 mm columns
+        from X 700 keeps every one but PE-201's, which sits 300 mm into C. Fixed 2026-11-17 as
+        ruled: PE-201's ref is C4 and the sample was marked again. *Tests* (`tests/unit/test_sample_set.py`, 5): the files, their
         licence lines and sizes; the SVGs current and made of primitives only, with no link or
         script; each PNG's recorded digest equal to its SVG's and its size the SVG's (a render
         is not the same bytes on every machine, so pixels are not compared); the I/O list

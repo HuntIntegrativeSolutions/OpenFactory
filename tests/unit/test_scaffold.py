@@ -163,3 +163,127 @@ def test_a_clean_takeoff_exits_0(tmp_path) -> None:
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
     done = CliRunner().invoke(cli, ["takeoff", "scaffold", str(path), "-o", str(out)])
     assert done.exit_code == 0, done.output
+
+
+# --- review fixes, ruled 2026-11-17 -----------------------------------------------------------
+
+
+def _component_ids(text: str) -> list[str]:
+    return [c["id"] for c in yaml.safe_load(text)["components"]]
+
+
+def _accounted_ids(result, model) -> list[str]:
+    """The components the takeoff's rows account for: each equipment row's scene id, and each
+    pipe a connection row makes."""
+    from openfactory.scaffold import plan_connections
+
+    return [tk.scene_id(e) for e in model.equipment] + [
+        p["id"] for p in plan_connections(model).pipes
+    ]
+
+
+def test_the_scaffolded_scene_has_exactly_the_components_its_rows_account_for() -> None:
+    loaded = tk.load(SAMPLE)
+    result = scaffold(loaded)
+    assert sorted(_component_ids(result.text)) == sorted(_accounted_ids(result, loaded.model))
+    # Past the schema (which refuses it), a question holding a line break is still one comment:
+    # every comment goes through one helper that cannot write a line break.
+    injected = (
+        "Is it?\n  - id: INJECTED\n    type: drain\n    description: x\n    position: [9, 0, 9]"
+    )
+    for e in loaded.model.equipment:
+        if e.tag == "TK-101":
+            e.questions.append(injected)
+            e.description += " x"  # a YAML line break too, written by flow()
+    hurt = scaffold(loaded)
+    assert "INJECTED" not in _component_ids(hurt.text)
+    assert sorted(_component_ids(hurt.text)) == sorted(_accounted_ids(hurt, loaded.model))
+    assert "# QUESTION (EQ-3): Is it?   - id: INJECTED     type: drain" in hurt.text
+
+
+def test_comment_never_holds_a_line_break() -> None:
+    from openfactory.scaffold import comment
+
+    for brk in ("\n", "\r", "\x85", " ", " ", "\x0b", "\x0c"):
+        assert comment(f"a{brk}b") == "# a b"
+        assert len(f"x: 1  {comment(f'a{brk}b')}".splitlines()) == 1
+
+
+def test_a_scene_that_does_not_load_is_a_scaffold_bug_exit_1_nothing_written(
+    tmp_path, monkeypatch
+) -> None:
+    import openfactory.scaffold as sc
+
+    real = sc._header
+    monkeypatch.setattr(sc, "_header", lambda *a: real(*a) + "bogus: 1\n")
+    out = tmp_path / "wash-skid.yaml"
+    done = CliRunner().invoke(cli, ["takeoff", "scaffold", str(SAMPLE), "-o", str(out)])
+    assert done.exit_code == 1, done.output
+    assert not out.exists()
+    assert "does not load, which is a bug in scaffold; nothing was written" in done.output
+    assert "bogus" in done.output  # the loader's own message
+    monkeypatch.setattr(sc, "_header", lambda *a: real(*a) + "plc:\n  protocol: modbus_tcp\n")
+    done = CliRunner().invoke(cli, ["takeoff", "scaffold", str(SAMPLE), "-o", str(out)])
+    assert done.exit_code == 1 and not out.exists()  # a key written twice is refused too
+    assert "key 'plc' appears twice" in done.output
+
+
+def test_a_measures_naming_no_row_fails_the_self_load_not_the_run(tmp_path) -> None:
+    data = sample()
+    lt = next(e for e in data["equipment"] if e["row"] == "EQ-4")
+    lt["params"]["measures"] = "TK_999.level"
+    with pytest.raises(ValueError, match="does not load, which is a bug in scaffold"):
+        from_data(tmp_path, data)
+
+
+def test_an_assumed_io_or_connection_row_is_assumed(tmp_path) -> None:
+    data = sample()
+    next(r for r in data["io"] if r["row"] == "IO-4")["confidence"] = "assumed"
+    next(r for r in data["connections"] if r["row"] == "CN-2")["confidence"] = "assumed"
+    next(r for r in data["io"] if r["row"] == "IO-5")["confidence"] = "assumed"  # a stand-in's
+    result = from_data(tmp_path, data)
+    assert counts(result) == {
+        "placed": 23, "assumed": 6, "stand-in": 3, "unplaced": 0, "not connected": 0
+    }  # fmt: skip
+    notes = {o.row: o.note for o in result.tally()["assumed"]}
+    assert notes["IO-4"] == "LT-101.pv" and notes["CN-2"] == "LV-101 -> TK-101.top"
+    assert counts(scaffold(tk.load(SAMPLE)))["assumed"] == 4  # the sample's four are equipment
+
+
+def test_a_stand_in_with_two_dis_and_two_ais(tmp_path) -> None:
+    """The first DI follows the first DO and the first AI the first AO; the second DI reads
+    false and the second AI the low end of its range."""
+    from openfactory.core.iotable import Writer
+    from openfactory.core.loader import build
+    from openfactory.core.schema import parse_scene
+
+    data = {
+        "takeoff": "0.1",
+        "plant": {"name": "standin", "description": "A stand-in with two DIs and two AIs."},
+        "drawings": [{"id": "P-1", "kind": "pid", "title": "P", "rev": "A"}],
+        "equipment": [{"row": "EQ-1", "tag": "MX-1", "description": "Mixer", "at": [0, 0, 0],
+                       "confidence": "read", "ref": [{"sheet": "P-1", "grid": "A1"}]}],
+        "io": [
+            {"row": f"IO-{n}", "equipment": "MX-1", "port": port, "signal": sig,
+             "confidence": "read", **extra}
+            for n, (port, sig, extra) in enumerate([
+                ("run", "DO", {}), ("running", "DI", {}), ("fault", "DI", {}),
+                ("speed", "AO", {"range": [0, 60], "units": "Hz"}),
+                ("speed_fb", "AI", {"range": [0, 60], "units": "Hz"}),
+                ("current", "AI", {"range": [4, 20], "units": "A"}),
+            ], start=1)
+        ],
+    }  # fmt: skip
+    result = from_data(tmp_path, data)
+    assert "fault: {from: 'false'}  # IO-3: reads false" in result.text
+    assert "current: {from: '4.0', kind: AI, range: [4.0, 20.0], units: A}  # IO-6: reads the " \
+           "low end of its range" in result.text  # fmt: skip
+    plant = build(parse_scene(result.text))  # the scene validates and builds
+    plant.io.set("MX_1_RUN_DO", True, Writer.PLC)
+    plant.io.set("MX_1_SPD_AO", 40.0, Writer.PLC)
+    for _ in range(5):
+        plant.step(0.02)
+    assert plant.io.get("MX_1_RUN_DI") is True
+    assert plant.io.get("MX_1_FAULT_DI") is False
+    assert plant.io.get("MX_1_SPEED_FB_AI") == pytest.approx(40.0)
+    assert plant.io.get("MX_1_CURRENT_AI") == pytest.approx(4.0)
