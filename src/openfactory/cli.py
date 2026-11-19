@@ -711,7 +711,7 @@ def _simulate(
 
 def _logix_client(parsed: Scene, loaded: LoadedScene, settings, name, script):  # noqa: ANN001, ANN202
     """The Logix client for a named connection (PLAN 2.2, ADR-0002), or exit 1 saying why."""
-    from openfactory.protocols.logix import LogixClient
+    from openfactory.protocols.logix import LogixClient, plant_names
 
     def fail(message: str) -> None:
         typer.echo(f"error: logix: {message}", err=True)
@@ -737,11 +737,15 @@ def _logix_client(parsed: Scene, loaded: LoadedScene, settings, name, script):  
         "logix: on link loss, outputs %s",
         f"off after {conn.link_loss_timeout_s:g} s" if conn.on_link_loss == "off" else "held",
     )
+    plant = plant_names(parsed)  # PLAN 5.3b: exchanged by the plant's names when it has them
+    if plant:
+        log.info("logix: %d points by their plant names (plc_tag)", len(plant))
     return LogixClient(
         loaded.io,
         conn.path,
         on_link_loss=conn.on_link_loss,
         link_loss_timeout_s=conn.link_loss_timeout_s,
+        plant=plant,
     )
 
 

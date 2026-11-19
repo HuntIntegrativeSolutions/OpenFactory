@@ -3784,7 +3784,7 @@ trusts it.
         belongs to the composite's first part in the exports; (4) AO commands read as numbers in
         `logic:`; (5) the load-time type check tries each true/false reading both ways, so both
         branches of a conditional are typed.
-- [ ] 5.3 The plant's tag names. `plc_tag:` per binding (§6.2, named but not built), so a scene
+- [x] 5.3 The plant's tag names. `plc_tag:` per binding (§6.2, named but not built), so a scene
       port maps to the plant's tag or UDT member, and an area prefix per scene.
       *Done when:* the I/O CSV, the L5X and the SCADA tag export carry the plant's names, the
       lockfiles do not move, and a plant name outside the HIS pattern loads and exports with no
@@ -3900,7 +3900,7 @@ trusts it.
         in the tag name's case a load error, the heartbeat included, and program and member
         case kept apart; `test_takeoff.py`: a `plc_tag` differing only in case a duplicate
         naming both rows, and `.99` refused.
-  - [ ] 5.3b The Logix path by plant names: the client reads and writes `plc_tag`s, maps results
+  - [x] 5.3b The Logix path by plant names: the client reads and writes `plc_tag`s, maps results
         back to scene tags, sets `init_program_tags` when a `Program:` name is present, and runs
         the connect-time type check with the bit split.
         *Done when:* `tests/unit/test_logix.py`'s fake controller holds a program-scoped tag, a
@@ -3908,6 +3908,47 @@ trusts it.
         sorter copy exchanges all of them in one write and one read per cycle; a wrong-type
         member is "mismatched" and left out; a bit on a `REAL` is refused at connect. The run on
         the bench PLC stays 2.2's Done-when.
+        *Done (2026-11-18), on the fake controller (the bench PLC run is 2.2's, not claimed
+        here):* `LogixClient(..., plant=)` (`protocols/logix.py`; `cli._logix_client` passes
+        `plant_names(scene)`: each binding's `plc_tag` and the heartbeat's
+        `heartbeat_plc_tag`) sends the one `write()` and the one `read()` of a cycle by the
+        plant's names and puts each result back under its scene tag (pycomm3 returns results
+        under the requested name: `LogixDriver.read` and `write` build `Tag(user_tag, ...)`).
+        `init_program_tags` is `True` exactly when a name starts with `Program:` (the
+        `LogixDriver.__init__` docstring: tag definitions are needed to read or write; its
+        `init_program_tags` uploads program tags through `get_tag_list(program="*")`).
+        **Connect-time check:** `split_bit` splits a trailing digit segment off as
+        `_parse_tag_request` does, `LogixDriver.get_tag_info` looks the rest up (it does not
+        strip a bit itself), and `type_problem` accepts for a bool point a `BOOL` (tag or
+        structure member), a `BOOL` array element (pycomm3 types it `DWORD`), or a bit of a
+        SINT, INT or DINT within 0 to 7, 0 to 15, 0 to 31; for a float32 point a `REAL`; for an
+        int16 point an `INT`; anything else "mismatched" with the reason, an unknown name
+        "missing", both logged once naming the plant name and left out. **Bit range by type,
+        cited:** publication 1756-PM004L-EN-P, revision L (November 2023), chapter 2: "Address
+        tag data" (a bit is a bit of a SINT, INT or DINT) and "Data type" (their bits: SINT 0
+        to 7, INT 0 to 15, DINT 0 to 31), stated in our own words. **Decision beyond the
+        ruling:** a bit of a LINT is refused, as that manual names no bit of one (the design
+        note's list had LINT from pycomm3). A scene with no `plc_tag` takes the old path
+        unchanged (scene tags, `init_program_tags=False`, the check against `tags`): the 14
+        tests above this section in `test_logix.py` pass unchanged (the file only gained
+        lines). Docs: `docs/logix.md` ("The plant's own names"), `docs/scene-format.md`.
+        *Tests* (`tests/unit/test_logix.py`, 11 more): a second fake controller with
+        definitions in pycomm3's shape that looks names up and parses requests with pycomm3
+        1.2.16's own `get_tag_info`, `_get_tag_info` and `_parse_tag_request`, holding
+        `Program:Sorter.Conv1_Run`, structure `Conv1` with `Running` (BOOL) and `Speed` (REAL),
+        `Sorter_DI_Word` (DINT) whose bit 4 is PE_01_DI and bit 0 the heartbeat, and the rest
+        of the sorter's names. Done-when lines: (1) the sorter copy with every binding mapped
+        exchanges all of them, the first write holding every input's plant name and every read
+        every output's, the call sequence `(w?r)+` (at most one write, then one read, per
+        cycle), values back under scene tags both ways and bit 4 set without moving bit 0
+        (`test_the_sorter_by_plant_names_one_write_and_one_read_per_cycle`); (2) a structure
+        member of the wrong type mismatched and left out of every batch, the rest running, and
+        (3) a bit on a `REAL` refused at connect citing the publication
+        (`test_a_wrong_type_or_a_bit_out_of_range_is_mismatched_and_left_out`, 5 cases, with
+        bit 8 of a SINT, bit 16 of an INT and a bit for a REAL point); bits 7, 15 and 31
+        accepted; an unknown name missing, logged with the plant name; `init_program_tags`
+        True only with a `Program:` name, False for the plain sorter. With 5.3a and 5.3b done,
+        5.3 is ticked.
 - [x] 5.4 Plants in several files. `include:` so one plant is one file per area with shared
       composites, one address map, and lint across areas.
       *Done when:* a two-area sample runs as one plant, each area also runs alone, and the address

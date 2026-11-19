@@ -401,3 +401,341 @@ def test_run_with_an_unreachable_controller_still_runs_and_keeps_trying(tmp_path
 
 def _refuse(self):  # noqa: ANN001, ANN202 - stands in for nothing listening on 44818
     raise CommError("Failed to open socket to 127.0.0.1:44818")
+
+
+# --- PLAN 5.3b: the Logix path by plant names --------------------------------------------------
+#
+# A second fake controller whose definitions are in pycomm3's own shape (``tags``: a dict of
+# ``{tag_type, data_type, data_type_name}``, a structure's members under
+# ``data_type["internal_tags"]``, a BOOL member with ``bit``), and which looks names up and parses
+# requests with pycomm3 1.2.16's own ``LogixDriver.get_tag_info``, ``_get_tag_info`` and
+# ``_parse_tag_request``, so the client is checked against pycomm3's lookup, not a copy of it.
+
+import copy  # noqa: E402
+import re  # noqa: E402
+
+import yaml  # noqa: E402
+from pycomm3 import LogixDriver  # noqa: E402
+from pycomm3.exceptions import RequestError  # noqa: E402
+
+from openfactory.core.loader import build  # noqa: E402
+from openfactory.core.schema import parse_scene  # noqa: E402
+from openfactory.protocols.logix import plant_names  # noqa: E402
+
+
+def atomic(t: str, dim: int = 0) -> dict:
+    return {"tag_type": "atomic", "data_type": t, "data_type_name": t, "dim": dim}
+
+
+def member(t: str, bit: int | None = None) -> dict:
+    info = {"tag_type": "atomic", "data_type": t, "data_type_name": t, "offset": 0}
+    return {**info, "bit": bit} if bit is not None else {**info, "array": 0}
+
+
+def struct(name: str, members: dict) -> dict:
+    return {"tag_type": "struct", "data_type": {"name": name, "internal_tags": members},
+            "data_type_name": name, "dim": 0}  # fmt: skip
+
+
+#: The plant's controller (the Done-when): a program-scoped tag, a structure with a BOOL member
+#: and a REAL member, and a DINT whose bit 4 is a DI; plus what the rest of the sorter names.
+PLANT_DEFS = {
+    "Program:Sorter.Conv1_Run": atomic("BOOL"),
+    "Conv1": struct("CONV", {"Running": member("BOOL", 0), "Speed": member("REAL")}),
+    "Conv2": struct(
+        "CONV", {"Running": member("BOOL", 0), "Run": member("BOOL", 1), "Speed": member("REAL")}
+    ),  # fmt: skip
+    "Pusher": struct(
+        "PUSH",
+        {"Extend": member("BOOL", 0), "Extended": member("BOOL", 1), "Count": member("DINT")},
+    ),  # fmt: skip
+    "Sorter_DI_Word": atomic("DINT"),
+    "Sorter_DO_Word": atomic("DINT"),
+    "Speeds": atomic("REAL", dim=1),
+    "Conv1_Speed": atomic("REAL"),
+    "Small": atomic("SINT"),
+    "Mid": atomic("INT"),
+}
+#: The sorter's plant names (test_plc_tag.py's PLANT), its first belt's speed on the structure's
+#: REAL member so that both member types are exchanged.
+SORTER_NAMES = {
+    "CONV_01_RUN_DO": "Program:Sorter.Conv1_Run",  # program-scoped
+    "CONV_01_SPD_AO": "Conv1.Speed",  # a structure's REAL member
+    "CONV_01_RUN_DI": "Conv1.Running",  # a structure's BOOL member
+    "PE_01_DI": "Sorter_DI_Word.4",  # bit 4 of a DINT
+    "CYL_01_EXT_DO": "Pusher.Extend",
+    "CYL_01_EXT_DI": "Pusher.Extended",
+    "CYL_01_RET_DI": "Sorter_DI_Word.5",
+    "EMT_01_EN_DO": "Sorter_DO_Word.0",
+    "CONV_02_RUN_DO": "Conv2.Run",
+    "CONV_02_SPD_AO": "Speeds[2]",  # an element
+    "CONV_02_RUN_DI": "Conv2.Running",
+}
+SORTER_HEARTBEAT = "Sorter_DI_Word.0"
+
+
+def zero(info: dict):  # noqa: ANN201
+    if info["tag_type"] == "struct":
+        return {k: zero(m) for k, m in info["data_type"]["internal_tags"].items()}
+    value = {"BOOL": False, "REAL": 0.0}.get(info["data_type_name"], 0)
+    return [value] * 4 if info.get("dim") else value
+
+
+class PlantController(Controller):
+    """Memory by base tag: a structure a dict of members, an array a list, a DINT an int."""
+
+    def __init__(self, defs: dict, logic: Callable[[dict], None] | None = None) -> None:
+        super().__init__({}, logic)
+        self.defs = copy.deepcopy(defs)
+        self.memory = {name: zero(info) for name, info in self.defs.items()}
+
+
+class PlantDriver:
+    """pycomm3's lookups on PlantController's memory; reads and writes resolve a name as
+    ``_parse_tag_request`` parses it (base, members, element, bit)."""
+
+    get_tag_info = LogixDriver.get_tag_info
+    _get_tag_info = LogixDriver._get_tag_info
+    _parse_tag_request = LogixDriver._parse_tag_request
+    _LogixDriver__log = logging.getLogger("fake-logix")
+
+    def __init__(self, plc: PlantController) -> None:
+        self.plc = plc
+        self.epoch: int | None = None
+
+    @property
+    def _tags(self) -> dict:
+        return self.plc.defs
+
+    tags = _tags
+
+    open, close, _alive = FakeDriver.open, FakeDriver.close, FakeDriver._alive
+    _result = FakeDriver._result
+
+    def _slot(self, plc_tag: str):  # noqa: ANN202 - (container, key) holding the value
+        base, *attrs = plc_tag.split(".")
+        if base.startswith("Program:"):
+            base = f"{base}.{attrs.pop(0)}"
+        holder, key = self.plc.memory, base
+        for part in attrs:
+            holder, key = self._index(holder, key), part
+        return self._final(holder, key)
+
+    @staticmethod
+    def _index(holder, key):  # noqa: ANN001, ANN205
+        name, _, idx = key.partition("[")
+        value = holder[name]
+        return value[int(idx[:-1])] if idx else value
+
+    @staticmethod
+    def _final(holder, key):  # noqa: ANN001, ANN205
+        name, _, idx = key.partition("[")
+        return (holder[name], int(idx[:-1])) if idx else (holder, name)
+
+    def read(self, *names: str):
+        self._alive()
+        self.plc.calls.append(("read", names))
+        if self.plc.logic:
+            self.plc.logic(self)
+        out = []
+        for n in names:
+            try:
+                req = self._parse_tag_request(n)
+            except RequestError as exc:
+                out.append(PyTag(n, None, None, str(exc)))
+                continue
+            holder, key = self._slot(req["plc_tag"])
+            value = holder[key]
+            if req["bit"] is not None:
+                value = bool(value >> req["bit"] & 1)
+            out.append(PyTag(n, value, req["tag_info"]["data_type_name"], None))
+        return self._result(out)
+
+    def write(self, *pairs: tuple[str, object]):
+        self._alive()
+        self.plc.calls.append(("write", tuple(n for n, _ in pairs)))
+        out = []
+        for n, v in pairs:
+            try:
+                req = self._parse_tag_request(n, "w")
+            except RequestError as exc:
+                out.append(PyTag(n, None, None, str(exc)))
+                continue
+            self.set(req, v)
+            out.append(PyTag(n, v, req["tag_info"]["data_type_name"], None))
+        return self._result(out)
+
+    def set(self, req: dict, value: object) -> None:
+        holder, key = self._slot(req["plc_tag"])
+        if req["bit"] is not None:  # pycomm3 sends a read-modify-write of the bit
+            assert type(value) is bool, (req, value)
+            mask = 1 << req["bit"]
+            holder[key] = holder[key] | mask if value else holder[key] & ~mask
+        else:
+            want = {"BOOL": bool, "REAL": float, "DINT": int}[req["tag_info"]["data_type_name"]]
+            assert type(value) is want, (req, value)
+            holder[key] = value
+
+    def get(self, name: str):  # noqa: ANN201 - for the controller's logic and the asserts
+        return self.read(name).value
+
+
+def sorter_scene(names: dict[str, str], heartbeat: str | None = SORTER_HEARTBEAT):  # noqa: ANN201
+    doc = yaml.safe_load((REPO / "scenes" / "sorting-by-height.yaml").read_text(encoding="utf-8"))
+    for comp in doc["components"]:
+        for port, binding in (comp.get("io") or {}).items():
+            spec = binding if isinstance(binding, dict) else {"tag": binding}
+            if spec["tag"] in names:
+                comp["io"][port] = {**spec, "plc_tag": names[spec["tag"]]}
+    if heartbeat:
+        doc["plc"]["heartbeat_plc_tag"] = heartbeat
+    scene = parse_scene(yaml.safe_dump(doc, sort_keys=False), REPO / "scenes")
+    return scene, build(scene, base_dir=REPO / "scenes")
+
+
+def sorter_logic(d: PlantDriver) -> None:
+    """The plant's program: belt 1 runs while the eye (Sorter_DI_Word.4) is clear, at a fixed
+    speed; the pusher extends while the eye sees a box; the emitter's enable bit is on."""
+    mem = d.plc.memory
+    eye = bool(mem["Sorter_DI_Word"] >> 4 & 1)
+    mem["Program:Sorter.Conv1_Run"] = not eye
+    mem["Conv1"]["Speed"] = 0.5
+    mem["Pusher"]["Extend"] = eye
+    mem["Sorter_DO_Word"] |= 1
+    mem["Conv2"]["Run"] = True
+    mem["Speeds"][2] = 0.25
+
+
+def plant_client(io: IOTable, plc: PlantController, plant: dict, **kw) -> LogixClient:
+    kw.setdefault("period_s", 0.01)
+    kw.setdefault("backoff_s", (0.05, 0.1, 0.2))
+    return LogixClient(io, "192.0.2.10", driver_factory=lambda path: PlantDriver(plc),
+                       plant=plant, **kw)  # fmt: skip
+
+
+def test_the_sorter_by_plant_names_one_write_and_one_read_per_cycle():
+    """PLAN 5.3b's Done-when: a program-scoped tag, a structure's BOOL and REAL members, a DINT
+    whose bit 4 is a DI, an element and the heartbeat as a bit, all in one write and one read a
+    cycle, and every value put back under its scene tag."""
+    scene, loaded = sorter_scene(SORTER_NAMES)
+    io, plant = loaded.io, plant_names(scene)
+    assert plant["SIM_HEARTBEAT_DI"] == SORTER_HEARTBEAT and len(plant) == 12
+
+    async def main():
+        plc = PlantController(PLANT_DEFS, sorter_logic)
+        c = plant_client(io, plc, plant)
+        assert c.init_program_tags is True  # a Program: name needs the program definitions
+        task = asyncio.create_task(c.serve_forever())
+        await until(lambda: c.state.cycles >= 3)
+        assert c.status()["missing"] == [] and c.status()["mismatched"] == {}
+        sim = {plant[t.name] for t in io.tags() if t.kind in ("DI", "AI")}
+        out = {plant[t.name] for t in io.tags() if t.kind in ("DO", "AO")}
+        first_write = next(names for kind, names in plc.calls if kind == "write")
+        assert set(first_write) == sim  # every input, by its plant name, in one write
+        reads = [names for kind, names in plc.calls if kind == "read"]
+        assert reads and all(set(r) == out for r in reads)  # every output in one read
+        # a cycle is at most one write, then one read
+        kinds = "".join(kind[0] for kind, _ in plc.calls)
+        assert re.fullmatch("(w?r)+", kinds), kinds
+        # the values, under their scene tags
+        assert io.get("CONV_01_RUN_DO") is True  # Program:Sorter.Conv1_Run
+        assert io.get("CONV_01_SPD_AO") == pytest.approx(0.5)  # Conv1.Speed, a REAL member
+        assert io.get("EMT_01_EN_DO") is True  # Sorter_DO_Word.0, a bit read
+        assert io.get("CONV_02_SPD_AO") == pytest.approx(0.25)  # Speeds[2], an element
+        assert io.get("CONV_02_RUN_DO") is True  # Conv2.Run, a BOOL member
+        io.set("PE_01_DI", True, Writer.SIM)  # bit 4 of the DINT
+        io.set("CONV_01_RUN_DI", True, Writer.SIM)  # a structure's BOOL member, written
+        await until(lambda: io.get("CYL_01_EXT_DO") is True and io.get("CONV_01_RUN_DO") is False)
+        assert plc.memory["Sorter_DI_Word"] >> 4 & 1 == 1 and plc.memory["Conv1"]["Running"]
+        io.set("SIM_HEARTBEAT_DI", True, Writer.SIM)
+        await until(lambda: plc.memory["Sorter_DI_Word"] & 1 == 1)  # bit 0: the heartbeat
+        assert plc.memory["Sorter_DI_Word"] >> 4 & 1 == 1  # bit 4 kept
+        await c.shutdown()
+        await task
+
+    run(main())
+
+
+@pytest.mark.parametrize(
+    ("scene_tag", "name", "why"),
+    [
+        # a structure member of the wrong type: mismatched and left out
+        ("CYL_01_EXT_DO", "Pusher.Count", "Pusher.Count is DINT, expected BOOL"),
+        # a bit on a REAL: refused at connect
+        ("PE_01_DI", "Conv1_Speed.3", "Conv1_Speed.3 is a bit of a REAL; a bit is a bit of a "
+         "SINT, INT or DINT (1756-PM004L-EN-P, ch. 2, Address tag data)"),
+        # bits past the type's width: 0 to 7 for a SINT, 0 to 15 for an INT
+        ("PE_01_DI", "Small.8", "Small.8 is bit 8 of a SINT, whose bits are 0 to 7"),
+        ("PE_01_DI", "Mid.16", "Mid.16 is bit 16 of an INT, whose bits are 0 to 15"),
+        # a bit names a BOOL; a REAL point cannot be one
+        ("CONV_01_SPD_AO", "Sorter_DO_Word.9", "Sorter_DO_Word.9 is a bit, expected REAL"),
+    ],
+)  # fmt: skip
+def test_a_wrong_type_or_a_bit_out_of_range_is_mismatched_and_left_out(scene_tag, name, why):
+    scene, loaded = sorter_scene({**SORTER_NAMES, scene_tag: name})
+    io, plant = loaded.io, plant_names(scene)
+
+    async def main():
+        plc = PlantController(PLANT_DEFS, sorter_logic)
+        c = plant_client(io, plc, plant)
+        task = asyncio.create_task(c.serve_forever())
+        await until(lambda: c.state.cycles >= 3)
+        mismatched = c.status()["mismatched"]
+        assert list(mismatched) == [scene_tag] and why in mismatched[scene_tag]
+        assert all(name not in names for _, names in plc.calls)  # left out of every batch
+        assert io.get("EMT_01_EN_DO") is True  # the rest keeps running
+        await c.shutdown()
+        await task
+
+    run(main())
+
+
+@pytest.mark.parametrize("name", ["Small.7", "Mid.15", "Sorter_DI_Word.31"])
+def test_the_last_bit_of_each_integer_type_is_accepted(name):
+    scene, loaded = sorter_scene({**SORTER_NAMES, "PE_01_DI": name})
+
+    async def main():
+        plc = PlantController(PLANT_DEFS, sorter_logic)
+        c = plant_client(loaded.io, plc, plant_names(scene))
+        task = asyncio.create_task(c.serve_forever())
+        await until(lambda: c.state.cycles >= 2)
+        assert c.status()["mismatched"] == {} and c.status()["missing"] == []
+        await c.shutdown()
+        await task
+
+    run(main())
+
+
+def test_a_name_the_controller_lacks_is_missing_naming_the_plant_name(caplog):
+    caplog.set_level(logging.WARNING)
+    scene, loaded = sorter_scene({**SORTER_NAMES, "CONV_02_RUN_DI": "Conv9.Running"})
+
+    async def main():
+        plc = PlantController(PLANT_DEFS, sorter_logic)
+        c = plant_client(loaded.io, plc, plant_names(scene))
+        task = asyncio.create_task(c.serve_forever())
+        await until(lambda: c.state.cycles >= 2)
+        assert c.status()["missing"] == ["CONV_02_RUN_DI"]
+        await c.shutdown()
+        await task
+
+    run(main())
+    assert "CONV_02_RUN_DI (Conv9.Running)" in caplog.text
+
+
+def test_program_tags_are_uploaded_only_when_a_plant_name_needs_them(monkeypatch):
+    """pycomm3's LogixDriver is opened with init_program_tags=True only when a plant name starts
+    with Program: (its __init__ docstring: initialization of tags is required for read and
+    write); a scene with no plc_tag keeps init_program_tags=False, as before 5.3b."""
+    made: list[dict] = []
+    monkeypatch.setattr("pycomm3.LogixDriver", lambda path, **kw: made.append(kw) or object())
+    scene, loaded = sorter_scene(SORTER_NAMES)
+    LogixClient(loaded.io, "192.0.2.10", plant=plant_names(scene))._factory("192.0.2.10")
+    no_program = {k: v for k, v in SORTER_NAMES.items() if not v.startswith("Program:")}
+    scene, loaded = sorter_scene(no_program)
+    LogixClient(loaded.io, "192.0.2.10", plant=plant_names(scene))._factory("192.0.2.10")
+    plain = build(parse_scene((REPO / "scenes" / "sorting-by-height.yaml").read_text(
+        encoding="utf-8"), REPO / "scenes"), base_dir=REPO / "scenes")  # fmt: skip
+    LogixClient(plain.io, "192.0.2.10")._factory("192.0.2.10")
+    assert made == [{"init_program_tags": True}, {"init_program_tags": False},
+                    {"init_program_tags": False}]  # fmt: skip

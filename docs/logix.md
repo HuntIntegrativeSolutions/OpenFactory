@@ -24,6 +24,27 @@ type: `BOOL` for a DI or DO, `REAL` for an AI or AO. `openfactory export SCENE -
 exactly those tags as a Studio 5000 partial import (PLAN 2.3), `SIM_HEARTBEAT_DI` included. A tag
 the controller lacks, or has with another type, is logged once and left out; the rest run.
 
+### The plant's own names: `plc_tag` (PLAN 5.3b)
+
+A scene whose bindings carry `plc_tag` ([the scene format](scene-format.md)) is exchanged with
+the controller by those names instead: `Program:Sorter.Conv1_Run` (a program-scoped tag),
+`Conv1.Running` (a structure's member), `Speeds[2]` (an element), `Sorter_DI_Word.4` (a bit). The
+batches stay one write and one read a cycle, and each value comes back under its scene tag. The
+heartbeat goes by `plc.heartbeat_plc_tag` when the scene sets it. When any name starts with
+`Program:`, the program-scoped tag definitions are uploaded on connect too (pycomm3's
+`init_program_tags`), which takes longer on a controller with many programs.
+
+On connect each name is checked against the controller's definitions:
+
+- a DI or DO must be a `BOOL` (a tag, a structure's `BOOL` member, an element of a `BOOL`
+  array) or a bit of a `SINT`, `INT` or `DINT`, numbered 0 to 7, 0 to 15 or 0 to 31
+  (publication 1756-PM004L-EN-P, chapter 2, "Address tag data" and "Data type");
+- an AI or AO must be a `REAL` (an `INT` for an `int16` point), never a bit.
+
+A name the controller does not have, or has with another type or a bit out of range, is logged
+once (naming both the scene tag and the plant name) and left out; the rest run. A scene with no
+`plc_tag` runs exactly as described above.
+
 If the link drops, OpenFactory logs one line and reconnects by itself (after 0.5, 1, 2, 4, then
 every 5 s), with no restart of either side. Your program sees the simulator is gone because
 `SIM_HEARTBEAT_DI` stops changing (it toggles every 0.5 s of simulated time): watch it with a
@@ -102,7 +123,9 @@ Windows VM or PC, with a results table to fill in.
 The fake controller in the tests stands in for pycomm3's `LogixDriver` (open, close, the tag list,
 read, write) with a link that can be dropped. It proves the client's own behaviour: one write and
 one read per cycle, only changed inputs written, BOOL and REAL values both ways, missing and
-mismatched tags reported and left out, a 10 s drop survived with the inputs re-sent and no restart,
+mismatched tags reported and left out, the plant's names (a program-scoped tag, a structure's
+`BOOL` and `REAL` members, an element, bits of a `DINT`) exchanged in those same batches and
+checked by type and bit range with pycomm3's own name lookup, a 10 s drop survived with the inputs re-sent and no restart,
 and a run that starts with the controller unreachable. It **cannot** prove:
 
 - that pycomm3 reaches a real 5380, Echo or Emulate at all with these paths (Forward Open, the tag
@@ -112,6 +135,9 @@ and a run that starts with the controller unreachable. It **cannot** prove:
   default) rather than an immediate error, so the outage is noticed later than in the test;
 - how a controller answers a write to a tag whose External Access is Read Only, or to a tag a rung
   also writes;
+- with plant names: how long the upload takes with program tags on, whether a member of a
+  plant's structure accepts an external write, what a bit write does to a word another writer
+  also updates, and what many member reads cost against the 50 ms cycle;
 - how long the controller keeps a dead connection before it accepts a new one;
 - how long a run waits at start when the controller's host is up but does not answer: the tests
   show a refused connection returning at once, but an address that swallows packets holds the

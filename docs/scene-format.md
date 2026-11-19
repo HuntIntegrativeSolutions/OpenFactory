@@ -76,7 +76,8 @@ components:
   follows its form: a controller-scope name is one controller tag, a `Program:` name one tag in
   that program, and a member, array element or bit is part of a tag the plant's program already
   declares, so it is listed in a comment at the top of the file and not declared (`export`
-  prints how many). The Logix path (PLAN 5.3b) does not use it yet.
+  prints how many). The Logix path (PLAN 5.3b) reads and writes the point by this name, and
+  checks its type, and a bit's range for its tag's type, when it connects ([Logix](logix.md)).
 - **The shape** is checked at load: an optional `Program:<name>.`, a name, any number of
   `.member` or `[i]`, `[i,j]`, `[i,j,k]`, and an optional final `.<bit>`; each name a letter or
   `_` then letters, digits or `_`. A malformed name is a load error, and so is a name two points
