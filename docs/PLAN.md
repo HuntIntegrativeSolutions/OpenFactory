@@ -3784,7 +3784,7 @@ trusts it.
         belongs to the composite's first part in the exports; (4) AO commands read as numbers in
         `logic:`; (5) the load-time type check tries each true/false reading both ways, so both
         branches of a conditional are typed.
-- [x] 5.3 The plant's tag names. `plc_tag:` per binding (§6.2, named but not built), so a scene
+- [ ] 5.3 The plant's tag names. `plc_tag:` per binding (§6.2, named but not built), so a scene
       port maps to the plant's tag or UDT member, and an area prefix per scene.
       *Done when:* the I/O CSV, the L5X and the SCADA tag export carry the plant's names, the
       lockfiles do not move, and a plant name outside the HIS pattern loads and exports with no
@@ -3947,8 +3947,9 @@ trusts it.
         (`test_a_wrong_type_or_a_bit_out_of_range_is_mismatched_and_left_out`, 5 cases, with
         bit 8 of a SINT, bit 16 of an INT and a bit for a REAL point); bits 7, 15 and 31
         accepted; an unknown name missing, logged with the plant name; `init_program_tags`
-        True only with a `Program:` name, False for the plain sorter. With 5.3a and 5.3b done,
-        5.3 is ticked.
+        True only with a `Program:` name, False for the plain sorter. **5.3 stays unticked:** its
+        ruling (4) leaves the upload time with program tags on a large program to be measured
+        on the bench PLC, which is 2.2's run.
 - [x] 5.4 Plants in several files. `include:` so one plant is one file per area with shared
       composites, one address map, and lint across areas.
       *Done when:* a two-area sample runs as one plant, each area also runs alone, and the address
@@ -4156,8 +4157,10 @@ trusts it.
         area's file edited and the whole plant shown marked by file (a composite's parts too);
         the plant file edited with every area dimmed; a save under `--area` after which only
         `areas/wash.yaml` differs among every file of the copy (bytes compared, none added or
-        removed); an id and a tag of LOAD's typed in WASH refused at preview and at save
-        (422) naming `areas/load.yaml`, nothing written; deleting the end of the plant's
+        removed); an id of LOAD's (sent as an `add` operation: the form shows a component's
+        id read-only, and the palette numbers new ids past the plant's) and a tag of LOAD's
+        set on a WASH port, each refused at preview and at save (422) naming
+        `areas/load.yaml`, nothing written; deleting the end of the plant's
         cross-area connection refused with the loader's own message; a palette id clear of the
         plant's; the `--area` errors. `web/src/editor/dim.test.ts` (2). Playwright,
         `tests/integration/test_editor_plant.py`: `edit wash-plant.yaml --area WASH` at
