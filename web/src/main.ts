@@ -859,9 +859,164 @@ copyViewButton.addEventListener("click", () => {
   else done(param);
 });
 
+/** Capture (PLAN 5.14e): "show the assistant what I see". The Capture button or the C key takes
+ * the picture at that moment, then asks for a note; Enter sends both with the camera and the
+ * selected component to POST /api/capture, which writes the folder (the server names it). Not
+ * offered in the editor, in a replay, or to a trainee in exam mode. */
+const captureButton = document.createElement("button");
+captureButton.id = "capture";
+captureButton.textContent = "Capture";
+captureButton.title = "Capture what you see for the assistant: the picture, the camera, a note, the state and the last 60 s (C)";
+captureButton.style.cssText =
+  `position:absolute;bottom:12px;left:366px;font:12px Arial,sans-serif;color:${cssColor("normalText")};` +
+  "background:#1f2937;border:1px solid #4b5563;border-radius:3px;padding:2px 6px;cursor:pointer";
+const captureBox = document.createElement("div");
+captureBox.id = "capture-box";
+captureBox.style.cssText =
+  `display:none;position:absolute;bottom:44px;left:16px;z-index:10;width:min(420px,calc(100vw - 32px));` +
+  `font:12px Arial,sans-serif;color:${cssColor("normalText")};background:#111827;border:1px solid #4b5563;` +
+  "border-radius:4px;padding:8px";
+const captureNote = document.createElement("textarea");
+captureNote.id = "capture-note";
+captureNote.rows = 3;
+captureNote.maxLength = 2000;
+captureNote.placeholder = "A note for the assistant, e.g. box jammed here (Enter saves, Shift+Enter a new line, Esc cancels)";
+captureNote.style.cssText =
+  `width:100%;box-sizing:border-box;font:12px Arial,sans-serif;color:${cssColor("normalText")};background:#1f2937;` +
+  "border:1px solid #4b5563;border-radius:3px;resize:vertical";
+const captureStatus = document.createElement("div");
+captureStatus.id = "capture-status";
+captureStatus.style.cssText = `display:none;position:absolute;bottom:44px;left:16px;z-index:10;font:12px Arial,sans-serif;color:${cssColor("normalText")};background:rgba(31,42,54,0.9);border-radius:3px;padding:4px 8px;max-width:calc(100vw - 32px);overflow-wrap:anywhere`;
+captureBox.append(captureNote);
+let pendingCapture: Record<string, unknown> | null = null;
+
+/** The picture as the person sees it: the plant drawn this moment, then the labels, the status
+ * lines and the plan view's scale bar, which are page elements, drawn onto the same canvas. */
+function grabPicture(): string {
+  renderer.render(scene, active);
+  labels.render(scene, active);
+  const source = renderer.domElement;
+  const out = document.createElement("canvas");
+  out.width = source.width;
+  out.height = source.height;
+  const ctx = out.getContext("2d")!;
+  ctx.drawImage(source, 0, 0);
+  ctx.scale(source.width / window.innerWidth, source.height / window.innerHeight);
+  const text = (el: HTMLElement, lines: string[], px: number, lineHeight: number, padX: number, padY: number) => {
+    const r = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    if (style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)") {
+      ctx.fillStyle = style.backgroundColor;
+      ctx.fillRect(r.left, r.top, r.width, r.height);
+    }
+    ctx.fillStyle = style.color;
+    ctx.font = `${px}px Arial, sans-serif`;
+    ctx.textBaseline = "top";
+    lines.forEach((line, i) => ctx.fillText(line, r.left + padX, r.top + padY + i * lineHeight + (lineHeight - px) / 2));
+  };
+  for (const entry of labelsById.values()) {
+    if (entry.shown === null || entry.label.element.style.display === "none") continue;
+    text(entry.text, entry.shown.split("\n"), 12, 15.6, 5, 1);
+  }
+  text(hud, (hud.textContent ?? "").split("\n"), 14, 20.3, 0, 0);
+  if (inPlan()) {
+    text(scaleBox, ["N ↑   plan view"], 12, 15, 8, 4);
+    const bar = document.getElementById("scale-bar-line")?.getBoundingClientRect();
+    const label = document.getElementById("scale-bar-label");
+    if (bar && label) {
+      ctx.strokeStyle = cssColor("normalText");
+      ctx.strokeRect(bar.left, bar.top, bar.width, bar.height);
+      text(label, [label.textContent ?? ""], 12, 14, 0, 0);
+    }
+  }
+  return out.toDataURL("image/png");
+}
+
+function captureOffered(): boolean {
+  return !editing() && !replaying() && !(window.__openfactory.exam && !INSTRUCTOR);
+}
+
+function openCapture(): void {
+  if (!captureOffered() || pendingCapture) return;
+  const plan = inPlan();
+  const position = plan ? planCamera.position : camera.position;
+  const target = plan ? (planControls?.target ?? controls.target) : controls.target;
+  pendingCapture = {
+    image: grabPicture(), // what was on screen when Capture was pressed, before the note box
+    camera: { position: position.toArray(), target: target.toArray(), plan },
+    view: viewParam(plan, camera.position, controls.target),
+    selected: selectedLive,
+    viewer_tick: Number(window.__openfactory.tick),
+    labels: labelMode,
+  };
+  captureStatus.style.display = "none";
+  captureBox.style.display = "block";
+  captureNote.value = "";
+  captureNote.focus();
+  window.__openfactory.capturing = true;
+}
+
+function closeCapture(): void {
+  pendingCapture = null;
+  captureBox.style.display = "none";
+  window.__openfactory.capturing = false;
+}
+
+async function saveCapture(): Promise<void> {
+  if (!pendingCapture) return;
+  const body = { ...pendingCapture, note: captureNote.value };
+  closeCapture();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = currentToken();
+  if (token) headers["X-OpenFactory-Fault-Token"] = token;
+  let shown: string;
+  try {
+    const res = await fetch("/api/capture", { method: "POST", headers, body: JSON.stringify(body) });
+    const answer = (await res.json()) as { folder?: string; tick?: number; files?: string[]; detail?: unknown };
+    if (res.ok) {
+      window.__openfactory.lastCapture = answer;
+      shown = `Captured to ${answer.folder}`;
+    } else {
+      window.__openfactory.lastCapture = { error: res.status, detail: answer.detail };
+      shown = `Capture refused (${res.status}): ${typeof answer.detail === "string" ? answer.detail : "see the console"}`;
+      console.warn("OpenFactory: capture refused", res.status, answer.detail);
+    }
+  } catch (err) {
+    window.__openfactory.lastCapture = { error: String(err) };
+    shown = `Capture failed: ${String(err)}`;
+  }
+  captureStatus.textContent = shown;
+  captureStatus.style.display = "block";
+  window.setTimeout(() => (captureStatus.style.display = "none"), 5000);
+}
+
+captureButton.addEventListener("click", openCapture);
+captureNote.addEventListener("keydown", (e) => {
+  e.stopPropagation(); // typing a note is not a shortcut
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    void saveCapture();
+  } else if (e.key === "Escape") {
+    closeCapture();
+  }
+});
+window.addEventListener("keydown", (e) => {
+  const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
+  if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "c" || e.key === "C") {
+    e.preventDefault();
+    openCapture();
+  }
+});
+
+/** Show the Capture button only where a capture is offered (refreshed with the exam state). */
+function placeCapture(): void {
+  captureButton.style.display = captureOffered() ? "block" : "none";
+}
+
 async function start(): Promise<void> {
   await loadScene();
-  app!.append(scaleBox, copyViewButton, labelsControl);
+  app!.append(scaleBox, copyViewButton, labelsControl, captureButton, captureBox, captureStatus);
   applyUrlView();
   wireClicks();
   const menu = new FaultMenu({ target: renderer.domElement, pick: pickComponent });
@@ -870,6 +1025,7 @@ async function start(): Promise<void> {
   const refreshExam = () =>
     exam.refresh().then((on) => {
       window.__openfactory.exam = on;
+      placeCapture();
     });
   await refreshExam();
   // trend panel (PLAN 3.6): any AI tag's last ten minutes; ?trend=TAG opens it on that tag

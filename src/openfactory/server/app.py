@@ -94,6 +94,18 @@ Behavior spec
   any port); anything else gets 421 (a socket is closed before it is accepted). A page on a site
   whose name is re-pointed at 127.0.0.1 sends its own name as ``Host`` and is refused. A server
   bound beyond loopback (``--bind 0.0.0.0``) does not check ``Host``.
+- ``POST /api/capture`` (PLAN 5.14e, :mod:`openfactory.capture`): ``{"image": "data:image/png;
+  base64,...", "camera": {"position", "target", "plan"}, "view", "selected", "note",
+  "viewer_tick", "labels"}`` writes a capture folder of the last tick under the capture
+  directory and answers ``{folder, tick, files}``. A write endpoint, so: offered only on a server
+  bound to loopback (403 beyond it, and the Host check above), refused like every other write
+  for another ``Origin`` (403) and for a body that is not JSON (415); the body is refused (413)
+  before it is parsed when it could hold a picture over :data:`openfactory.capture.MAX_IMAGE_BYTES`
+  (5 MB), and the decoded picture over 5 MB, or one that is not a PNG, is refused too; any key
+  not listed above (a path, a file name) is 422, and nothing sent becomes part of a path; in
+  exam mode it is refused (403) for a trainee: only a request with the fault token (the
+  instructor's) is accepted, and with no token configured it is off. A replay has nothing to
+  capture (404).
 - ``/``: the built viewer from ``web/dist`` (``npm run build``), when present. Without a build,
   ``/`` returns a short page saying how to build it; the API still works.
 
@@ -111,6 +123,7 @@ import hmac
 import ipaddress
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Any
 
@@ -121,6 +134,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from openfactory import __version__
+from openfactory.capture import DEFAULT_DIR, MAX_IMAGE_BYTES, PNG_SIGNATURE
 from openfactory.core.config import Endpoint, load_settings
 from openfactory.core.loader import load
 from openfactory.server.runtime import Runtime
@@ -204,6 +218,30 @@ class MountRequest(EditRequest):
     conveyor: str
     rail: str
     along: float
+
+
+class CaptureCamera(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    position: list[float] = Field(min_length=3, max_length=3)
+    target: list[float] = Field(min_length=3, max_length=3)
+    plan: bool = False
+
+
+class CaptureRequest(BaseModel):
+    """``POST /api/capture`` (PLAN 5.14e). Every field is data: none names a file or folder."""
+
+    model_config = ConfigDict(extra="forbid")
+    image: str
+    camera: CaptureCamera
+    view: str = Field(default="", max_length=200)
+    selected: str | None = Field(default=None, max_length=200)
+    note: str = Field(default="", max_length=20_000)
+    viewer_tick: int | None = None
+    labels: str = Field(default="ids", max_length=10)
+
+
+#: The largest ``POST /api/capture`` body: a 5 MB picture in base64 and room for the rest.
+MAX_CAPTURE_BODY = (MAX_IMAGE_BYTES * 4) // 3 + 64 * 1024
 
 
 class FaultRequest(BaseModel):
@@ -309,6 +347,7 @@ def create_app(
     bind: str = "127.0.0.1",
     fault_token: str | None = None,
     edit: Any = None,
+    capture_dir: Path | None = None,
 ) -> FastAPI:
     """The app for one runtime. ``bind`` is the address the server listens on; it decides
     whether ``/api/fault`` is open (loopback) or needs ``fault_token`` (PLAN §6.4)."""
@@ -512,6 +551,64 @@ def create_app(
     @app.get("/api/parity")
     def parity() -> dict[str, Any]:
         return runtime.parity()
+
+    captures = Path(capture_dir) if capture_dir is not None else Path.cwd() / DEFAULT_DIR
+
+    @app.post("/api/capture")
+    async def capture(request: Request) -> dict[str, Any]:
+        """A capture of the last tick (PLAN 5.14e; the checks are in the module docstring)."""
+        if not hasattr(runtime, "capture"):
+            raise HTTPException(404, "capture: a replay has nothing to capture; run the scene")
+        if not faults_open:
+            raise HTTPException(403, "capture is offered only on a server bound to loopback")
+        if getattr(runtime.loaded, "exam", None) is not None:
+            given = request.headers.get(FAULT_TOKEN_HEADER)
+            if not (expected and given and hmac.compare_digest(given.encode(), expected)):
+                raise HTTPException(403, "capture is off in exam mode (the instructor's token)")
+        declared = request.headers.get("content-length")
+        if declared is not None and (not declared.isdigit() or int(declared) > MAX_CAPTURE_BODY):
+            raise HTTPException(413, "capture: the picture is over 5 MB")
+        body = bytearray()
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > MAX_CAPTURE_BODY:
+                raise HTTPException(413, "capture: the picture is over 5 MB")
+        try:
+            req = CaptureRequest.model_validate_json(bytes(body))
+        except ValidationError as exc:
+            raise HTTPException(422, json.loads(exc.json(include_url=False))) from None
+        prefix = "data:image/png;base64,"
+        if not req.image.startswith(prefix):
+            raise HTTPException(400, "capture: the image must be a PNG data URL")
+        import base64
+        import binascii
+
+        try:
+            image = base64.b64decode(req.image[len(prefix) :], validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(400, "capture: the image is not valid base64") from None
+        if len(image) > MAX_IMAGE_BYTES:
+            raise HTTPException(413, "capture: the picture is over 5 MB")
+        if not image.startswith(PNG_SIGNATURE):
+            raise HTTPException(400, "capture: the image is not a PNG")
+        if not all(math.isfinite(v) for v in req.camera.position + req.camera.target):
+            raise HTTPException(400, "capture: the camera must be finite numbers")
+        view = {
+            "camera": req.camera.model_dump(),
+            "view": req.view,
+            "labels": req.labels,
+            "viewer_tick": req.viewer_tick,
+        }
+        folder = await asyncio.to_thread(
+            runtime.capture, captures, image=image, view=view, note=req.note,
+            selected=req.selected,
+        )  # fmt: skip
+        try:
+            shown = folder.relative_to(Path.cwd())
+        except ValueError:
+            shown = folder
+        return {"folder": str(shown), "tick": int(folder.name.split("-")[0]),
+                "files": sorted(p.name for p in folder.iterdir())}  # fmt: skip
 
     # One broadcaster for every viewer (PLAN 4.3, the classroom): each 20 Hz frame is serialized
     # once and the same text is sent to every connected viewer; a viewer still sending its last

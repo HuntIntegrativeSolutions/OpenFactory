@@ -180,3 +180,33 @@ Text is in the normal colour; the alarm colour marks a fault only (ISA-101). Lab
 overlap are stacked: each moves down below the labels above it that it would cover, the same way
 every frame. The screenshot tool takes `--labels ids|tags|off`, for example
 `uv run python tools/screenshot.py scenes/sorting-by-height.yaml --script examples/pyplc/sorting-by-height.py --labels tags`.
+
+## Capture: show the assistant what you see
+
+While a scene runs, **Capture** (bottom left) or the **C** key takes the picture on screen at that
+moment, then opens a box for a note ("box jammed here"). **Enter** saves; **Shift+Enter** starts
+a new line and **Esc** cancels. The server writes one folder,
+`openfactory-captures/<scene>/<tick>/` in the folder `openfactory run` was started from (another
+base with `run --capture-dir DIR`), with six files:
+
+| File | What it holds |
+|---|---|
+| `view.png` | the picture: the plant, its labels and the status lines (the panels are left out) |
+| `view.json` | the camera (position and target, or the plan view), the `view=` value that reopens it, the selected component, the labels setting, and the tick the picture is from |
+| `report.md` | the scene, time and tick, the selected component, and your note |
+| `look.md` | [`openfactory look`](#openfactory-look) at that tick, then the selected component's own report |
+| `snapshot.json` | the full state at that tick, as `GET /api/state` gives it |
+| `last-60s.ofrec` | the last 60 s as a recording, ending at that tick |
+
+`last-60s.ofrec` is an ordinary recording: `openfactory replay` plays it, and `openfactory look`
+reads it. A live run always keeps those 60 s in memory (a frame every 5 ticks); a run with no
+viewer (`--headless`, `openfactory test`) does not, since nothing could capture it.
+
+`openfactory captures` lists the captures, newest first, and prints the newest folder's path on
+its last line (`--capture-dir DIR` for another base), so "look at my last capture" is one
+command.
+
+The note is kept as text: it is escaped in `report.md` and never becomes part of a file name or
+a command. The folder's name is the server's. Capture is offered only on a viewer bound to
+loopback, never in a replay or the editor, and not to a trainee in exam mode (the instructor's
+token opens it). `openfactory-captures/` is git-ignored.

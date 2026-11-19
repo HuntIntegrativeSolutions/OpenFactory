@@ -62,6 +62,27 @@ def _line(obj: dict[str, Any]) -> bytes:
     return (json.dumps(obj, separators=(",", ":"), allow_nan=False) + "\n").encode()
 
 
+def recording_header(runtime: Any, scene_yaml: str | None, encoding: str | None) -> dict[str, Any]:
+    """The header a recording of ``runtime``'s run carries (after ``format`` and ``version``):
+    ``run --record`` writes it, and a capture's piece of recording (PLAN 5.14e) reuses it."""
+    from openfactory import __version__
+
+    loaded = runtime.loaded
+    header = {
+        "openfactory": __version__,
+        "scene_yaml": scene_yaml if scene_yaml is not None else "",
+        # no mesh URLs: a replay serves no /models/ and draws the primitives (PLAN 2.15)
+        # nor snap ports: they are for the editor, and recordings stay as they were (4.1d)
+        "scene": runtime.scene_document(meshes=False, snaps=False),
+        "dt": runtime.scheduler.dt,
+        "encoding": encoding or loaded.scene.plc.analog_encoding,
+        "frame_every": FRAME_EVERY,
+    }
+    if loaded.exam is not None:  # its frames hide faults: `look` says so (PLAN 5.14b)
+        header["exam"] = True
+    return header
+
+
 class Recorder:
     """Write one run to ``path`` (see the module docstring for the format)."""
 
@@ -139,6 +160,14 @@ class Recording:
     @property
     def dt(self) -> float:
         return float(self.header["dt"])
+
+    @property
+    def held_from(self) -> int:
+        """The tick before which the recording holds no change: -1 for a whole run, and a
+        capture's piece's first tick (PLAN 5.14e), whose first line is the whole I/O table, not
+        changes. ``look`` passes it as the change log's ``dropped_to``."""
+        first = self.frames[0][0] if self.frames else 0
+        return first if first > 0 else -1
 
 
 def read_recording(path: str | Path) -> Recording:
@@ -342,7 +371,10 @@ class ReplayRuntime:
         plant = recording_plant(self.recording.header)
         document = self.recording.header["scene"]
         exam = bool(self.recording.header.get("exam"))
-        return look(document, snap, changes, plant, since_s=since_s, component=component, exam=exam)
+        return look(
+            document, snap, changes, plant, since_s=since_s, component=component, exam=exam,
+            dropped_to=self.recording.held_from,
+        )  # fmt: skip
 
     def apply_event(self, raw: dict[str, Any]) -> Any:
         from openfactory.server.runtime import ViewerEvent
@@ -357,12 +389,13 @@ class ReplayRuntime:
 
     def _play(self) -> None:
         rec, dt = self.recording, self.recording.dt
+        first = rec.frames[0][0]  # a capture's piece starts past tick 0 (PLAN 5.14e)
         while not self._stop.is_set():
             start = time.monotonic()
             events = iter(rec.events)
             pending = next(events, None)
             for tick, frame in rec.frames:
-                due = start + tick * dt / self.speed
+                due = start + (tick - first) * dt / self.speed
                 while (wait := due - time.monotonic()) > 0:
                     if self._stop.wait(min(wait, 0.05)):
                         return

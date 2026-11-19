@@ -1,7 +1,8 @@
 """PLAN 2.9 first item (ruled 2026-10-30): state serialization is off the tick path. With no
-recorder a tick builds no snapshot; the first reader after a tick builds it once and every later
-reader gets the same object; every viewer gets the same serialized text; a recorded run still
-builds one per tick; an exam switch rebuilds it at once."""
+recorder and no capture buffer (a run with no viewer, PLAN 5.14e) a tick builds no snapshot;
+with the buffer, every 5th tick builds the frame it keeps; the first reader after a tick builds
+it once and every later reader gets the same object; every viewer gets the same serialized text;
+a recorded run still builds one per tick; an exam switch rebuilds it at once."""
 
 from __future__ import annotations
 
@@ -33,6 +34,7 @@ def counting(runtime: Runtime) -> list[int]:
 
 def test_ticks_build_no_snapshot_and_a_read_builds_one():
     runtime = Runtime(load(SORTER), realtime=False)
+    runtime.capture_buffer = None  # a run with no viewer (PLAN 5.14e): the 2.9 tick path
     built = counting(runtime)
     for _ in range(50):
         runtime._step(0.02)
@@ -42,6 +44,20 @@ def test_ticks_build_no_snapshot_and_a_read_builds_one():
     assert runtime.snapshot is first and built[0] == 1  # cached until the next tick
     runtime._step(0.02)
     assert runtime.snapshot["tick"] == 51 and built[0] == 2
+
+
+def test_the_capture_buffer_builds_one_every_5th_tick_and_a_reader_reuses_it():
+    """PLAN 5.14e (ruling 3, the buffer always on with a viewer): a frame every 5 ticks is built
+    on the tick path for the last 60 s; a read on that tick gets that frame, built once."""
+    runtime = Runtime(load(SORTER), realtime=False)
+    built = counting(runtime)
+    for _ in range(50):
+        runtime._step(0.02)
+    assert built[0] == 10  # ticks 5, 10, ..., 50
+    assert [k for k, _ in runtime.capture_buffer.held()] == list(range(5, 51, 5))
+    assert runtime.snapshot is runtime.capture_buffer.held()[-1][1] and built[0] == 10
+    runtime._step(0.02)  # tick 51: none built until read
+    assert built[0] == 10 and runtime.snapshot["tick"] == 51 and built[0] == 11
 
 
 def test_a_recorded_run_still_builds_every_tick():

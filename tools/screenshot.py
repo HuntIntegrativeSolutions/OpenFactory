@@ -202,6 +202,7 @@ def running_viewer(
     bundled_script: bool = False,
     quality: str = "low",
     view: dict[str, str] | None = None,
+    run_args: list[str] | None = None,
 ) -> Iterator[tuple[Any, int, list[str]]]:
     """Start ``openfactory run SCENE`` on free loopback ports and open its viewer in headless
     Chromium (SwiftShader WebGL) at viewer quality ``quality`` (PLAN 4.14). Yields
@@ -222,6 +223,7 @@ def running_viewer(
         cmd += ["--script", str(script)]
     if bundled_script:
         cmd.append("--bundled-script")
+    cmd += run_args or []  # more `openfactory run` options (a test's --capture-dir)
     proc = subprocess.Popen(
         cmd, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )

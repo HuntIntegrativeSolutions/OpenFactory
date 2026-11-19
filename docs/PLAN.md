@@ -4549,7 +4549,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         tank, XV_201 and P_201 stacked below the line, both belts' labels, each fan's HOA
         selector with its three inputs above its body's start command) and in ids (each fan's
         BODY label with its HOA label one row below, apart).
-  - [ ] 5.14e Capture: "show the assistant what I see". *What:* a Capture button (and the C key)
+  - [x] 5.14e Capture: "show the assistant what I see". *What:* a Capture button (and the C key)
         writes a folder holding the picture as the person sees it, the camera, the selected
         component, a typed note ("box jammed here"), the `look` report at that tick, the full
         snapshot, and the last 60 s as a recording. `openfactory captures` lists them, newest
@@ -4567,6 +4567,105 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         with all six files; the recording in it replays and ends at the capture's tick; a
         request from another Origin and one over the size cap are refused; the note appears in
         `report.md`; the buffer's cost per tick at 200 parts is measured and recorded.
+        *Done (2026-11-18):* `src/openfactory/capture.py`: `CaptureBuffer`, the last 60 s of
+        state frames, one every `FRAME_EVERY` (5) ticks, 600 at 50 Hz; the frame is the
+        snapshot built on that tick under the step lock (as while recording) and kept as
+        `Runtime._snapshot`, so a viewer reading that tick reuses it; the tag changes between
+        frames are the change log's (5.14a, 600 s) and the events the runtime's event log's, so
+        the buffer stores frames only. `piece_lines` writes the recorder's own format: the
+        header `run --record` writes (now `record.recording_header`, shared by both, so a
+        recording is byte for byte what it was), a first frame whose `io` is the whole table
+        (as tick 0's is), the log's changes, a frame every 5 ticks, the events, the snapshot at
+        the capture's tick as the last frame (it is rarely a multiple of 5) and an end record
+        `{"capture": {"from_tick", "tick"}}`; when the log no longer holds every change after
+        the first frame, the piece starts at the first frame after the newest dropped change.
+        `write_capture` writes the folder. **The six files** (the What names seven items; the
+        selected component goes in `view.json` and `report.md`): `view.png`, `view.json`
+        (camera, `view=` value, selected component, labels setting, the picture's tick),
+        `report.md` (scene, time, tick, selected component, the note), `look.md` (`look` at the
+        tick, then `look --component` of the selected one), `snapshot.json`, `last-60s.ofrec`.
+        `Runtime.capture`; `POST /api/capture` (`server/app.py`); `run --capture-dir` (default
+        `openfactory-captures/` in the folder `run` starts from, resolved at start, ruling 2);
+        `openfactory captures [--capture-dir]` (newest first by `report.md`'s time, then the
+        newest folder's path; exit 1 with none); `.gitignore` gains `openfactory-captures/`.
+        Replays: `ReplayRuntime` times playback from the first frame's tick (a piece starting
+        at tick 30,000 played nothing for ten minutes before), and `look` on a piece (live in a
+        replay and `look FILE --at T`) treats its first tick as the start of the log
+        (`Recording.held_from`), so the whole table on its first line is not listed as changes;
+        a whole run's first tick is 0, so its reports, the golden file included, are unchanged.
+        The viewer (`main.ts`): Capture (bottom left) or C takes the picture at once, then opens
+        the note box (Enter saves, Shift+Enter a new line, Esc cancels); the picture is the
+        WebGL canvas drawn that moment with the labels, the status lines and the plan view's
+        scale bar drawn onto it (they are page elements); the panels are left out. The button
+        is hidden in the editor, a replay, and in exam mode outside the instructor view.
+        Docs: `docs/looking-at-the-plant.md` ("Capture: show the assistant what you see").
+        **Decision beyond the text:** the buffer is off in a run with no viewer (`--headless`,
+        `--as-fast-as-possible`, `openfactory test`): nothing could capture it, and ruling 3's
+        "always on in a live run" is read as every run with a viewer. **What this changes of
+        2.9:** a tick no longer builds no snapshot: with a viewer, every 5th tick builds the
+        frame the buffer keeps. `test_snapshot_off_tick.py` keeps 2.9's assertion for a run
+        without the buffer and gains `test_the_capture_buffer_builds_one_every_5th_tick_and_a
+        _reader_reuses_it`. A recording's bytes are unchanged (`build_kit.py --check` current
+        for all 12 kits, `parity_trace.py --check` and `test_runs_unchanged.py` pass).
+        **Done-when, each with its test:** Capture pressed during a sorter run finds the folder
+        with all six files (`tests/integration/test_capture_viewer.py::
+        test_capture_during_a_sorter_run_writes_the_six_files`: the C key opens the note box and
+        Esc writes nothing; the button, a note, Enter; 1280 by 720 picture, not blank); the
+        recording replays and ends at the capture's tick (the same test, and `tests/unit/
+        test_capture.py::test_the_piece_replays_and_ends_at_the_capture`, which also runs
+        `openfactory look` on it, and `test_the_piece_is_the_whole_recording_over_the_last_60
+        _s_and_ends_at_the_capture`: the sorter run 75 s under its script and recorded whole,
+        captured at tick 3750: the piece's 600 frames, ticks 755 to 3750, and every change
+        after its first frame equal the whole recording's, its first line the whole table); a
+        request from another Origin (403) and over the size cap (413) are refused
+        (`test_another_origin_a_form_and_a_request_off_loopback_are_refused`,
+        `test_a_picture_over_5_mb_is_refused_before_and_after_decoding`); the note appears in
+        `report.md` (the integration test, `<b>#1</b>` escaped, and
+        `test_a_capture_is_six_files_in_a_folder_named_by_the_server`).
+        **Security, each with its test** (`tests/unit/test_capture.py`): loopback only, a
+        server bound to 0.0.0.0 refuses with 403 and writes nothing (`test_another_origin_a_form
+        _and_a_request_off_loopback_are_refused`, which also holds the Host check's middleware
+        in place); Origin and JSON checked as the edit endpoints are, by the same middleware:
+        another Origin 403, `text/plain` 415, this server's own Origin accepted (same test); the
+        image capped at 5 MB: a body that could hold more is refused (413) before it is parsed,
+        by `Content-Length` and while it is read, and 5 MB plus one byte decoded is 413 while
+        exactly 5 MB is taken; a data URL that is not PNG, or bytes without the PNG signature,
+        400 (`test_a_picture_over_5_mb_is_refused_before_and_after_decoding`,
+        `test_no_client_path_or_file_name_and_only_a_png`); no client-supplied path or file
+        name: the request model forbids any other key (`path`, `folder`, `filename` each 422,
+        nothing written), the folder is `<base>/<scene>/<tick>` with the scene's name reduced to
+        letters, digits, `-` and `_` (`scene_slug("../../evil name")` is `evil-name`), `-2`
+        after a tick captured already (`test_no_client_path_or_file_name_and_only_a_png`,
+        `test_escaping_and_cleaning_rules`, `test_two_captures_of_one_tick_get_two_folders`);
+        off in exam mode for a trainee: 403 without the fault token or with a wrong one, and the
+        instructor's token accepted (`test_off_in_exam_mode_for_a_trainee`). **The note is
+        data:** cut to 2000 characters, control characters but newline and tab dropped, `&`,
+        `<` and `>` as entities and every Markdown punctuation character behind a backslash,
+        each line quoted; a selected id that is not a component is left out
+        (`test_the_note_is_data_escaped_in_the_report_and_never_a_path`, five notes: a fence,
+        a heading and a script element; `../../../etc/passwd`; `$(touch pwned)` with backticks
+        and a redirect; a link, an image and a table row; CR, NUL and an escape sequence: only
+        the folder and its six files are created, every note line is quoted, and no `<script>`,
+        fence, heading, link, NUL or escape reaches `report.md`). **The capture folder is
+        git-ignored:** `test_the_capture_folder_inside_the_repository_is_git_ignored` captures
+        into `openfactory-captures/` in the repository and finds `git status --short
+        --untracked-files=all` as it was. `openfactory captures`:
+        `test_openfactory_captures_lists_newest_first_and_prints_the_newest`. A replay answers
+        404 (`test_a_replay_has_nothing_to_capture`).
+        **The buffer's cost** (2026-11-18, i7-1260P, CPython 3.11.15): `Runtime._step` on
+        `tests/scenes/load-200.yaml` with every DO forced on (as `tools/bench.py` sets it up),
+        warmed 3000 ticks (190 parts, 200 at the end), alternating blocks of 50 ticks with the
+        buffer off (`capture_buffer` None, the path before this task) and on, in one process,
+        no viewer reading (so with it on every 5th tick builds a snapshot). Run 1, 40 blocks
+        each: off 2.700 ms, on 2.849 ms, **+0.148 ms a tick**; run 2, 80 blocks each: off 3.866
+        ms, on 4.095 ms, **+0.229 ms a tick** (the runs differ from each other by more than the
+        change: the machine's drift, 2.9). That is a snapshot (about 1 ms at 200 parts) every 5
+        ticks; a viewer reading at 20 Hz builds most of those snapshots anyway, so with a viewer
+        open the extra cost is less. **Memory:** a full buffer at 200 parts grew the process by
+        95.6 MB (tracemalloc over 3000 ticks, 600 frames), about 160 kB a frame; at the sorter's
+        2 or 3 parts it is a few MB. *Screenshot looked at:* the integration test's `view.png`,
+        the sorter at 11.2 s with labels in tags: both belts, the boxes, the stacked labels with
+        their values and the four status lines, as the viewer drew them.
   - [ ] 5.14f Pause, seek and step in a replay; the film strip. *What:* `openfactory replay`
         gains pause, a time slider, and a step forward or back by one frame, for the person.
         `openfactory strip FILE.ofrec --at T --span 2 --frames 6 [--look-at ID] [--labels tags]`

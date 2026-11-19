@@ -476,4 +476,5 @@ def look_recording(
         since_s=since_s,
         component=component,
         exam=bool(rec.header.get("exam")),
+        dropped_to=rec.held_from,  # a capture's piece holds no change before its first tick
     )

@@ -74,10 +74,12 @@ import threading
 import time
 import traceback
 from collections import Counter, deque
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from openfactory.capture import CaptureBuffer
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.history import TagHistory
 from openfactory.core.iolog import IoLog
@@ -144,6 +146,12 @@ class Runtime:
         self.iolog: IoLog | None = IoLog(
             {t.name: t.kind for t in loaded.io.tags()}, self.scheduler.dt
         )
+        #: The last 60 s of state frames for a capture (PLAN 5.14e, always on: ruling 3); None
+        #: turns it off.
+        self.capture_buffer: CaptureBuffer | None = CaptureBuffer(self.scheduler.dt)
+        #: The header a recording of this run has (``record.recording_header``), for a capture's
+        #: piece of recording; the ``run`` command sets it.
+        self.recording_header: dict[str, Any] | None = None
         #: The scene document as a recording stores it, built once for ``look`` (PLAN 5.14b).
         self._look_document: dict[str, Any] | None = None
         #: The scene's checks graded at ``duration_s`` (PLAN 4.1i), as ``openfactory test`` would
@@ -195,10 +203,18 @@ class Runtime:
                     self.sensor_edges.append(
                         {"id": eye.id, "blocked": blocked, "tick": self.loaded.tick}
                     )
+            buffer = self.capture_buffer
+            framed = buffer is not None and buffer.wants(self.loaded.tick)
             if self.recorder is not None:  # the recorder logs every tick: build it here
                 self._snapshot = self._take_snapshot()
                 self.recorder.tick(self._snapshot)
                 values = self._snapshot["io"]
+                if framed:
+                    buffer.add(self.loaded.tick, self._snapshot)  # type: ignore[union-attr]
+            elif framed:  # PLAN 5.14e: the capture buffer's frame, which a viewer then reuses
+                self._snapshot = self._take_snapshot()
+                buffer.add(self.loaded.tick, self._snapshot)  # type: ignore[union-attr]
+                values = self._snapshot["io"] if iolog is not None else None
             else:
                 self._snapshot = None  # the next reader builds it (PLAN 2.9)
                 if iolog is not None:
@@ -596,6 +612,47 @@ class Runtime:
             component=component,
             exam=self.loaded.exam is not None,  # the snapshot hides faults (PLAN 2.11)
             dropped_to=dropped_to,
+        )
+
+    def capture(
+        self,
+        base: Path,
+        *,
+        image: bytes,
+        view: dict[str, Any],
+        note: str,
+        selected: str | None,
+    ) -> Path:
+        """Write a capture of the last tick (PLAN 5.14e, :mod:`openfactory.capture`): the
+        folder written. ``selected`` that is not a component of the scene is left out."""
+        from openfactory.capture import piece_lines, write_capture
+        from openfactory.record import recording_header
+
+        snap = self.snapshot
+        tick = int(snap["tick"])
+        changes: list[tuple[int, str, Any]] = []
+        dropped_to = tick - 1  # with no change log, the piece is the last frame alone
+        if self.iolog is not None:
+            deadline = time.monotonic() + 1.0  # the log is fed just after the step lock
+            while self.iolog.tick < tick and self.running and time.monotonic() < deadline:
+                time.sleep(0.001)
+            changes, dropped_to = self.iolog.held(until_tick=tick)
+        frames = self.capture_buffer.held() if self.capture_buffer is not None else []
+        events = [e for e in list(self.events) if int(e.get("core_tick", 0)) <= tick]
+        header = self.recording_header or recording_header(self, None, None)
+        ids = {c.id for c in self.loaded.components}
+        chosen = selected if selected in ids else None
+        return write_capture(
+            base,
+            scene=self.loaded.scene.scene.name,
+            snapshot=snap,
+            image=image,
+            view={**view, "selected": chosen},
+            note=note,
+            selected=chosen,
+            look_report=self.look(),
+            selected_report=self.look(component=chosen) if chosen else None,
+            piece=piece_lines(header, frames, changes, dropped_to, events, snap),
         )
 
     def parity(self) -> dict[str, Any]:

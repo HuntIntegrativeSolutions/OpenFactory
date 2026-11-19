@@ -43,6 +43,9 @@ Behavior spec
   running server (``GET /api/look``, ``--url``, default the ``[web]`` endpoint) or from a recording
   at a simulated time (``openfactory look FILE.ofrec --at T``, the frame at or before T; the end
   without ``--at``), with ``--since S`` and ``--component ID``.
+- ``captures`` (PLAN 5.14e, :mod:`openfactory.capture`) lists the viewer's captures, newest
+  first, and prints the newest folder's path last; ``run --capture-dir DIR`` sets where the
+  viewer's Capture writes (default ``openfactory-captures/`` where ``run`` was started).
 - ``run`` and ``test`` take ``--fault ID=KIND[:key=value,...]`` (repeatable) and ``--fault-at T``
   (simulated seconds, default 0): each fault is checked against its component before the run and
   injected between ticks once the simulated time reaches T, logged like an ``/api/fault`` request,
@@ -412,6 +415,14 @@ def run(
             show_default=False,
         ),
     ] = None,
+    capture_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Where the viewer's Capture writes (PLAN 5.14e; default: openfactory-captures/ "
+            "in the folder `run` is started from).",
+            show_default=False,
+        ),
+    ] = None,
 ) -> None:
     """Run a scene: Modbus server, viewer, and the 50 Hz simulation."""
     _setup_logging(quiet)
@@ -460,6 +471,7 @@ def run(
         logix=logix,
         faults=faults,
         record=record,
+        capture_dir=capture_dir,
     )
     _statistics(runtime)
     _summary(loaded, wall)
@@ -581,6 +593,7 @@ def _simulate(
     logix: str | None = None,
     faults: list[tuple[float, str, str, dict[str, Any]]] | None = None,
     record: Path | None = None,
+    capture_dir: Path | None = None,
 ):  # -> tuple[Runtime, float]; Runtime is imported lazily with the web stack
     """Serve and step a loaded scene until ``duration`` (or Ctrl+C); returns the runtime and
     the wall time it took. Exits 1 on a lockfile conflict, a script load error, or a script
@@ -671,26 +684,25 @@ def _simulate(
     if not headless:
         web_endpoint = Endpoint(bind=bind or settings.web.bind, port=web_port or settings.web.port)
         token = fault_token or settings.server.fault_token
-        app = create_app(runtime, bind=web_endpoint.bind, fault_token=token)
+        from openfactory.capture import DEFAULT_DIR
+
+        captures = (capture_dir or Path.cwd() / DEFAULT_DIR).resolve()  # ruling 2: beside `run`
+        app = create_app(runtime, bind=web_endpoint.bind, fault_token=token, capture_dir=captures)
         web = uvicorn.Server(server_config(app, web_endpoint))
         log.info("viewer: http://%s:%d/", web_endpoint.bind, web_endpoint.port)
         if notice := fault_api_notice(web_endpoint.bind, token):
             log.warning(notice)
-    if record is not None:
-        from openfactory.record import FRAME_EVERY, Recorder
+    if record is not None or web is not None:
+        from openfactory.record import recording_header
 
-        header = {
-            "openfactory": __version__,
-            "scene_yaml": scene.read_text(encoding="utf-8"),
-            # no mesh URLs: a replay serves no /models/ and draws the primitives (PLAN 2.15)
-            # nor snap ports: they are for the editor, and recordings stay as they were (4.1d)
-            "scene": runtime.scene_document(meshes=False, snaps=False),
-            "dt": runtime.scheduler.dt,
-            "encoding": encoding or parsed.plc.analog_encoding,
-            "frame_every": FRAME_EVERY,
-        }
-        if loaded.exam is not None:  # its frames hide faults: `look` says so (PLAN 5.14b)
-            header["exam"] = True
+        # a recording's header, and a capture's piece of recording (PLAN 5.14e)
+        header = recording_header(runtime, scene.read_text(encoding="utf-8"), encoding)
+        runtime.recording_header = header
+    if web is None:
+        runtime.capture_buffer = None  # no viewer, so nothing can capture (PLAN 5.14e)
+    if record is not None:
+        from openfactory.record import Recorder
+
         runtime.recorder = Recorder(record, header, runtime.snapshot)
         log.info("recording to %s", record)
     wall = time.perf_counter()
@@ -908,6 +920,33 @@ def replay(
 
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(serve())
+
+
+@app.command()
+def captures(
+    capture_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="The capture folder (default: openfactory-captures/ in this folder).",
+            show_default=False,
+        ),
+    ] = None,
+) -> None:
+    """List the viewer's captures (PLAN 5.14e), newest first; the last line is the newest
+    folder's path."""
+    from openfactory.capture import DEFAULT_DIR, list_captures
+
+    base = capture_dir or Path(DEFAULT_DIR)
+    found = list_captures(base)
+    if not found:
+        typer.echo(f"no captures in {base}")
+        raise typer.Exit(1)
+    for folder in found:
+        lines = (folder / "report.md").read_text(encoding="utf-8").splitlines()
+        title = lines[0].removeprefix("# Capture: ") if lines else folder.name
+        note = next((ln[2:] for ln in lines if ln.startswith("> ")), "")
+        typer.echo(f"{folder}  {title}" + (f"  {note[:60]}" if note else ""))
+    typer.echo(str(found[0]))
 
 
 @app.command()
