@@ -39,7 +39,7 @@ export interface SceneDocument {
   mode?: string;
   /** The editor on a plant (PLAN 5.4e): the file edited, the plant file, and the area chosen. Each
    * component then carries `source` (its file) and `editable` (whether it is in that file). */
-  edit?: { file: string; plant: string; area: string | null };
+  edit?: { file: string; plant: string; area: string | null; areas?: Record<string, string> };
 }
 
 export interface PartState {

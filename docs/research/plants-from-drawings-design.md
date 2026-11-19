@@ -168,7 +168,11 @@ in its source:
   tries to descend into members of a non-structure, which ends in its generic `except` and a
   `RequestError`. The client's connect-time check must split a trailing digit segment off
   itself, look up the rest, and accept:
-  - for `bool`: `BOOL`, or a bit of `SINT`, `INT`, `DINT` or `LINT`;
+  - for `bool`: `BOOL`, an element of a `BOOL` array, or a bit of `SINT`, `INT` or `DINT`
+    within its width (1756-PM004L-EN-P, revision L, ch. 2: "Address tag data" names a bit
+    of a SINT, INT or DINT, and "Data type" gives them 8, 16 and 32 bits). A bit of a
+    `LINT` is refused, as that manual names none (corrected 2026-11-18, the owner's ruling
+    on 5.3b; this list had `LINT` from pycomm3);
   - for `float32`: `REAL`;
   - for `int16`: `INT`.
 
@@ -1083,7 +1087,9 @@ checks: {duration_s: 60, none_lost: true}
 
 - `openfactory edit wash-plant.yaml` shows the whole plant, and only the plant file's own
   components and cross-area connections are editable. The included areas are drawn dimmed, and
-  selecting one says "in areas/skid.yaml: open that file to edit it".
+  selecting one names its file and the command that edits it: "in areas/skid.yaml: edit it with
+  `openfactory edit wash-plant.yaml --area SKID`" (amended 2026-11-18, the owner's ruling: the
+  message names the command, not only the file).
 - `openfactory edit wash-plant.yaml --area SKID` edits `areas/skid.yaml`, with the other areas
   drawn dimmed around it for context, and saves only that file. Save runs the plant-wide lint,
   so a clash with another area is refused, as any lint error is.

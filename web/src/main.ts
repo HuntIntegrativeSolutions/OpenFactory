@@ -48,7 +48,7 @@ import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
 import { boxInView, fitPose, framedBounds, framePose, type VisibleArea } from "./framing";
-import { aimPlan, grow, linkTouches, lookTargets, parseView, planFrame, scaleBar, viewParam } from "./views";
+import { aimPlan, grow, linkTouches, lookTargets, panelsShown, parseView, planFrame, scaleBar, viewParam } from "./views";
 import { applyShadowRoles, buildStage, editOverlay, Lighting } from "./lighting";
 import { initialQuality, isAutomatedBrowser, QUALITIES, QUALITY_TOOLTIP, readStored, remember, type Quality } from "./quality";
 
@@ -89,6 +89,7 @@ window.__openfactory = {
   instructor: false, // PLAN 4.12: "connecting", "on" or "refused: <reason>" on /instructor
   faultMarkers: [] as string[], // ids whose label shows a fault marker
 
+  panels: true, // false with ?panels=off
   meshes: { loaded: 0, failed: 0 },
   housings: { loaded: 0, failed: 0, types: [] as string[] },
 };
@@ -98,6 +99,21 @@ const MAX_PIXEL_RATIO = 2;
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("#app element missing from index.html");
+
+/** `?panels=off` (ruled 2026-11-18, views.ts `panelsShown`): the panels are left out of the
+ * picture by a class on <html> whose rules win over the display the panels set on every refresh. */
+const panels = panelsShown(new URLSearchParams(window.location.search).get("panels"));
+if (panels.warning) console.warn(`OpenFactory: ${panels.warning}`);
+if (!panels.shown) {
+  const style = document.createElement("style");
+  style.textContent =
+    ".of-no-panels #checks-panel, .of-no-panels #exam-panel, .of-no-panels #trend-panel, " +
+    ".of-no-panels #trend-button { display: none !important; }";
+  document.head.appendChild(style);
+  document.documentElement.classList.add("of-no-panels");
+}
+
+window.__openfactory.panels = panels.shown;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
@@ -954,6 +970,7 @@ async function startEditor(): Promise<void> {
     setMode,
     drawn: (id) => viewsOf(id).length > 0,
     foreignFile: (id) => foreignFile(doc, id),
+    editInfo: () => doc?.edit,
     settle: (id, position, rotationDeg) => {
       // PLAN 4.1e: the footprints (x, z) of what is drawn: the new component's, and every
       // other's, each with the id in the file it belongs to (a composite part's instance)

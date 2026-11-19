@@ -7,6 +7,7 @@ Usage::
                                             [--size 1280x720] [--build]
                                             [--quality low|standard|high]
                                             [--look-at ID | --view px,py,pz,tx,ty,tz | --view top]
+                                            [--no-panels]
 
 What it does:
 
@@ -38,6 +39,9 @@ What it does:
    ``--view px,py,pz,tx,ty,tz`` at that camera position and target, and ``--view top`` at the plan
    view, straight down with north up and a scale bar (PLAN 5.14c); the viewer's own parsing
    applies, so a value it does not understand gives the default view and a console warning.
+   ``--no-panels`` opens it at ``?panels=off``, which leaves the checks, exam and trend panels out
+   of the picture (the checks panel covers the top right corner otherwise); the status lines,
+   the plan view's scale bar and north mark, and the bottom-left controls stay.
 4. Saves a PNG (default ``tools/screenshots/<scene>-<N>s.png``, git-ignored) and checks it is not
    blank: at least 2 % of pixels must differ from the ISA-101 background ``#1F2A36`` and at most
    90 % may be near-black. A failed check, a viewer error, or a timeout exits 1.
@@ -241,6 +245,16 @@ def running_viewer(
             proc.kill()
 
 
+def view_params(
+    *, look: str | None = None, view: str | None = None, panels: bool = True
+) -> dict[str, str]:
+    """The viewer's URL parameters for ``--look-at``, ``--view`` and ``--no-panels``."""
+    out = {k: v for k, v in (("look", look), ("view", view)) if v}
+    if not panels:
+        out["panels"] = "off"
+    return out
+
+
 def wait_for_viewer(
     page: Any, console: list[str], *, seconds: float, min_sensor_events: int = 0, timeout: float
 ) -> dict[str, Any]:
@@ -352,6 +366,11 @@ def main(argv: list[str] | None = None) -> int:
         help="an exact camera (position and target, metres), or top: the plan view (PLAN 5.14c)",
     )
     parser.add_argument(
+        "--no-panels",
+        action="store_true",
+        help="leave the checks, exam and trend panels out of the picture (?panels=off)",
+    )
+    parser.add_argument(
         "--max-tilt-deg",
         type=float,
         default=None,
@@ -409,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
         script=args.script.resolve() if args.script else None,
         bundled_script=args.bundled_script,
         quality=args.quality,
-        view={k: v for k, v in (("look", args.look_at), ("view", args.view)) if v},
+        view=view_params(look=args.look_at, view=args.view, panels=not args.no_panels),
     )
     ok, summary = check_image(out)
     status = result["status"]

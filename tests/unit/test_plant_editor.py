@@ -53,7 +53,9 @@ def test_edit_area_edits_that_file_and_shows_the_whole_plant_marked_by_file(tmp_
     assert "CV_101" not in {c["id"] for c in src["data"]["components"]}
     doc = client.get("/api/scene").json()
     assert doc["mode"] == "edit"
-    assert doc["edit"] == {"file": "areas/wash.yaml", "plant": "wash-plant.yaml", "area": "WASH"}
+    areas = {"areas/load.yaml": "LOAD", "areas/wash.yaml": "WASH"}  # for the dimmed message
+    assert doc["edit"] == {"file": "areas/wash.yaml", "plant": "wash-plant.yaml", "area": "WASH",
+                           "areas": areas}  # fmt: skip
     by_id = {c["id"]: c for c in doc["components"]}
     assert by_id["CV_101"]["source"] == "areas/load.yaml" and not by_id["CV_101"]["editable"]
     assert by_id["CV_201"]["source"] == "areas/wash.yaml" and by_id["CV_201"]["editable"]

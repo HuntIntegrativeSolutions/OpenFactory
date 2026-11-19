@@ -161,3 +161,12 @@ export function viewParam(top: boolean, position: THREE.Vector3, target: THREE.V
   const mm = (v: number) => String(Number(v.toFixed(3)));
   return `view=${[...position.toArray(), ...target.toArray()].map(mm).join(",")}`;
 }
+
+/** `?panels=off` (ruled 2026-11-18): the checks, exam and trend panels are left out of the
+ * picture, so a screenshot shows the corner they cover. The HUD, the scale bar and north mark and
+ * the bottom-left controls stay. Anything but `on` or `off` keeps the panels, with a warning. */
+export function panelsShown(raw: string | null): { shown: boolean; warning: string | null } {
+  if (raw === null || raw === "on") return { shown: true, warning: null };
+  if (raw === "off") return { shown: false, warning: null };
+  return { shown: true, warning: `?panels=${raw} is not on or off; the panels are shown` };
+}

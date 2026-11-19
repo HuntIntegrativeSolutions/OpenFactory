@@ -1,7 +1,7 @@
 // The editor on a plant (PLAN 5.4e, design note §4.3): one file is edited and the whole plant is
 // shown. The server marks each component of the preview document with `source` (its file,
 // relative to the plant's folder) and `editable` (whether it is in the edited file). Components of
-// another file are drawn dimmed, and selecting one says which file to open instead of showing a
+// another file are drawn dimmed, and selecting one says which command edits it instead of showing a
 // form; no edit operation applies to them (the panel has no data for them, main.ts attaches no
 // gizmo). DOM-free, so dim.test.ts runs under node.
 import * as THREE from "three";
@@ -19,9 +19,13 @@ export function foreignFile(doc: SceneDocument | null, id: string): string | nul
   return typeof comp.source === "string" ? comp.source : null;
 }
 
-/** What selecting another file's component says. */
-export function readOnlyMessage(file: string): string {
-  return `in ${file}: open that file to edit it`;
+/** What selecting another file's component says (ruled 2026-11-18): its file and the command
+ * that edits it, the plant with that file's `--area`, or the plant alone for the plant file's own
+ * components. */
+export function readOnlyMessage(file: string, edit: SceneDocument["edit"]): string {
+  const area = edit?.areas?.[file];
+  const command = edit ? `openfactory edit ${edit.plant}${area ? ` --area ${area}` : ""}` : "";
+  return command ? `in ${file}: edit it with \`${command}\`` : `in ${file}: open that file to edit it`;
 }
 
 function dimmed(material: THREE.Material, opacity: number): THREE.Material {

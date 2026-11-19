@@ -156,3 +156,9 @@ address, or give it to the screenshot tool. In the plan view it copies `view=top
 `tools/screenshot.py` takes the same: `--look-at ID`, `--view px,py,pz,tx,ty,tz` and `--view
 top`, for example
 `uv run python tools/screenshot.py scenes/sorting-by-height.yaml --script examples/pyplc/sorting-by-height.py --view top`.
+
+**`?panels=off`** leaves the checks, exam and trend panels out of the picture; the checks panel
+otherwise covers the top right corner, where a plan often has equipment. The status lines, the
+plan view's scale bar and north mark, and the controls at the bottom left stay. The screenshot
+tool's `--no-panels` sets it:
+`uv run python tools/screenshot.py scenes/plants/wash-plant/wash-plant.yaml --script scenes/plants/wash-plant/wash-plant.py --view top --no-panels`.

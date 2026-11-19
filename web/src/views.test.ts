@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import type { SceneDocument } from "./api";
-import { aimPlan, grow, linkTouches, lookTargets, parseView, planFrame, scaleBar, viewParam } from "./views";
+import { aimPlan, grow, linkTouches, lookTargets, panelsShown, parseView, planFrame, scaleBar, viewParam } from "./views";
 
 describe("?view= (PLAN 5.14c)", () => {
   it("takes six finite numbers or the word top", () => {
@@ -120,5 +120,16 @@ describe("the plan view (PLAN 5.14c)", () => {
     const p = viewParam(false, new THREE.Vector3(1.23456, 2, -3), new THREE.Vector3(0, 0.5, 0));
     expect(p).toBe("view=1.235,2,-3,0,0.5,0");
     expect(parseView(p.slice(5)).kind).toBe("pose");
+  });
+});
+
+describe("?panels=off (a picture without the panels, ruled 2026-11-18)", () => {
+  it("hides the panels only for off, and says so for a value it does not know", () => {
+    expect(panelsShown(null)).toEqual({ shown: true, warning: null });
+    expect(panelsShown("off")).toEqual({ shown: false, warning: null });
+    expect(panelsShown("on")).toEqual({ shown: true, warning: null });
+    const bad = panelsShown("none");
+    expect(bad.shown).toBe(true);
+    expect(bad.warning).toContain("?panels=none");
   });
 });

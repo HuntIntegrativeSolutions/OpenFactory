@@ -3950,6 +3950,10 @@ trusts it.
         True only with a `Program:` name, False for the plain sorter. **5.3 stays unticked:** its
         ruling (4) leaves the upload time with program tags on a large program to be measured
         on the bench PLC, which is 2.2's run.
+        *Ruled 2026-11-18 (the owner, on review of 268ccf4..f37541e):* confirmed: a bit of a
+        LINT is refused; an element of a BOOL array counts as a BOOL. 5.3 stays unticked until
+        the bench run (2.2) measures the upload time with program tags. The design note's list
+        (§1, "The type check needs its own split") still had LINT and is corrected.
 - [x] 5.4 Plants in several files. `include:` so one plant is one file per area with shared
       composites, one address map, and lint across areas.
       *Done when:* a two-area sample runs as one plant, each area also runs alone, and the address
@@ -4127,7 +4131,8 @@ trusts it.
         each area at 60 s and 300 s; `test_runs_unchanged.py` counts 15 shipped scenes and three
         references.
   - [x] 5.4e The editor (note §4.3): `edit PLANT` shows the whole plant with the included
-        areas dimmed and not editable ("in areas/x.yaml: open that file to edit it"); `edit
+        areas dimmed and not editable ("in areas/x.yaml: edit it with `openfactory edit PLANT
+        --area X`", amended 2026-11-18); `edit
         PLANT --area NAME` edits that area's file with the others dimmed, saves only that
         file, and runs the plant-wide lint on save.
         *Done when:* a test saves an edit under `--area` and finds only that file changed and
@@ -4148,8 +4153,9 @@ trusts it.
         message (`load_error`, word for word) and nothing written. A palette component is
         numbered past every id in the plant. The viewer (`web/src/editor/dim.ts`) draws every
         other file's component dimmed (its own transparent copies of its materials, opacity
-        0.25, after the housings attach); selecting one shows "in areas/load.yaml: open that
-        file to edit it" instead of the form, with no gizmo, and Delete and the form have no
+        0.25, after the housings attach); selecting one shows "in areas/load.yaml: edit it with
+        `openfactory edit wash-plant.yaml --area LOAD`" (amended 2026-11-18) instead of the
+        form, with no gizmo, and Delete and the form have no
         data for it, so no edit operation applies; a moved conveyor neither snaps to another
         file's conveyor nor drops a device on its rails (that connection belongs in the plant
         file). The refusal of a5ea0b4 is removed. Docs: `docs/editor.md` ("A plant in several
@@ -4174,6 +4180,17 @@ trusts it.
         (plant wash-plant.yaml; the rest dimmed)".
       *Not in the Done-when, so not built here:* a bundle of a plant (note §4.2, "Bundles");
       `bundle` refuses a plant file, saying so, rather than pack a part of it.
+      *Ruled 2026-11-18 (the owner, on review of 268ccf4..f37541e):* confirmed: `edit PLANT`
+      without `--area` edits the plant file itself; another file's conveyors are not snap or
+      rail-drop targets; new palette ids are numbered across the plant. **New:** the message on
+      a dimmed component names the command, not only the file. It replaces the wording quoted
+      above and in design note §4.3, both amended: "in areas/load.yaml: edit it with
+      `openfactory edit wash-plant.yaml --area LOAD`", and for a component of the plant file
+      itself "in wash-plant.yaml: edit it with `openfactory edit wash-plant.yaml`". The editor's
+      document gains `edit.areas` (each area's file and name; the edit document only, so no
+      recording moves). *Tests:* `dim.test.ts` ("says which command edits another file's
+      component", both forms and the plant file edited); `test_editor_plant.py` reads the new
+      message.
 - [ ] 5.5 Layout from topology. A P&ID has no geometry. `openfactory layout` places equipment and
       routes pipes when positions are missing; a general arrangement drawing overrides it.
       Depends on 4.1g (nozzle positions).
@@ -4466,6 +4483,23 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         supply, valve and tank above; the checks panel at the top right covers P_201 and DR_201
         in the plan, as it covers that corner in every view, and the fans' two labels overlap,
         which is 5.14d's to fix).
+        *Ruled 2026-11-18 (the owner, on review of 268ccf4..f37541e):* confirmed: "what touches
+        it" also counts a pipe, valve or pump drawn within 5 cm; north is the scene's -z;
+        `?view=` wins over `?look=`; a `?view=` whose position equals its target falls back to
+        the default; the editor ignores `?view=top` with a warning.
+        *Fix (2026-11-18, the review's item 3):* the checks panel covered the top right of every
+        picture. `?panels=off` (`views.ts` `panelsShown`; a class on `<html>` whose `!important`
+        rules hide `#checks-panel`, `#exam-panel`, `#trend-panel` and `#trend-button`, so the
+        panels' own refreshes cannot show them again) and `tools/screenshot.py --no-panels`
+        leave them out; the status lines, the scale bar, the north mark and the bottom-left
+        controls stay. *Tests:* `views.test.ts` (`?panels=off`); `test_views.py::
+        test_panels_off_leaves_the_panels_out_of_the_wash_plants_plan` (the panels hidden
+        after the checks panel's polls, the scale bar and "N ↑" shown, P_201 and DR_201 on
+        screen, and with `?panels=on` the checks panel's box over one of them). **Re-taken and
+        looked at:** the wash plant at 10 s, `--view top --no-panels`: SUP_201, XV_201, TK_201,
+        P_201 and DR_201 along the top with nothing over them, the two belts end to end with
+        three cartons, the two fans below, the scale bar (1 m) and "N ↑ plan view" at the
+        bottom left. The fans' two labels still overlap (5.14d).
   - [ ] 5.14d Values in the picture. *What:* a labels control with three settings: ids (today),
         tags (each component's bound tags with live values beside it), off. URL `?labels=tags`;
         `tools/screenshot.py --labels tags`.

@@ -175,8 +175,10 @@ openfactory edit scenes/plants/wash-plant/wash-plant.yaml               # edits 
 - `--area NAME` chooses the file: that area's, as the plant's `include:` names it. Without it, the
   plant file itself is edited: its own components and its connections across areas. An unknown
   area is an error naming the plant's areas.
-- Every other file's components are drawn **dimmed**. Selecting one shows "in areas/load.yaml:
-  open that file to edit it" instead of its form: it cannot be moved, turned, deleted or changed
+- Every other file's components are drawn **dimmed**. Selecting one shows its file and the command
+  that edits it, "in areas/load.yaml: edit it with `openfactory edit wash-plant.yaml --area LOAD`"
+  (the plant file's own components: "in wash-plant.yaml: edit it with `openfactory edit
+  wash-plant.yaml`"), instead of its form: it cannot be moved, turned, deleted or changed
   from here, and a conveyor you move does not snap to it or drop devices on its rails (a
   connection across areas is written in the plant file's `connections:`).
 - The preview is the plant with your unsaved text in your file's place, and the lint runs on the

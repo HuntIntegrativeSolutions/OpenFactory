@@ -90,7 +90,7 @@ def test_edit_one_area_of_a_plant_with_the_other_dimmed(tmp_path):
             # another file's component: which file to open, no form, no gizmo, no operation
             click_on(page, "CV_101")
             assert page.locator("#editor-readonly").inner_text() == (
-                "in areas/load.yaml: open that file to edit it"
+                "in areas/load.yaml: edit it with `openfactory edit wash-plant.yaml --area LOAD`"
             )
             assert page.evaluate("() => window.__openfactory.editor.readonly") == "areas/load.yaml"
             assert page.locator("#editor-form input").count() == 0

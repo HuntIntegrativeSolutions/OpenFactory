@@ -120,3 +120,42 @@ def test_the_plan_view_of_the_sorter_has_no_perspective_and_shows_everything(tmp
 
 def _port(page) -> int:  # noqa: ANN001
     return int(page.url.split(":")[2].split("/")[0])
+
+
+WASH = REPO / "scenes" / "plants" / "wash-plant" / "wash-plant.yaml"
+WASH_SCRIPT = REPO / "scenes" / "plants" / "wash-plant" / "wash-plant.py"
+
+
+def _overlaps(a: list[float], b: dict) -> bool:  # noqa: ANN001
+    return a[0] < b["right"] and b["left"] < a[2] and a[1] < b["bottom"] and b["top"] < a[3]
+
+
+def test_panels_off_leaves_the_panels_out_of_the_wash_plants_plan(tmp_path):
+    """Ruled 2026-11-18: the checks panel covered P_201 and DR_201 in the plan view.
+    ``?panels=off`` (``tools/screenshot.py --no-panels``) leaves the panels out; the scale bar
+    and north mark stay."""
+    args = screenshot.view_params(view="top", panels=False)
+    assert args == {"view": "top", "panels": "off"}
+    with screenshot.running_viewer(WASH, forces=[], size=(W, H), script=WASH_SCRIPT,
+                                   view=args) as (page, _, console):  # fmt: skip
+        status = ready(page, console)
+        assert status["view"] == "top" and status["panels"] is False
+        page.wait_for_timeout(1500)  # the checks panel polls; it must stay out of the picture
+        assert not page.locator("#checks-panel").is_visible()
+        assert not page.locator("#trend-button").is_visible()
+        assert page.locator("#scale-bar").is_visible()
+        assert "N ↑" in page.locator("#scale-bar").inner_text()
+        for cid in ("P_201", "DR_201"):
+            box = page.evaluate(f"() => window.__openfactoryScreenBox('{cid}')")
+            assert box[0] >= 0 and box[2] <= W and box[1] >= 0 and box[3] <= H, (cid, box)
+        page.screenshot(path=str(out_dir(tmp_path) / "wash-plant-top-no-panels.png"))
+        # with the panels, the checks panel is shown over that corner (what the option is for)
+        page.goto(page.url.replace("panels=off", "panels=on"))
+        ready(page, console)
+        page.wait_for_selector("#checks-panel", state="visible", timeout=10000)
+        panel = page.evaluate(
+            "() => document.getElementById('checks-panel').getBoundingClientRect().toJSON()"
+        )
+        boxes = [page.evaluate(f"() => window.__openfactoryScreenBox('{c}')")
+                 for c in ("P_201", "DR_201")]  # fmt: skip
+        assert any(_overlaps(b, panel) for b in boxes), (boxes, panel)

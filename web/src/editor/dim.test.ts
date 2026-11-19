@@ -17,7 +17,20 @@ describe("the editor on a plant (PLAN 5.4e)", () => {
     expect(foreignFile(doc, "CV_201")).toBeNull();
     expect(foreignFile(doc, "PE_01")).toBeNull();
     expect(foreignFile(null, "CV_101")).toBeNull();
-    expect(readOnlyMessage("areas/load.yaml")).toBe("in areas/load.yaml: open that file to edit it");
+  });
+
+  it("says which command edits another file's component (ruled 2026-11-18)", () => {
+    const edit = { file: "areas/wash.yaml", plant: "wash-plant.yaml", area: "WASH", areas: { "areas/load.yaml": "LOAD", "areas/wash.yaml": "WASH" } };
+    expect(readOnlyMessage("areas/load.yaml", edit)).toBe(
+      "in areas/load.yaml: edit it with `openfactory edit wash-plant.yaml --area LOAD`",
+    );
+    // the plant file's own components: the plant without --area
+    expect(readOnlyMessage("wash-plant.yaml", edit)).toBe("in wash-plant.yaml: edit it with `openfactory edit wash-plant.yaml`");
+    // editing the plant file itself, every area's component names its own area
+    const plantEdit = { ...edit, file: "wash-plant.yaml", area: null };
+    expect(readOnlyMessage("areas/wash.yaml", plantEdit)).toBe(
+      "in areas/wash.yaml: edit it with `openfactory edit wash-plant.yaml --area WASH`",
+    );
   });
 
   it("dims a view with its own copies of its materials, leaving a shared one alone", () => {

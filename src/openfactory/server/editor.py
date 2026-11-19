@@ -46,12 +46,13 @@ and save are that file's. What it shows is the whole plant: the preview document
 merged with the edited file's unsaved text in place of the file on disk
 (:func:`openfactory.core.plant.merge`'s ``overrides``), each component carrying ``source`` (its
 file, relative to the plant's folder) and ``editable`` (whether it is in the edited file); the
-document's ``edit`` says which file is edited. Preview and save lint the **whole plant** with
-that text, so a clash with another file (an id, a scene tag or a ``plc_tag``) is an error naming
-the other file, and a text that would make the plant fail to load is refused (**422**) with the
-loader's message (``load_error``), nothing written. Save writes the edited file only; no other
-file of the plant, its lockfile or its ``CONTEXT.md`` is written. A new component's id is
-numbered past the ids of the whole plant.
+document's ``edit`` says which file is edited and, in ``areas``, each area's file and name, so a
+dimmed component names the command that edits it (ruled 2026-11-18). Preview and save lint the
+**whole plant** with that text, so a clash with another file (an id, a scene tag or a ``plc_tag``)
+is an error naming the other file, and a text that would make the plant fail to load is refused
+(**422**) with the loader's message (``load_error``), nothing written. Save writes the edited file
+only; no other file of the plant, its lockfile or its ``CONTEXT.md`` is written. A new component's
+id is numbered past the ids of the whole plant.
 
 A bad operation (an unknown id, a path that is not there) is **400** naming the operation.
 ``openfactory edit`` serves this on loopback only, with the simulation never started and no
@@ -170,7 +171,12 @@ class EditSession:
                 owner = (comp.get("composite") or {}).get("id") or comp.get("id")
                 comp["source"] = scene.plant.sources.get(str(owner), self.plant.name)
                 comp["editable"] = comp["source"] == mine
-            doc["edit"] = {"file": mine, "plant": self.plant.name, "area": self.area}
+            # each area's file -> its name, so a dimmed component says which command edits it
+            folder = self.plant.resolve().parent
+            areas = {a.path.resolve().relative_to(folder).as_posix(): a.name
+                     for a in scene.plant.areas}  # fmt: skip
+            doc["edit"] = {"file": mine, "plant": self.plant.name, "area": self.area,
+                           "areas": areas}  # fmt: skip
         return doc
 
     def document(self) -> dict[str, Any]:

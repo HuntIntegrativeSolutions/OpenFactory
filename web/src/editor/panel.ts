@@ -113,6 +113,8 @@ export interface PanelHost {
   inView(id: string): boolean;
   /** In a plant (PLAN 5.4e): the file a component is in when it is not the edited file, else null. */
   foreignFile(id: string): string | null;
+  /** The document's `edit` (which file is edited, the plant, its areas' files), PLAN 5.4e. */
+  editInfo(): SceneDocument["edit"];
 }
 
 const TEXT = cssColor("normalText");
@@ -528,7 +530,7 @@ export class EditorPanel {
       const hint = document.createElement("div");
       hint.id = "editor-readonly";
       hint.style.color = MUTED;
-      hint.textContent = readOnlyMessage(foreign);
+      hint.textContent = readOnlyMessage(foreign, this.host.editInfo());
       this.body.append(title, hint);
       return;
     }

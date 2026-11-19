@@ -223,3 +223,17 @@ def test_every_public_page_carries_the_statement_and_no_claim_of_what_was_examin
     for name in (*PUBLIC, "CLAUDE.md", ".github/pull_request_template.md"):
         text = " ".join((REPO / name).read_text(encoding="utf-8").split())
         assert "been examined" not in text, name
+
+
+def test_no_page_says_a_bit_of_a_lint_is_accepted():
+    """Ruled 2026-11-18 (5.3b): a ``bool`` point may be a bit of a SINT, INT or DINT, and a bit of
+    a LINT is refused (``openfactory.protocols.logix``, 1756-PM004L-EN-P ch. 2). No page lists
+    LINT among the types whose bit is accepted."""
+    accepting = re.compile(r"bit of[^.;\n]*\bDINT`?,? or `?LINT\b")
+    wrong = [
+        f"{path.relative_to(REPO)}:{n}"
+        for path in sorted((REPO / "docs").rglob("*.md"))
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if accepting.search(line)
+    ]
+    assert not wrong, wrong
