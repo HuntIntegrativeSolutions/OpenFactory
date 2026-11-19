@@ -56,6 +56,15 @@ Behavior spec
   faults, each component in a sentence with its tags, each part and where it is, and the changes
   of the last ``S`` seconds (default 5). ``component`` narrows it to one component. In a replay,
   at the frame being shown. 404 for an unknown component, 400 for ``since`` <= 0. Read-only.
+- ``POST /api/explain`` (PLAN 5.14g, :mod:`openfactory.explain`) with ``{"part": ID}``,
+  ``{"check": NAME}`` or ``{}`` (every failed check): why it happened, over the last 60 s the
+  capture buffer holds (in a replay, the recording up to the frame shown), as ``{text, subject,
+  from_tick, to_tick, steps: [{tick, t, until_tick?, text, basis, position?}], trail: [[tick, x,
+  y, z]]}``; 404 for a part or check not in it, 422 for both or another key. **Read-only**, and
+  guarded as the other read endpoints (``/api/look``, ``/api/iolog``) are: no token, the Host
+  check on a loopback bind; and, being a POST, the write middleware's checks too (another
+  ``Origin`` 403, a body that is not JSON 415). In exam mode it leaves fault events out, as
+  ``look`` leaves faults out.
 - ``GET /api/parity``: the core's raw photo-eye beam edges with their ticks next to the browser's
   sensor events (:meth:`Runtime.parity`), for ``tools/parity_trace.py --live``.
 - ``WS /ws/state``: the latest snapshot as JSON every 50 ms (20 Hz) on absolute deadlines, plus
@@ -242,6 +251,20 @@ class ReplayPause(BaseModel):
 class ReplayStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
     frames: int = Field(ge=-10_000, le=10_000)
+
+
+class ExplainRequest(BaseModel):
+    """``POST /api/explain`` (PLAN 5.14g): a part, a check, or neither (every failed check)."""
+
+    model_config = ConfigDict(extra="forbid")
+    check: str | None = Field(default=None, max_length=200)
+    part: str | None = Field(default=None, max_length=64)
+
+    @model_validator(mode="after")
+    def _one(self) -> ExplainRequest:
+        if self.check is not None and self.part is not None:
+            raise ValueError("give a check or a part, not both")
+        return self
 
 
 class CaptureCamera(BaseModel):
@@ -571,6 +594,16 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(404, str(exc.args[0])) from None
         return PlainTextResponse(text, media_type="text/markdown; charset=utf-8")
+
+    @app.post("/api/explain")
+    def explain(body: ExplainRequest) -> dict[str, Any]:
+        """Why it happened (PLAN 5.14g): read-only; see the module docstring for its guards."""
+        from openfactory.explain import Unknown
+
+        try:
+            return runtime.explain(body.check, body.part)
+        except Unknown as exc:
+            raise HTTPException(404, str(exc.args[0])) from None
 
     @app.get("/api/parity")
     def parity() -> dict[str, Any]:

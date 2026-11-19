@@ -139,11 +139,12 @@ uv run openfactory replay run.ofrec --speed 4 --loop
 uv run openfactory replay run.ofrec --io            # every I/O change with its time and tick
 uv run openfactory replay run.ofrec --paused        # start paused: play, seek and step in the viewer
 uv run openfactory strip run.ofrec --at 8.6         # six stills around 8.6 s and what changed
+uv run openfactory explain run.ofrec                # why each failed check failed, part by part
 ```
 
 In the viewer, the replay bar plays and pauses (Space), drags to any moment, and steps one
-recorded frame back or forward (the arrow keys). `openfactory strip` is described in
-[Looking at the plant](../looking-at-the-plant.md#the-film-strip).
+recorded frame back or forward (the arrow keys). `openfactory strip` and `openfactory explain`
+are described in [Looking at the plant](../looking-at-the-plant.md#the-film-strip).
 
 A recording holds simulated time only and nothing about your machine (no paths, host names or
 tokens), so two recordings of the same scripted run are identical byte for byte. A 60 s sorter

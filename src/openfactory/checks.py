@@ -43,12 +43,20 @@ emptied or left its band). :func:`live` turns that into what the viewer's checks
 while a scene runs: ``failed`` as soon as a failure is settled, ``pending`` otherwise, and at
 ``duration_s`` (when ``openfactory test`` would grade the run) the graded result, ``passed`` or
 ``failed``, which then stays.
+
+Where a failure starts (PLAN 5.14g): a failed result carries ``at_tick`` and ``subject`` when
+the run's logs give them: for ``parts_reached`` the first part of that name a remover other than
+the named one took, and its tick; for ``none_lost`` the first part lost; for ``max_cycle_s`` the
+first part over the limit and the tick it went over; for a process check the component it names
+(no tick). The live panel's failed rows carry them too; ``format_results`` does not print them,
+so ``openfactory test``'s output and the run references are unchanged.
 """
 
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from openfactory.core.schema import Checks
@@ -61,6 +69,10 @@ class CheckResult:
     detail: str
     #: A failure that running longer cannot undo (see the module docstring).
     settled: bool = False
+    #: The tick of the first failure, when the run's own logs give one (PLAN 5.14g).
+    at_tick: int | None = None
+    #: The part (a part check) or component (a process check) the first failure is about.
+    subject: str | None = None
 
 
 def tick_s(loaded: Any) -> float:
@@ -86,13 +98,24 @@ def evaluate(checks: Checks, loaded: Any) -> list[CheckResult]:
             else:
                 wrong = ", ".join(f"{v} to {k}" for k, v in sorted(elsewhere.items()))
                 detail = f"{here} reached {remover}, but {wrong}"
+            wrong = [r for r in world.removals if r.name == name and r.by != remover]
+            first = wrong[0] if wrong else None  # removals are in tick order
             results.append(
-                CheckResult(f"parts_reached {remover}: {name}", passed, detail, bool(elsewhere))
-            )
+                CheckResult(
+                    f"parts_reached {remover}: {name}", passed, detail, bool(elsewhere),
+                    first.tick if first else None, first.part_id if first else None,
+                )
+            )  # fmt: skip
     if checks.none_lost:
         lost = dict(world.lost)
         detail = f"lost {lost}" if lost else "no part lost"
-        results.append(CheckResult("none_lost", not lost, detail, bool(lost)))
+        gone = world.losses[0] if world.losses else None
+        results.append(
+            CheckResult(
+                "none_lost", not lost, detail, bool(lost),
+                gone.tick if gone else None, gone.part_id if gone else None,
+            )
+        )  # fmt: skip
     if checks.max_cycle_s is not None:
         limit = checks.max_cycle_s
         dwell = [(r.tick - r.spawn_tick) * dt for r in world.removals]
@@ -104,7 +127,21 @@ def evaluate(checks: Checks, loaded: Any) -> list[CheckResult]:
             f"still in the scene {oldest:.2f} s; limit {limit:g} s"
         )
         # a part over the limit, removed or not, can only fail: it only gets older
-        results.append(CheckResult(f"max_cycle_s {limit:g}", passed, detail, not passed))
+        at = subject = None
+        if not passed:  # the first part over the limit, and the tick it went over
+            over = [
+                (r.spawn_tick + limit / dt, r.part_id)
+                for r in world.removals
+                if (r.tick - r.spawn_tick) * dt > limit + 1e-9
+            ]
+            over += [(p.spawn_tick + limit / dt, p.id) for p in world.parts.values()
+                     if (world.tick - p.spawn_tick) * dt > limit + 1e-9]  # fmt: skip
+            if over:
+                when, subject = min(over)
+                at = math.ceil(when - 1e-9)
+        results.append(
+            CheckResult(f"max_cycle_s {limit:g}", passed, detail, not passed, at, subject)
+        )
     results += _process(checks, loaded)
     return results
 
@@ -160,7 +197,8 @@ def _process(checks: Checks, loaded: Any) -> list[CheckResult]:
         name = f"temperature_within {tid}: {tspec.band[0]:g} to {tspec.band[1]:g} °C after "
         name += f"{tspec.after_s:g} s"
         out.append(_recipe(name, watch.temperatures[tid], {"temperature": tspec.band}, "°C"))
-    return out
+    # PLAN 5.14g: a failed process check's subject is the tank, pump or valve it names
+    return [r if r.passed else replace(r, subject=r.name.split()[1].rstrip(":")) for r in out]
 
 
 def _recipe(
@@ -183,19 +221,22 @@ def live(checks: Checks, loaded: Any, graded: list[CheckResult] | None) -> list[
     """Each check's state for the viewer's live panel: the graded results once the run reached
     ``duration_s`` (``graded``), else ``failed`` for a settled failure and ``pending`` for the
     rest, each with ``evaluate``'s detail as of now."""
+
+    def first(r: CheckResult) -> dict[str, Any]:  # PLAN 5.14g: where a failure starts
+        return {k: v for k, v in (("at_tick", r.at_tick), ("subject", r.subject)) if v is not None}
+
     if graded is not None:
         return [
             {"name": r.name, "state": "passed" if r.passed else "failed", "detail": r.detail}
+            | (first(r) if not r.passed else {})
             for r in graded
         ]
-    return [
-        {
-            "name": r.name,
-            "state": "failed" if r.settled and not r.passed else "pending",
-            "detail": r.detail,
-        }
-        for r in evaluate(checks, loaded)
-    ]
+    out = []
+    for r in evaluate(checks, loaded):
+        failed = r.settled and not r.passed
+        row = {"name": r.name, "state": "failed" if failed else "pending", "detail": r.detail}
+        out.append(row | (first(r) if failed else {}))
+    return out
 
 
 def format_results(results: list[CheckResult]) -> str:

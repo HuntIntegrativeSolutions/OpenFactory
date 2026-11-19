@@ -4778,7 +4778,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         **Decision beyond the text:** `--at` is the centre of the span (the end of the
         recording when left out, so a capture's strip shows its last `--span` seconds).
         *Confirmed 2026-11-18 (owner's ruling).*
-  - [ ] 5.14g Why it happened: `openfactory explain`. *What:* for a failed check, or for one
+  - [x] 5.14g Why it happened: `openfactory explain`. *What:* for a failed check, or for one
         part, the chain of events in order with times: where the part was spawned, each
         conveyor it rode, each sensor it tripped, each command that acted on it and where the
         part was at that moment, and where it ended. In the viewer, clicking a part draws its
@@ -4792,6 +4792,59 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         failed `parts_reached` check names the part, the tick of the late command, and how far
         past the pusher the part was (within 2 cm of the recording); the trail is drawn and
         looked at.
+        *Done (2026-11-19):* `src/openfactory/explain.py`: one path for a file, a capture's
+        piece and a live run (`Runtime.piece()`, the capture's own piece of the last 60 s, read
+        by `record.recording_from_lines`); a replay explains the recording up to the frame shown
+        (`explain.up_to`). A part's story: made (`spawn_tick`, `spawn_position`, the emitter
+        within 0.5 m), its carrier in the first frame and each change of carrier ("between ticks
+        A and B"), each photo eye whose detect tag went true while the part's box touched the
+        beam at that tick (and its going false), each change of a tag of the carrier or of a
+        device within 1 m with where the part was (the carrier, the distance from its infeed
+        end, how far past or before the device along the flow), a push across the flow that
+        left it on the belt (2 cm or more), faults and presses near it, and how it left: the
+        remover whose `by_name` count rose between two frames, gone with none (lost), or still
+        in the scene. Positions between frames are interpolated (after the last frame, carried
+        on with the velocity). Every line names its tick and what it rests on; it says that
+        commands are listed by nearness, not intent. Checks: a recording holds no grades, so
+        `parts_reached`, `none_lost` and `max_cycle_s` are worked out again from the frames; a
+        process check is named with a note that `explain` cannot tell its cause. `CheckResult`
+        gains `at_tick` and `subject` (the first part another remover took, the first part lost,
+        the first part over `max_cycle_s` and when; a process check's component), and
+        `GET /api/checks` carries them on a failed row; `format_results` does not print them, so
+        `openfactory test` output and the run references are unchanged. `World.losses` logs
+        lost parts. `openfactory explain [FILE.ofrec|CAPTURE] [--check NAME | --part ID]
+        [--json]`; without a file, the running server. `POST /api/explain` (`{part}`,
+        `{check}` or `{}`): **read-only, guarded as `/api/look` and `/api/iolog` are** (no
+        token; the loopback Host check, 421), and, being a POST, the write middleware's Origin
+        (403) and JSON (415) checks; 404 for a part or check not there, 422 for both or another
+        key; in exam mode fault, clear and comms events are left out. The viewer
+        (`web/src/explainpanel.ts`, `explainpanel.test.ts`, 2): a click on a part asks for its
+        story, draws its trail in the highlight blue with a marker at each step, and lists the
+        steps (tooltip: what each rests on); Esc or × clears. Docs:
+        `docs/looking-at-the-plant.md` ("Why it happened"), `docs/guides/README.md`.
+        **Measured, and a departure from the text:** at 0.5 s late the plate still catches every
+        tall box and all four checks pass (`test_half_a_second_late_still_passes`); 0.6 s late is
+        the first tenth that fails `parts_reached REM_02: tall`, so the Done-when runs at 0.6 s.
+        **Done-when, each with its test** (`tests/unit/test_explain.py`, 7): the failed check
+        names the part (P000002, the same part `CheckResult.subject` gives from the run's own
+        removal log), the tick of the late command (460, 9.20 s, the run's first
+        `CYL_01_EXT_DO` rise after the part tripped PE_01, 30 ticks after the kit's on-time
+        command at 430) and how far past the pusher it was (0.21 m; the run itself had 0.2100 m)
+        (`test_the_failed_check_names_the_part_the_late_command_and_how_far_past_it_was`, which
+        also finds a tick and a basis on every line); every tick of the part's life is placed
+        within 2 cm of the run (worst 1.5 cm, as it drops onto the belt; exact on it:
+        `test_positions_between_frames_are_within_2_cm_of_the_run`); live and replay through the
+        same path, the endpoint's guards and exam mode (`test_live_and_replay_explain_through
+        _the_same_recording_path`, `test_post_api_explain_is_read_only_and_guarded_as_a_read_is`,
+        `test_exam_mode_leaves_fault_events_out`). The trail drawn
+        (`tests/integration/test_explain_viewer.py`, 2): a paused replay of the late run at tick
+        560, a click on P000002: the panel's 13 rows are the endpoint's steps, "9.20 s:
+        CYL_01_EXT_DO went true ... its centre 0.21 m past CYL_01's centre", the trail's pixel
+        where the part was at tick 400 is (99, 161, 237), the highlight blue; a live run answers
+        a click from its last 60 s. **Picture looked at:** the sorter at 11.2 s, the panel at
+        the left listing the steps, the blue trail from the emitter along CONV_01 with markers at
+        PE_01 and at the pusher's events, a jog where the late plate pushed the box 0.15 m across
+        the belt without taking it off, and the box near REM_01.
   - [ ] 5.14h Pause and single-step a live run. *What:* Space pauses the simulation; a Step
         button advances 0.1 s. For the person, at the moment something looks wrong.
         *How:* the scheduler stops calling `step`; a stand-in script pauses with it. With a real

@@ -45,6 +45,7 @@ import { findRail, MOUNT_TYPES, railsOf, type RailDrop } from "./editor/mount";
 import { placeNew, type Rect } from "./editor/place";
 import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
+import { ExplainPanel, stepPoints, trailPoints, type ExplainAnswer } from "./explainpanel";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
 import { boxInView, fitPose, framedBounds, framePose, type VisibleArea } from "./framing";
@@ -272,6 +273,79 @@ function frameCamera(bounds: THREE.Box3): void {
 
 const parts = new PartMeshes();
 scene.add(parts.group);
+
+/** Why it happened (PLAN 5.14g, explainpanel.ts): a click on a part draws its trail and lists
+ * its story; Esc or the panel's × clears both. Not in the editor. */
+const trailGroup = new THREE.Group();
+trailGroup.name = "explain-trail";
+scene.add(trailGroup);
+const explainPanel = new ExplainPanel(() => closeExplain());
+
+function clearTrail(): void {
+  for (const child of [...trailGroup.children]) {
+    trailGroup.remove(child);
+    const mesh = child as THREE.Mesh;
+    mesh.geometry?.dispose();
+    (mesh.material as THREE.Material | undefined)?.dispose();
+  }
+}
+
+function drawTrail(answer: ExplainAnswer): void {
+  clearTrail();
+  const material = () => new THREE.MeshBasicMaterial({ color: ISA101.highlight, depthTest: false, transparent: true, opacity: 0.9 });
+  const points = trailPoints(answer).map(([x, y, z]) => new THREE.Vector3(x, y, z));
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const length = a.distanceTo(b);
+    if (length < 1e-6) continue;
+    const segment = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, length, 6), material());
+    segment.position.copy(a).add(b).multiplyScalar(0.5);
+    segment.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    segment.renderOrder = 10;
+    trailGroup.add(segment);
+  }
+  for (const [x, y, z] of stepPoints(answer)) {
+    const mark = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), material());
+    mark.position.set(x, y, z);
+    mark.renderOrder = 11;
+    trailGroup.add(mark);
+  }
+}
+
+function closeExplain(): void {
+  clearTrail();
+  explainPanel.hide();
+  window.__openfactory.explained = null;
+}
+
+/** Ask the server why, for one part, and show the answer. */
+async function explainPart(id: string): Promise<void> {
+  try {
+    const res = await fetch("/api/explain", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ part: id }) });
+    const answer = (await res.json()) as ExplainAnswer & { detail?: unknown };
+    if (!res.ok) {
+      clearTrail();
+      explainPanel.showError(typeof answer.detail === "string" ? answer.detail : `refused (${res.status})`);
+      window.__openfactory.explained = { error: res.status };
+      return;
+    }
+    drawTrail(answer);
+    explainPanel.show(answer);
+    window.__openfactory.explained = { subject: answer.subject, steps: answer.steps.length, trail: answer.trail.length, meshes: trailGroup.children.length };
+  } catch (err) {
+    explainPanel.showError(String(err));
+    window.__openfactory.explained = { error: String(err) };
+  }
+}
+
+/** The part under a viewport point, if any. */
+function pickPart(clientX: number, clientY: number): string | null {
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(new THREE.Vector2((clientX / window.innerWidth) * 2 - 1, -(clientY / window.innerHeight) * 2 + 1), active);
+  const hit = raycaster.intersectObjects(parts.group.children, false)[0];
+  return hit ? hit.object.name : null;
+}
 let views: ComponentView[] = [];
 let plant: THREE.Object3D[] = []; // what buildScene added: component views, floor, grid
 interface LabelEntry {
@@ -416,6 +490,11 @@ function wireClicks(): void {
   const pointer = new THREE.Vector2();
   renderer.domElement.addEventListener("click", (e) => {
     if (!editing()) {
+      const part = pickPart(e.clientX, e.clientY); // PLAN 5.14g: a part's story and trail
+      if (part) {
+        void explainPart(part);
+        return;
+      }
       const picked = pickComponent(e.clientX, e.clientY);
       if (picked && picked.id !== selectedLive) focusOn(picked.id); // past 40 components: its values
     }
@@ -1047,6 +1126,9 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => {
   if (isC(e)) heldC = false;
 });
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !typingIn(e.target) && window.__openfactory.explained) closeExplain();
+});
 
 /** Show the Capture button only where a capture is offered (refreshed with the exam state). */
 function placeCapture(): void {
@@ -1055,7 +1137,7 @@ function placeCapture(): void {
 
 async function start(): Promise<void> {
   await loadScene();
-  app!.append(scaleBox, copyViewButton, labelsControl, captureButton, captureBox, captureStatus);
+  app!.append(scaleBox, copyViewButton, labelsControl, captureButton, captureBox, captureStatus, explainPanel.element);
   applyUrlView();
   wireClicks();
   const menu = new FaultMenu({ target: renderer.domElement, pick: pickComponent });
@@ -1085,6 +1167,9 @@ async function start(): Promise<void> {
     // the component under a viewport point, for tests that click one (PLAN 4.1b)
     __openfactoryPick: (x: number, y: number) => pickComponent(x, y)?.id ?? null,
     __openfactoryPartTargets: () => parts.targets(),
+    // PLAN 5.14g: the part under a point, and a part's story asked for as a click would
+    __openfactoryPickPart: (x: number, y: number) => pickPart(x, y),
+    __openfactoryExplain: (id: string) => explainPart(id),
     // PLAN 5.14f: every part drawn where its frame has it (the strip waits on this), and the
     // picture as a capture takes it (the strip's stills)
     __openfactoryPartsSettled: () => parts.settled(),

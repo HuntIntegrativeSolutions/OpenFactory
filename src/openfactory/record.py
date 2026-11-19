@@ -188,6 +188,15 @@ def read_recording(path: str | Path) -> Recording:
                 lines.append(line)
         except (EOFError, zlib.error, gzip.BadGzipFile):
             truncated = True
+    return recording_from_lines(lines, str(path), truncated)
+
+
+def recording_from_lines(
+    lines: list[bytes], source: str = "recording", truncated: bool = False
+) -> Recording:
+    """A recording from its decompressed lines: a file's (:func:`read_recording`), or a live
+    run's last 60 s held in memory (PLAN 5.14e's piece, 5.14g's live explain)."""
+    path = source
     if not lines:
         raise ValueError(f"{path}: not an OpenFactory recording (empty)")
     try:
@@ -462,6 +471,13 @@ class ReplayRuntime:
             document, snap, changes, plant, since_s=since_s, component=component, exam=exam,
             dropped_to=self.recording.held_from,
         )  # fmt: skip
+
+    def explain(self, check: str | None = None, part: str | None = None) -> dict[str, Any]:
+        """Why it happened (PLAN 5.14g), over the recording up to the frame being shown."""
+        from openfactory.explain import explain, up_to
+
+        tick = int(self.snapshot["tick"])
+        return explain(up_to(self.recording, tick), check=check, part=part).document()
 
     def apply_event(self, raw: dict[str, Any]) -> Any:
         from openfactory.server.runtime import ViewerEvent

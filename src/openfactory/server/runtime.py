@@ -636,13 +636,12 @@ class Runtime:
         finally:
             self._capturing.release()
 
-    def _capture(
-        self, base: Path, *, image: bytes, view: dict[str, Any], note: str, selected: str | None
-    ) -> Path:
-        from openfactory import capture as capture_mod
+    def piece(self) -> tuple[dict[str, Any], list[bytes]]:
+        """The last tick's snapshot and the last 60 s as a recording's lines (PLAN 5.14e): what
+        a capture writes as ``last-60s.ofrec``, and what a live explain reads (5.14g)."""
+        from openfactory.capture import piece_lines
         from openfactory.record import recording_header
 
-        piece_lines = capture_mod.piece_lines
         snap = self.snapshot
         tick = int(snap["tick"])
         changes: list[tuple[int, str, Any]] = []
@@ -655,6 +654,27 @@ class Runtime:
         frames = self.capture_buffer.held() if self.capture_buffer is not None else []
         events = [e for e in list(self.events) if int(e.get("core_tick", 0)) <= tick]
         header = self.recording_header or recording_header(self, None, None)
+        return snap, piece_lines(header, frames, changes, dropped_to, events, snap)
+
+    def explain(self, check: str | None = None, part: str | None = None) -> dict[str, Any]:
+        """Why it happened (PLAN 5.14g, :mod:`openfactory.explain`) over the last 60 s the
+        capture buffer holds, read as the same piece of recording a capture writes: one path
+        for a file and a live run. :class:`openfactory.explain.Unknown` for a part or check not
+        in it."""
+        from openfactory.explain import explain
+        from openfactory.record import recording_from_lines
+
+        _, lines = self.piece()
+        return explain(
+            recording_from_lines(lines, "the last 60 s"), check=check, part=part
+        ).document()
+
+    def _capture(
+        self, base: Path, *, image: bytes, view: dict[str, Any], note: str, selected: str | None
+    ) -> Path:
+        from openfactory import capture as capture_mod
+
+        snap, piece = self.piece()
         ids = {c.id for c in self.loaded.components}
         chosen = selected if selected in ids else None
         return capture_mod.write_capture(
@@ -667,7 +687,7 @@ class Runtime:
             selected=chosen,
             look_report=self.look(),
             selected_report=self.look(component=chosen) if chosen else None,
-            piece=piece_lines(header, frames, changes, dropped_to, events, snap),
+            piece=piece,
             not_found=selected if selected and chosen is None else None,
         )
 

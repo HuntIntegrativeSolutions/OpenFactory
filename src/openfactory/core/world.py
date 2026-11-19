@@ -121,6 +121,8 @@ class World:
     conveyors: list[Any] = field(default_factory=list)
     #: Every part a remover took, in order (PLAN 2.11).
     removals: list[Removal] = field(default_factory=list)
+    #: Every part that fell out of the scene, in order (``by`` empty; PLAN 5.14g's subject).
+    losses: list[Removal] = field(default_factory=list)
 
     def rng(self, component_id: str) -> random.Random:
         """A deterministic random generator owned by one component."""
@@ -150,4 +152,5 @@ class World:
         """Remove a part that fell out of the scene and count it by name."""
         part = self.parts.pop(part_id)
         self.lost[part.name] += 1
+        self.losses.append(Removal(self.tick, part.id, part.name, part.spawn_tick, ""))
         return part

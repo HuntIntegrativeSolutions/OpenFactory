@@ -47,6 +47,9 @@ Behavior spec
   seeks and steps (PLAN 5.14f). ``strip FILE.ofrec|CAPTURE --at T --span S --frames N
   [--look-at ID] [--labels tags]`` (:mod:`openfactory.strip`) writes a film strip: N stills in
   a row, each stamped with its time, and a table of what changed between them.
+- ``explain [FILE.ofrec|CAPTURE] [--check NAME | --part ID] [--json]`` (PLAN 5.14g,
+  :mod:`openfactory.explain`): why it happened, from a recording, a capture folder, or the
+  running server's last 60 s (``POST /api/explain``).
 - ``captures`` (PLAN 5.14e, :mod:`openfactory.capture`) lists the viewer's captures, newest
   first, and prints the newest folder's path last; ``run --capture-dir DIR`` sets where the
   viewer's Capture writes (default ``openfactory-captures/`` where ``run`` was started).
@@ -1079,6 +1082,80 @@ def look(
     except (urllib.error.URLError, OSError) as exc:
         typer.echo(f"error: {url}: no running OpenFactory server ({exc})", err=True)
         raise typer.Exit(1) from None
+
+
+@app.command()
+def explain(
+    recording: Annotated[
+        Path | None,
+        typer.Argument(
+            help="A recording, or a capture folder (its last-60s.ofrec); without one, the "
+            "running server's last 60 s.",
+            metavar="[FILE.ofrec|CAPTURE]",
+        ),
+    ] = None,
+    check: Annotated[
+        str | None, typer.Option(help="A check by name (or its start, e.g. parts_reached).")
+    ] = None,
+    part: Annotated[str | None, typer.Option(help="A part by id, e.g. P000002.")] = None,
+    url: Annotated[
+        str | None,
+        typer.Option(help="The running server (default: the [web] endpoint, 127.0.0.1:8000)."),
+    ] = None,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the steps and the trail as JSON.")
+    ] = False,
+) -> None:
+    """Why it happened (PLAN 5.14g): a part's story, or a failed check's, in order with times,
+    each line naming the tick and the data it rests on. With neither --check nor --part, every
+    failed check."""
+    import json
+
+    if check is not None and part is not None:
+        typer.echo("error: give --check or --part, not both", err=True)
+        raise typer.Exit(2)
+    if recording is not None:
+        from openfactory.explain import Unknown
+        from openfactory.explain import explain as explain_recording
+        from openfactory.record import read_recording
+        from openfactory.strip import recording_of
+
+        try:
+            rec = read_recording(recording_of(recording))
+            answer = explain_recording(rec, check=check, part=part).document()
+        except Unknown as exc:
+            typer.echo(f"error: {exc.args[0]}", err=True)
+            raise typer.Exit(1) from None
+        except (OSError, ValueError) as exc:
+            typer.echo(f"error: {recording}: {exc}", err=True)
+            raise typer.Exit(1) from None
+    else:
+        import urllib.error
+        import urllib.request
+
+        if url is None:
+            web = load_settings().web
+            host = "127.0.0.1" if web.bind in ("0.0.0.0", "::") else web.bind
+            url = f"http://{host}:{web.port}"
+        body = {k: v for k, v in (("check", check), ("part", part)) if v is not None}
+        target = f"{url.rstrip('/')}/api/explain"
+        request = urllib.request.Request(
+            target, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - ours
+                answer = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", "replace")
+            typer.echo(f"error: {target}: {exc.code} {detail}", err=True)
+            raise typer.Exit(1) from None
+        except (urllib.error.URLError, OSError) as exc:
+            typer.echo(f"error: {url}: no running OpenFactory server ({exc})", err=True)
+            raise typer.Exit(1) from None
+    if as_json:
+        typer.echo(json.dumps(answer, indent=1))
+    else:
+        typer.echo(answer["text"], nl=False)
 
 
 def _scene_files(paths: list[Path]) -> list[Path]:

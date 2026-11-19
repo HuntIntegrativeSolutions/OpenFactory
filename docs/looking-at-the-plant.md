@@ -250,3 +250,39 @@ folder) with the table beside it as `.md`, and the table is printed. A whole pla
 is small: `--look-at` frames the part of the plant that matters. The strip drives the viewer in
 headless Chromium, so it needs the development tools (`uv sync`, then `uv run playwright install
 chromium`); it says so when they are missing.
+
+## Why it happened: `openfactory explain`
+
+`openfactory explain` tells the story of one part, or of a failed check, in order with times. Each
+line names the tick and the data it rests on (a tag change, an event, or the frames that give a
+position), and where the cause cannot be told from the data it says so.
+
+```bash
+uv run openfactory explain run.ofrec                                   # every failed check
+uv run openfactory explain run.ofrec --check "parts_reached REM_02: tall"
+uv run openfactory explain run.ofrec --part P000002
+uv run openfactory explain openfactory-captures/sorting-by-height/3750 # a capture: its last 60 s
+uv run openfactory explain --part P000002                              # the running scene's last 60 s
+```
+
+A part's story: where it was made, each conveyor it rode, each photo eye it tripped (whichever
+part was in the beam at that tick, from positions), each change of a tag of the device carrying
+it or of a device within 1 m, with where the part was at that moment (how far from the infeed
+end, and how far past or before the device along the flow), any push across the flow that left
+it on the belt, and how it left: the remover that counted it, gone with no remover counting it
+(lost), or still in the scene. Commands are listed by nearness, not by intent: whether a command
+was meant for that part is not in the data, and the report says so.
+
+A failed check names its first part: for `parts_reached`, the first part of that name another
+remover took; for `none_lost`, the first part lost; for `max_cycle_s`, the part that took
+longest. A recording holds no grades, so `explain` works the part checks out again from the
+frames (a removal is known to within one frame, 0.1 s); a process check (a level, a pump's
+starts) is named, with a note that its cause cannot be told by `explain`. Positions between two
+frames are interpolated: exact on a belt, within 2 cm while a part drops onto one (measured).
+`--json` prints the steps and the part's trail.
+
+In the viewer, **click a part**: its trail is drawn in the highlight blue, with a marker at each
+step, and a panel lists the same steps (each step's tooltip is what it rests on). **Esc** or the
+× clears both. A live run answers from the last 60 s it holds, a replay from the recording up to
+the frame shown. The same is `POST /api/explain` with `{"part": ID}`, `{"check": NAME}` or `{}`;
+it changes nothing. In exam mode fault events are left out, as `look` leaves faults out.
