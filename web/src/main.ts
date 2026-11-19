@@ -49,6 +49,7 @@ import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
 import { boxInView, fitPose, framedBounds, framePose, type VisibleArea } from "./framing";
 import { aimPlan, grow, linkTouches, lookTargets, panelsShown, parseView, planFrame, scaleBar, viewParam } from "./views";
+import { boundTags, LABEL_MODES, labelLines, parseLabels, showsValues, stackLabels, type LabelMode, type LabelRect } from "./labels";
 import { applyShadowRoles, buildStage, editOverlay, Lighting } from "./lighting";
 import { initialQuality, isAutomatedBrowser, QUALITIES, QUALITY_TOOLTIP, readStored, remember, type Quality } from "./quality";
 
@@ -245,13 +246,19 @@ window.addEventListener("resize", () => {
   labels.setSize(window.innerWidth, window.innerHeight);
 });
 
-function label(text: string): CSS2DObject {
-  const el = document.createElement("div");
-  el.textContent = text;
-  el.style.cssText =
-    `font:12px Arial,sans-serif;color:${cssColor("normalText")};background:rgba(31,42,54,0.75);` +
-    "padding:1px 5px;border-radius:3px;white-space:nowrap";
-  return new CSS2DObject(el);
+/** A component's label (PLAN 5.14d): an outer element the CSS2D renderer places (it rewrites
+ * its transform every frame) and an inner one holding the text, which stacking shifts down. */
+function label(id: string): { object: CSS2DObject; text: HTMLDivElement } {
+  const outer = document.createElement("div");
+  const text = document.createElement("div");
+  text.className = "of-label";
+  text.dataset.labelId = id;
+  text.textContent = id;
+  text.style.cssText =
+    `font:12px/1.3 Arial,sans-serif;color:${cssColor("normalText")};background:rgba(31,42,54,0.75);` +
+    "padding:1px 5px;border-radius:3px;white-space:pre";
+  outer.appendChild(text);
+  return { object: new CSS2DObject(outer), text };
 }
 
 /** Point the camera at the components' bounds (web/src/framing.ts). */
@@ -266,7 +273,74 @@ const parts = new PartMeshes();
 scene.add(parts.group);
 let views: ComponentView[] = [];
 let plant: THREE.Object3D[] = []; // what buildScene added: component views, floor, grid
-const labelsById = new Map<string, { label: CSS2DObject; fault: string | null }>();
+interface LabelEntry {
+  label: CSS2DObject;
+  text: HTMLDivElement;
+  fault: string | null;
+  shown: string | null; // the text on screen, null with no label
+}
+const labelsById = new Map<string, LabelEntry>();
+
+/** Values in the picture (PLAN 5.14d, labels.ts): ids, tags with live values, or off; `?labels=`
+ * and the labels control. Past 40 components only the selected component (`?look=`, else the
+ * last one clicked) and what touches it show values. */
+const askedLabels = parseLabels(new URLSearchParams(window.location.search).get("labels"));
+if (askedLabels.warning) console.warn(`OpenFactory: ${askedLabels.warning}`);
+let labelMode: LabelMode = askedLabels.mode;
+let tagsOf = new Map<string, { name: string; dtype: string }[]>();
+let selectedLive: string | null = null;
+let valueFocus = new Set<string>();
+window.__openfactory.labels = labelMode;
+
+function renderLabel(id: string, entry: LabelEntry): void {
+  const values = showsValues(doc?.components.length ?? 0, id, valueFocus);
+  const lines = labelLines(labelMode, id, tagsOf.get(id) ?? [], lastFrame?.io ?? null, entry.fault, values);
+  const shown = lines ? lines.join("\n") : null;
+  if (shown === entry.shown) return;
+  entry.shown = shown;
+  entry.label.visible = shown !== null; // the CSS2D renderer hides an invisible object's element
+  if (shown !== null) entry.text.textContent = shown;
+  stackDue = true;
+}
+
+function renderLabels(): void {
+  for (const [id, entry] of labelsById) renderLabel(id, entry);
+}
+
+/** The selected component and what touches it, whose labels show values past 40 components. */
+function focusOn(id: string | null): void {
+  selectedLive = id;
+  const boxes = new Map(views.map((v) => [v.id, framedBounds([v.object])]));
+  valueFocus = new Set(id && doc ? lookTargets(doc, id, linkTouches(doc, boxes)) : []);
+  window.__openfactory.labelFocus = [...valueFocus];
+  renderLabels();
+}
+
+let stackDue = true;
+let stackedAt = 0;
+/** Stack labels that would overlap (labels.ts `stackLabels`): from the boxes the CSS2D renderer
+ * placed (the outer elements, which a shift of the inner text does not move), at most every
+ * 100 ms or after a label's text changed. */
+function stackLabelsNow(now: number): void {
+  if (!stackDue && now - stackedAt < 100) return;
+  stackDue = false;
+  stackedAt = now;
+  const rects: LabelRect[] = [];
+  const shown: [string, LabelEntry][] = [];
+  for (const [id, entry] of labelsById) {
+    const outer = entry.label.element;
+    if (entry.shown === null || outer.style.display === "none" || !outer.isConnected) continue;
+    const r = outer.getBoundingClientRect();
+    rects.push({ id, left: r.left, top: r.top, width: r.width, height: r.height });
+    shown.push([id, entry]);
+  }
+  const shift = stackLabels(rects);
+  for (const [id, entry] of shown) {
+    const dy = shift.get(id) ?? 0;
+    const transform = dy ? `translateY(${dy.toFixed(1)}px)` : "";
+    if (entry.text.style.transform !== transform) entry.text.style.transform = transform;
+  }
+}
 
 /** The instructor view (PLAN 4.12): /instructor, fault markers even in exam mode, read-only
  * exam switches. A token in the URL fragment is kept for this tab and taken off the address bar. */
@@ -286,10 +360,10 @@ function markFault(id: string, fault: string | null): void {
   if (!entry || entry.fault === fault) return;
   entry.fault = fault;
   window.__openfactory.faultMarkers = [...labelsById].filter(([, e]) => e.fault).map(([k]) => k);
-  const el = entry.label.element;
-  el.textContent = fault ? `${id} ⚠ ${fault.replace("_", " ")}` : id;
+  const el = entry.text;
   el.style.background = fault ? cssColor("alarmMedium") : "rgba(31,42,54,0.75)";
   el.style.color = fault ? cssColor("background") : cssColor("normalText");
+  renderLabel(id, entry);
 }
 
 /** Remove the plant built by buildScene, labels included (CSS2D elements live in the DOM). */
@@ -309,12 +383,15 @@ function clearScene(): void {
 function buildScene(doc: SceneDocument, frame = true): void {
   const floorY = floorFor(doc.components);
   views = doc.components.map((g) => buildComponent(g, { floorY }));
+  tagsOf = boundTags(doc);
   for (const view of views) {
     scene.add(view.object);
     const tag = label(view.id);
-    tag.position.copy(view.labelAnchor);
-    view.object.add(tag);
-    labelsById.set(view.id, { label: tag, fault: null });
+    tag.object.position.copy(view.labelAnchor);
+    view.object.add(tag.object);
+    const entry: LabelEntry = { label: tag.object, text: tag.text, fault: null, shown: view.id };
+    labelsById.set(view.id, entry);
+    renderLabel(view.id, entry);
     applyShadowRoles(view.object);
   }
   const { floor, grid } = buildStage(floorY);
@@ -337,6 +414,10 @@ function wireClicks(): void {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   renderer.domElement.addEventListener("click", (e) => {
+    if (!editing()) {
+      const picked = pickComponent(e.clientX, e.clientY);
+      if (picked && picked.id !== selectedLive) focusOn(picked.id); // past 40 components: its values
+    }
     pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
     const pickable = views.flatMap((v) => v.pickable.map((o) => [o, v] as const));
@@ -509,12 +590,14 @@ function onFrame(frame: StateFrame): void {
     view.update(state);
     markFault(view.id, faultOf(frame, view.id));
   }
+  if (labelMode === "tags") renderLabels(); // the values this frame's io gives (PLAN 5.14d)
   parts.update(frame.parts, (p) => drawnYaw(p, frame));
   stepToFrame(frame);
   const status = window.__openfactory;
   status.frames += 1;
   status.simTime = frame.t;
   status.tick = frame.tick;
+  status.labelsTick = frame.tick; // the tick the labels' values are from
   status.firstTick ??= frame.tick;
   status.parts = parts.count;
   status.viewers = frame.viewers ?? 1;
@@ -735,11 +818,27 @@ function applyUrlView(): void {
     controls.update();
     status.view = `look ${look}`;
     status.look = ids;
+    focusOn(look);
   } catch (err) {
     console.warn(`OpenFactory: the view in the address was not applied (${String(err)}); the default view is shown`);
     status.view = "default";
   }
 }
+
+/** The labels control (PLAN 5.14d), bottom left beside Copy view. */
+const labelsControl = document.createElement("select");
+labelsControl.id = "labels";
+labelsControl.title = "Labels: component ids, ids with each bound tag and its live value, or none (a fault is always shown)";
+labelsControl.style.cssText =
+  `position:absolute;bottom:12px;left:256px;font:12px Arial,sans-serif;color:${cssColor("normalText")};` +
+  "background:#1f2937;border:1px solid #4b5563;border-radius:3px;padding:2px 4px";
+for (const mode of LABEL_MODES) labelsControl.add(new Option(`labels: ${mode}`, mode));
+labelsControl.value = labelMode;
+labelsControl.addEventListener("change", () => {
+  labelMode = labelsControl.value as LabelMode;
+  window.__openfactory.labels = labelMode;
+  renderLabels();
+});
 
 /** "Copy view" (PLAN 5.14c): the view on screen as `view=...`, on the clipboard. */
 const copyViewButton = document.createElement("button");
@@ -762,7 +861,7 @@ copyViewButton.addEventListener("click", () => {
 
 async function start(): Promise<void> {
   await loadScene();
-  app!.append(scaleBox, copyViewButton);
+  app!.append(scaleBox, copyViewButton, labelsControl);
   applyUrlView();
   wireClicks();
   const menu = new FaultMenu({ target: renderer.domElement, pick: pickComponent });
@@ -791,6 +890,15 @@ async function start(): Promise<void> {
     // the component under a viewport point, for tests that click one (PLAN 4.1b)
     __openfactoryPick: (x: number, y: number) => pickComponent(x, y)?.id ?? null,
     __openfactoryPartTargets: () => parts.targets(),
+    // PLAN 5.14d: each label on screen, its text and drawn box (after stacking)
+    __openfactoryLabels: () =>
+      [...labelsById]
+        .filter(([, e]) => e.shown !== null && e.label.element.style.display !== "none")
+        .map(([id, e]) => ({ id, text: e.text.textContent, box: e.text.getBoundingClientRect().toJSON() })),
+    __openfactorySetLabels: (mode: LabelMode) => {
+      labelsControl.value = mode;
+      labelsControl.dispatchEvent(new Event("change"));
+    },
   });
   if (editing()) {
     await startEditor();
@@ -1131,6 +1239,7 @@ renderer.setAnimationLoop((now) => {
   parts.animate(); // eases meshes toward their latest pose between 20 Hz frames; never steps physics
   renderer.render(scene, active);
   labels.render(scene, active);
+  stackLabelsNow(now);
   frameStats.frame(now, performance.now() - start);
   const status = window.__openfactory;
   status.frameMs = frameStats.meanMs;

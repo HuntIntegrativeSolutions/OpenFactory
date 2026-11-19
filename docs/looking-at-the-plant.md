@@ -162,3 +162,21 @@ otherwise covers the top right corner, where a plan often has equipment. The sta
 plan view's scale bar and north mark, and the controls at the bottom left stay. The screenshot
 tool's `--no-panels` sets it:
 `uv run python tools/screenshot.py scenes/plants/wash-plant/wash-plant.yaml --script scenes/plants/wash-plant/wash-plant.py --view top --no-panels`.
+
+## Values in the picture
+
+Each component's label can show its tags and their values (PLAN 5.14d). The **labels** control
+at the bottom left, or `?labels=` in the address, has three settings:
+
+- **`ids`** (the default): the component's id.
+- **`tags`**: the id, then each tag the component owns with the value the last state frame gives
+  it, the same value `GET /api/state` serves at that tick: a DI or DO as `true` or `false`, an AI
+  or AO to three decimals. A tag with no value yet shows `–`. In a scene of more than 40
+  components only the selected component (the one `?look=` names, else the last one clicked) and
+  what touches it show values; the rest show their ids.
+- **`off`**: no labels, except a faulted component's, so a fault is never hidden.
+
+Text is in the normal colour; the alarm colour marks a fault only (ISA-101). Labels that would
+overlap are stacked: each moves down below the labels above it that it would cover, the same way
+every frame. The screenshot tool takes `--labels ids|tags|off`, for example
+`uv run python tools/screenshot.py scenes/sorting-by-height.yaml --script examples/pyplc/sorting-by-height.py --labels tags`.

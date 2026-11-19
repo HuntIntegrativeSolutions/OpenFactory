@@ -4500,7 +4500,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         P_201 and DR_201 along the top with nothing over them, the two belts end to end with
         three cartons, the two fans below, the scale bar (1 m) and "N ↑ plan view" at the
         bottom left. The fans' two labels still overlap (5.14d).
-  - [ ] 5.14d Values in the picture. *What:* a labels control with three settings: ids (today),
+  - [x] 5.14d Values in the picture. *What:* a labels control with three settings: ids (today),
         tags (each component's bound tags with live values beside it), off. URL `?labels=tags`;
         `tools/screenshot.py --labels tags`.
         *How:* the scene document already lists each component's bindings; values come from the
@@ -4510,6 +4510,45 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         *Done when:* a Playwright test reads CYL_01's label and finds `CYL_01_EXT_DO` with the
         value `/api/state` gives at that tick; no two labels overlap in the sorter at 1280 px
         (boxes compared); screenshot looked at.
+        *Done (2026-11-18):* `web/src/labels.ts` (DOM-free, `labels.test.ts`, 6): `parseLabels`
+        (`ids` by default; a value it does not know is `ids` with a console warning);
+        `boundTags`, each component's own tags from the document's `tags` (their `owner`), so
+        nothing is added to the scene document and no recording, kit or run reference moves;
+        `formatValue` (a bool `true` or `false` as `/api/state` gives it, a number to 3
+        decimals, `–` for a tag the frame has no value for: no value is invented);
+        `labelLines`; `showsValues` (past 40 components only the focus); `stackLabels`, a pure
+        function of the label boxes: taken top to bottom, then left to right, then by id, each
+        label moves down below every placed label it would overlap (2 px apart), so the same
+        picture stacks the same way every frame. `main.ts`: a label is an outer element the
+        CSS2D renderer places (it rewrites that transform every frame) and an inner one with
+        the text, which the stacking shifts (`translateY`), read from the outer boxes at most
+        every 100 ms or after a text change, labels the renderer hides left out; the labels
+        control (bottom left, beside Copy view) and `?labels=`; values from each frame's `io`,
+        `window.__openfactory.labelsTick` the tick they are from; a fault keeps its alarm
+        colour and marker in every setting. `tools/screenshot.py --labels ids|tags|off`. Docs:
+        `docs/looking-at-the-plant.md` ("Values in the picture").
+        **Decisions beyond the text:** (1) `off` still shows a faulted component's label (its
+        id and the fault), so the setting never hides a fault. (2) The selected component, past
+        40 components, is `?look=`'s, else the last component clicked in the viewer (the live
+        viewer had no selection). No shipped scene has more than 40 components, so this path is
+        held by `labels.test.ts` only.
+        **The Done-when, measured** (`tests/integration/test_labels.py`, 4, 1280 by 720,
+        quality low): the sorter's kit recording replayed to its end (which holds its last
+        frame): `/api/state` at tick 3000 has `CYL_01_EXT_DO` false and CYL_01's label, drawn
+        from tick 3000, reads `CYL_01` / `CYL_01_EXT_DO false` / `CYL_01_EXT_DI false` /
+        `CYL_01_RET_DI false`; a live scripted run, the label's text and tick read together:
+        `CYL_01_EXT_DO false` at tick 303 and `true` at tick 430, the change log (the values
+        `/api/state` serves) having False and True at those ticks. No two labels overlap
+        (each label's drawn box against every other): the sorter at 6 s, 7 labels in tags and
+        in ids, none in off; the wash plant's plan view (`--view top --no-panels`), 15 labels
+        in tags and in ids, the fans' `FAN_101_BODY` / `FAN_101_HOA` and `FAN_201_BODY` /
+        `FAN_201_HOA`, which overlapped in 5.14c, apart. **Screenshots looked at:** the sorter
+        in tags (EMT_01 and CONV_01 stacked at the infeed, PE_01, CYL_01 with its three tags,
+        CONV_02 below PE_01, REM_01 and REM_02 by their boxes; the checks panel at the top
+        right as usual); the wash plant's plan in tags (TK_201's level and switches over the
+        tank, XV_201 and P_201 stacked below the line, both belts' labels, each fan's HOA
+        selector with its three inputs above its body's start command) and in ids (each fan's
+        BODY label with its HOA label one row below, apart).
   - [ ] 5.14e Capture: "show the assistant what I see". *What:* a Capture button (and the C key)
         writes a folder holding the picture as the person sees it, the camera, the selected
         component, a typed note ("box jammed here"), the `look` report at that tick, the full

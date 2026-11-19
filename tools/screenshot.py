@@ -7,7 +7,7 @@ Usage::
                                             [--size 1280x720] [--build]
                                             [--quality low|standard|high]
                                             [--look-at ID | --view px,py,pz,tx,ty,tz | --view top]
-                                            [--no-panels]
+                                            [--no-panels] [--labels ids|tags|off]
 
 What it does:
 
@@ -41,7 +41,9 @@ What it does:
    applies, so a value it does not understand gives the default view and a console warning.
    ``--no-panels`` opens it at ``?panels=off``, which leaves the checks, exam and trend panels out
    of the picture (the checks panel covers the top right corner otherwise); the status lines,
-   the plan view's scale bar and north mark, and the bottom-left controls stay.
+   the plan view's scale bar and north mark, and the bottom-left controls stay. ``--labels
+   tags`` opens it at ``?labels=tags``: each label shows the component's bound tags with their
+   live values (PLAN 5.14d); ``--labels off`` shows none but a faulted component's.
 4. Saves a PNG (default ``tools/screenshots/<scene>-<N>s.png``, git-ignored) and checks it is not
    blank: at least 2 % of pixels must differ from the ISA-101 background ``#1F2A36`` and at most
    90 % may be near-black. A failed check, a viewer error, or a timeout exits 1.
@@ -246,10 +248,15 @@ def running_viewer(
 
 
 def view_params(
-    *, look: str | None = None, view: str | None = None, panels: bool = True
+    *,
+    look: str | None = None,
+    view: str | None = None,
+    panels: bool = True,
+    labels: str | None = None,
 ) -> dict[str, str]:
-    """The viewer's URL parameters for ``--look-at``, ``--view`` and ``--no-panels``."""
-    out = {k: v for k, v in (("look", look), ("view", view)) if v}
+    """The viewer's URL parameters for ``--look-at``, ``--view``, ``--no-panels`` and
+    ``--labels``."""
+    out = {k: v for k, v in (("look", look), ("view", view), ("labels", labels)) if v}
     if not panels:
         out["panels"] = "off"
     return out
@@ -366,6 +373,12 @@ def main(argv: list[str] | None = None) -> int:
         help="an exact camera (position and target, metres), or top: the plan view (PLAN 5.14c)",
     )
     parser.add_argument(
+        "--labels",
+        choices=("ids", "tags", "off"),
+        default=None,
+        help="labels: ids (the default), tags with live values, or off (PLAN 5.14d)",
+    )
+    parser.add_argument(
         "--no-panels",
         action="store_true",
         help="leave the checks, exam and trend panels out of the picture (?panels=off)",
@@ -428,7 +441,9 @@ def main(argv: list[str] | None = None) -> int:
         script=args.script.resolve() if args.script else None,
         bundled_script=args.bundled_script,
         quality=args.quality,
-        view=view_params(look=args.look_at, view=args.view, panels=not args.no_panels),
+        view=view_params(
+            look=args.look_at, view=args.view, panels=not args.no_panels, labels=args.labels
+        ),
     )
     ok, summary = check_image(out)
     status = result["status"]
