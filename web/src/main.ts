@@ -49,6 +49,7 @@ import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
 import { boxInView, fitPose, framedBounds, framePose, type VisibleArea } from "./framing";
 import { aimPlan, grow, linkTouches, lookTargets, panelsShown, parseView, planFrame, scaleBar, viewParam } from "./views";
+import { isJump, ReplayBar } from "./replaybar";
 import { boundTags, LABEL_MODES, labelLines, parseLabels, showsValues, stackLabels, type LabelMode, type LabelRect } from "./labels";
 import { applyShadowRoles, buildStage, editOverlay, Lighting } from "./lighting";
 import { initialQuality, isAutomatedBrowser, QUALITIES, QUALITY_TOOLTIP, readStored, remember, type Quality } from "./quality";
@@ -592,6 +593,10 @@ function onFrame(frame: StateFrame): void {
   }
   if (labelMode === "tags") renderLabels(); // the values this frame's io gives (PLAN 5.14d)
   parts.update(frame.parts, (p) => drawnYaw(p, frame));
+  // PLAN 5.14f: a replay that seeks or steps back jumps there; its parts do not glide
+  if (replaying() && isJump(shownTick, frame.tick)) parts.snap();
+  shownTick = frame.tick;
+  replayBar?.frame(frame.tick);
   stepToFrame(frame);
   const status = window.__openfactory;
   status.frames += 1;
@@ -619,6 +624,8 @@ function onFrame(frame: StateFrame): void {
 }
 
 const stateCost = new FrameStats(40);
+let shownTick: number | null = null; // the tick of the last frame drawn
+let replayBar: ReplayBar | null = null; // `openfactory replay`'s pause, seek and step (PLAN 5.14f)
 let examPanel: ExamPanel | null = null; // set in start(); synced from every state frame
 let checksPanel: ChecksPanel | null = null; // the live checks (PLAN 4.1i), set in start()
 
@@ -699,6 +706,7 @@ async function applyScene(next: SceneDocument): Promise<void> {
   strokes.clear();
   corePositions.clear();
   lastFrame = null;
+  shownTick = null;
   events = new EventLink();
   if (rapier && !editing()) {
     physics = replaying() ? null : new PlantPhysics(rapier, { components: doc.components, connections: doc.connections, friction: doc.scene.friction, dt: doc.dt });
@@ -1046,6 +1054,10 @@ async function start(): Promise<void> {
     // the component under a viewport point, for tests that click one (PLAN 4.1b)
     __openfactoryPick: (x: number, y: number) => pickComponent(x, y)?.id ?? null,
     __openfactoryPartTargets: () => parts.targets(),
+    // PLAN 5.14f: every part drawn where its frame has it (the strip waits on this), and the
+    // picture as a capture takes it (the strip's stills)
+    __openfactoryPartsSettled: () => parts.settled(),
+    __openfactoryGrab: () => grabPicture(),
     // PLAN 5.14d: each label on screen, its text and drawn box (after stacking)
     __openfactoryLabels: () =>
       [...labelsById]
@@ -1061,6 +1073,13 @@ async function start(): Promise<void> {
     streamState(onFrame, () => void 0);
     return;
   }
+  if (replaying()) {
+    replayBar = new ReplayBar();
+    app!.append(replayBar.element);
+    await replayBar.start();
+    window.setInterval(() => void replayBar?.refresh(), 1000); // the end of a replay shows play
+  }
+  placeCapture();
   // live checks (PLAN 4.1i): read-only, the trainee's view and the instructor's alike
   checksPanel = new ChecksPanel(INSTRUCTOR);
   checksPanel.start();

@@ -210,3 +210,32 @@ The note is kept as text: it is escaped in `report.md` and never becomes part of
 a command. The folder's name is the server's. Capture is offered only on a viewer bound to
 loopback, never in a replay or the editor, and not to a trainee in exam mode (the instructor's
 token opens it). `openfactory-captures/` is git-ignored.
+
+## Pause, seek and step in a replay
+
+`openfactory replay` shows a bar at the bottom of the viewer: play or pause (**Space**), a slider
+over the whole recording, and a step back or forward by one recorded frame (the **left** and
+**right arrow** keys; a frame is 0.1 s at 50 Hz). `--paused` starts paused at the first frame.
+After a seek or a step the parts are drawn where that frame has them at once. The same controls
+are `POST /api/replay/seek` (`{"tick": N}`: the frame at or before N), `/api/replay/pause`
+(`{"paused": true}`) and `/api/replay/step` (`{"frames": -1}`), and `GET /api/replay` says
+where the replay is; a live run answers them 404.
+
+## The film strip
+
+`openfactory strip` turns a moment of a recording into one image an assistant can read: stills in
+a row, each stamped with its time, and a table of what changed between each still and the next
+(every tag that changed, and each part's carrier and how far it moved).
+
+```bash
+uv run openfactory strip run.ofrec --at 8.6 --span 2 --frames 6 --look-at CYL_01 --labels tags
+uv run openfactory strip openfactory-captures/sorting-by-height/3750   # a capture: its last 60 s
+```
+
+The stills cover `--span` seconds centred on `--at` (the end of the recording without it), moved
+inside the recording when the window runs past an end; each is the recorded frame at or before
+its time. The image is written to `--out` (default `<recording>-strip-<T>s.png` in the current
+folder) with the table beside it as `.md`, and the table is printed. A whole plant at half size
+is small: `--look-at` frames the part of the plant that matters. The strip drives the viewer in
+headless Chromium, so it needs the development tools (`uv sync`, then `uv run playwright install
+chromium`); it says so when they are missing.

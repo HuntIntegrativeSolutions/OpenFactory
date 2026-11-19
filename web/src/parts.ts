@@ -111,6 +111,21 @@ export class PartMeshes {
     }
   }
 
+  /** Put every mesh at its target at once (PLAN 5.14f: a replay that seeks jumps, it does not
+   * glide). */
+  snap(): void {
+    for (const { mesh, target, turn } of this.meshes.values()) {
+      mesh.position.copy(target);
+      mesh.quaternion.copy(turn);
+    }
+  }
+
+  /** Every mesh within `metres` of its target (the strip waits for this before each still). */
+  settled(metres = 1e-4): boolean {
+    for (const { mesh, target } of this.meshes.values()) if (mesh.position.distanceTo(target) > metres) return false;
+    return true;
+  }
+
   /** Drop every mesh (the server restarted: part ids start again from P000001). */
   clear(): void {
     this.update([]);

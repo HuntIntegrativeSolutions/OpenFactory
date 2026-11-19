@@ -43,6 +43,10 @@ Behavior spec
   running server (``GET /api/look``, ``--url``, default the ``[web]`` endpoint) or from a recording
   at a simulated time (``openfactory look FILE.ofrec --at T``, the frame at or before T; the end
   without ``--at``), with ``--since S`` and ``--component ID``.
+- ``replay --paused`` starts paused at the first frame; the viewer's replay bar plays, pauses,
+  seeks and steps (PLAN 5.14f). ``strip FILE.ofrec|CAPTURE --at T --span S --frames N
+  [--look-at ID] [--labels tags]`` (:mod:`openfactory.strip`) writes a film strip: N stills in
+  a row, each stamped with its time, and a table of what changed between them.
 - ``captures`` (PLAN 5.14e, :mod:`openfactory.capture`) lists the viewer's captures, newest
   first, and prints the newest folder's path last; ``run --capture-dir DIR`` sets where the
   viewer's Capture writes (default ``openfactory-captures/`` where ``run`` was started).
@@ -874,6 +878,12 @@ def replay(
     exit_at_end: Annotated[
         bool, typer.Option("--exit-at-end", help="Stop the server when playback ends.")
     ] = False,
+    paused: Annotated[
+        bool,
+        typer.Option(
+            "--paused", help="Start paused at the first frame (PLAN 5.14f: play, seek, step)."
+        ),
+    ] = False,
     bind: Annotated[
         str | None, typer.Option(help="Listen address for the viewer (default: loopback).")
     ] = None,
@@ -896,7 +906,7 @@ def replay(
         return
     from openfactory.server.app import create_app, server_config
 
-    runtime = ReplayRuntime(rec, speed=speed, loop=loop)
+    runtime = ReplayRuntime(rec, speed=speed, loop=loop, paused=paused)
     settings = load_settings()
     endpoint = Endpoint(bind=bind or settings.web.bind, port=web_port or settings.web.port)
     web = uvicorn.Server(server_config(create_app(runtime, bind=endpoint.bind), endpoint))
@@ -920,6 +930,61 @@ def replay(
 
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(serve())
+
+
+@app.command()
+def strip(
+    source: Annotated[
+        Path,
+        typer.Argument(
+            help="A recording, or a capture folder (its last-60s.ofrec).",
+            metavar="FILE.ofrec|CAPTURE",
+        ),
+    ],
+    at: Annotated[
+        float | None,
+        typer.Option(help="Simulated time the stills are centred on, s (default: the end)."),
+    ] = None,
+    span: Annotated[float, typer.Option(help="Seconds the stills cover.", min=0.01)] = 2.0,
+    frames: Annotated[int, typer.Option(help="How many stills.", min=2, max=24)] = 6,
+    look_at: Annotated[
+        str | None, typer.Option(help="Frame this component and what touches it (?look=).")
+    ] = None,
+    labels: Annotated[
+        str, typer.Option(help="Labels: ids, tags (with values) or off (PLAN 5.14d).")
+    ] = "ids",
+    size: Annotated[str, typer.Option(help="The viewer's size, WIDTHxHEIGHT; stills are half.")] = (
+        "960x540"
+    ),
+    out: Annotated[
+        Path | None,
+        typer.Option(help="The image (default: <recording>-strip-<T>s.png here); .md beside it."),
+    ] = None,
+) -> None:
+    """A film strip of a recording (PLAN 5.14f): stills in a row, each stamped with its time,
+    and a table of what changed between them (printed, and written beside the image)."""
+    from openfactory.strip import make_strip, recording_of
+
+    if labels not in ("ids", "tags", "off"):
+        raise typer.BadParameter("ids, tags or off", param_hint="--labels")
+    try:
+        width, height = (int(v) for v in size.lower().split("x"))
+    except ValueError:
+        raise typer.BadParameter("WIDTHxHEIGHT, e.g. 960x540", param_hint="--size") from None
+    try:
+        name = recording_of(source).stem if source.is_dir() else source.stem
+        if source.is_dir():
+            name = f"{source.parent.name}-{source.name}"
+        target = out or Path(f"{name}-strip-{'end' if at is None else f'{at:g}'}s.png")
+        result = make_strip(
+            source, out=target, at_s=at, span_s=span, frames=frames, look_at=look_at,
+            labels=labels, size=(width, height),
+        )  # fmt: skip
+    except (OSError, ValueError, RuntimeError) as exc:
+        typer.echo(f"error: {source}: {exc}", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(result["table"], nl=False)
+    typer.echo(f"wrote {target} and {target.with_suffix('.md')}")
 
 
 @app.command()

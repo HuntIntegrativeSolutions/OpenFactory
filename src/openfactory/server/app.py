@@ -106,6 +106,13 @@ Behavior spec
   exam mode it is refused (403) for a trainee: only a request with the fault token (the
   instructor's) is accepted, and with no token configured it is off. A replay has nothing to
   capture (404).
+- Replay only (PLAN 5.14f; 404 on a live run): ``GET /api/replay`` says where the replay is
+  (``tick``, ``t``, ``paused``, ``finished``, ``index``, ``frames``, ``first_tick``,
+  ``last_tick``, ``frame_every``, ``dt``, ``speed``); ``POST /api/replay/seek`` with ``{"tick":
+  N}`` shows the recorded frame at or before N, ``POST /api/replay/pause`` with ``{"paused":
+  true|false}`` pauses or plays, and ``POST /api/replay/step`` with ``{"frames": ±N}`` pauses
+  and moves N frames; each answers the same as ``GET``. They change only what is shown, and
+  are guarded as ``/api/fault`` is (open on loopback, the token beyond it).
 - ``/``: the built viewer from ``web/dist`` (``npm run build``), when present. Without a build,
   ``/`` returns a short page saying how to build it; the API still works.
 
@@ -218,6 +225,21 @@ class MountRequest(EditRequest):
     conveyor: str
     rail: str
     along: float
+
+
+class ReplaySeek(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tick: int
+
+
+class ReplayPause(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    paused: bool
+
+
+class ReplayStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    frames: int = Field(ge=-10_000, le=10_000)
 
 
 class CaptureCamera(BaseModel):
@@ -551,6 +573,28 @@ def create_app(
     @app.get("/api/parity")
     def parity() -> dict[str, Any]:
         return runtime.parity()
+
+    def replay_runtime() -> Any:
+        if not hasattr(runtime, "seek"):
+            raise HTTPException(404, "replay only: this server runs the scene live")
+        return runtime
+
+    @app.get("/api/replay")
+    def replay_status() -> dict[str, Any]:
+        """Where the replay is (PLAN 5.14f)."""
+        return replay_runtime().replay_status()
+
+    @app.post("/api/replay/seek", dependencies=guarded)
+    def replay_seek(body: ReplaySeek) -> dict[str, Any]:
+        return replay_runtime().seek(body.tick)
+
+    @app.post("/api/replay/pause", dependencies=guarded)
+    def replay_pause(body: ReplayPause) -> dict[str, Any]:
+        return replay_runtime().pause(body.paused)
+
+    @app.post("/api/replay/step", dependencies=guarded)
+    def replay_step(body: ReplayStep) -> dict[str, Any]:
+        return replay_runtime().step(body.frames)
 
     captures = Path(capture_dir) if capture_dir is not None else Path.cwd() / DEFAULT_DIR
 

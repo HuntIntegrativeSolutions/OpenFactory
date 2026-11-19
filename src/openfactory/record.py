@@ -32,10 +32,18 @@ recording has them instead of simulating them), ``/ws/state`` frames at the reco
 I/O lines, every change up to the tick being shown, uncapped, and ``/api/look`` (PLAN 5.14b) at
 the frame being shown. Fault and exam requests are
 refused with "replay: no simulation".
+
+Pause, seek and step (PLAN 5.14f): :meth:`ReplayRuntime.pause` stops or resumes playback where it
+is; :meth:`ReplayRuntime.seek` shows the recording's frame at or before a tick (the events log is
+rebuilt up to it, and a playing replay goes on from there at its speed); :meth:`ReplayRuntime.
+step` pauses and moves by whole frames, back or forward. ``ReplayRuntime(paused=True)`` starts
+paused at the first frame (``openfactory strip``). A replay that played to its end without
+``--loop`` is ``finished``; a seek back and play starts it again.
 """
 
 from __future__ import annotations
 
+import bisect
 import gzip
 import hashlib
 import json
@@ -273,7 +281,9 @@ class ReplayRuntime:
 
     NO_SIM = "replay: no simulation; faults, exam switches and buttons are as recorded"
 
-    def __init__(self, recording: Recording, *, speed: float = 1.0, loop: bool = False) -> None:
+    def __init__(
+        self, recording: Recording, *, speed: float = 1.0, loop: bool = False, paused: bool = False
+    ) -> None:
         if speed <= 0:
             raise ValueError("replay speed must be positive")
         self.recording = recording
@@ -284,6 +294,15 @@ class ReplayRuntime:
         self.events: deque[dict[str, Any]] = deque(maxlen=1000)
         self.event_counts: Counter[str] = Counter()
         self.finished = False
+        #: Paused: the frame shown stays until a seek, a step or play (PLAN 5.14f).
+        self.paused = paused
+        self._ticks = [k for k, _ in recording.frames]
+        self._event_ticks = [k for k, _ in recording.events]
+        self._index = 0  # the frame shown
+        self._seq = 0  # bumped by every seek, so the playback thread starts again from it
+        self._wake = threading.Event()
+        self._viewer_counts: Counter[str] = Counter()  # the browser's own reports (parity)
+        self._events_to(self._ticks[0])
         #: Every recorded tag change (PLAN 5.14a), served up to the tick being shown.
         self.iolog = IoLog.from_changes(
             {t["name"]: t["kind"] for t in recording.header["scene"]["tags"]},
@@ -299,13 +318,80 @@ class ReplayRuntime:
         return {**self.recording.header["scene"], "mode": "replay"}
 
     def start(self, duration_s: float | None = None) -> None:
+        self._spawn()
+
+    def _spawn(self) -> None:
+        if self._stop.is_set() or (self._thread is not None and self._thread.is_alive()):
+            return
         self._thread = threading.Thread(target=self._play, name="openfactory-replay", daemon=True)
         self._thread.start()
 
     def stop(self, timeout: float = 5.0) -> None:
         self._stop.set()
+        self._wake.set()
         if self._thread is not None:
             self._thread.join(timeout)
+
+    # -- pause, seek and step (PLAN 5.14f) ---------------------------------------------------------
+
+    def _events_to(self, tick: int) -> None:
+        """The event log and counts as they were when the frame at ``tick`` was shown."""
+        upto = [e for k, e in self.recording.events if k <= tick]
+        self.events = deque(upto[-1000:], maxlen=1000)
+        self.event_counts = Counter(f"{e['type']}:{e['id']}" for e in upto) + self._viewer_counts
+
+    def _show(self, index: int) -> None:
+        """Show frame ``index`` at once (under the lock)."""
+        self._index = index
+        self.snapshot = self.recording.frames[index][1]
+        self._events_to(self._ticks[index])
+        self._seq += 1
+
+    def seek(self, tick: int) -> dict[str, Any]:
+        """Show the recording's frame at or before ``tick`` (its first frame before that)."""
+        index = max(bisect.bisect_right(self._ticks, int(tick)) - 1, 0)
+        with self.lock:
+            self._show(index)
+            self.finished = False
+        self._wake.set()
+        if not self.paused:
+            self._spawn()
+        return self.replay_status()
+
+    def pause(self, paused: bool) -> dict[str, Any]:
+        """Pause, or play on from the frame shown (from the start after a finished replay)."""
+        self.paused = bool(paused)
+        if not self.paused and self.finished:
+            with self.lock:
+                self._show(0)
+                self.finished = False
+        self._wake.set()
+        if not self.paused:
+            self._spawn()
+        return self.replay_status()
+
+    def step(self, frames: int) -> dict[str, Any]:
+        """Pause and move ``frames`` frames (negative: back), stopping at either end."""
+        self.paused = True
+        index = min(max(self._index + int(frames), 0), len(self._ticks) - 1)
+        return self.seek(self._ticks[index])
+
+    def replay_status(self) -> dict[str, Any]:
+        """Where the replay is: ``GET /api/replay`` and every replay control's answer."""
+        tick = self._ticks[self._index]
+        return {
+            "tick": tick,
+            "t": round(tick * self.recording.dt, 6),
+            "paused": self.paused,
+            "finished": self.finished,
+            "index": self._index,
+            "frames": len(self._ticks),
+            "first_tick": self._ticks[0],
+            "last_tick": self._ticks[-1],
+            "frame_every": int(self.recording.header.get("frame_every", FRAME_EVERY)),
+            "dt": self.recording.dt,
+            "speed": self.speed,
+        }
 
     @property
     def running(self) -> bool:
@@ -321,6 +407,7 @@ class ReplayRuntime:
             "parts": len(snap["parts"]),
             "replay": True,
             "finished": self.finished,
+            "paused": self.paused,
             "last_tick": self.recording.frames[-1][0],
             "events": dict(self.event_counts),
         }
@@ -382,28 +469,47 @@ class ReplayRuntime:
         event = ViewerEvent.model_validate(raw)
         if event.type in ("press", "select"):
             raise ValueError(self.NO_SIM)
-        self.event_counts[f"{event.type}:{event.id}"] += 1  # sensor events: counted, not acted on
+        key = f"{event.type}:{event.id}"  # sensor events: counted, not acted on
+        self.event_counts[key] += 1
+        self._viewer_counts[key] += 1
         return event
 
     # -- playback ----------------------------------------------------------------------------------
 
     def _play(self) -> None:
-        rec, dt = self.recording, self.recording.dt
-        first = rec.frames[0][0]  # a capture's piece starts past tick 0 (PLAN 5.14e)
+        """Show each frame at its recorded time over ``speed``, timed from the frame playback
+        (re)started at: the first, or the one a seek showed. A capture's piece starts past tick
+        0 (PLAN 5.14e), so time is counted from the frame, never from tick 0."""
+        rec, dt, ticks = self.recording, self.recording.dt, self._ticks
         while not self._stop.is_set():
-            start = time.monotonic()
-            events = iter(rec.events)
-            pending = next(events, None)
-            for tick, frame in rec.frames:
-                due = start + (tick - first) * dt / self.speed
-                while (wait := due - time.monotonic()) > 0:
-                    if self._stop.wait(min(wait, 0.05)):
+            if self.paused:
+                self._wake.wait(0.05)
+                self._wake.clear()
+                continue
+            with self.lock:
+                i, seq = self._index, self._seq
+            start, base = time.monotonic(), ticks[i]
+            while not self._stop.is_set() and not self.paused and seq == self._seq:
+                if i + 1 >= len(ticks):  # the end
+                    if not self.loop:
+                        self.finished = True
                         return
-                while pending is not None and pending[0] <= tick:
-                    self.events.append(pending[1])
-                    self.event_counts[f"{pending[1]['type']}:{pending[1]['id']}"] += 1
-                    pending = next(events, None)
-                self.snapshot = frame
-            if not self.loop:
-                self.finished = True
-                return
+                    with self.lock:
+                        self._show(0)
+                    break
+                wait = start + (ticks[i + 1] - base) * dt / self.speed - time.monotonic()
+                if wait > 0:
+                    self._wake.wait(min(wait, 0.05))
+                    self._wake.clear()
+                    continue
+                with self.lock:
+                    if seq != self._seq:
+                        break
+                    i += 1
+                    self._index = i
+                    lo = bisect.bisect_right(self._event_ticks, ticks[i - 1])
+                    hi = bisect.bisect_right(self._event_ticks, ticks[i])
+                    for _, e in rec.events[lo:hi]:
+                        self.events.append(e)
+                        self.event_counts[f"{e['type']}:{e['id']}"] += 1
+                    self.snapshot = rec.frames[i][1]

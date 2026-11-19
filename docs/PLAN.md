@@ -4666,7 +4666,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         2 or 3 parts it is a few MB. *Screenshot looked at:* the integration test's `view.png`,
         the sorter at 11.2 s with labels in tags: both belts, the boxes, the stacked labels with
         their values and the four status lines, as the viewer drew them.
-  - [ ] 5.14f Pause, seek and step in a replay; the film strip. *What:* `openfactory replay`
+  - [x] 5.14f Pause, seek and step in a replay; the film strip. *What:* `openfactory replay`
         gains pause, a time slider, and a step forward or back by one frame, for the person.
         `openfactory strip FILE.ofrec --at T --span 2 --frames 6 [--look-at ID] [--labels tags]`
         gives the assistant motion: one image of six stills in a row, each stamped with its
@@ -4682,6 +4682,69 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         shows the plate retracted in the first still and extended in a later one (pixel sample
         on the plate), and its table lists `CYL_01_EXT_DO` going true between the right two
         stills; image looked at.
+        *Done (2026-11-18):* `ReplayRuntime` (`record.py`): `paused` (and `ReplayRuntime(paused=
+        True)`, `replay --paused`), `seek(tick)` (the frame at or before it, clamped to the
+        recording; the event log and counts rebuilt up to it, the browser's own parity reports
+        kept), `pause(bool)` (play after a finished replay starts from the first frame),
+        `step(n)` (pauses, moves n frames, stops at either end), `replay_status()`; playback is
+        timed from the frame it (re)started at, and a seek restarts the timing; a replay that
+        plays to its end without `--loop` still ends its thread and is `finished`, as before.
+        `GET /api/replay`, `POST /api/replay/seek | pause | step` (`server/app.py`; replay only,
+        404 on a live run; extra keys 422; guarded as `/api/fault` is, and another Origin 403 by
+        the write middleware). The viewer: `web/src/replaybar.ts` (`replaybar.test.ts`, 4): the
+        bar (step back, play/pause, step forward, a slider over the recording, the time),
+        Space and the arrow keys; a frame that goes back or skips more than two frames
+        (`isJump`) puts every part at its place at once (`PartMeshes.snap`), and
+        `PartMeshes.settled` says when every part is drawn where its frame has it.
+        `src/openfactory/strip.py` and `openfactory strip FILE.ofrec|CAPTURE [--at T] [--span
+        2] [--frames 6] [--look-at ID] [--labels ids|tags|off] [--size 960x540] [--out PNG]`:
+        the stills' times are spread over the span centred on T (the end without `--at`),
+        moved inside the recording, each the recorded frame at or before its time; the
+        recording is served paused in-process on a free loopback port, the viewer is driven in
+        headless Chromium (`?quality=low&panels=off`), each still is a seek, then a wait on the
+        viewer's own tick with every part settled (no sleep), then the viewer's capture picture
+        (5.14e: the plant, labels and status lines); the stills are joined in the page on a
+        canvas, half the viewer's size each, 4 px apart, under a 22 px band stamped "t = ... s
+        tick N", so no image library is added (ruling 5). The table (`change_table`, written
+        beside the image as `.md` and printed): each tag that changed between two stills with
+        its value at both and the count when more than one, and each part's carrier at both
+        and the distance moved, or that it appeared or was removed. A capture folder is read
+        through its `last-60s.ofrec`. Playwright stays a development dependency, imported only
+        by `strip`, which says what to install when it is missing. Docs:
+        `docs/looking-at-the-plant.md` ("Pause, seek and step in a replay", "The film strip"),
+        `docs/guides/README.md`.
+        **Done-when, each with its test:** seeking to tick 300 of the sorter's kit recording
+        shows the frame it holds at 300: `tests/unit/test_replay_seek.py::
+        test_seek_to_tick_300_shows_the_recorded_frame` (`/api/state` equals the recorded frame,
+        whole) and, in the viewer, `tests/integration/test_strip.py::test_seek_draws_the_recorded
+        _frame_and_the_bar_steps` (paused replay, `POST /api/replay/seek` 300: the viewer at
+        tick 300 with every part settled, each part drawn at the recording's position to 1e-6 m,
+        the bar reading "6.00 s / 60.00 s"; step forward 305, two arrow-key steps back 295,
+        play and Space to pause). The strip around the first tall box's push
+        (`test_the_strip_of_the_first_tall_box_push`; the push is tick 430, 8.60 s; stills at
+        ticks 380, 400, 420, 440, 460, 480, `--look-at CYL_01 --labels off`): the plate's stroke
+        0, 0, 0, 0.33, 0.27, 0 m; the pixel at the point 0.2 m out along the stroke is the
+        belt's green (34, 197, 94) in the first still, the pushed box at 440, and the plate's
+        own ISA-101 stopped grey (156, 163, 175) at 460; the table puts `CYL_01_EXT_DO false →
+        true` in "Still 3 to 4" only, the stills either side of tick 430
+        (`test_the_table_lists_the_push_between_the_right_two_stills` too, with the pushed box
+        going CONV_01 → CONV_02). Also: pause and play from a seek and after the end, the event
+        log after a seek back (a recording with a fault at 3 s), a live run 404, another
+        Origin 403, the stills' times kept inside the recording, a capture folder as input
+        (`test_replay_seek.py`, 9); the wash plant from the command line
+        (`test_a_strip_of_the_wash_plant_from_the_command_line`: a 20 s recording made in the
+        test's folder, `strip --at 12 --labels tags`, exit 0, the table printed, a 2900 by 292
+        image).
+        **Images looked at:** the sorter, `--look-at CYL_01`: the plate retracted behind the
+        belt in stills 1 to 3 with the tall box arriving, the box pushed off the belt in still
+        4, the plate out over the belt in still 5, back in still 6; the same moment in the
+        default view with `--labels tags` (still 4 cropped at full size: `CYL_01_EXT_DO true`,
+        the box at the pusher). The wash plant, default view, `--labels tags`, 11.0 to 13.0 s:
+        the cartons advance along both belts from still to still and TK_201's level reads
+        0.576 to 0.572; at half size the whole plant with every tag is dense, which is why the
+        docs point to `--look-at`.
+        **Decision beyond the text:** `--at` is the centre of the span (the end of the
+        recording when left out, so a capture's strip shows its last `--span` seconds).
   - [ ] 5.14g Why it happened: `openfactory explain`. *What:* for a failed check, or for one
         part, the chain of events in order with times: where the part was spawned, each
         conveyor it rode, each sensor it tripped, each command that acted on it and where the
