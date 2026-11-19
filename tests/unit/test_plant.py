@@ -170,6 +170,47 @@ def test_an_id_or_a_tag_in_two_areas_is_a_load_error_naming_both_files(tmp_path)
         load_scene(path)
 
 
+def mapped(cid: str, x: float, plc_tag: str | None, tag: str | None = None) -> dict:
+    """A belt whose run output reaches the controller by ``plc_tag``."""
+    comp = belt(cid, x, tag)
+    if plc_tag is not None:
+        comp["io"]["run"] = {"tag": comp["io"]["run"], "plc_tag": plc_tag}
+    return comp
+
+
+@pytest.mark.parametrize(
+    ("a_name", "b_comp", "message"),
+    [
+        # the same plant name in two areas
+        ("Line.Run", mapped("CV_201", 2.0, "Line.Run"), "plc_tag 'Line.Run' is in both "
+         "areas/a.yaml and areas/b.yaml; each point"),
+        # names that differ only in the case of their tag name are one name
+        ("Line.Run", mapped("CV_201", 2.0, "LINE.Run"), "plc_tag 'LINE.Run' is in both "
+         "areas/a.yaml and areas/b.yaml \\('Line.Run' and 'LINE.Run' differ only in case"),
+        # a plant name in one area equal to another area's unmapped scene tag
+        ("Cv_201_Run_DO", belt("CV_201", 2.0), "plc_tag 'CV_201_RUN_DO' is in both "
+         "areas/a.yaml and areas/b.yaml \\('Cv_201_Run_DO' and 'CV_201_RUN_DO' differ only"),
+    ],
+)  # fmt: skip
+def test_a_plc_tag_two_areas_share_is_a_load_error_naming_both_files(
+    tmp_path, a_name, b_comp, message
+) -> None:
+    path = plant(tmp_path)
+    write(path.parent / "areas" / "a.yaml", area_doc("area-a", mapped("CV_101", 0.0, a_name)))
+    write(path.parent / "areas" / "b.yaml", area_doc("area-b", b_comp))
+    with pytest.raises(PlantError, match=message):
+        load_scene(path)
+
+
+def test_a_plc_tag_equal_to_the_plants_heartbeat_names_both_files(tmp_path) -> None:
+    path = plant(tmp_path, plc={"protocol": "modbus_tcp", "heartbeat_plc_tag": "Hb.0"})
+    write(path.parent / "areas" / "a.yaml", area_doc("area-a", mapped("CV_101", 0.0, "HB.0")))
+    with pytest.raises(PlantError, match="plc_tag 'Hb.0' is in both areas/a.yaml and plant.yaml"):
+        load_scene(path)
+    write(path.parent / "areas" / "a.yaml", area_doc("area-a", mapped("CV_101", 0.0, "Hb.1")))
+    assert len(load_scene(path).components) == 2  # distinct names load
+
+
 FAN = {"type": "fan_unit", "description": "A fan.",
        "parts": [{"id": "body", "type": "scenery", "description": "Body",
                   "position": [0, 0.25, 0], "size": [0.5, 0.5, 0.5]}],

@@ -170,6 +170,19 @@ def test_area_on_the_commands(tmp_path) -> None:
     assert "no area 'C'; its areas are A, B" in done.output
 
 
+def test_the_help_of_export_area_states_both_meanings_in_one_sentence_each() -> None:
+    """Ruled 2026-11-18: on a plant file it selects the area; on any other scene it names the
+    SCADA export's folder."""
+    import typer
+
+    export = typer.main.get_command(cli).commands["export"]
+    text = next(p.help for p in export.params if p.name == "area")
+    sentences = [s.strip() for s in text.split(". ") if s.strip()]
+    assert len(sentences) == 2, sentences
+    assert sentences[0].startswith("On a plant file") and "selects the area" in sentences[0]
+    assert sentences[1].startswith("On any other scene") and "area folder" in sentences[1]
+
+
 # --- the shipped sample plant (PLAN 5.4d) ---------------------------------------------------
 
 SAMPLE = Path(__file__).resolve().parents[2] / "scenes" / "plants" / "wash-plant"

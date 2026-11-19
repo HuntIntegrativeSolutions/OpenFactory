@@ -180,8 +180,8 @@ def p001() -> str:
 
     # TK-101, C2, with its agitator AG-101 from C1
     svg.rect(630, 310, 140, 120, fill="#ffffff", **{"stroke-width": "2.5"})
-    svg.text(700, 380, "TK-101", 13, "middle", "bold")
-    svg.text(700, 397, "WASH WATER TANK", 9, "middle")
+    svg.text(686, 380, "TK-101", 13, "middle", "bold")
+    svg.text(686, 397, "WASH WATER TANK", 9, "middle")  # clear of the shaft at x 745
     svg.circle(745, 170, 22, fill="#ffffff")
     svg.text(745, 175, "M", 14, "middle", "bold")
     svg.line(745, 192, 745, 418)

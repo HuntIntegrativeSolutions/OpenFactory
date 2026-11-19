@@ -60,6 +60,10 @@ class Area:
     data: dict[str, Any]
     ids: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    #: The name each point reaches the controller by: its ``plc_tag``, else its scene tag.
+    plc_names: list[str] = field(default_factory=list)
+    #: Whether any point of the file has a ``plc_tag``.
+    mapped: bool = False
 
 
 @dataclass
@@ -209,9 +213,11 @@ def merge(plant_path: Path, data: dict[str, Any], area: str | None = None) -> tu
             scene = Scene.model_validate(area_data, context={"scene_dir": path.parent})
         except ValidationError as exc:
             raise PlantError(_errors(rel, text, exc)) from None
+        bindings = scene.tag_bindings()
         areas.append(Area(entry["area"], entry["file"], path, area_data,
-                          [c.id for c in scene.components],
-                          [b.name for b in scene.tag_bindings()]))  # fmt: skip
+                          [c.id for c in scene.components], [b.name for b in bindings],
+                          [b.plc_tag or b.name for b in bindings],
+                          any(b.plc_tag for b in bindings)))  # fmt: skip
 
     if area is not None and area not in [a.name for a in areas]:
         raise PlantError(f"{me}: no area {area!r}; its areas are "
@@ -220,6 +226,8 @@ def merge(plant_path: Path, data: dict[str, Any], area: str | None = None) -> tu
     own = [c for c in data.get("components") or [] if isinstance(c, dict)]
     own_ids: list[str] = []
     own_tags: list[str] = []
+    own_plc: list[str] = []
+    own_mapped = False
     if own:
         mini = {"openfactory": data.get("openfactory"), "scene": data.get("scene"),
                 "composites": data.get("composites") or [], "components": own}  # fmt: skip
@@ -229,7 +237,10 @@ def merge(plant_path: Path, data: dict[str, Any], area: str | None = None) -> tu
             mini_scene = None  # the merged scene reports it, with the others' context
         if mini_scene is not None:
             own_ids = [c.id for c in mini_scene.components]
-            own_tags = [b.name for b in mini_scene.tag_bindings()]
+            own_bindings = mini_scene.tag_bindings()
+            own_tags = [b.name for b in own_bindings]
+            own_plc = [b.plc_tag or b.name for b in own_bindings]
+            own_mapped = any(b.plc_tag for b in own_bindings)
 
     # ids and tags are global: a clash names both files
     def clashes(what: str, lists: list[tuple[str, list[str]]]) -> None:
@@ -244,6 +255,16 @@ def merge(plant_path: Path, data: dict[str, Any], area: str | None = None) -> tu
     rel_of = {a.name: _rel(a.path, folder.resolve()) for a in areas}
     clashes("id", [(rel_of[a.name], a.ids) for a in areas] + [(me, own_ids)])
     clashes("tag", [(rel_of[a.name], a.tags) for a in areas] + [(me, own_tags)])
+    # a plant name two files share (PLAN 5.3a's rule, as the merged scene applies it: once any
+    # point has a plc_tag, a point without one counts by its scene tag; names compared by
+    # plc_tag_key, as tag names are not case sensitive)
+    plc_block = data.get("plc") if isinstance(data.get("plc"), dict) else {}
+    heartbeat = plc_block.get("heartbeat_plc_tag")
+    if heartbeat or own_mapped or any(a.mapped for a in areas):
+        from openfactory.core.heartbeat import HEARTBEAT_TAG
+
+        own_plc = [*own_plc, heartbeat if isinstance(heartbeat, str) else HEARTBEAT_TAG]
+        _plc_clashes(me, [(rel_of[a.name], a.plc_names) for a in areas] + [(me, own_plc)])
 
     # composites, merged by type name
     composites: list[Any] = []
@@ -313,6 +334,26 @@ def merge(plant_path: Path, data: dict[str, Any], area: str | None = None) -> tu
         meta.setdefault("area", area)
         merged["scene"] = meta
     return merged, Plant(plant_path, areas, sources, area, notes)
+
+
+def _plc_clashes(me: str, lists: list[tuple[str, list[str]]]) -> None:
+    from openfactory.core.plctag import plc_tag_key
+
+    first: dict[str, tuple[str, str]] = {}  # key -> (file, name as written)
+    for rel, names in lists:
+        for name in names:
+            key = plc_tag_key(name)
+            if key in first and first[key][0] != rel:
+                was_rel, was = first[key]
+                case = "" if was == name else (
+                    f" ({was!r} and {name!r} differ only in case, and tag names are not case "
+                    "sensitive)"
+                )  # fmt: skip
+                raise PlantError(
+                    f"{me}: plc_tag {name!r} is in both {was_rel} and {rel}{case}; each point "
+                    "in the plant's controller needs its own name"
+                )
+            first.setdefault(key, (rel, name))
 
 
 def _rebase_mesh(comp: dict[str, Any], sub: Path) -> dict[str, Any]:

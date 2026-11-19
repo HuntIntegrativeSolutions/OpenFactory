@@ -104,3 +104,32 @@ def test_the_sample_checks_and_with_its_questions_answered_passes_strict(tmp_pat
     done = runner.invoke(cli, ["takeoff", "check", str(answered), "--strict"])
     assert done.exit_code == 0, done.output
     assert "OK (--strict)" in done.output
+
+
+#: A text's width is taken as 0.66 em per character (the sheets' capitals are about 0.65 em
+#: wide as rendered), and it keeps 4 px clear of a vertical line on each side.
+TEXT_EM, TEXT_CLEAR = 0.66, 4.0
+
+
+def test_no_text_touches_a_vertical_line() -> None:
+    """The review of 2026-11-17: "WASH WATER TANK" on P-001 touched the agitator's shaft."""
+    touching = []
+    for sheet in SHEETS:
+        root = ET.fromstring((SET / f"{sheet}.svg").read_text(encoding="utf-8"))
+        texts, lines = [], []
+        for el in root.iter():
+            tag = el.tag.rsplit("}", 1)[-1]
+            if tag == "text":
+                x, y, size = (float(el.get(k)) for k in ("x", "y", "font-size"))
+                width = len(el.text) * TEXT_EM * size
+                left = {"start": x, "middle": x - width / 2, "end": x - width}[
+                    el.get("text-anchor", "start")
+                ]
+                texts.append((el.text, left - TEXT_CLEAR, left + width + TEXT_CLEAR,
+                              y - 0.75 * size, y))  # fmt: skip
+            elif tag == "line" and el.get("x1") == el.get("x2"):
+                y1, y2 = sorted((float(el.get("y1")), float(el.get("y2"))))
+                lines.append((float(el.get("x1")), y1, y2))
+        touching += [(sheet, text, x) for text, x0, x1, top, base in texts
+                     for x, y1, y2 in lines if x0 < x < x1 and y1 < base and y2 > top]  # fmt: skip
+    assert touching == []

@@ -1291,9 +1291,11 @@ def export(
     area: Annotated[
         str | None,
         typer.Option(
-            help="With a plant file (include:, PLAN 5.4): export only this area, at the plant's "
-            "Modbus addresses (its lockfile is read, never written). ignition: the area folder "
-            "(default: scene.area, else the scene name in capitals; for a plant's area, its name).",
+            help="On a plant file (include:, PLAN 5.4), it selects the area to export, at the "
+            "plant's Modbus addresses (the plant's lockfile is read, never written), and that "
+            "area's name is also the ignition export's area folder. On any other scene, it names "
+            "the ignition export's area folder (default: scene.area, else the scene name in "
+            "capitals).",
         ),
     ] = None,
     opc_server: Annotated[

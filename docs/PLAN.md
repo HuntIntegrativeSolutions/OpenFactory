@@ -3623,7 +3623,12 @@ trusts it.
         the tank. **Grid references:** the note's L-001 references could not all hold on one even
         zone grid (P-101 at X 4200 in C and PE-201 at X 4200 in B); the grid of 1600 mm columns
         from X 700 keeps every one but PE-201's, which sits 300 mm into C. Fixed 2026-11-17 as
-        ruled: PE-201's ref is C4 and the sample was marked again. *Tests* (`tests/unit/test_sample_set.py`, 5): the files, their
+        ruled: PE-201's ref is C4 and the sample was marked again. Fixed 2026-11-18 on review:
+        "WASH WATER TANK" touched the agitator's shaft on P-001; TK-101's two labels now sit at
+        X 686, left of the shaft at X 745, the sheet re-rendered and looked at (the label ends
+        about 15 px short of the shaft; the takeoff and its mark did not change), held by
+        `test_no_text_touches_a_vertical_line` (each text's box, 0.66 em a character and 4 px
+        clear, against every vertical line on both sheets). *Tests* (`tests/unit/test_sample_set.py`, 6 since 2026-11-18): the files, their
         licence lines and sizes; the SVGs current and made of primitives only, with no link or
         script; each PNG's recorded digest equal to its SVG's and its size the SVG's (a render
         is not the same bytes on every machine, so pixels are not compared); the I/O list
@@ -3928,6 +3933,20 @@ trusts it.
       *Known limit, not a task:* two identical lines cannot share one area file. Ids and tags
       are global and never prefixed, so a second copy of an area clashes with the first; each
       line is its own area file with its own ids and tags.
+      *Ruled 2026-11-18 (the owner, on review of 5.4a to 5.4d):* confirmed: `MAX_SCENE_BYTES` of
+      4 MB on every scene file; `--area` on `export` selects the area on a plant file and names
+      the SCADA folder on any other scene; a plant file may hold components of its own; an area
+      run never writes `CONTEXT.md` and refuses to start without the plant lockfile holding its
+      tags; `bundle` refuses a plant file; `--mark` writes the mark on one line. The help text
+      of `export --area` states both meanings in one sentence each
+      (`test_the_help_of_export_area_states_both_meanings_in_one_sentence_each`).
+      *Review fix (2026-11-18), with a test that failed before:* a `plc_tag` two files share
+      was refused by the merged scene without naming the files; `merge` now reports it as it
+      reports ids and scene tags, naming both files and comparing by `plc_tag_key` (once any
+      point of the plant has a `plc_tag`, a point without one counts by its scene tag, and the
+      heartbeat by its name in the plant file), so names that differ only in case are said to
+      (`test_plant.py`: `test_a_plc_tag_two_areas_share_is_a_load_error_naming_both_files`,
+      three cases, and `test_a_plc_tag_equal_to_the_plants_heartbeat_names_both_files`).
       *Sub-tasks (written 2026-11-17, before the build, in the ruled order of note §4 and §5;
       ruled additions of 2026-11-17: paths relative to the including file, inside the plant's
       folder, read with the scene's safe loader and size limit; a cycle a load error naming the
