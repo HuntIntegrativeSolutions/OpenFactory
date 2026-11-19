@@ -4845,7 +4845,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         the left listing the steps, the blue trail from the emitter along CONV_01 with markers at
         PE_01 and at the pusher's events, a jog where the late plate pushed the box 0.15 m across
         the belt without taking it off, and the box near REM_01.
-  - [ ] 5.14h Pause and single-step a live run. *What:* Space pauses the simulation; a Step
+  - [x] 5.14h Pause and single-step a live run. *What:* Space pauses the simulation; a Step
         button advances 0.1 s. For the person, at the moment something looks wrong.
         *How:* the scheduler stops calling `step`; a stand-in script pauses with it. With a real
         PLC the PLC keeps running, so its timers run on: the viewer shows "simulation paused,
@@ -4854,6 +4854,50 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         *Done when:* a test pauses a scripted run, sees the tick hold for two wall seconds, steps
         five times and sees it advance five frames' worth; parity traces and recordings of an
         unpaused run do not move.
+        *Done (2026-11-19):* `Scheduler.pause` / `step_ticks` (`core/scheduler.py`): a pause
+        takes effect after the tick in progress and answers once the run's thread holds; a step
+        runs its ticks on the run's own thread (so `stats.ticks` and a `duration_s` limit count
+        them) and answers once they have run; resuming restarts the real-time schedule from that
+        moment (no catch-up burst, no dropped ticks). `Runtime.pause`, `Runtime.step` (0.1 s a
+        step, `pause` and `step` events in the event log), `run_status`; `GET /api/pause`, `POST
+        /api/pause` `{paused}`, `POST /api/step` `{steps}` (1 to 100): **write endpoints guarded
+        as `/api/fault` is** (open on loopback, the fault token beyond it; the write middleware's
+        Origin 403 and JSON 415) **and off for a trainee in exam mode** (403 without the
+        instructor's token, the check factored out of capture's); 404 in a replay (its own bar).
+        While paused `/ws/state` frames carry `sim_paused: true`, outside the snapshot, so no
+        recording holds it. The viewer (`web/src/pausebar.ts`, `pausebar.test.ts`, 2): Space
+        (not typed in a text field, not on auto-repeat, not in a replay, the editor, or for a
+        trainee), Pause/Resume and Step 0.1 s beside Capture, and the banner at the bottom
+        centre on every viewer: "Simulation paused, PLC still running (Modbus TCP): its timers
+        run on, and the heartbeat has stopped" with a protocol server (ruling 4), else
+        "Simulation paused (the stand-in script, if any, pauses with it)".
+        **What a protocol client sees while paused** (`tests/integration/test_pause_modbus.py`):
+        the server keeps answering from the I/O table, which no tick changes: the heartbeat read
+        over Modbus changed 3 times in 1.6 s running, 0 times in 2.0 s paused, 3 times in 1.6 s
+        resumed; a coil the client wrote while paused (`CONV_01_RUN_DO`) was in the table at
+        once, the tick did not move, the belt did not travel and its feedback stayed off until a
+        step, after which `CONV_01_RUN_DI` was on and the belt had moved.
+        **Done-when, each with its test** (`tests/unit/test_pause.py`, 6): paused, the tick and
+        the script's scan count hold for two wall seconds; five steps answer ticks +5, +10, +15,
+        +20, +25 (five frames' worth) and the script scanned 25 more times
+        (`test_a_paused_run_holds_for_two_seconds_and_five_steps_advance_five_frames`); a paused
+        run with `duration_s` 1 s, held 2 s of wall time, grades nothing and every check stays
+        pending, then grades when simulated time reaches 1 s
+        (`test_a_paused_run_never_fails_a_checks_deadline_by_waiting`); resuming runs at real
+        time from then (25 ticks in 26 ticks' worth of wall time, none dropped:
+        `test_resuming_starts_from_now_without_catching_up`); the guards
+        (`test_pause_and_step_are_write_endpoints_guarded_as_api_fault`,
+        `test_off_for_a_trainee_in_exam_mode`); frames and snapshot
+        (`test_frames_carry_sim_paused_and_the_snapshot_never_does`). Parity traces and
+        recordings of an unpaused run do not move: `tools/build_kit.py --check` (12 kits),
+        `tools/parity_trace.py --check` and `tests/integration/test_runs_unchanged.py` pass
+        unchanged. In the browser (`tests/integration/test_pause_viewer.py`): Space pauses, a
+        second viewer shows the banner, the tick holds a second, Step runs 5 ticks, Space in a
+        text field does nothing, Space resumes. **Picture looked at:** the sorter paused at
+        5.2 s, the yellow-bordered banner at the bottom centre, Resume and Step 0.1 s beside
+        Capture, the checks panel at "t = 5 s". The first picture showed the pause glyph as a
+        missing-font box, Resume covering Step, and the banner at the top touching the checks
+        panel; all three fixed before this one.
   - [ ] 5.14i The program's own state. *What:* a stand-in script can publish watch values, for
         example `io.watch("step", 20)`. They show in `look`, in tag labels, in a recording and in
         `explain`. They are not tags: no address, no export, and the lockfiles do not move.

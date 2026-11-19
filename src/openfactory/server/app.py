@@ -124,6 +124,20 @@ Behavior spec
   true|false}`` pauses or plays, and ``POST /api/replay/step`` with ``{"frames": ±N}`` pauses
   and moves N frames; each answers the same as ``GET``. They change only what is shown, and
   are guarded as ``/api/fault`` is (open on loopback, the token beyond it).
+- Pause and step a live run (PLAN 5.14h; 404 in a replay): ``GET /api/pause`` says ``{paused,
+  tick, t, plc_attached, protocols}``; ``POST /api/pause`` with ``{"paused": true|false}`` pauses
+  after the tick in progress or resumes, and ``POST /api/step`` with ``{"steps": N}`` (1 to 100)
+  pauses and runs N x 0.1 s, answering once they have run; each answers as ``GET`` does. **Write
+  endpoints, guarded as /api/fault is** (open on loopback, the fault token beyond it; another
+  ``Origin`` 403 and a body that is not JSON 415 by the write middleware), and **off for a
+  trainee in exam mode** (403 without the instructor's token). While paused, ``/ws/state`` frames
+  carry ``sim_paused: true`` (not part of the snapshot, so a recording never holds it).
+  Simulated time stands while paused: a ``checks:`` deadline is simulated time, so pausing never
+  fails one. **What a protocol client sees while paused:** the protocol servers keep answering
+  from the I/O table, which no tick changes, so every DI and AI reads as it was when the pause
+  began, the simulator heartbeat (``SIM_HEARTBEAT_DI``, PLAN §6.1) included, which stops
+  changing as it does when the simulation stops; a PLC's writes of DO and AO are taken into the
+  table as always, and act at the next tick (a step, or the resume).
 - ``/``: the built viewer from ``web/dist`` (``npm run build``), when present. Without a build,
   ``/`` returns a short page saying how to build it; the API still works.
 
@@ -246,6 +260,20 @@ class ReplaySeek(BaseModel):
 class ReplayPause(BaseModel):
     model_config = ConfigDict(extra="forbid")
     paused: bool
+
+
+class PauseRequest(BaseModel):
+    """``POST /api/pause`` (PLAN 5.14h)."""
+
+    model_config = ConfigDict(extra="forbid")
+    paused: bool
+
+
+class StepRequest(BaseModel):
+    """``POST /api/step`` (PLAN 5.14h): how many 0.1 s steps."""
+
+    model_config = ConfigDict(extra="forbid")
+    steps: int = Field(default=1, ge=1, le=100)
 
 
 class ReplayStep(BaseModel):
@@ -631,6 +659,42 @@ def create_app(
     def replay_step(body: ReplayStep) -> dict[str, Any]:
         return replay_runtime().step(body.frames)
 
+    def trainee_refusal(request: Request) -> None:
+        """In exam mode only the instructor (the fault token) may capture, pause or step: 403
+        for a trainee (PLAN 5.14e, 5.14h)."""
+        if getattr(getattr(runtime, "loaded", None), "exam", None) is None:
+            return
+        given = request.headers.get(FAULT_TOKEN_HEADER)
+        if not (expected and given and hmac.compare_digest(given.encode(), expected)):
+            raise HTTPException(403, "off in exam mode for a trainee (the instructor's token)")
+
+    def live_runtime() -> Any:
+        if not hasattr(runtime, "run_status"):
+            raise HTTPException(404, "live only: a replay pauses with /api/replay/pause")
+        return runtime
+
+    @app.get("/api/pause")
+    def pause_status() -> dict[str, Any]:
+        """Whether the simulation is paused, its tick, and whether a PLC is attached."""
+        return live_runtime().run_status()
+
+    @app.post("/api/pause", dependencies=guarded)
+    def pause(body: PauseRequest, request: Request) -> dict[str, Any]:
+        """Pause or resume the live simulation (PLAN 5.14h)."""
+        live = live_runtime()
+        trainee_refusal(request)
+        return live.pause(body.paused)
+
+    @app.post("/api/step", dependencies=guarded)
+    def step(body: StepRequest, request: Request) -> dict[str, Any]:
+        """Pause and run ``steps`` x 0.1 s; answers once they have run (PLAN 5.14h)."""
+        live = live_runtime()
+        trainee_refusal(request)
+        try:
+            return live.step(body.steps)
+        except TimeoutError as exc:
+            raise HTTPException(409, str(exc)) from None
+
     captures = Path(capture_dir) if capture_dir is not None else Path.cwd() / DEFAULT_DIR
 
     @app.post("/api/capture")
@@ -640,10 +704,7 @@ def create_app(
             raise HTTPException(404, "capture: a replay has nothing to capture; run the scene")
         if not faults_open:
             raise HTTPException(403, "capture is offered only on a server bound to loopback")
-        if getattr(runtime.loaded, "exam", None) is not None:
-            given = request.headers.get(FAULT_TOKEN_HEADER)
-            if not (expected and given and hmac.compare_digest(given.encode(), expected)):
-                raise HTTPException(403, "capture is off in exam mode (the instructor's token)")
+        trainee_refusal(request)
         declared = request.headers.get("content-length")
         if declared is not None and (not declared.isdigit() or int(declared) > MAX_CAPTURE_BODY):
             raise HTTPException(413, "capture: the picture is over 5 MB")
@@ -708,7 +769,13 @@ def create_app(
         """The current snapshot and the viewer count as JSON, serialized once per frame for
         every viewer. All WebSocket handlers run on this event loop's thread: no lock."""
         frames["serialized"] += 1
-        return json.dumps({**runtime.snapshot, "viewers": len(viewers)}, separators=(",", ":"))
+        frame = {**runtime.snapshot, "viewers": len(viewers)}
+        if sim_paused():  # PLAN 5.14h: the banner; never in the snapshot, so never recorded
+            frame["sim_paused"] = True
+        return json.dumps(frame, separators=(",", ":"))
+
+    def sim_paused() -> bool:
+        return hasattr(runtime, "run_status") and bool(runtime.paused)
 
     def instructor_text() -> str:
         """The frame plus every active fault (PLAN 4.12), serialized once for every instructor.
@@ -730,6 +797,8 @@ def create_app(
             "faults": {f["id"]: f["kind"] for f in found["active"]},
             "comms": found.get("comms"),
         }
+        if sim_paused():
+            frame["sim_paused"] = True
         return json.dumps(frame, separators=(",", ":"))
 
     async def send(ws: WebSocket, text: str) -> None:

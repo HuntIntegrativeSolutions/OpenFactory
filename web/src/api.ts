@@ -76,6 +76,8 @@ export interface StateFrame {
   instructor?: boolean;
   faults?: Record<string, string>;
   comms?: unknown;
+  /** A live run's simulation is paused (PLAN 5.14h); absent otherwise, and never recorded. */
+  sim_paused?: boolean;
 }
 
 /** Viewer status read by tools/screenshot.py (PLAN 1.13) through `window.__openfactory`. */

@@ -46,6 +46,7 @@ import { placeNew, type Rect } from "./editor/place";
 import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
 import { ExplainPanel, stepPoints, trailPoints, type ExplainAnswer } from "./explainpanel";
+import { PauseControls } from "./pausebar";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
 import { boxInView, fitPose, framedBounds, framePose, type VisibleArea } from "./framing";
@@ -665,6 +666,8 @@ function onFrame(frame: StateFrame): void {
   if (loading || !doc) return;
   const start = performance.now();
   lastFrame = frame;
+  pauseControls.show(frame.sim_paused === true); // PLAN 5.14h: every viewer's banner
+  window.__openfactory.simPaused = frame.sim_paused === true;
   for (const view of views) {
     const state = frame.components[view.id] ?? {};
     view.update(state);
@@ -696,6 +699,7 @@ function onFrame(frame: StateFrame): void {
     `${frame.viewers === undefined ? "" : `   viewers ${frame.viewers}`}\n` +
     `running: ${running.map((v) => v.id).join(", ") || "none"}\n` +
     frameLine();
+
   examPanel?.avoid(hud); // below the status lines on a narrow screen
   placeChecks();
   stateCost.frame(start, performance.now() - start);
@@ -1133,11 +1137,45 @@ window.addEventListener("keydown", (e) => {
 /** Show the Capture button only where a capture is offered (refreshed with the exam state). */
 function placeCapture(): void {
   captureButton.style.display = captureOffered() ? "block" : "none";
+  pauseControls.offer(pauseOffered());
 }
+
+/** Pause and step a live run (PLAN 5.14h, pausebar.ts): Space, the Pause and Step buttons, and
+ * the banner every viewer shows while the simulation is paused. */
+async function pauseRequest(path: string, body: object): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = currentToken();
+  if (token) headers["X-OpenFactory-Fault-Token"] = token;
+  const res = await fetch(path, { method: "POST", headers, body: JSON.stringify(body) });
+  const answer = (await res.json()) as { paused?: boolean; tick?: number; detail?: unknown };
+  window.__openfactory.pauseAnswer = res.ok ? answer : { error: res.status, detail: answer.detail };
+  if (res.ok && typeof answer.paused === "boolean") pauseControls.show(answer.paused);
+}
+const pauseControls = new PauseControls({
+  pause: (paused) => pauseRequest("/api/pause", { paused }),
+  step: () => pauseRequest("/api/step", { steps: 1 }),
+});
+
+function pauseOffered(): boolean {
+  return !editing() && !replaying() && !(window.__openfactory.exam && !INSTRUCTOR);
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.key !== " " || typingIn(e.target) || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!pauseOffered()) return; // a replay's Space is its own bar's
+  e.preventDefault();
+  void pauseControls.toggle();
+});
 
 async function start(): Promise<void> {
   await loadScene();
-  app!.append(scaleBox, copyViewButton, labelsControl, captureButton, captureBox, captureStatus, explainPanel.element);
+  app!.append(scaleBox, copyViewButton, labelsControl, captureButton, captureBox, captureStatus, explainPanel.element, pauseControls.controls, pauseControls.banner);
+  if (pauseOffered()) {
+    fetch("/api/pause")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s: { protocols?: string[] } | null) => s && pauseControls.setProtocols(s.protocols ?? []))
+      .catch(() => void 0);
+  }
   applyUrlView();
   wireClicks();
   const menu = new FaultMenu({ target: renderer.domElement, pick: pickComponent });

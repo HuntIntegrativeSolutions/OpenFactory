@@ -303,6 +303,51 @@ class Runtime:
     def running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
 
+    # -- pause and step (PLAN 5.14h) ---------------------------------------------------------------
+
+    #: One step: 0.1 s of simulated time (PLAN 5.14h's Step button).
+    STEP_S = 0.1
+
+    @property
+    def paused(self) -> bool:
+        return self.scheduler.paused
+
+    def pause(self, paused: bool) -> dict[str, Any]:
+        """Pause the simulation after the tick in progress, or resume it (PLAN 5.14h). The
+        stand-in script, scanned before every tick, pauses with it; a real PLC keeps running.
+        A ``pause`` event (``value`` true or false) goes in the event log."""
+        if paused != self.scheduler.paused:
+            self.scheduler.pause(paused)
+            with self.lock:
+                self._event(
+                    {"type": "pause", "id": "simulation", "value": bool(paused),
+                     "core_t": self.loaded.time, "core_tick": self.loaded.tick}
+                )  # fmt: skip
+                self.event_counts["pause:simulation"] += 1
+        return self.run_status()
+
+    def step(self, steps: int = 1) -> dict[str, Any]:
+        """Pause, then run ``steps`` x 0.1 s and answer once they have run (PLAN 5.14h)."""
+        self.pause(True)
+        ticks = max(1, round(self.STEP_S / self.scheduler.dt)) * int(steps)
+        self.scheduler.step_ticks(ticks)
+        with self.lock:
+            self._event({"type": "step", "id": "simulation", "value": ticks,
+                         "core_t": self.loaded.time, "core_tick": self.loaded.tick})  # fmt: skip
+            self.event_counts["step:simulation"] += 1
+        return self.run_status()
+
+    def run_status(self) -> dict[str, Any]:
+        """Paused or not, the tick and time, and whether a PLC is attached (the banner)."""
+        with self.lock:
+            return {
+                "paused": self.scheduler.paused,
+                "tick": self.loaded.tick,
+                "t": round(self.loaded.time, 6),
+                "plc_attached": bool(self.protocols),
+                "protocols": list(self.protocols),
+            }
+
     # -- static scene description ----------------------------------------------------------------
 
     def scene_document(self, *, meshes: bool = True, snaps: bool = True) -> dict[str, Any]:
@@ -708,6 +753,7 @@ class Runtime:
             "t": snap["t"],
             "tick": snap["tick"],
             "running": self.running,
+            "paused": self.scheduler.paused,
             "parts": len(snap["parts"]),
             "spawned": self.loaded.world.spawned,
             "removed": dict(self.loaded.world.removed),

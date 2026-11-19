@@ -232,6 +232,28 @@ are `POST /api/replay/seek` (`{"tick": N}`: the frame at or before N), `/api/rep
 (`{"paused": true}`) and `/api/replay/step` (`{"frames": -1}`), and `GET /api/replay` says
 where the replay is; a live run answers them 404.
 
+## Pause and step a live run
+
+While a scene runs, **Space** (or **Pause**, bottom left) pauses the simulation after the tick in
+progress, and **Step 0.1 s** runs one tenth of a second of simulated time and stops again; Space
+or **Resume** goes on. Simulated time stands while paused, so a `checks:` deadline (simulated
+time) is never failed by waiting, and resuming starts from that moment: the paused time is not
+caught up. The stand-in script (`--script`) is scanned before every tick, so it pauses with the
+simulation. Every viewer of the run shows a banner while it is paused.
+
+**With a real PLC** (a protocol server is running) the PLC keeps running: its timers run on.
+The banner says so: "Simulation paused, PLC still running". The protocol server keeps answering
+from the I/O table, which no tick changes, so every input reads as it was when the pause began;
+the simulator heartbeat (`SIM_HEARTBEAT_DI`) stops changing, as it does when the simulation
+stops, which is what a PLC's comms watchdog should notice. A PLC's writes of outputs are taken
+into the table as always and act at the next tick (a step, or the resume).
+
+The same is `POST /api/pause` (`{"paused": true}` or `false`) and `POST /api/step`
+(`{"steps": N}`, N x 0.1 s, answered once they have run); `GET /api/pause` says whether the run
+is paused, its tick and the protocol servers. They are guarded as the fault API is (open on
+loopback, the fault token beyond it), and off for a trainee in exam mode. A replay pauses with
+its own bar (above).
+
 ## The film strip
 
 `openfactory strip` turns a moment of a recording into one image an assistant can read: stills in

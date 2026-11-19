@@ -17,6 +17,13 @@ simulation therefore never sees wall-clock time; only how *often* it is stepped 
 :meth:`Scheduler.run` stops after ``duration_s`` simulated seconds (rounded to whole ticks), when
 :meth:`Scheduler.stop` is called from another thread, or never if neither applies. The clock and
 sleep functions are injectable so the timing logic can be tested without waiting.
+
+**Pause and step (PLAN 5.14h).** :meth:`Scheduler.pause` stops calling ``step`` after the tick
+in progress; simulated time stands still, whatever the wall clock does. :meth:`Scheduler.
+step_ticks` runs N more ticks while paused, on the scheduler's own thread (so ``stats.ticks`` and
+the ``duration_s`` limit count them), and returns once they are done. Resuming restarts the
+real-time schedule from that moment, so the paused wall time is never caught up in a burst and
+no tick is dropped for it. A run that is never paused calls ``step`` exactly as before.
 """
 
 from __future__ import annotations
@@ -74,6 +81,11 @@ class Scheduler:
         self._clock = clock
         self._sleep = sleep
         self._stop = threading.Event()
+        # PLAN 5.14h: paused, and the ticks asked for while paused, under one condition
+        self._cv = threading.Condition()
+        self._paused = False
+        self._pending = 0
+        self._holding = False  # the run's thread is in _hold: no tick is in progress
         #: The current (or last) run's stats, updated as it goes, so a server can report dropped
         #: ticks while the run is live (PLAN 4.3).
         self.stats = RunStats()
@@ -81,6 +93,69 @@ class Scheduler:
     def stop(self) -> None:
         """Ask a running :meth:`run` to return after its current tick. Thread-safe."""
         self._stop.set()
+        with self._cv:
+            self._cv.notify_all()
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
+    def pause(self, paused: bool = True, wait_s: float = 1.0) -> None:
+        """Pause after the tick in progress, or resume (PLAN 5.14h). Thread-safe. A pause waits
+        up to ``wait_s`` for that tick to finish, so the caller reads the tick that stands."""
+        with self._cv:
+            self._paused = bool(paused)
+            if not paused:
+                self._pending = 0
+            self._cv.notify_all()
+            if paused and wait_s > 0:
+                self._cv.wait_for(lambda: self._holding or self._stop.is_set(), wait_s)
+
+    def step_ticks(self, n: int, timeout: float = 10.0) -> int:
+        """While paused, run ``n`` more ticks on the run's thread and wait for them (PLAN
+        5.14h); the ticks run so far. RuntimeError when not paused; TimeoutError when they did
+        not run in ``timeout`` seconds (no run, or a stopped one)."""
+        with self._cv:
+            if not self._paused:
+                raise RuntimeError("step: pause the simulation first")
+            target = self.stats.ticks + self._pending + int(n)
+            self._pending += int(n)
+            self._cv.notify_all()
+            if not self._cv.wait_for(
+                lambda: self.stats.ticks >= target or self._stop.is_set(), timeout
+            ):
+                raise TimeoutError("step: the simulation did not run the ticks asked for")
+            return self.stats.ticks
+
+    def _hold(self, limit: int | None, stats: RunStats) -> int:
+        """While paused: wait, and run the ticks a step asks for; the ticks run. The caller
+        loops until the pause ends or the run stops. ``_holding`` is true while no tick is in
+        progress here, which a pause waits for."""
+        ran = 0
+        with self._cv:
+            self._holding = True
+            self._cv.notify_all()
+            try:
+                while self._paused and not self._pending and not self._stop.is_set():
+                    self._cv.wait(0.05)
+                while self._paused and self._pending and not self._stop.is_set():
+                    if limit is not None and stats.ticks >= limit:
+                        self._pending = 0
+                        break
+                    self._pending -= 1
+                    self._holding = False
+                    self._cv.release()
+                    try:
+                        self.step(self.dt)
+                    finally:
+                        self._cv.acquire()
+                        self._holding = True
+                    stats.ticks += 1
+                    ran += 1
+                    self._cv.notify_all()
+            finally:
+                self._holding = False
+        return ran
 
     def run(self, duration_s: float | None = None) -> RunStats:
         self._stop.clear()
@@ -91,6 +166,9 @@ class Scheduler:
             self._run_realtime(limit, stats, wall_start)
         else:
             while (limit is None or stats.ticks < limit) and not self._stop.is_set():
+                if self._paused:
+                    self._hold(limit, stats)
+                    continue
                 self.step(self.dt)
                 stats.ticks += 1
         stats.sim_time = stats.ticks * self.dt
@@ -100,6 +178,10 @@ class Scheduler:
     def _run_realtime(self, limit: int | None, stats: RunStats, start: float) -> None:
         origin, done = start, 0  # tick `done + k` is due at origin + (k + 1) * dt
         while (limit is None or stats.ticks < limit) and not self._stop.is_set():
+            if self._paused:  # PLAN 5.14h: simulated time stands; steps run here
+                done += self._hold(limit, stats)
+                origin = self._clock() - done * self.dt  # resume from now: no catch-up burst
+                continue
             now = self._clock()
             due = int((now - origin) / self.dt + _DEADLINE_TOL)  # ticks due by now
             behind = due - done
@@ -114,6 +196,8 @@ class Scheduler:
             for _ in range(behind):
                 if (limit is not None and stats.ticks >= limit) or self._stop.is_set():
                     return
+                if self._paused:
+                    break
                 stats.max_lateness = max(
                     stats.max_lateness, self._clock() - (origin + (done + 1) * self.dt)
                 )
