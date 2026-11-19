@@ -180,8 +180,66 @@ def test_the_note_is_data_escaped_in_the_report_and_never_a_path(tmp_path, note)
         assert line.startswith(">"), line  # every line of the note is quoted
     assert "<script>" not in report and "```" not in report and "\n#" not in section
     assert "](" not in section and "\x00" not in report and "\x1b" not in report
-    assert "Selected component: none" in report  # not a component: left out
+    assert "was not found in the scene" in report  # not a component: named, escaped
     assert not (tmp_path / "pwned").exists() and not Path("pwned").exists()
+
+
+@pytest.mark.parametrize(
+    "selected",
+    ["NOT_THERE", "../../x\n# Heading <script>alert(1)</script> `cmd` [a](b)\x1b[31m\x00"],
+)
+def test_an_unknown_selected_id_is_named_not_found_and_never_reaches_look(tmp_path, selected):
+    """Part 1, item 3 (2026-11-18): the capture still succeeds; ``report.md`` says the id was not
+    found, escaped, on one line; ``view.json`` selects nothing; ``look.md`` holds nothing the
+    browser sent."""
+    runtime = sorter()
+    run(runtime, 50)
+    res = client(runtime, tmp_path).post("/api/capture", json=body(selected=selected))
+    assert res.status_code == 200, res.text
+    folder = tmp_path / "caps" / "sorting-by-height" / "50"
+    report = (folder / "report.md").read_text()
+    line = next(ln for ln in report.split("\n") if ln.startswith("- Selected component:"))
+    assert "was not found in the scene" in line
+    assert "NOT\\_THERE" in line if selected == "NOT_THERE" else "Heading" in line
+    for bad in ("<script>", "\x1b", "\x00", "](", "`cmd`", "\n# "):
+        assert bad not in report, bad
+    assert json.loads((folder / "view.json").read_text())["selected"] is None
+    look = (folder / "look.md").read_text()
+    assert "NOT_THERE" not in look and "script" not in look and "Heading" not in look
+    assert look.count("\n# ") == 0  # the plant's report alone, no component's report after it
+
+
+def test_a_second_capture_cannot_start_while_one_is_being_written(tmp_path, monkeypatch):
+    """Part 1, item 2 (2026-11-18), the server's half: a capture asked for while another is
+    being written is refused (409) and writes nothing; the first one completes."""
+    import threading
+
+    import openfactory.capture as capture_mod
+
+    runtime = sorter()
+    run(runtime, 20)
+    http = client(runtime, tmp_path)
+    entered, release = threading.Event(), threading.Event()
+    real = capture_mod.write_capture
+
+    def slow(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        entered.set()
+        assert release.wait(10)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(capture_mod, "write_capture", slow)
+    first: dict = {}
+    worker = threading.Thread(
+        target=lambda: first.update(res=http.post("/api/capture", json=body()))
+    )
+    worker.start()
+    assert entered.wait(10)
+    second = http.post("/api/capture", json=body())
+    release.set()
+    worker.join(10)
+    assert second.status_code == 409, second.text
+    assert first["res"].status_code == 200
+    assert [p.name for p in (tmp_path / "caps" / "sorting-by-height").iterdir()] == ["20"]
 
 
 def test_escaping_and_cleaning_rules():

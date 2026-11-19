@@ -199,15 +199,26 @@ base with `run --capture-dir DIR`), with six files:
 | `last-60s.ofrec` | the last 60 s as a recording, ending at that tick |
 
 `last-60s.ofrec` is an ordinary recording: `openfactory replay` plays it, and `openfactory look`
-reads it. A live run always keeps those 60 s in memory (a frame every 5 ticks); a run with no
-viewer (`--headless`, `openfactory test`) does not, since nothing could capture it.
+reads it. A live run with a viewer keeps those 60 s in memory (a frame every 5 ticks, 600
+frames); a run with no viewer (`--headless`, `openfactory test`) does not, since nothing could
+capture it. The memory it takes grows with the parts in the scene: measured full, about 2.6 MB
+with the sorter's 2 parts and about 96 MB with 200 parts (about 160 kB a frame).
+
+**A capture is as private as the plant.** Its folder holds the whole scene file (in the
+recording's header, as every recording does) and the full state of the plant over the last
+60 s. A capture of a private plant, such as one built from a customer's drawings, reveals that
+plant: keep it with the plant's own files, never in a public repository or issue. The repository's
+`.gitignore` leaves `openfactory-captures/` out, but a folder copied elsewhere is not covered.
 
 `openfactory captures` lists the captures, newest first, and prints the newest folder's path on
 its last line (`--capture-dir DIR` for another base), so "look at my last capture" is one
 command.
 
 The note is kept as text: it is escaped in `report.md` and never becomes part of a file name or
-a command. The folder's name is the server's. Capture is offered only on a viewer bound to
+a command. The folder's name is the server's. A held **C** writes one capture, **C** typed in
+the note box or any other text field writes none, and a second capture cannot start while one
+is being written (the server answers 409 if one is asked for). A selected component that is not
+in the scene is named in `report.md` as not found, and left out of `look.md`. Capture is offered only on a viewer bound to
 loopback, never in a replay or the editor, and not to a trainee in exam mode (the instructor's
 token opens it). `openfactory-captures/` is git-ignored.
 

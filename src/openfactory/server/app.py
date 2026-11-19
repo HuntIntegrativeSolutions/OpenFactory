@@ -105,7 +105,9 @@ Behavior spec
   not listed above (a path, a file name) is 422, and nothing sent becomes part of a path; in
   exam mode it is refused (403) for a trainee: only a request with the fault token (the
   instructor's) is accepted, and with no token configured it is off. A replay has nothing to
-  capture (404).
+  capture (404). A capture asked for while another is being written is refused (409), never
+  queued. A ``selected`` id that is not a component is named in ``report.md`` as not found
+  (control characters dropped, escaped) and written nowhere else.
 - Replay only (PLAN 5.14f; 404 on a live run): ``GET /api/replay`` says where the replay is
   (``tick``, ``t``, ``paused``, ``finished``, ``index``, ``frames``, ``first_tick``,
   ``last_tick``, ``frame_every``, ``dt``, ``speed``); ``POST /api/replay/seek`` with ``{"tick":
@@ -141,7 +143,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from openfactory import __version__
-from openfactory.capture import DEFAULT_DIR, MAX_IMAGE_BYTES, PNG_SIGNATURE
+from openfactory.capture import DEFAULT_DIR, MAX_IMAGE_BYTES, PNG_SIGNATURE, CaptureBusy
 from openfactory.core.config import Endpoint, load_settings
 from openfactory.core.loader import load
 from openfactory.server.runtime import Runtime
@@ -643,10 +645,13 @@ def create_app(
             "labels": req.labels,
             "viewer_tick": req.viewer_tick,
         }
-        folder = await asyncio.to_thread(
-            runtime.capture, captures, image=image, view=view, note=req.note,
-            selected=req.selected,
-        )  # fmt: skip
+        try:
+            folder = await asyncio.to_thread(
+                runtime.capture, captures, image=image, view=view, note=req.note,
+                selected=req.selected,
+            )  # fmt: skip
+        except CaptureBusy as exc:
+            raise HTTPException(409, str(exc)) from None
         try:
             shown = folder.relative_to(Path.cwd())
         except ValueError:

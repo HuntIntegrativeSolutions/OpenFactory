@@ -64,6 +64,10 @@ FILES = ("view.png", "view.json", "report.md", "look.md", "snapshot.json", "last
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
+class CaptureBusy(RuntimeError):
+    """A capture was asked for while another was being written (``POST /api/capture``: 409)."""
+
+
 class CaptureBuffer:
     """The last :data:`WINDOW_S` of state frames, one every ``frame_every`` ticks."""
 
@@ -147,6 +151,13 @@ def escape_markdown(text: str) -> str:
     return _MD_SPECIAL.sub(r"\\\1", text)
 
 
+def one_line(text: str, limit: int = 200) -> str:
+    """Text a browser sent, kept for one line of a report: every control character dropped
+    (newline and tab too), at most ``limit`` characters, then escaped (:func:`escape_markdown`)."""
+    kept = "".join(c for c in text if ord(c) >= 32 and ord(c) != 127)[:limit]
+    return escape_markdown(kept)
+
+
 def quoted(text: str) -> str:
     """``text`` escaped and quoted line by line (``> ``), or a line saying there is none."""
     if not text:
@@ -180,8 +191,11 @@ def write_capture(
     look_report: str,
     selected_report: str | None,
     piece: list[bytes],
+    not_found: str | None = None,
 ) -> Path:
-    """Write the six files of one capture; the folder written."""
+    """Write the six files of one capture; the folder written. ``not_found``: a selected id the
+    browser sent that is not a component of the scene, named in ``report.md`` (one line,
+    escaped) and nowhere else."""
     tick, t = int(snapshot["tick"]), float(snapshot["t"])
     folder = new_folder(base, scene, tick)
     (folder / "view.png").write_bytes(image)
@@ -206,7 +220,7 @@ def write_capture(
         "",
         "## What was captured",
         "",
-        f"- Selected component: {escape_markdown(selected) if selected else 'none'}",
+        f"- Selected component: {selected_line(selected, not_found)}",
         f"- The picture is from tick {seen}; the state is at tick {tick}.",
         "- `view.png`: the picture; `view.json`: the camera, which `?view=` reopens it;",
         f"  `look.md`: the plant in words at tick {tick}; `snapshot.json`: the full state;",
@@ -216,6 +230,16 @@ def write_capture(
     ]
     (folder / "report.md").write_text("\n".join(report), encoding="utf-8")
     return folder
+
+
+def selected_line(selected: str | None, not_found: str | None) -> str:
+    """``report.md``'s selected component: the id, ``none``, or the one sent that was not found."""
+    if selected:
+        return escape_markdown(selected)
+    if not_found:
+        sent = one_line(not_found)
+        return f"none: the viewer sent \u201c{sent}\u201d, which was not found in the scene"
+    return "none"
 
 
 def list_captures(base: Path) -> list[Path]:

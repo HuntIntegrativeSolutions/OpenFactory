@@ -1464,6 +1464,10 @@ runs the sorting program against it; a box visibly gets pushed.
       tick early (30 mm at the sorter's 1.5 m/s), inside the parity tolerance; it is the 20 mm
       the position check reports at the sorter's crossing tick. If parity tolerance is ever
       tightened, feed the plate the previous tick's stroke.
+      *Amended 2026-11-18 (owner's ruling, PLAN 5.14e):* the snapshot is still built on demand,
+      except that with a viewer able to connect, every 5th tick builds the frame the capture
+      buffer keeps, on the tick path (a viewer reading that tick reuses it). A run with no viewer
+      (`--headless`, `openfactory test`) builds none, as before.
 - [x] 2.10 Scripted stand-in PLC: `openfactory run --script path.py` loads a Python file exposing
       `def step(io, t)` that reads DI/AI and writes DO/AO through the same writer-side rules a protocol
       server obeys. Ship `examples/pyplc/sorting-by-height.py`.
@@ -4285,6 +4289,11 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
       (5) the strip image is joined in the browser, and no image library is added; (6) 5.14a
       and 5.14b are built now, before the Phase B tasks, because the pilot (5.0) will use them;
       the rest after 5.1 to 5.3.
+      *Ruled 2026-11-18 (review of e191c3b..1d4510b):* ruling (3) now reads "the 60 s rolling
+      buffer is **always on while a viewer can connect**": it is off in a run with no viewer
+      (`--headless`, `openfactory test`), as 5.14e built it. With a viewer, a snapshot every 5th
+      tick is allowed on the tick path, which amends 2.9's rule (note under 2.9). The decisions
+      5.14d, 5.14e and 5.14f made beyond their text are confirmed (each noted under its task).
   - [x] 5.14a Tag change log in a live run. *What:* a ring of every tag change (tick, simulated
         time, tag, value, and who wrote it: the simulation or the PLC), the last 600 s or
         20,000 changes, whichever is smaller; `GET /api/iolog?since_tick=N&tags=A,B`.
@@ -4532,6 +4541,9 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         40 components, is `?look=`'s, else the last component clicked in the viewer (the live
         viewer had no selection). No shipped scene has more than 40 components, so this path is
         held by `labels.test.ts` only.
+        *Confirmed 2026-11-18 (owner's ruling): both decisions. Held in the browser since then
+        by `tests/integration/test_labels.py::test_past_40_components_only_the_focus_and_its
+        _neighbours_show_values` on a 42-belt scene the test writes in its own folder.*
         **The Done-when, measured** (`tests/integration/test_labels.py`, 4, 1280 by 720,
         quality low): the sorter's kit recording replayed to its end (which holds its last
         frame): `/api/state` at tick 3000 has `CYL_01_EXT_DO` false and CYL_01's label, drawn
@@ -4601,7 +4613,22 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         Docs: `docs/looking-at-the-plant.md` ("Capture: show the assistant what you see").
         **Decision beyond the text:** the buffer is off in a run with no viewer (`--headless`,
         `--as-fast-as-possible`, `openfactory test`): nothing could capture it, and ruling 3's
-        "always on in a live run" is read as every run with a viewer. **What this changes of
+        "always on in a live run" is read as every run with a viewer. *Confirmed 2026-11-18 (owner's ruling):* the buffer is off in a run with no viewer
+        (ruling 3 amended to "always on while a viewer can connect"); with a viewer a snapshot
+        every 5th tick on the tick path is allowed (2.9 amended); the captured picture leaves
+        the panels out; 5 MB means 5 MiB (5,242,880 bytes, as `MAX_IMAGE_BYTES` is); six files,
+        the selected component in `view.json` and `report.md`.
+        *Fixed 2026-11-18 (review fixes):* a held C (auto-repeat) types nothing into the note,
+        and an editable element is a text field too; a second capture cannot start while one is
+        written (the viewer waits for the answer, and the server refuses a second with 409:
+        `test_capture_viewer.py::test_the_c_key_writes_one_capture_held_none_typed_and_none
+        _while_one_is_written`, `test_capture.py::test_a_second_capture_cannot_start_while_one
+        _is_being_written`); a `selected` id that is not a component is named not found in
+        `report.md`, one line, escaped, and is in neither `look.md` nor `view.json`
+        (`test_an_unknown_selected_id_is_named_not_found_and_never_reaches_look`). The docs say
+        a capture is as private as the plant and give the buffer's memory: 2.6 MB full at the
+        sorter's 2 parts (tracemalloc, 3000 ticks, 600 frames, 2026-11-18), 95.6 MB at 200.
+        **What this changes of
         2.9:** a tick no longer builds no snapshot: with a viewer, every 5th tick builds the
         frame the buffer keeps. `test_snapshot_off_tick.py` keeps 2.9's assertion for a run
         without the buffer and gains `test_the_capture_buffer_builds_one_every_5th_tick_and_a
@@ -4750,6 +4777,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         docs point to `--look-at`.
         **Decision beyond the text:** `--at` is the centre of the span (the end of the
         recording when left out, so a capture's strip shows its last `--span` seconds).
+        *Confirmed 2026-11-18 (owner's ruling).*
   - [ ] 5.14g Why it happened: `openfactory explain`. *What:* for a failed check, or for one
         part, the chain of events in order with times: where the part was spawned, each
         conveyor it rode, each sensor it tripped, each command that acted on it and where the

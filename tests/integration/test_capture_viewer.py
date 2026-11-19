@@ -81,3 +81,63 @@ def test_capture_during_a_sorter_run_writes_the_six_files(tmp_path):
     out = os.environ.get("OPENFACTORY_CAPTURE_OUT")
     if out:
         shutil.copy(folder / "view.png", Path(out) / "capture-view.png")
+
+
+def test_the_c_key_writes_one_capture_held_none_typed_and_none_while_one_is_written(tmp_path):
+    """Part 1, item 2 (2026-11-18): a held C (auto-repeat) opens one note box and types nothing
+    into it, and Enter writes one capture; C typed in the note box, in an input or in an editable
+    element writes none; while a capture is being written (its request held back here) neither C
+    nor the button starts another, and once it is written C works again."""
+    base = tmp_path / "caps"
+    with screenshot.running_viewer(
+        SORTER, forces=[], size=(1280, 720), script=SCRIPT,
+        run_args=["--capture-dir", str(base)],
+    ) as (page, port, console):  # fmt: skip
+        screenshot.wait_for_viewer(page, console, seconds=1.0, timeout=90)
+        posts: list = []
+        page.route("**/api/capture", lambda route: posts.append(route))
+        capturing = "() => window.__openfactory.capturing === true"
+        # a held key: one down, then auto-repeats (Playwright sets repeat on a second down)
+        for _ in range(6):
+            page.keyboard.down("c")
+        page.keyboard.up("c")
+        assert page.evaluate(capturing)
+        assert page.locator("#capture-note").input_value() == ""  # the repeats typed nothing
+        page.locator("#capture-note").type("cc")  # C typed in the note box is the note
+        assert page.locator("#capture-note").input_value() == "cc"
+        page.locator("#capture-note").press("Enter")
+        for _ in range(50):
+            if posts:
+                break
+            page.wait_for_timeout(50)
+        assert len(posts) == 1
+        # being written: neither C nor the button starts another
+        assert page.evaluate("() => window.__openfactory.captureSaving") is True
+        page.locator("body").press("c")
+        page.locator("#capture").click(force=True)
+        page.wait_for_timeout(300)
+        assert page.evaluate("() => window.__openfactory.capturing") is False
+        assert len(posts) == 1
+        posts[0].continue_()
+        page.wait_for_function("() => window.__openfactory.lastCapture", timeout=30_000)
+        assert "folder" in page.evaluate("() => window.__openfactory.lastCapture"), console
+        page.wait_for_function("() => window.__openfactory.captureSaving === false")
+        # C typed in any other text field opens nothing
+        page.evaluate(
+            "() => { for (const [tag, edit] of [['input', false], ['div', true]]) {"
+            " const el = document.createElement(tag); el.id = 'field-' + tag;"
+            " if (edit) el.contentEditable = 'true'; document.body.append(el); } }"
+        )
+        for field in ("#field-input", "#field-div"):
+            page.locator(field).click(force=True)
+            page.keyboard.press("c")
+            page.wait_for_timeout(100)
+            assert page.evaluate("() => window.__openfactory.capturing") is False, field
+        # and C on the page works again
+        page.locator("#field-input").blur()
+        page.evaluate("() => document.activeElement && document.activeElement.blur()")
+        page.keyboard.press("c")
+        page.wait_for_function(capturing)
+        page.locator("#capture-note").press("Escape")
+    folders = list((base / "sorting-by-height").iterdir())
+    assert len(folders) == 1, folders  # one capture in all

@@ -79,7 +79,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from openfactory.capture import CaptureBuffer
+from openfactory.capture import CaptureBuffer, CaptureBusy
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.history import TagHistory
 from openfactory.core.iolog import IoLog
@@ -152,6 +152,8 @@ class Runtime:
         #: The header a recording of this run has (``record.recording_header``), for a capture's
         #: piece of recording; the ``run`` command sets it.
         self.recording_header: dict[str, Any] | None = None
+        #: Held while a capture is written: a second one is refused, never queued (PLAN 5.14e).
+        self._capturing = threading.Lock()
         #: The scene document as a recording stores it, built once for ``look`` (PLAN 5.14b).
         self._look_document: dict[str, Any] | None = None
         #: The scene's checks graded at ``duration_s`` (PLAN 4.1i), as ``openfactory test`` would
@@ -624,10 +626,23 @@ class Runtime:
         selected: str | None,
     ) -> Path:
         """Write a capture of the last tick (PLAN 5.14e, :mod:`openfactory.capture`): the
-        folder written. ``selected`` that is not a component of the scene is left out."""
-        from openfactory.capture import piece_lines, write_capture
+        folder written. ``selected`` that is not a component of the scene is named in
+        ``report.md`` as not found and left out of everything else. :class:`CaptureBusy` while
+        another capture is being written."""
+        if not self._capturing.acquire(blocking=False):
+            raise CaptureBusy("capture: another capture is being written; try again")
+        try:
+            return self._capture(base, image=image, view=view, note=note, selected=selected)
+        finally:
+            self._capturing.release()
+
+    def _capture(
+        self, base: Path, *, image: bytes, view: dict[str, Any], note: str, selected: str | None
+    ) -> Path:
+        from openfactory import capture as capture_mod
         from openfactory.record import recording_header
 
+        piece_lines = capture_mod.piece_lines
         snap = self.snapshot
         tick = int(snap["tick"])
         changes: list[tuple[int, str, Any]] = []
@@ -642,7 +657,7 @@ class Runtime:
         header = self.recording_header or recording_header(self, None, None)
         ids = {c.id for c in self.loaded.components}
         chosen = selected if selected in ids else None
-        return write_capture(
+        return capture_mod.write_capture(
             base,
             scene=self.loaded.scene.scene.name,
             snapshot=snap,
@@ -653,6 +668,7 @@ class Runtime:
             look_report=self.look(),
             selected_report=self.look(component=chosen) if chosen else None,
             piece=piece_lines(header, frames, changes, dropped_to, events, snap),
+            not_found=selected if selected and chosen is None else None,
         )
 
     def parity(self) -> dict[str, Any]:

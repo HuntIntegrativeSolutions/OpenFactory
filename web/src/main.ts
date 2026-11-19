@@ -944,8 +944,14 @@ function captureOffered(): boolean {
   return !editing() && !replaying() && !(window.__openfactory.exam && !INSTRUCTOR);
 }
 
-function openCapture(): void {
-  if (!captureOffered() || pendingCapture) return;
+/** A capture being written: no other starts until it is (Part 1 of the 2026-11-18 review). */
+let captureSaving = false;
+/** The C that opened the note box is still held: its auto-repeats are not typed into the note. */
+let heldC = false;
+
+function openCapture(byKey = false): void {
+  if (!captureOffered() || pendingCapture || captureSaving) return;
+  heldC = byKey;
   const plan = inPlan();
   const position = plan ? planCamera.position : camera.position;
   const target = plan ? (planControls?.target ?? controls.target) : controls.target;
@@ -974,6 +980,9 @@ async function saveCapture(): Promise<void> {
   if (!pendingCapture) return;
   const body = { ...pendingCapture, note: captureNote.value };
   closeCapture();
+  captureSaving = true;
+  window.__openfactory.captureSaving = true;
+  captureButton.disabled = true;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const token = currentToken();
   if (token) headers["X-OpenFactory-Fault-Token"] = token;
@@ -992,15 +1001,25 @@ async function saveCapture(): Promise<void> {
   } catch (err) {
     window.__openfactory.lastCapture = { error: String(err) };
     shown = `Capture failed: ${String(err)}`;
+  } finally {
+    captureSaving = false;
+    window.__openfactory.captureSaving = false;
+    captureButton.disabled = false;
   }
   captureStatus.textContent = shown;
   captureStatus.style.display = "block";
   window.setTimeout(() => (captureStatus.style.display = "none"), 5000);
 }
 
-captureButton.addEventListener("click", openCapture);
+const isC = (e: KeyboardEvent) => e.key === "c" || e.key === "C";
+captureButton.addEventListener("click", () => openCapture());
 captureNote.addEventListener("keydown", (e) => {
   e.stopPropagation(); // typing a note is not a shortcut
+  if (heldC && e.repeat && isC(e)) {
+    e.preventDefault(); // the C that opened the box, still held: not part of the note
+    return;
+  }
+  heldC = false;
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     void saveCapture();
@@ -1008,13 +1027,25 @@ captureNote.addEventListener("keydown", (e) => {
     closeCapture();
   }
 });
+/** A key typed into a text field (an input, a text area, a list, or an editable element) is
+ * text, never a shortcut. */
+function typingIn(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
+}
 window.addEventListener("keydown", (e) => {
-  const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
-  if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.key === "c" || e.key === "C") {
+  if (typingIn(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (isC(e)) {
     e.preventDefault();
-    openCapture();
+    if (!e.repeat) openCapture(true); // a held key writes one capture, not a run of them
   }
+});
+window.addEventListener("keyup", (e) => {
+  if (isC(e)) heldC = false;
 });
 
 /** Show the Capture button only where a capture is offered (refreshed with the exam state). */
