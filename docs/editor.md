@@ -162,6 +162,32 @@ refused, and the file is never served. See `mesh` in [the scene format](scene-fo
 The editor never writes the Modbus lockfiles (`*.modbus.yaml`). New tags get their addresses the
 next time you `run` or `export` the scene ([ADR-0004](adr/ADR-0004-modbus-address-lockfile.md)).
 
+## A plant in several files
+
+A plant file (`include:`, see [the scene format](scene-format.md)) is edited one file at a time,
+with the whole plant shown around it (PLAN 5.4e):
+
+```bash
+openfactory edit scenes/plants/wash-plant/wash-plant.yaml --area WASH   # edits areas/wash.yaml
+openfactory edit scenes/plants/wash-plant/wash-plant.yaml               # edits the plant file
+```
+
+- `--area NAME` chooses the file: that area's, as the plant's `include:` names it. Without it, the
+  plant file itself is edited: its own components and its connections across areas. An unknown
+  area is an error naming the plant's areas.
+- Every other file's components are drawn **dimmed**. Selecting one shows "in areas/load.yaml:
+  open that file to edit it" instead of its form: it cannot be moved, turned, deleted or changed
+  from here, and a conveyor you move does not snap to it or drop devices on its rails (a
+  connection across areas is written in the plant file's `connections:`).
+- The preview is the plant with your unsaved text in your file's place, and the lint runs on the
+  **whole plant**. An id, a tag or a `plc_tag` another file already has is an error naming that
+  file, and Save stays refused until it is changed. A save that would make the plant fail to load
+  (a component the plant's cross-area connection needs, deleted) is refused with the loader's
+  message, and nothing is written.
+- **Save writes only the file you are editing.** Nothing else is written: not the plant's other
+  files, not its lockfile, not its `CONTEXT.md`. A component added from the palette is numbered
+  past every id in the plant.
+
 ## Other web pages cannot change your scene
 
 The editor server writes only the one scene file it was opened on, refuses a save when the file

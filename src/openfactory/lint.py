@@ -107,6 +107,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, get_args
@@ -118,7 +119,13 @@ from openfactory.core.composite import project_root
 from openfactory.core.heartbeat import HEARTBEAT_TAG
 from openfactory.core.loader import build
 from openfactory.core.mounts import short_of_belt
-from openfactory.core.schema import CARRIER_TYPES, PLC_WRITES, load_scene, parse_scene
+from openfactory.core.schema import (
+    CARRIER_TYPES,
+    PLC_WRITES,
+    load_scene,
+    parse_scene,
+    read_scene_text,
+)
 from openfactory.core.sizing import belt_under, emitted_parts
 from openfactory.core.snaps import misjoined, unjoined
 from openfactory.protocols.modbus import (
@@ -198,14 +205,23 @@ def _plant_findings(scene: Any) -> list[Finding]:
 
 
 def lint_scene(
-    path: Path, scripts: list[Path] | None = None, *, text: str | None = None
+    path: Path,
+    scripts: list[Path] | None = None,
+    *,
+    text: str | None = None,
+    overrides: Mapping[Path, str] | None = None,
 ) -> list[Finding]:
     """Lint the scene at ``path``; with ``text``, lint that text as if it were the file there
     (its lockfiles, library composites and meshes found beside ``path``), as the editor's
-    preview does (PLAN 4.1a)."""
+    preview does (PLAN 4.1a). ``overrides`` gives a plant's included file's text in place of
+    the file's (the editor on a plant, PLAN 5.4e)."""
     scripts = scripts or []
     try:
-        scene = load_scene(path) if text is None else parse_scene(text, path.parent, source=path)
+        if text is None and overrides is None:
+            scene = load_scene(path)
+        else:
+            text = read_scene_text(path) if text is None else text
+            scene = parse_scene(text, path.parent, source=path, overrides=overrides)
         loaded = build(scene, base_dir=path.parent)
         scene_dir = path.parent  # `path` is reused below for a pusher's push path
     except (OSError, ValueError, ValidationError) as exc:

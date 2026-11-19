@@ -37,6 +37,7 @@ import { TrendPanel } from "./trend";
 import { FaultMenu } from "./faultmenu";
 import { faultOf, isInstructorPath, tokenFromHash } from "./instructor";
 import { EditorPanel } from "./editor/panel";
+import { dimForeign, foreignFile } from "./editor/dim";
 import { recolorGizmo } from "./editor/gizmo";
 import { SnapMarker } from "./editor/markers";
 import { findSnap, loadPorts, localPort, worldPort, type Snap } from "./editor/snap";
@@ -544,6 +545,8 @@ async function applyScene(next: SceneDocument): Promise<void> {
     status.meshes = await attachMeshes(views, specs);
     // default models (PLAN 4.2) for every other component whose type has one
     status.housings = await attachHousings(views, new Set(specs.keys()));
+    // PLAN 5.4e: in a plant, another file's components are drawn dimmed (after their housings)
+    status.dimmed = doc.edit ? dimForeign(doc, views) : [];
     // housings and custom meshes arrived after buildScene set the roles: set them again (PLAN 4.14)
     for (const view of views) applyShadowRoles(view.object);
     status.scene = doc.scene.name;
@@ -706,8 +709,9 @@ async function startEditor(): Promise<void> {
     if (!selectedId || !doc || gizmo.mode !== "translate") return null;
     const mine = doc.components.find((c) => c.id === selectedId);
     if (!mine || !MOUNT_TYPES.includes(mine.type) || mine.composite) return null;
+    // PLAN 5.4e: only the edited file's conveyors; another area's are not in this file
     const conveyors = doc.components
-      .filter((c) => railsOf(c.snaps as never).length)
+      .filter((c) => railsOf(c.snaps as never).length && foreignFile(doc, c.id) === null)
       .map((c) => ({ id: c.id, ports: railsOf(c.snaps as never) }));
     return findRail([handle.position.x, handle.position.y, handle.position.z], conveyors, !free);
   };
@@ -717,7 +721,7 @@ async function startEditor(): Promise<void> {
     const ports = loadPorts(mine?.snaps);
     if (!mine || !ports.length) return null; // not a conveyor (a composite instance moves as one)
     const others = doc.components
-      .filter((c) => c.id !== selectedId && loadPorts(c.snaps).length)
+      .filter((c) => c.id !== selectedId && loadPorts(c.snaps).length && foreignFile(doc, c.id) === null)
       .map((c) => ({ id: c.id, ports: loadPorts(c.snaps) }));
     const published = { position: mine.position as [number, number, number], rotation_deg: mine.rotation_deg };
     const now = { position: [handle.position.x, handle.position.y, handle.position.z] as [number, number, number], rotation_deg: THREE.MathUtils.radToDeg(handle.rotation.y) };
@@ -795,6 +799,7 @@ async function startEditor(): Promise<void> {
     placement,
     setMode,
     drawn: (id) => viewsOf(id).length > 0,
+    foreignFile: (id) => foreignFile(doc, id),
     settle: (id, position, rotationDeg) => {
       // PLAN 4.1e: the footprints (x, z) of what is drawn: the new component's, and every
       // other's, each with the id in the file it belongs to (a composite part's instance)

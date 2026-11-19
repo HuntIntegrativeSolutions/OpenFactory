@@ -37,6 +37,7 @@ Not a safety-rated simulation. OpenFactory is a training and demo tool.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -160,10 +161,16 @@ def _composite_key(entry: Any) -> str | None:
     return entry.get("type") or entry.get("library")
 
 
-def merge(plant_path: Path, data: dict[str, Any], area: str | None = None) -> tuple[dict, Plant]:
+def merge(
+    plant_path: Path,
+    data: dict[str, Any],
+    area: str | None = None,
+    overrides: Mapping[Path, str] | None = None,
+) -> tuple[dict, Plant]:
     """One scene's data from a plant file's (see the module docstring); PlantError naming the
-    file when the plant cannot load."""
-    from openfactory.core.schema import Scene, read_scene_text
+    file when the plant cannot load. ``overrides`` maps an included file's resolved path to text
+    read in place of the file's (the editor's unsaved text, PLAN 5.4e)."""
+    from openfactory.core.schema import MAX_SCENE_BYTES, Scene, read_scene_text
 
     folder = Path(os.path.abspath(plant_path)).parent
     plant_path = Path(os.path.abspath(plant_path))
@@ -188,7 +195,12 @@ def merge(plant_path: Path, data: dict[str, Any], area: str | None = None) -> tu
         if not path.is_file():
             raise PlantError(f"{me}: include {entry['file']!r}: no such file")
         try:
-            text = read_scene_text(path)
+            if overrides and path in overrides:
+                text = overrides[path]
+                if len(text.encode("utf-8")) > MAX_SCENE_BYTES:
+                    raise ValueError(f"a scene file is at most {MAX_SCENE_BYTES} bytes")
+            else:
+                text = read_scene_text(path)
         except ValueError as exc:
             raise PlantError(f"{rel}: {exc}") from None
         try:

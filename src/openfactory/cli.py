@@ -1059,10 +1059,22 @@ def edit(
     scene: Annotated[Path, typer.Argument(help="The scene file to edit.", metavar="SCENE")],
     web_port: Annotated[int | None, typer.Option(help="Viewer port (default 8000).")] = None,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Warnings and errors only.")] = False,
+    area: Annotated[
+        str | None,
+        typer.Option(
+            "--area",
+            metavar="NAME",
+            help="On a plant file (include:, PLAN 5.4e): edit this area's file, with the rest of "
+            "the plant drawn dimmed. Without it, the plant file's own components and its "
+            "connections across areas are edited, and every area is dimmed.",
+        ),
+    ] = None,
 ) -> None:
     """Edit a scene in the browser (PLAN 4.1): the viewer in edit mode, the simulation paused,
     on loopback only, with no PLC or protocol server. Saves change only the edited lines; the
-    address lockfiles are never written (the next run or export assigns new tags)."""
+    address lockfiles are never written (the next run or export assigns new tags). On a plant
+    file (PLAN 5.4e) one file is edited, the whole plant is shown, and a save lints the whole
+    plant and writes only that file."""
     _setup_logging(quiet)
     from openfactory.core.loader import build
     from openfactory.server.app import create_app, server_config
@@ -1072,16 +1084,8 @@ def edit(
     if is_bundle(scene) or not scene.is_file():
         typer.echo(f"error: {scene}: not a scene file (unpack a bundle first)", err=True)
         raise typer.Exit(1)
-    if _is_plant(scene):  # PLAN 5.4e is not built: a plant's areas would look editable
-        typer.echo(
-            f"error: {scene} is a plant file (include:); the editor does not open a plant yet "
-            "(PLAN 5.4e). Edit an area's own file (openfactory edit areas/<area>.yaml), then "
-            f"run `openfactory lint {scene.name}` to check the plant",
-            err=True,
-        )
-        raise typer.Exit(1)
     try:
-        session = EditSession(scene)
+        session = EditSession(scene, area=area)
         loaded = build(load_scene(scene), base_dir=scene.parent)
     except (OSError, ValueError, ValidationError) as exc:
         typer.echo(f"error: {scene}: does not load, fix it by hand first:\n{exc}", err=True)
@@ -1091,6 +1095,8 @@ def edit(
     endpoint = Endpoint(bind="127.0.0.1", port=web_port or settings.web.port)  # loopback only
     app = create_app(runtime, bind=endpoint.bind, edit=session)
     web = uvicorn.Server(server_config(app, endpoint))
+    if session.plant is not None:
+        log.info("plant %s: editing %s, the rest of the plant dimmed", scene.name, session.name)
     log.info("editing %s: http://%s:%d/ (Ctrl+C to stop)", scene, endpoint.bind, endpoint.port)
     with contextlib.suppress(KeyboardInterrupt):
         web.run()

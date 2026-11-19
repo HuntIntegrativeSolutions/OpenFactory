@@ -137,8 +137,10 @@ checks: {duration_s: 60, none_lost: true}
 - A component's `mesh.file` stays relative to its own file's folder; library composites are
   looked up from the plant's folder upwards.
 - `include` and `area` are YAML lines for now: the editor's form does not show them (4.1k), and
-  a bundle of a plant is not built yet (`bundle` refuses a plant file). The editor does not open
-  a plant file yet (PLAN 5.4e): edit an area's own file, then `openfactory lint` the plant.
+  a bundle of a plant is not built yet (`bundle` refuses a plant file). The editor opens a plant
+  one file at a time (PLAN 5.4e): `openfactory edit wash-plant.yaml --area WASH` edits
+  `areas/wash.yaml` with the rest of the plant dimmed, and a save lints the whole plant and
+  writes only that file ([the editor](editor.md), "A plant in several files").
 
 **One address map.** The plant's Modbus lockfile is the plant file's
 (`wash-plant.float32.modbus.yaml`), with ADR-0004's rules. An area file in a plant has no

@@ -37,6 +37,9 @@ export interface SceneDocument {
   warnings: string[];
   /** "replay" when `openfactory replay` serves a recording (PLAN 2.12): no viewer physics. */
   mode?: string;
+  /** The editor on a plant (PLAN 5.4e): the file edited, the plant file, and the area chosen. Each
+   * component then carries `source` (its file) and `editable` (whether it is in that file). */
+  edit?: { file: string; plant: string; area: string | null };
 }
 
 export interface PartState {

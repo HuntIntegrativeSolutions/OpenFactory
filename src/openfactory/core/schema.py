@@ -28,6 +28,7 @@ import json
 import math
 import re
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -2353,10 +2354,12 @@ def parse_scene(
     *,
     source: str | Path | None = None,
     area: str | None = None,
+    overrides: Mapping[Path, str] | None = None,
 ) -> Scene:
     """Parse and validate scene YAML text. ``scene_dir`` (the scene file's folder) is where
     library composites are looked up (PLAN 2.5b); without it a scene using one fails. A plant
-    (``include:``, PLAN 5.4a) needs ``source``, its file's path, and may be cut to one ``area``."""
+    (``include:``, PLAN 5.4a) needs ``source``, its file's path, and may be cut to one ``area``;
+    ``overrides`` gives an included file's text in place of the file's (the editor, PLAN 5.4e)."""
     if len(text.encode("utf-8")) > MAX_SCENE_BYTES:
         raise ValueError(f"a scene file is at most {MAX_SCENE_BYTES} bytes")
     data = yaml.load(text, Loader=_SceneYamlLoader)  # noqa: S506 - SafeLoader subclass
@@ -2366,7 +2369,7 @@ def parse_scene(
 
         if source is None:
             raise ValueError("a plant file (include:) is loaded from its path")
-        data, plant = merge(Path(source), data, area)
+        data, plant = merge(Path(source), data, area, overrides)
     elif area is not None:
         name = Path(source).name if source else "the scene"
         raise ValueError(f"{name} has no include:, so it is not a plant and has no areas")

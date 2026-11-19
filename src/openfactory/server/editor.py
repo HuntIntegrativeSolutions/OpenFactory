@@ -39,6 +39,20 @@ the session applies them to the text, never the browser (ruled 2026-11-10):
 - ``GET /models/<id>.glb`` serves the mesh of the scene as last previewed, so a mesh set in the
   form is drawn before Save.
 
+**A plant** (PLAN 5.4e, design note §4.3): ``EditSession(PLANT, area=NAME)`` edits that area's
+file; without ``area`` it edits the plant file itself (its own components and its connections
+across areas). Either way the session edits **one file**: the text, base, operations, ``source``
+and save are that file's. What it shows is the whole plant: the preview document is the plant
+merged with the edited file's unsaved text in place of the file on disk
+(:func:`openfactory.core.plant.merge`'s ``overrides``), each component carrying ``source`` (its
+file, relative to the plant's folder) and ``editable`` (whether it is in the edited file); the
+document's ``edit`` says which file is edited. Preview and save lint the **whole plant** with
+that text, so a clash with another file (an id, a scene tag or a ``plc_tag``) is an error naming
+the other file, and a text that would make the plant fail to load is refused (**422**) with the
+loader's message (``load_error``), nothing written. Save writes the edited file only; no other
+file of the plant, its lockfile or its ``CONTEXT.md`` is written. A new component's id is
+numbered past the ids of the whole plant.
+
 A bad operation (an unknown id, a path that is not there) is **400** naming the operation.
 ``openfactory edit`` serves this on loopback only, with the simulation never started and no
 protocol server (ruled 2026-11-10: paused, loopback only, never with a PLC).
@@ -80,21 +94,69 @@ def text_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def is_plant(path: Path) -> bool:
+    """Whether the file at ``path`` is a plant file (``include:`` at its top level)."""
+    data = _data(path.read_text(encoding="utf-8"))
+    return isinstance(data, dict) and data.get("include") is not None
+
+
 class EditSession:
-    def __init__(self, path: str | Path) -> None:
-        self.path = Path(path)
+    def __init__(self, path: str | Path, area: str | None = None) -> None:
+        #: The plant file, when the file edited is a plant's or one of its areas (PLAN 5.4e).
+        self.plant: Path | None = None
+        self.area = area
+        path = Path(path)
+        if is_plant(path):
+            from openfactory.core.schema import load_scene
+
+            self.plant = path
+            areas = load_scene(path).plant.areas  # type: ignore[union-attr]
+            if area is not None:
+                match = next((a for a in areas if a.name == area), None)
+                if match is None:
+                    raise ValueError(f"{path.name}: no area {area!r}; its areas are "
+                                     f"{', '.join(a.name for a in areas)}")  # fmt: skip
+                path = match.path
+        elif area is not None:
+            raise ValueError(f"{path.name} has no include:, so it is not a plant and has no areas")
+        self.path = path
         self.text = self.path.read_text(encoding="utf-8")
         self.base = text_hash(self.text)
         self._document: dict[str, Any] | None = None
         #: Component id -> mesh file of the scene as last loaded (saved or previewed).
         self.meshes: dict[str, Path] = {}
 
+    @property
+    def name(self) -> str:
+        """The edited file as the user knows it: relative to the plant's folder in a plant."""
+        if self.plant is None:
+            return self.path.name
+        return self.path.resolve().relative_to(self.plant.resolve().parent).as_posix()
+
+    def _scene_of(self, text: str) -> tuple[Any, Path]:
+        """The scene a text of the edited file makes, and the folder it is built from: the plant
+        merged with that text in a plant, else the file alone."""
+        from openfactory.core.schema import parse_scene
+
+        if self.plant is None:
+            return parse_scene(text, self.path.parent, source=self.path), self.path.parent
+        plant_text, overrides = self._plant_inputs(text)
+        scene = parse_scene(plant_text, self.plant.parent, source=self.plant, overrides=overrides)
+        return scene, self.plant.parent
+
+    def _plant_inputs(self, text: str) -> tuple[str, dict[Path, str] | None]:
+        """The plant file's text and the overrides that put ``text`` in the edited file's place."""
+        assert self.plant is not None
+        if self.area is None:
+            return text, None
+        return self.plant.read_text(encoding="utf-8"), {self.path.resolve(): text}
+
     def _document_of(self, text: str, path: Path) -> dict[str, Any]:
         from openfactory.core.loader import build
-        from openfactory.core.schema import parse_scene
         from openfactory.server.runtime import Runtime
 
-        loaded = build(parse_scene(text, path.parent, source=path), base_dir=path.parent)
+        scene, folder = self._scene_of(text)
+        loaded = build(scene, base_dir=folder)
         self.meshes = dict(getattr(loaded, "meshes", {}) or {})
         doc = {**Runtime(loaded, realtime=False).scene_document(), "mode": "edit"}
         for comp in doc.get("components", []):
@@ -102,6 +164,13 @@ class EditSession:
             if isinstance(mesh, dict) and comp.get("id") in self.meshes:
                 # another file for the same id must not come from the browser's cache (PLAN 4.1c)
                 mesh["url"] += "?file=" + quote(self.meshes[comp["id"]].name)
+        if scene.plant is not None:  # PLAN 5.4e: each component's file, and whether it is ours
+            mine = self.name
+            for comp in doc.get("components", []):
+                owner = (comp.get("composite") or {}).get("id") or comp.get("id")
+                comp["source"] = scene.plant.sources.get(str(owner), self.plant.name)
+                comp["editable"] = comp["source"] == mine
+            doc["edit"] = {"file": mine, "plant": self.plant.name, "area": self.area}
         return doc
 
     def document(self) -> dict[str, Any]:
@@ -128,7 +197,21 @@ class EditSession:
         from openfactory.core.templates import new_component
 
         data = _data(self._applied(base, ops))
+        if self.plant is not None and isinstance(data, dict):
+            # number past every id of the plant, so a new id is not another file's (PLAN 5.4e)
+            mine = {c.get("id") for c in data.get("components") or [] if isinstance(c, dict)}
+            others = [{"id": i} for i in self._plant_ids() if i not in mine]
+            data = {**data, "components": [*(data.get("components") or []), *others]}
         return new_component(type_name, data, self.path.parent, position)
+
+    def _plant_ids(self) -> list[str]:
+        from openfactory.core.schema import load_scene
+
+        assert self.plant is not None
+        try:
+            return list(load_scene(self.plant).plant.sources)  # type: ignore[union-attr]
+        except (OSError, ValueError):
+            return []
 
     def references(self, base: str, ops: list[dict[str, Any]], comp_id: str) -> dict[str, Any]:
         from openfactory.core.references import names_of, references
@@ -198,17 +281,21 @@ class EditSession:
     def source(self) -> dict[str, Any]:
         """The text, its base, and ``data``: the file's values as written (YAML parsed, no
         defaults filled in), which the editor's forms show."""
-        return {
-            "name": self.path.name,
+        out = {
+            "name": self.name,
             "text": self.text,
             "base": self.base,
             "data": _data(self.text),
         }
+        if self.plant is not None:
+            out["plant"] = self.plant.name
+            out["area"] = self.area
+        return out
 
     def _check_base(self, base: str) -> None:
         on_disk = text_hash(self.path.read_text(encoding="utf-8"))
         if base != on_disk:
-            raise EditConflict(f"{self.path.name} changed on disk since this edit began; reload it")
+            raise EditConflict(f"{self.name} changed on disk since this edit began; reload it")
         if on_disk != self.base:  # changed on disk and the request knows it: start from disk
             self.text, self.base, self._document = (
                 self.path.read_text(encoding="utf-8"),
@@ -221,12 +308,18 @@ class EditSession:
         from openfactory.lint import lint_scene
 
         text = self._applied(base, ops)
-        findings = lint_scene(self.path, text=text)
+        if self.plant is None:
+            findings = lint_scene(self.path, text=text)
+        else:  # the whole plant, with this text in the edited file's place (PLAN 5.4e)
+            plant_text, overrides = self._plant_inputs(text)
+            findings = lint_scene(self.plant, text=plant_text, overrides=overrides)
+        load_error = None
         try:
             scene = self._document_of(text, self.path)
-        except Exception:  # noqa: BLE001 - the E100 finding already says why
-            scene = None
+        except Exception as exc:  # noqa: BLE001 - the E100 finding already says why
+            scene, load_error = None, str(exc)
         return {
+            "load_error": load_error,
             "base": base,
             "text": text,
             "changed": text != self.text,
@@ -244,4 +337,4 @@ class EditSession:
         self.path.write_text(result["text"], encoding="utf-8")
         self.text, self.base = result["text"], text_hash(result["text"])
         self._document = result["scene"]
-        return {"base": self.base, "findings": result["findings"], "saved": self.path.name}
+        return {"base": self.base, "findings": result["findings"], "saved": self.name}

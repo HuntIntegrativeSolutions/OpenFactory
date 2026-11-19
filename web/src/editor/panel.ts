@@ -23,6 +23,7 @@ import {
   type Form,
   type JsonSchema,
 } from "./forms";
+import { readOnlyMessage } from "./dim";
 import { Drafts, valueEditor, watchUnchanged, type CompoundHost } from "./compound";
 import { EditOps } from "./ops";
 import type { Placement } from "./place";
@@ -75,6 +76,10 @@ export interface EditorStatus {
   /** Fit view (PLAN 4.1j item 5): how many times the view was refitted, and why the last time. */
   fits: number;
   fit: "button" | "add" | null;
+  /** In a plant (PLAN 5.4e): the plant file, and the file of the selected component when it is
+   * another file's (read-only), else null. */
+  plant: string | null;
+  readonly: string | null;
 }
 
 export interface PaletteItem {
@@ -106,6 +111,8 @@ export interface PanelHost {
   fitView(): void;
   /** Whether every drawn part of a component is inside that part of the window. */
   inView(id: string): boolean;
+  /** In a plant (PLAN 5.4e): the file a component is in when it is not the edited file, else null. */
+  foreignFile(id: string): string | null;
 }
 
 const TEXT = cssColor("normalText");
@@ -167,6 +174,7 @@ export class EditorPanel {
       file: "", selected: null, ops: 0, previews: 0, saves: 0, downloads: 0, errors: 0, findings: [],
       message: "", added: [], undescribed: [], palette: [], mode: "move", snap: null, snapping: null,
       placed: null, confirm: null, deletes: 0, acks: 0, ack: null, fits: 0, fit: null, mounting: null, mount: null,
+      plant: null, readonly: null,
     };
     this.element = document.createElement("div");
     this.element.id = "editor-panel";
@@ -478,10 +486,11 @@ export class EditorPanel {
   }
 
   private async loadSource(): Promise<void> {
-    const src = (await (await fetch("/api/edit/source")).json()) as { name: string; base: string; data: Preview["data"] };
+    const src = (await (await fetch("/api/edit/source")).json()) as { name: string; base: string; data: Preview["data"]; plant?: string };
     this.base = src.base;
     this.data = src.data;
     this.status.file = src.name;
+    this.status.plant = src.plant ?? null;
     // a description still the placeholder `openfactory new` or the palette wrote holds Save
     for (const c of (this.data?.components ?? []) as Record<string, unknown>[]) {
       const placeholder = `New ${String(c.type).replace(/_/g, " ")}`;
@@ -489,7 +498,8 @@ export class EditorPanel {
     }
     const scene = (this.data as { scene?: { description?: unknown } } | null)?.scene;
     if (scene?.description === "New scene") this.ops.holdPlaceholder("scene", "New scene");
-    (this.element.querySelector("#editor-head") as HTMLDivElement).textContent = `EDIT MODE · ${src.name}`;
+    (this.element.querySelector("#editor-head") as HTMLDivElement).textContent =
+      `EDIT MODE · ${src.name}` + (src.plant ? ` (plant ${src.plant}; the rest dimmed)` : "");
   }
 
   select(id: string | null): void {
@@ -507,6 +517,21 @@ export class EditorPanel {
     this.body.replaceChildren();
     const comp = this.component();
     this.tools.style.display = comp ? "flex" : "none";
+    // PLAN 5.4e: another file's component in a plant is read-only; say which file to open
+    const foreign = !comp && this.selected ? this.host.foreignFile(this.selected) : null;
+    this.status.readonly = foreign;
+    if (foreign) {
+      const title = document.createElement("div");
+      title.id = "editor-selected";
+      title.style.cssText = "font-weight:700;margin:4px 0 8px;font-size:14px";
+      title.textContent = String(this.selected);
+      const hint = document.createElement("div");
+      hint.id = "editor-readonly";
+      hint.style.color = MUTED;
+      hint.textContent = readOnlyMessage(foreign);
+      this.body.append(title, hint);
+      return;
+    }
     if (!comp) {
       const hint = document.createElement("div");
       hint.style.color = MUTED;

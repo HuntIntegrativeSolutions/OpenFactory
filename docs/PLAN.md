@@ -3908,7 +3908,7 @@ trusts it.
         sorter copy exchanges all of them in one write and one read per cycle; a wrong-type
         member is "mismatched" and left out; a bit on a `REAL` is refused at connect. The run on
         the bench PLC stays 2.2's Done-when.
-- [ ] 5.4 Plants in several files. `include:` so one plant is one file per area with shared
+- [x] 5.4 Plants in several files. `include:` so one plant is one file per area with shared
       composites, one address map, and lint across areas.
       *Done when:* a two-area sample runs as one plant, each area also runs alone, and the address
       map is the same either way. *As ruled 2026-11-15 (note §5):* the two-area sample plant
@@ -4084,27 +4084,50 @@ trusts it.
         over the three runs against its committed lockfile, which no run writes; the plant and
         each area at 60 s and 300 s; `test_runs_unchanged.py` counts 15 shipped scenes and three
         references.
-  - [ ] 5.4e The editor (note §4.3): `edit PLANT` shows the whole plant with the included
+  - [x] 5.4e The editor (note §4.3): `edit PLANT` shows the whole plant with the included
         areas dimmed and not editable ("in areas/x.yaml: open that file to edit it"); `edit
         PLANT --area NAME` edits that area's file with the others dimmed, saves only that
         file, and runs the plant-wide lint on save.
         *Done when:* a test saves an edit under `--area` and finds only that file changed and
         a clash with another area refused; the screenshot with the dimmed areas is looked at.
-        *Not built (2026-11-17), so 5.4e and 5.4 stay unticked:* the rest of 5.4 took this
-        run. Until it is built, `openfactory edit PLANT` refuses a plant file, saying to edit
-        an area's own file (which the editor opens as a plain scene) and then `lint` the plant,
-        since a plant opened today would show its areas' components as if editable while its
-        saves could only write the plant file (`test_the_editor_refuses_a_plant_until_5_4e`).
-        *What is left:* (1) an `EditSession` for a plant (`edit PLANT [--area NAME]`) whose
-        edited file is the plant's or the area's, whose preview document is the merged plant
-        with the edited file's text in place (5.4a's `merge` taking the unsaved text of one
-        file), each component marked with its source file (`Scene.plant.sources` has it) and
-        read-only when not in the edited file; (2) the viewer drawing those components dimmed,
-        and selecting one showing "in areas/x.yaml: open that file to edit it" instead of the
-        form; (3) save writing only the edited file, after the plant-wide lint of the merged
-        text, so a clash with another area is refused; (4) the tests of the Done-when and the
-        screenshot. Editing an area's file alone runs that file's lint only, so an id or tag
-        clash with another area is found when the plant next loads or is linted, not on save.
+        *Done (2026-11-18):* **How the file is chosen:** `edit PLANT --area NAME` edits the
+        area's file as the plant's `include:` names it; `edit PLANT` without `--area` edits the
+        plant file itself (its own components and its connections across areas), every area
+        dimmed; an unknown area is an error naming the plant's areas, and `--area` on a scene
+        that is not a plant an error saying so. `EditSession(path, area)`
+        (`server/editor.py`) edits that one file (text, base, operations, source and save are
+        that file's); its preview document is the plant merged with the unsaved text in the
+        file's place (5.4a's `merge` gained `overrides`, through `parse_scene` and `lint_scene`),
+        each component carrying `source` (its file, relative to the plant's folder; a
+        composite's part its instance's) and `editable`, and the document `edit: {file, plant,
+        area}`. Preview and save lint the **whole plant** with that text, so an id, a scene tag
+        or a `plc_tag` another file has is an E100 naming the other file and Save is refused
+        (422); a text that would make the plant fail to load is refused with the loader's
+        message (`load_error`, word for word) and nothing written. A palette component is
+        numbered past every id in the plant. The viewer (`web/src/editor/dim.ts`) draws every
+        other file's component dimmed (its own transparent copies of its materials, opacity
+        0.25, after the housings attach); selecting one shows "in areas/load.yaml: open that
+        file to edit it" instead of the form, with no gizmo, and Delete and the form have no
+        data for it, so no edit operation applies; a moved conveyor neither snaps to another
+        file's conveyor nor drops a device on its rails (that connection belongs in the plant
+        file). The refusal of a5ea0b4 is removed. Docs: `docs/editor.md` ("A plant in several
+        files"), `docs/scene-format.md`. *Tests:* `tests/unit/test_plant_editor.py` (8): the
+        area's file edited and the whole plant shown marked by file (a composite's parts too);
+        the plant file edited with every area dimmed; a save under `--area` after which only
+        `areas/wash.yaml` differs among every file of the copy (bytes compared, none added or
+        removed); an id and a tag of LOAD's typed in WASH refused at preview and at save
+        (422) naming `areas/load.yaml`, nothing written; deleting the end of the plant's
+        cross-area connection refused with the loader's own message; a palette id clear of the
+        plant's; the `--area` errors. `web/src/editor/dim.test.ts` (2). Playwright,
+        `tests/integration/test_editor_plant.py`: `edit wash-plant.yaml --area WASH` at
+        `?quality=low`, LOAD's components dimmed and WASH's not, CV_101 clicked shows the
+        message and no form and Delete sends nothing, `PE_101_DI` typed on PE_201 refused
+        naming `areas/load.yaml` with Save disabled, CV_201's speed saved, and only
+        `areas/wash.yaml` changed. **Screenshot looked at** (`editor-5.4e.png`, quality low,
+        written to `$OPENFACTORY_EDITOR_OUT`, never the repository): LOAD's infeed belt, carton
+        source, eye and dust fan drawn faint and see-through on the left; WASH's belt, fan,
+        tank, pump, valve and discharge solid; the panel head "EDIT MODE · areas/wash.yaml
+        (plant wash-plant.yaml; the rest dimmed)".
       *Not in the Done-when, so not built here:* a bundle of a plant (note §4.2, "Bundles");
       `bundle` refuses a plant file, saying so, rather than pack a part of it.
 - [ ] 5.5 Layout from topology. A P&ID has no geometry. `openfactory layout` places equipment and
