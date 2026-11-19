@@ -4416,7 +4416,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         `0.137` and the log's last values equal `/api/state`'s, while the same run without exam
         mode lists `PE_01: misaligned` and the offset; `run --exam --fault ... --record` then
         `look` on the recording; a 40-change cap over a 30 s run, asked for 30 s.
-  - [ ] 5.14c Aimed views and a plan view. *What:* `?look=ID` frames one component and what
+  - [x] 5.14c Aimed views and a plan view. *What:* `?look=ID` frames one component and what
         touches it; `?view=px,py,pz,tx,ty,tz` sets an exact camera; `?view=top` is a straight-down
         orthographic plan view with north up and a scale bar. `tools/screenshot.py` gains
         `--look-at ID`, `--view ...` and `--view top`. A "Copy view" control puts the current
@@ -4427,6 +4427,42 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         the window and filling at least a fifth of its width; `--view top` of the sorter puts
         every component on screen with no perspective (two points 1 m apart are the same pixel
         distance at both ends of the plant); screenshots looked at.
+        *Done (2026-11-18):* `web/src/views.ts` (DOM-free, `views.test.ts`, 8): `parseView`
+        takes six finite numbers (position and target apart) or the word `top`, anything else
+        the default view with a warning, never an exception; `lookTargets` is the component (a
+        composite instance's parts with it), the components a `connections:` entry joins it to,
+        link fields when the document carries them, and `linkTouches`: a pipe, valve or pump
+        whose drawn end (`points`' first or last) is within 5 cm of a component's drawn box
+        (the scene document carries a link's `points`, not its `from`/`to`, and adding them
+        would move every kit and run reference, so the geometry decides); `grow` 30 %; the
+        plan view's frame (`planFrame`, `aimPlan`: straight down, `up` -z, so north, the
+        scene's -z as `rotation_deg` turns, is up and +x right); `scaleBar` (1, 2 or 5 times a
+        power of ten metres, the first at least 80 px); `viewParam`. `main.ts`: `?look=` frames
+        with `framing.fitPose` over the grown box; `?view=` poses the camera; `?view=top`
+        switches to a second, orthographic camera with its own controls (pan and zoom, no
+        orbit) that the same renderer draws, picks and projects through, and shows the scale
+        bar with "N ↑"; the editor ignores `?view=top` with a warning (its gizmo works in the
+        3D camera); with both, `?view=` wins; "Copy view" (bottom left) copies `view=...` (the
+        clipboard, and `window.__openfactory.copiedView`). `tools/screenshot.py`: `--look-at
+        ID`, `--view px,py,pz,tx,ty,tz`, `--view top`, printing the view and the viewer's
+        warnings. Docs: `docs/looking-at-the-plant.md` ("Aimed views and a plan view").
+        **The two measurements** (`tests/integration/test_views.py`, 1280 by 720, quality low):
+        `?look=CYL_01` puts CYL_01's screen box (its drawn box's corners, projected) at 474 to
+        756 px across and 199 to 582 px down, inside the window and 282 px wide, 22.1 % of the
+        width (at least a fifth); `?view=top` of the sorter puts every component's screen box in
+        the window, and 1 m along x is 253.613 px at the west end, at the east end, 1.5 m up,
+        and across (z), equal to 0.01 px, with -z up and +x right, the scale bar's px per metre
+        the same. The same tests: five bad `?view=` values and `?look=NOPE` each the default
+        camera with a console warning and no page error; Copy view's value reopens the same
+        camera (to 2 mm) and in the plan gives `view=top`. **Screenshots looked at:** the
+        sorter's look (the pusher, its housing and plate over the running belt, filling the
+        middle of the window) and plan (both belts, the eye's beam across CONV_01, the pusher
+        above it, the removers, a 500 mm scale bar); the wash plant's `?look=TK_201` (the tank
+        with its level, XV_201 and its line from SUP_201 above, P_201 and its line to DR_201
+        beside it) and `--view top` (the two belts end to end, the two fans below them, the
+        supply, valve and tank above; the checks panel at the top right covers P_201 and DR_201
+        in the plan, as it covers that corner in every view, and the fans' two labels overlap,
+        which is 5.14d's to fix).
   - [ ] 5.14d Values in the picture. *What:* a labels control with three settings: ids (today),
         tags (each component's bound tags with live values beside it), off. URL `?labels=tags`;
         `tools/screenshot.py --labels tags`.

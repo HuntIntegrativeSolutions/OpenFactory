@@ -48,6 +48,7 @@ import { PartMeshes } from "./parts";
 import { planSteps, spawnStep, strokeAt } from "./ticksync";
 import { FrameStats } from "./framestats";
 import { boxInView, fitPose, framedBounds, framePose, type VisibleArea } from "./framing";
+import { aimPlan, grow, linkTouches, lookTargets, parseView, planFrame, scaleBar, viewParam } from "./views";
 import { applyShadowRoles, buildStage, editOverlay, Lighting } from "./lighting";
 import { initialQuality, isAutomatedBrowser, QUALITIES, QUALITY_TOOLTIP, readStored, remember, type Quality } from "./quality";
 
@@ -150,6 +151,43 @@ app.appendChild(qualityControl);
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+/** The plan view (PLAN 5.14c, `?view=top`): a second camera, orthographic and straight down, with
+ * its own controls (pan and zoom, no orbit); the same renderer draws through it. */
+const planCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.05, 100);
+let planControls: OrbitControls | null = null;
+let planHalfHeight = 1;
+/** The camera the plant is drawn, picked and projected through. */
+let active: THREE.Camera = camera;
+function inPlan(): boolean {
+  return active === planCamera;
+}
+/** The plan view's scale bar and north arrow (bottom left, above the quality control). */
+const scaleBox = document.createElement("div");
+scaleBox.id = "scale-bar";
+scaleBox.style.cssText =
+  `display:none;position:absolute;bottom:44px;left:16px;font:12px Arial,sans-serif;color:${cssColor("normalText")};` +
+  "background:rgba(31,42,54,0.75);border-radius:3px;padding:4px 8px;pointer-events:none";
+let scaleShown = "";
+function updateScaleBar(): void {
+  if (!inPlan()) return;
+  const pxPerMetre = (window.innerHeight * planCamera.zoom) / (planCamera.top - planCamera.bottom);
+  const bar = scaleBar(pxPerMetre);
+  const key = `${bar.label}:${bar.px.toFixed(1)}`;
+  if (key === scaleShown) return;
+  scaleShown = key;
+  scaleBox.innerHTML = "";
+  const north = document.createElement("div");
+  north.textContent = "N ↑   plan view";
+  north.style.marginBottom = "3px";
+  const line = document.createElement("div");
+  line.id = "scale-bar-line";
+  line.style.cssText = `width:${bar.px.toFixed(1)}px;height:4px;border:1px solid ${cssColor("normalText")};border-top:none`;
+  const text = document.createElement("div");
+  text.id = "scale-bar-label";
+  text.textContent = bar.label;
+  scaleBox.append(north, line, text);
+  window.__openfactory.scaleBar = { metres: bar.metres, px: bar.px, pxPerMetre };
+}
 
 /** Width of the editor panel the plant should be centred clear of (PLAN 4.1c), 0 outside edit
  * mode or when the window is too narrow for both. */
@@ -169,6 +207,9 @@ function fitCamera(): void {
   if (p) camera.setViewOffset(w + p, h, p, 0, w, h);
   else camera.clearViewOffset();
   camera.updateProjectionMatrix();
+  planCamera.left = -planHalfHeight * (w / h);
+  planCamera.right = planHalfHeight * (w / h);
+  planCamera.updateProjectionMatrix();
   fitHud();
 }
 
@@ -569,7 +610,7 @@ async function applyScene(next: SceneDocument): Promise<void> {
 /** The component under a viewport point: the view whose object tree holds the first hit. */
 function pickComponent(clientX: number, clientY: number): { id: string; type: string } | null {
   const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(new THREE.Vector2((clientX / window.innerWidth) * 2 - 1, -(clientY / window.innerHeight) * 2 + 1), camera);
+  raycaster.setFromCamera(new THREE.Vector2((clientX / window.innerWidth) * 2 - 1, -(clientY / window.innerHeight) * 2 + 1), active);
   const hits = raycaster.intersectObjects(views.map((v) => v.object), true);
   // Solid meshes first: an emitter's or remover's nearly transparent outline box should not hide
   // the equipment behind it; it is picked only when nothing solid is under the pointer.
@@ -592,12 +633,121 @@ function screenOf(id: string, local?: [number, number, number]): [number, number
   const view = views.find((v) => v.id === id);
   if (!view) return null;
   const world = local ? view.object.localToWorld(new THREE.Vector3(...local)) : view.object.getWorldPosition(new THREE.Vector3());
-  const p = world.project(camera);
+  const p = world.project(active);
   return [((p.x + 1) / 2) * window.innerWidth, ((1 - p.y) / 2) * window.innerHeight];
 }
 
+/** A world point on screen through the camera in use, CSS pixels (PLAN 5.14c tests). */
+function project(x: number, y: number, z: number): [number, number] {
+  active.updateMatrixWorld();
+  const p = new THREE.Vector3(x, y, z).project(active);
+  return [((p.x + 1) / 2) * window.innerWidth, ((1 - p.y) / 2) * window.innerHeight];
+}
+
+/** The screen box of a component's drawn views (a composite instance's parts with it), as
+ * [left, top, right, bottom] CSS pixels, or null when nothing is drawn for it. */
+function screenBox(id: string): [number, number, number, number] | null {
+  const drawn = views.filter((v) => v.id === id || (doc?.components.find((c) => c.id === v.id)?.composite as { id?: string } | undefined)?.id === id);
+  if (!drawn.length) return null;
+  const box = framedBounds(drawn.map((v) => v.object));
+  let out: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+    const [sx, sy] = project(x, y, z);
+    out = [Math.min(out[0], sx), Math.min(out[1], sy), Math.max(out[2], sx), Math.max(out[3], sy)];
+  }
+  return out;
+}
+
+/** Switch to the plan view (PLAN 5.14c): the whole plant from straight above, north up. */
+function showPlan(): void {
+  const bounds = framedBounds(views.map((v) => v.object));
+  if (bounds.isEmpty()) return;
+  const aspect = window.innerWidth / window.innerHeight;
+  const frame = planFrame(bounds, aspect);
+  const floor = Math.min(bounds.min.y, 0);
+  planHalfHeight = frame.halfHeight;
+  aimPlan(planCamera, frame, aspect, bounds.max.y, floor);
+  planControls = new OrbitControls(planCamera, renderer.domElement);
+  planControls.enableRotate = false;
+  planControls.screenSpacePanning = true;
+  planControls.target.set(frame.centre.x, floor, frame.centre.z);
+  planControls.update();
+  controls.enabled = false;
+  active = planCamera;
+  scaleBox.style.display = "block";
+  updateScaleBar();
+}
+
+/** `?look=ID` and `?view=...` (PLAN 5.14c), once the plant is drawn. Anything not understood is the
+ * default view with a console warning, never an exception. */
+function applyUrlView(): void {
+  const status = window.__openfactory;
+  status.view = "default";
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const asked = parseView(params.get("view"));
+    const look = params.get("look");
+    if (asked.kind === "default" && asked.warning) console.warn(`OpenFactory: ${asked.warning}`);
+    if (asked.kind !== "default" && look) console.warn(`OpenFactory: ?look=${look} is ignored: ?view= sets the camera`);
+    if (asked.kind === "pose") {
+      camera.position.copy(asked.position);
+      controls.target.copy(asked.target);
+      controls.update();
+      status.view = "pose";
+      return;
+    }
+    if (asked.kind === "top") {
+      if (editing()) {
+        console.warn("OpenFactory: ?view=top is not offered in the editor (its gizmo works in the 3D view)");
+        return;
+      }
+      showPlan();
+      status.view = "top";
+      return;
+    }
+    if (look === null) return;
+    const boxes = new Map(views.map((v) => [v.id, framedBounds([v.object])]));
+    const ids = doc ? lookTargets(doc, look, linkTouches(doc, boxes)) : [];
+    const objects = views.filter((v) => ids.includes(v.id)).map((v) => v.object);
+    if (!objects.length) {
+      console.warn(`OpenFactory: ?look=${look}: no such component; the default view is shown`);
+      return;
+    }
+    const pose = fitPose(grow(framedBounds(objects)), camera.fov, { width: window.innerWidth, height: window.innerHeight, covered: viewShiftPx });
+    camera.position.copy(pose.position);
+    controls.target.copy(pose.target);
+    controls.update();
+    status.view = `look ${look}`;
+    status.look = ids;
+  } catch (err) {
+    console.warn(`OpenFactory: the view in the address was not applied (${String(err)}); the default view is shown`);
+    status.view = "default";
+  }
+}
+
+/** "Copy view" (PLAN 5.14c): the view on screen as `view=...`, on the clipboard. */
+const copyViewButton = document.createElement("button");
+copyViewButton.id = "copy-view";
+copyViewButton.textContent = "Copy view";
+copyViewButton.title = "Copy this view as ?view=... for the address bar or tools/screenshot.py --view";
+copyViewButton.style.cssText =
+  `position:absolute;bottom:12px;left:170px;font:12px Arial,sans-serif;color:${cssColor("normalText")};` +
+  "background:#1f2937;border:1px solid #4b5563;border-radius:3px;padding:2px 6px;cursor:pointer";
+copyViewButton.addEventListener("click", () => {
+  const param = viewParam(inPlan(), camera.position, controls.target);
+  window.__openfactory.copiedView = param;
+  const done = (text: string) => {
+    copyViewButton.textContent = text;
+    window.setTimeout(() => (copyViewButton.textContent = "Copy view"), 1500);
+  };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(param).then(() => done("Copied"), () => done(param));
+  else done(param);
+});
+
 async function start(): Promise<void> {
   await loadScene();
+  app!.append(scaleBox, copyViewButton);
+  applyUrlView();
   wireClicks();
   const menu = new FaultMenu({ target: renderer.domElement, pick: pickComponent });
   const exam = new ExamPanel(INSTRUCTOR);
@@ -618,6 +768,10 @@ async function start(): Promise<void> {
     __openfactoryCamera: () => camera.position.toArray(),
     __openfactoryFaultMenu: menu,
     __openfactoryScreenOf: screenOf,
+    // PLAN 5.14c: projection through the camera in use, a component's screen box, the view's text
+    __openfactoryProject: project,
+    __openfactoryScreenBox: screenBox,
+    __openfactoryViewParam: () => viewParam(inPlan(), camera.position, controls.target),
     // the component under a viewport point, for tests that click one (PLAN 4.1b)
     __openfactoryPick: (x: number, y: number) => pickComponent(x, y)?.id ?? null,
     __openfactoryPartTargets: () => parts.targets(),
@@ -955,10 +1109,11 @@ start().catch((err: unknown) => {
 
 renderer.setAnimationLoop((now) => {
   const start = performance.now();
-  controls.update();
+  (planControls ?? controls).update();
+  updateScaleBar();
   parts.animate(); // eases meshes toward their latest pose between 20 Hz frames; never steps physics
-  renderer.render(scene, camera);
-  labels.render(scene, camera);
+  renderer.render(scene, active);
+  labels.render(scene, active);
   frameStats.frame(now, performance.now() - start);
   const status = window.__openfactory;
   status.frameMs = frameStats.meanMs;

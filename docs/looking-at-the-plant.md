@@ -7,6 +7,10 @@ and 5.14b). Neither needs a browser.
 - **`openfactory look`** prints the plant in words.
 - **`GET /api/iolog`** lists every tag change, with its tick, its time and who wrote it.
 
+The picture side starts with [aimed views and a plan view](#aimed-views-and-a-plan-view)
+(PLAN 5.14c): an address that opens the viewer on one component, on an exact camera, or straight
+down on the whole plant.
+
 OpenFactory is a training and demo tool, not a safety-rated simulation.
 
 ## `openfactory look`
@@ -122,3 +126,33 @@ is showing. `openfactory replay FILE.ofrec --io` prints a whole recording's chan
 
 Each scene's generated `CONTEXT.md` lists the two `look` commands for that scene under
 "Looking at the plant".
+
+## Aimed views and a plan view
+
+Three address parameters choose where the viewer looks when it opens (PLAN 5.14c). They work on
+any page the viewer serves (`openfactory run`, `replay`, a kit), next to `?quality=`.
+
+- **`?look=CYL_01`** frames one component and what touches it: a component a `connections:`
+  entry joins it to, and a pipe, valve or pump whose drawn end is on it (or on whose end it is).
+  The view comes from the usual direction, as close as keeps all of them on screen, with 30 %
+  more room around them. `?look=TK_201` on the sample plant shows the tank, its make-up valve
+  with the line from the supply, and its pump with the line to the drain.
+- **`?view=px,py,pz,tx,ty,tz`** puts the camera at (px, py, pz) looking at (tx, ty, tz), in metres
+  in the scene's frame.
+- **`?view=top`** is a plan: straight down, with no perspective, so 1 m is the same length
+  everywhere on the screen. North is up and +x is to the right; north is the scene's -z, the way
+  positive `rotation_deg` turns ([the component reference](components.md)). A scale bar at the
+  bottom left gives 1, 2 or 5 times a power of ten metres and follows the zoom. Drag to pan and
+  scroll to zoom; it does not orbit. The editor keeps its 3D view (`?view=top` is ignored there,
+  with a warning).
+
+A `?view=` value is six finite numbers (with the position and the target apart) or the word
+`top`. Anything else, and a `?look=` naming no component, opens the default view and writes a
+warning to the browser's console; it never stops the page. With both, `?view=` wins.
+
+**Copy view** (bottom left) copies the view on screen as `view=...`: paste it after `?` in the
+address, or give it to the screenshot tool. In the plan view it copies `view=top`.
+
+`tools/screenshot.py` takes the same: `--look-at ID`, `--view px,py,pz,tx,ty,tz` and `--view
+top`, for example
+`uv run python tools/screenshot.py scenes/sorting-by-height.yaml --script examples/pyplc/sorting-by-height.py --view top`.

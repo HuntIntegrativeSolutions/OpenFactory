@@ -6,6 +6,7 @@ Usage::
                                             [--script F.py | --bundled-script]
                                             [--size 1280x720] [--build]
                                             [--quality low|standard|high]
+                                            [--look-at ID | --view px,py,pz,tx,ty,tz | --view top]
 
 What it does:
 
@@ -33,6 +34,10 @@ What it does:
    Likewise it prints how far outside its carrier's deck the viewer has drawn such a part
    (``window.__openfactory.maxOffDeckM``, the position check: the core keeps it on the deck), and
    ``--max-off-deck-m M`` fails above M metres.
+   ``--look-at ID`` opens the viewer at ``?look=ID`` (that component and what touches it framed),
+   ``--view px,py,pz,tx,ty,tz`` at that camera position and target, and ``--view top`` at the plan
+   view, straight down with north up and a scale bar (PLAN 5.14c); the viewer's own parsing
+   applies, so a value it does not understand gives the default view and a console warning.
 4. Saves a PNG (default ``tools/screenshots/<scene>-<N>s.png``, git-ignored) and checks it is not
    blank: at least 2 % of pixels must differ from the ISA-101 background ``#1F2A36`` and at most
    90 % may be near-black. A failed check, a viewer error, or a timeout exits 1.
@@ -190,6 +195,7 @@ def running_viewer(
     script: Path | None = None,
     bundled_script: bool = False,
     quality: str = "low",
+    view: dict[str, str] | None = None,
 ) -> Iterator[tuple[Any, int, list[str]]]:
     """Start ``openfactory run SCENE`` on free loopback ports and open its viewer in headless
     Chromium (SwiftShader WebGL) at viewer quality ``quality`` (PLAN 4.14). Yields
@@ -221,7 +227,10 @@ def running_viewer(
             console: list[str] = []
             page.on("console", lambda m: console.append(f"{m.type}: {m.text}"))
             page.on("pageerror", lambda e: console.append(f"pageerror: {e}"))
-            page.goto(f"http://127.0.0.1:{web_port}/?quality={quality}")
+            from urllib.parse import urlencode
+
+            query = urlencode({"quality": quality, **(view or {})}, safe=",")
+            page.goto(f"http://127.0.0.1:{web_port}/?{query}")
             yield page, web_port, console
             browser.close()
     finally:
@@ -274,6 +283,7 @@ def screenshot(
     housings: tuple[str, ...] = (),
     bundled_script: bool = False,
     quality: str = "low",
+    view: dict[str, str] | None = None,
 ) -> dict[str, object]:
     with running_viewer(
         scene,
@@ -282,6 +292,7 @@ def screenshot(
         script=script,
         bundled_script=bundled_script,
         quality=quality,
+        view=view,
     ) as (
         page,
         web_port,
@@ -327,6 +338,18 @@ def main(argv: list[str] | None = None) -> int:
         choices=("low", "standard", "high"),
         default="low",
         help="viewer quality level (PLAN 4.14); low keeps run times as they were",
+    )
+    parser.add_argument(
+        "--look-at",
+        default=None,
+        metavar="ID",
+        help="frame one component and what touches it (?look=ID, PLAN 5.14c)",
+    )
+    parser.add_argument(
+        "--view",
+        default=None,
+        metavar="px,py,pz,tx,ty,tz|top",
+        help="an exact camera (position and target, metres), or top: the plan view (PLAN 5.14c)",
     )
     parser.add_argument(
         "--max-tilt-deg",
@@ -386,6 +409,7 @@ def main(argv: list[str] | None = None) -> int:
         script=args.script.resolve() if args.script else None,
         bundled_script=args.bundled_script,
         quality=args.quality,
+        view={k: v for k, v in (("look", args.look_at), ("view", args.view)) if v},
     )
     ok, summary = check_image(out)
     status = result["status"]
@@ -394,6 +418,11 @@ def main(argv: list[str] | None = None) -> int:
         f"viewer: scene {status['scene']}, {status['components']} components, "
         f"{status['frames']} frames, t = {status['simTime']:.2f} s"
     )
+    if args.look_at or args.view:
+        print(f"viewer view: {status.get('view')}")
+        for line in result["console"]:
+            if "OpenFactory: " in line:
+                print(line)
     print(
         f"viewer physics: {status.get('physics')}, "
         f"sensor events sent: {status.get('sensorEvents')}, "
