@@ -50,10 +50,10 @@ openfactory explain inline-reject.ofrec --part P000001   # one part's story
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py kits/inline-reject/inline-reject.yaml --seconds 6 --look-at EMT_01 --labels tags --script kits/inline-reject/inline-reject.py --out inline-reject.png
+python "$OPENFACTORY/tools/screenshot.py" inline-reject.yaml --seconds 6 --look-at EMT_01 --labels tags --script inline-reject.py --out inline-reject.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

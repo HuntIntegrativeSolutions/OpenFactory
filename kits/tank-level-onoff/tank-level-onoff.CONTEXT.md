@@ -49,10 +49,10 @@ openfactory explain tank-level-onoff.ofrec --check level_within   # one check
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py kits/tank-level-onoff/tank-level-onoff.yaml --seconds 6 --look-at P_01 --labels tags --script kits/tank-level-onoff/tank-level-onoff.py --out tank-level-onoff.png
+python "$OPENFACTORY/tools/screenshot.py" tank-level-onoff.yaml --seconds 6 --look-at P_01 --labels tags --script tank-level-onoff.py --out tank-level-onoff.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

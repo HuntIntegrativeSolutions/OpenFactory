@@ -50,10 +50,10 @@ openfactory explain buffer-and-release.ofrec --part P000001   # one part's story
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py scenes/buffer-and-release.yaml --seconds 6 --look-at BUF_GATE --labels tags --script examples/pyplc/buffer-and-release.py --out buffer-and-release.png
+python "$OPENFACTORY/tools/screenshot.py" buffer-and-release.yaml --seconds 6 --look-at BUF_GATE --labels tags --script ../examples/pyplc/buffer-and-release.py --out buffer-and-release.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

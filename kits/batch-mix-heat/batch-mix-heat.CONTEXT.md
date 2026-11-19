@@ -49,10 +49,10 @@ openfactory explain batch-mix-heat.ofrec --check level_within   # one check
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py kits/batch-mix-heat/batch-mix-heat.yaml --seconds 6 --look-at XV_01 --labels tags --script kits/batch-mix-heat/batch-mix-heat.py --out batch-mix-heat.png
+python "$OPENFACTORY/tools/screenshot.py" batch-mix-heat.yaml --seconds 6 --look-at XV_01 --labels tags --script batch-mix-heat.py --out batch-mix-heat.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

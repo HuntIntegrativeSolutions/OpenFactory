@@ -49,10 +49,10 @@ openfactory explain two-tank-cascade.ofrec --check level_within   # one check
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py scenes/two-tank-cascade.yaml --seconds 6 --look-at SUP_01 --labels tags --script examples/pyplc/two-tank-cascade.py --out two-tank-cascade.png
+python "$OPENFACTORY/tools/screenshot.py" two-tank-cascade.yaml --seconds 6 --look-at SUP_01 --labels tags --script ../examples/pyplc/two-tank-cascade.py --out two-tank-cascade.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

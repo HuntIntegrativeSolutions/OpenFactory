@@ -50,10 +50,10 @@ openfactory explain wash-plant.ofrec --part P000001   # one part's story
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py scenes/plants/wash-plant/wash-plant.yaml --seconds 6 --look-at FAN_101_BODY --labels tags --script scenes/plants/wash-plant/wash-plant.py --out wash-plant.png
+python "$OPENFACTORY/tools/screenshot.py" wash-plant.yaml --seconds 6 --look-at FAN_101_BODY --labels tags --script wash-plant.py --out wash-plant.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

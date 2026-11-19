@@ -152,7 +152,7 @@ def test_every_context_says_how_to_look_and_each_command_parses(context, monkeyp
     """PLAN 5.14j: every shipped scene's CONTEXT.md (scenes and kits) has a "Looking at the
     plant" section with the look, strip, explain, captures and screenshot commands for that
     scene, and each command parses: the openfactory ones with the CLI's own parser, the
-    screenshot one with tools/screenshot.py's."""
+    screenshot one with tools/screenshot.py's, its scene path a file from the scene's folder."""
     import argparse
     import importlib.util
     import shlex
@@ -162,9 +162,9 @@ def test_every_context_says_how_to_look_and_each_command_parses(context, monkeyp
 
     commands = _looking_commands(context.read_text(encoding="utf-8"))
     scene = context.name.removesuffix(".CONTEXT.md")
-    words = {c.split()[0] + " " + c.split()[1] for c in commands}
+    words = {" ".join(shlex.split(c)[:2]) for c in commands}
     for wanted in ("openfactory look", "openfactory strip", "openfactory explain",
-                   "openfactory captures", "python tools/screenshot.py"):  # fmt: skip
+                   "openfactory captures", "python $OPENFACTORY/tools/screenshot.py"):  # fmt: skip
         assert wanted in words, (wanted, commands)
     assert any(f"{scene}.ofrec" in c for c in commands if c.startswith("openfactory strip"))
     group = typer.main.get_command(app)
@@ -181,8 +181,8 @@ def test_every_context_says_how_to_look_and_each_command_parses(context, monkeyp
     for command in commands:
         argv = shlex.split(command, comments=True)
         if argv[0] == "python":
-            assert argv[1] == "tools/screenshot.py"
-            assert (REPO / argv[2]).is_file(), argv  # a path from the repository's root
+            assert argv[1] == "$OPENFACTORY/tools/screenshot.py", argv
+            assert (context.parent / argv[2]).is_file(), argv  # from the scene's folder
             with pytest.raises(_Parsed):
                 shot.main(argv[2:])
             continue

@@ -49,10 +49,10 @@ openfactory explain plantpax-tank-level.ofrec --check level_within   # one check
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py scenes/plantpax-tank-level.yaml --seconds 6 --look-at P_01 --labels tags --script examples/pyplc/plantpax-tank-level.py --out plantpax-tank-level.png
+python "$OPENFACTORY/tools/screenshot.py" plantpax-tank-level.yaml --seconds 6 --look-at P_01 --labels tags --script ../examples/pyplc/plantpax-tank-level.py --out plantpax-tank-level.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

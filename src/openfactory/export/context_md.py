@@ -173,25 +173,17 @@ def _check_keys(scene: Scene) -> list[str]:
 
 
 def _screenshot(scene_path: Path, focus: str) -> list[str]:
-    """The screenshot runner's command (``tools/screenshot.py``), which runs from the source
-    repository's root, so its paths are written from there; a line saying so without one."""
-    root = next(
-        (p for p in scene_path.resolve().parents if (p / "tools" / "screenshot.py").is_file()), None
-    )
-    if root is None:
-        return [
-            "A screenshot needs `tools/screenshot.py` from the OpenFactory source repository.",
-            "",
-        ]
-    scene = Path(os.path.relpath(scene_path.resolve(), root)).as_posix()
+    """The screenshot runner's command (``tools/screenshot.py``, in the source repository),
+    run from the scene's folder like the others: the runner resolves its paths against the
+    folder it is started from. ``$OPENFACTORY`` is the source checkout, so the text depends on
+    the scene alone, never on where it is generated."""
     script = _script(scene_path)
-    if script:
-        script = Path(os.path.relpath((scene_path.parent / script).resolve(), root)).as_posix()
     return [
-        "A screenshot, from the source repository's root:",
+        "A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:",
         "",
         "```bash",
-        f"python tools/screenshot.py {scene} --seconds 6 --look-at {focus} --labels tags"
+        f'python "$OPENFACTORY/tools/screenshot.py" {scene_path.name} --seconds 6 --look-at {focus}'
+        " --labels tags"
         + (f" --script {script}" if script else "")
         + f" --out {scene_path.stem}.png",
         "```",

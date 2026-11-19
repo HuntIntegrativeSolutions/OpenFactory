@@ -4959,8 +4959,11 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         `look <scene>.ofrec --at 6 --component <focus>`, `strip ... --look-at <focus> --labels
         tags`, `explain <scene>.ofrec`, `--check <first declared check>` when the scene has
         checks and `--part P000001` when it makes parts, `captures`, and the screenshot runner
-        with paths from the source repository's root (it runs `openfactory run` from there),
-        then one paragraph on the viewer's C, Space, Step and part click. The focus is the
+        run from the scene's folder as `python "$OPENFACTORY/tools/screenshot.py" <scene>.yaml
+        ...` (it resolves its paths against the folder it starts from; `$OPENFACTORY` is the
+        source checkout, so the text depends on the scene alone: a first version wrote paths
+        from the repository's root, which the kit check, generating in a temporary folder, found
+        stale on the fresh-clone CI), then one paragraph on the viewer's C, Space, Step and part click. The focus is the
         first component, not a conveyor, with a bound DO (the sorter's CYL_01), else the first.
         Renewed in this commit: the 15 committed `CONTEXT.md` beside scenes (12 in `scenes/`,
         2 in `scenes/examples/`, the wash plant) and the 12 kit copies, by `build_kit.py`; only
@@ -4970,7 +4973,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         captures and screenshot commands are each there, the strip names that scene's
         recording, every `openfactory` command parses with the CLI's own parser (an unknown
         option or a bad value fails) and the screenshot command with `tools/screenshot.py`'s,
-        its scene path a file from the repository's root; `test_committed_context_is_current`
+        its scene path a file in the scene's folder; `test_committed_context_is_current`
         holds the renewal.
         **5.14 itself is not ticked:** it has a Goal and rulings but no Done-when of its own, so
         there is no line to hold it to; the owner rules whether 5.14a to 5.14j close it.

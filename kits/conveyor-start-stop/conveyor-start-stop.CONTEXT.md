@@ -50,10 +50,10 @@ openfactory explain conveyor-start-stop.ofrec --part P000001   # one part's stor
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py kits/conveyor-start-stop/conveyor-start-stop.yaml --seconds 6 --look-at EMT_01 --labels tags --script kits/conveyor-start-stop/conveyor-start-stop.py --out conveyor-start-stop.png
+python "$OPENFACTORY/tools/screenshot.py" conveyor-start-stop.yaml --seconds 6 --look-at EMT_01 --labels tags --script conveyor-start-stop.py --out conveyor-start-stop.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

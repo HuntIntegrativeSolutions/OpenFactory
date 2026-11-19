@@ -50,10 +50,10 @@ openfactory explain sorting-by-color.ofrec --part P000001   # one part's story
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py kits/sorting-by-color/sorting-by-color.yaml --seconds 6 --look-at DIV_01 --labels tags --script kits/sorting-by-color/sorting-by-color.py --out sorting-by-color.png
+python "$OPENFACTORY/tools/screenshot.py" sorting-by-color.yaml --seconds 6 --look-at DIV_01 --labels tags --script sorting-by-color.py --out sorting-by-color.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

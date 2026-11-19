@@ -50,10 +50,10 @@ openfactory explain variable-item-demo.ofrec --part P000001   # one part's story
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py scenes/examples/variable-item-demo.yaml --seconds 6 --look-at EMT_01 --labels tags --script scenes/examples/variable-item-demo.py --out variable-item-demo.png
+python "$OPENFACTORY/tools/screenshot.py" variable-item-demo.yaml --seconds 6 --look-at EMT_01 --labels tags --script variable-item-demo.py --out variable-item-demo.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the

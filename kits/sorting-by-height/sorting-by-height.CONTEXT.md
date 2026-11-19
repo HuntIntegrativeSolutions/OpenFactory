@@ -50,10 +50,10 @@ openfactory explain sorting-by-height.ofrec --part P000001   # one part's story
 openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
 
-A screenshot, from the source repository's root:
+A screenshot, with `OPENFACTORY` set to your OpenFactory source checkout:
 
 ```bash
-python tools/screenshot.py kits/sorting-by-height/sorting-by-height.yaml --seconds 6 --look-at CYL_01 --labels tags --script kits/sorting-by-height/sorting-by-height.py --out sorting-by-height.png
+python "$OPENFACTORY/tools/screenshot.py" sorting-by-height.yaml --seconds 6 --look-at CYL_01 --labels tags --script sorting-by-height.py --out sorting-by-height.png
 ```
 
 `look` gives each component in a sentence with its tags, each part and where it is, the
