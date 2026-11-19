@@ -106,3 +106,18 @@ export function stackLabels(rects: LabelRect[], gap = 2): Map<string, number> {
   }
   return out;
 }
+
+/** The longest program line the status lines show (PLAN 5.14i). */
+export const MAX_WATCH_LINE = 160;
+
+/** The stand-in script's watch values (PLAN 5.14i) as one status line, "program: step 20 ·
+ * boxes_in_transit 1", for `labels=tags`; null with none. Text only (the page sets it as
+ * textContent), control characters dropped, cut to MAX_WATCH_LINE. */
+export function watchLine(watch: Record<string, unknown> | undefined): string | null {
+  if (!watch) return null;
+  const items = Object.entries(watch).map(([name, value]) => `${name} ${formatValue(value)}`);
+  if (!items.length) return null;
+  // eslint-disable-next-line no-control-regex
+  const line = `program: ${items.join(" · ")}`.replace(/[\u0000-\u001f\u007f]/g, "");
+  return line.length > MAX_WATCH_LINE ? `${line.slice(0, MAX_WATCH_LINE - 1)}…` : line;
+}

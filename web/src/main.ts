@@ -52,7 +52,7 @@ import { FrameStats } from "./framestats";
 import { boxInView, fitPose, framedBounds, framePose, type VisibleArea } from "./framing";
 import { aimPlan, grow, linkTouches, lookTargets, panelsShown, parseView, planFrame, scaleBar, viewParam } from "./views";
 import { isJump, ReplayBar } from "./replaybar";
-import { boundTags, LABEL_MODES, labelLines, parseLabels, showsValues, stackLabels, type LabelMode, type LabelRect } from "./labels";
+import { boundTags, LABEL_MODES, labelLines, parseLabels, showsValues, stackLabels, watchLine, type LabelMode, type LabelRect } from "./labels";
 import { applyShadowRoles, buildStage, editOverlay, Lighting } from "./lighting";
 import { initialQuality, isAutomatedBrowser, QUALITIES, QUALITY_TOOLTIP, readStored, remember, type Quality } from "./quality";
 
@@ -699,7 +699,10 @@ function onFrame(frame: StateFrame): void {
     `${frame.viewers === undefined ? "" : `   viewers ${frame.viewers}`}\n` +
     `running: ${running.map((v) => v.id).join(", ") || "none"}\n` +
     frameLine();
-
+  // PLAN 5.14i: the stand-in script's own state, with the tags' values (labels=tags)
+  const program = labelMode === "tags" ? watchLine(frame.watch) : null;
+  if (program) hud.textContent += `\n${program}`;
+  status.watchLine = program;
   examPanel?.avoid(hud); // below the status lines on a narrow screen
   placeChecks();
   stateCost.frame(start, performance.now() - start);

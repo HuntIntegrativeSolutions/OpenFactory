@@ -30,6 +30,13 @@ None.
 - `REM_02` (part_remover): removed 0 parts.
 - Scene tags: SIM_HEARTBEAT_DI = false
 
+## Program (watch values)
+
+Published by the stand-in script with `io.watch`; not tags: no address, not exported, not seen by a protocol.
+
+- step = 20
+- boxes_in_transit = 0
+
 ## Parts
 
 - `P000001` short, on CONV_01, 2.58 m from the infeed end, moving 0.50 m/s

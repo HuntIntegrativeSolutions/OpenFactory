@@ -7,7 +7,8 @@ Run it with no PLC at all:
 
 This is a line-for-line port of examples/openplc/sorting-by-height.st, the OpenPLC program, so the
 two stay in step: same sequence, same timers, same tag names. tests/unit/test_pyplc.py checks that
-the constants agree with the ST file. The only intended difference is DIVERT_DELAY_S. The ST
+the constants agree with the ST file. The only intended difference in control is DIVERT_DELAY_S
+(and the watch values below, which are display only and control nothing). The ST
 program subtracts OpenPLC's average 0.10 s Modbus polling latency (T#1980ms); a script scans the I/O
 table directly every 20 ms tick, with no polling latency, so it uses the full 2.08 s
 eye-to-plate travel time.
@@ -20,6 +21,15 @@ Sequence of operations
      Up to DIVERT_SLOTS boxes can be on their way at once, each in its own slot (a ring), so a
      second tall box tripping the eye before the first is pushed keeps its divert.
   4. Retract CYL_01 as soon as its extended limit is made.
+
+Watch values (PLAN 5.14i): the script publishes its step for `openfactory look`, the viewer's
+status lines (labels: tags), recordings and `openfactory explain`. They are not tags: no Modbus
+address, nothing in the I/O list, and the OpenPLC program has no counterpart.
+  step  10 belts starting (waiting for both to report running for 1 s)
+        20 feeding (no tall box on its way to the pusher)
+        30 a tall box on its way from PE_01 to the pusher
+        40 pushing (CYL_01 extending, until its extended limit)
+  boxes_in_transit  how many tall boxes hold a divert slot
 
 Training and demo use only. Not a safety-rated program and not a safety-rated simulation.
 """
@@ -70,3 +80,16 @@ def step(io, t):
     if io["CYL_01_EXT_DI"]:
         push_cmd = False
     io["CYL_01_EXT_DO"] = push_cmd
+
+    # Watch values (display only, PLAN 5.14i): the sequence's step and the boxes in transit
+    in_transit = sum(divert_pend)
+    if not BELTS_OK_TMR.q:
+        step_no = 10
+    elif push_cmd:
+        step_no = 40
+    elif in_transit:
+        step_no = 30
+    else:
+        step_no = 20
+    io.watch("step", step_no)
+    io.watch("boxes_in_transit", in_transit)

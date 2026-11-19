@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 from itertools import combinations
@@ -223,3 +224,22 @@ def test_past_40_components_only_the_focus_and_its_neighbours_show_values(tmp_pa
         )
         labels = labels_on_screen(page)
         assert sorted(lab["id"] for lab in labels if "\n" in lab["text"]) == moved
+
+
+def test_the_programs_watch_values_show_with_the_tags_values(tmp_path):
+    """PLAN 5.14i: with ``labels=tags`` the status lines gain the stand-in script's watch values
+    (the sorter publishes its step), as /api/state has them; with ids they are not shown."""
+    with screenshot.running_viewer(SORTER, forces=[], size=(W, H), script=SCRIPT,
+                                   view={"labels": "tags"}) as (page, port, console):  # fmt: skip
+        screenshot.wait_for_viewer(page, console, seconds=3.0, timeout=90)
+        page.wait_for_function("() => !!window.__openfactory.watchLine", timeout=10_000)
+        line = page.evaluate("() => window.__openfactory.watchLine")
+        print(line)
+        assert re.fullmatch(r"program: step (10|20|30|40) · boxes_in_transit \d", line), line
+        assert line in page.locator("#hud").inner_text()
+        state = screenshot.get_json(port, "/api/state")
+        assert set(state["watch"]) == {"step", "boxes_in_transit"}
+        page.screenshot(path=str(out_dir(tmp_path) / "sorter-watch-values.png"))
+        page.evaluate("() => window.__openfactorySetLabels('ids')")
+        page.wait_for_function("() => window.__openfactory.watchLine === null")
+        assert "program:" not in page.locator("#hud").inner_text()

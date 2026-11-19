@@ -246,13 +246,19 @@ class Runtime:
 
     def _take_snapshot(self) -> dict[str, Any]:
         loaded = self.loaded
-        return {
+        snap = {
             "t": round(loaded.time, 6),
             "tick": loaded.tick,
             "components": {c.id: self._component_state(c) for c in loaded.components},
             "parts": [self._part_state(p) for p in loaded.world.parts.values()],
             "io": loaded.io.values(),
         }
+        # PLAN 5.14i: the stand-in script's watch values, only when it published any, so the
+        # snapshot (and a recording) of a run without them is what it was
+        watches = getattr(getattr(self.controller, "io", None), "watches", None)
+        if watches:
+            snap["watch"] = dict(watches)
+        return snap
 
     def _part_state(self, p: Any) -> dict[str, Any]:
         loaded = self.loaded

@@ -273,6 +273,32 @@ is small: `--look-at` frames the part of the plant that matters. The strip drive
 headless Chromium, so it needs the development tools (`uv sync`, then `uv run playwright install
 chromium`); it says so when they are missing.
 
+## The program's own state: watch values
+
+A stand-in script (`--script`) can publish pieces of its own state, so the person and the
+assistant see which step of its sequence the program is in, not only its outputs:
+
+```python
+def step(io, t):
+    ...
+    io.watch("step", 20)  # a number, a bool, None or text
+    io.watch("boxes_in_transit", count)
+```
+
+Watch values show in `openfactory look` (a "Program (watch values)" section), in a recording's
+frames (so in a replay, a capture and the film strip's status lines), in `openfactory explain`
+(when each changed, while a part was in the scene) and on the viewer's status lines with
+**labels: tags** ("program: step 20 · boxes_in_transit 1"). The sorter's script
+(`examples/pyplc/sorting-by-height.py`) publishes its step: 10 belts starting, 20 feeding, 30 a
+tall box on its way to the pusher, 40 pushing.
+
+They are **not tags**: no Modbus address, nothing in the I/O list or any export, no protocol
+sees them, and the lockfiles do not move. They are data, shown as text: a name is letters,
+digits, `_` and `.` (at most 40, starting with a letter or `_`), at most 32 names, and a value
+other than a number, a bool or `None` is kept as text of at most 80 characters with control
+characters dropped. A script that publishes none runs exactly as before. Recorded, they are in
+the frames (every 0.1 s), so a change between two frames is known to within one frame.
+
 ## Why it happened: `openfactory explain`
 
 `openfactory explain` tells the story of one part, or of a failed check, in order with times. Each

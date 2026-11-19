@@ -76,3 +76,18 @@ describe("labels (PLAN 5.14d)", () => {
     expect(stackLabels([...rects].reverse())).toEqual(shift);
   });
 });
+
+describe("program watch values on the status lines (PLAN 5.14i)", () => {
+  it("lists them as text, one line, cut to its cap", async () => {
+    const { watchLine, MAX_WATCH_LINE } = await import("./labels");
+    expect(watchLine(undefined)).toBeNull();
+    expect(watchLine({})).toBeNull();
+    expect(watchLine({ step: 20, boxes_in_transit: 1, ok: true, r: 0.12345 })).toBe(
+      "program: step 20 · boxes_in_transit 1 · ok true · r 0.123",
+    );
+    expect(watchLine({ note: "a\nb\u0007<b>" })).toBe("program: note ab<b>");
+    const long = watchLine({ s: "x".repeat(500) })!;
+    expect(long.length).toBe(MAX_WATCH_LINE);
+    expect(long.endsWith("…")).toBe(true);
+  });
+});

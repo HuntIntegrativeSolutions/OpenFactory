@@ -4898,13 +4898,56 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         Capture, the checks panel at "t = 5 s". The first picture showed the pause glyph as a
         missing-font box, Resume covering Step, and the banner at the top touching the checks
         panel; all three fixed before this one.
-  - [ ] 5.14i The program's own state. *What:* a stand-in script can publish watch values, for
+  - [x] 5.14i The program's own state. *What:* a stand-in script can publish watch values, for
         example `io.watch("step", 20)`. They show in `look`, in tag labels, in a recording and in
         `explain`. They are not tags: no address, no export, and the lockfiles do not move.
         *Later, with 2.2:* extra controller tags to watch, named in `openfactory.toml`, read
         with the Logix path.
         *Done when:* the sorter's stand-in script publishes its step, `look` prints it, and both
         lockfiles and the I/O CSV are byte for byte unchanged.
+        *Done (2026-11-19):* `PlcIO.watch(name, value)` (`pyplc.py`): a name matches
+        `[A-Za-z_][A-Za-z0-9_.]{0,39}` (else ValueError: never a path, a file name or a tag),
+        at most 32 names; a value is kept as a bool, a whole number, a finite float or `None`,
+        else as text (a non-finite float as `nan`/`inf`, since a recording's JSON allows no
+        NaN), control characters dropped (newline and tab as a space), cut to 80 characters.
+        The runtime's snapshot gains `watch` only when the script published any, so a run
+        without them, and its recording, is byte for byte what it was. `look` lists them in
+        "Program (watch values)", a string quoted and escaped; a recording's frames hold them;
+        `explain` says when each changed while the part was in the scene (between two frames,
+        at most 40); the viewer shows them as one more status line with labels: tags
+        ("program: step 20 · boxes_in_transit 0", `labels.ts` `watchLine`, text only, cut to
+        160 characters), which the capture picture and the strip's stills draw too. The
+        sorter's script publishes `step` (10 belts starting, 20 feeding, 30 a tall box on its
+        way, 40 pushing) and `boxes_in_transit`. Docs: `docs/looking-at-the-plant.md` ("The
+        program's own state").
+        **Decision beyond the text:** "in tag labels" is read as the status lines under labels:
+        tags: a watch value belongs to no component, so it has no component label to go on.
+        **Done-when, each with its test** (`tests/unit/test_watch.py`, 7): the sorter's script
+        publishes its step and `look` prints it (`test_the_sorters_script_publishes_its_step_and
+        _look_prints_it`, which also sees steps 20, 30 and 40 go by); both lockfiles and both
+        I/O CSVs, exported from a copy of the scene in the test's folder as the kit builder
+        does, equal the committed ones byte for byte, and no watch name is a tag
+        (`test_they_are_not_tags_the_lockfiles_and_the_io_csv_do_not_move`); in a recording and
+        in `explain` ("the program's step went 20 to 30" as the tall box reaches the eye:
+        `test_watch_values_are_in_the_recording_and_in_explain`); the data rules
+        (`test_watch_values_are_data`, `test_a_watch_value_is_shown_as_text_in_look`); a script
+        that publishes none has no `watch` (`test_a_script_that_publishes_none_has_no_watch_in
+        _its_snapshot`); in the browser, `tests/integration/test_labels.py::test_the_programs
+        _watch_values_show_with_the_tags_values` and `labels.test.ts`.
+        **What moved, and why** (PLAN §9 rule 13; the owner's instruction of 2026-11-18 for
+        this part: "kits and run references do not move, or the report says which moved and
+        why"): **the sorting-by-height kit**, renewed in this commit: its script copy (the
+        script now publishes its step) and its recording, which `build_kit.py --check` reported
+        first differing at tick 5 (the first frame after the script's first scan). The run did
+        not move: with the frames' `watch` key removed, all 633 lines of the new recording equal
+        the committed one's (every tag change, every frame's state, the end record); 600 frames
+        gained `watch`. **The `look` golden file** (`tests/golden/look-sorting-by-height-6.0s.md`,
+        read from that recording) gains the "Program (watch values)" section, `step = 20`. No
+        other kit, no run reference (`accumulation-demo`, `variable-item-demo`: their scripts
+        publish none) and no parity trace moved.
+        **Picture looked at:** the sorter at 5.98 s with labels: tags: the fifth status line
+        "program: step 20 · boxes_in_transit 0" under the frame line, every component's tag
+        values as before.
   - [ ] 5.14j Tell the assistant how to look. Each scene's generated `CONTEXT.md` gains a
         "Looking at the plant" section with the `look`, `strip`, `explain`, `captures` and
         screenshot commands for that scene.

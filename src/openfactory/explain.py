@@ -24,6 +24,9 @@ and every runtime event. So:
   carrier, its distance from the infeed end, and how far it was past (downstream of) or before
   the device along the carrier's flow. Whether a command was meant for this part cannot be told
   from the data; the report says it lists commands by nearness, not by intent.
+- **The program's own state (PLAN 5.14i):** each watch value the stand-in script published that
+  changed between two frames while the part was in the scene ("between ticks A and B"), at most
+  :data:`MAX_WATCH_STEPS`.
 - **Faults and events:** a fault, a clear or a button press on the carrier or a device within
   :data:`NEAR_M`. In exam mode (the recording's header says so) fault, clear and comms events
   are left out, as ``look`` leaves them out, and the report says so.
@@ -67,6 +70,8 @@ from openfactory.observe import carrier_frame, recording_plant, value_text
 NEAR_M = 1.0
 #: An emitter this close to where a part appeared is named as where it was made.
 AT_M = 0.5
+#: The most watch-value changes (PLAN 5.14i) one story lists.
+MAX_WATCH_STEPS = 40
 #: A part moved this far across its carrier's flow (and kept on it) gets a step of its own.
 ACROSS_M = 0.02
 #: The margin a photo eye's beam test gives a part's box (as ``components/photo_eye.py``).
@@ -354,6 +359,7 @@ def part_steps(d: _Data, pid: str) -> list[Step]:
     steps += _across(d, pid, track)
     end = outcome(d, pid)
     stop = end.next if end.next is not None else end.last
+    steps += _watch_steps(d, max(spawn, d.ticks[0]), stop)
     tripped: dict[str, bool] = {}
     for tick, changes in d.rec.io:
         if tick <= d.held_from or tick < max(spawn, d.ticks[0]) or tick > stop:
@@ -443,6 +449,40 @@ def part_steps(d: _Data, pid: str) -> list[Step]:
     steps.append(Step(end.last, text, basis, list(last), until=end.next))
     steps.sort(key=lambda s: (s.tick, s.until if s.until is not None else s.tick))
     return steps
+
+
+def _watch_steps(d: _Data, start: int, stop: int) -> list[Step]:
+    """The program's watch values (PLAN 5.14i) that changed between two frames from ``start``
+    to ``stop``: the program's own state while the part was in the scene. At most
+    :data:`MAX_WATCH_STEPS`, then a count."""
+    from openfactory.observe import watch_text
+
+    out: list[Step] = []
+    more = 0
+    for (ka, a), (kb, b) in zip(d.rec.frames, d.rec.frames[1:], strict=False):
+        if ka < start or ka > stop:
+            continue  # a change in the interval the part was made in is not its story
+        before, after = a.get("watch") or {}, b.get("watch") or {}
+        for name in after:
+            if name in before and before[name] == after[name]:
+                continue
+            if len(out) >= MAX_WATCH_STEPS:
+                more += 1
+                continue
+            was = watch_text(before[name]) if name in before else "unset"
+            out.append(
+                Step(
+                    ka,
+                    f"the program's {name} went {was} to {watch_text(after[name])}",
+                    f"watch values in the frames at ticks {ka} and {kb}",
+                    until=kb,
+                )
+            )
+    if more:
+        out.append(
+            Step(stop, f"and {more} more changes of the program's watch values", "the frames")
+        )
+    return out
 
 
 def _across(d: _Data, pid: str, track: list[tuple[int, dict[str, Any]]]) -> list[Step]:

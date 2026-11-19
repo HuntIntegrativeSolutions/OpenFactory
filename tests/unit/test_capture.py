@@ -205,7 +205,7 @@ def test_an_unknown_selected_id_is_named_not_found_and_never_reaches_look(tmp_pa
         assert bad not in report, bad
     assert json.loads((folder / "view.json").read_text())["selected"] is None
     look = (folder / "look.md").read_text()
-    assert "NOT_THERE" not in look and "script" not in look and "Heading" not in look
+    assert "NOT_THERE" not in look and "<script>" not in look and "Heading" not in look
     assert look.count("\n# ") == 0  # the plant's report alone, no component's report after it
 
 

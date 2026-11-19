@@ -15,6 +15,17 @@ run is deterministic and works with ``--as-fast-as-possible``.
   :class:`~openfactory.core.iotable.TagWriteError`, exactly as a write from a protocol server
   would, and an unknown tag raises ``KeyError`` naming it.
 
+**Watch values (PLAN 5.14i).** ``io.watch("step", 20)`` publishes a piece of the program's own
+state (the step of a sequence, a count) for people and assistants to see: ``openfactory look``
+lists them, a recording's frames hold them (``"watch"``), ``openfactory explain`` says when they
+changed, and the viewer shows them on its status lines with ``labels=tags``. They are not tags:
+no address, no export, no protocol sees them, and the lockfiles do not move. They are data: a
+name matches ``[A-Za-z_][A-Za-z0-9_.]{0,39}`` (else ValueError; it is never a path or a tag
+name), at most :data:`MAX_WATCHES` names, and a value is kept as a bool, a whole number, a
+finite float or ``None``; anything else (a non-finite float, a string, an object) as text, with
+control characters dropped (newline and tab as a space) and cut to :data:`MAX_WATCH_VALUE`
+characters. A script that publishes none runs exactly as before.
+
 A script may define ``init(io)``, called once before the first tick. If ``step`` or ``init``
 raises, the run stops and ``openfactory run`` exits 1 with the traceback: a faulted program, not a
 silently stuck plant.
@@ -29,6 +40,8 @@ program. Not a safety-rated simulation; OpenFactory is a training and demo tool.
 from __future__ import annotations
 
 import importlib.util
+import math
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -37,12 +50,52 @@ from typing import Any
 
 from openfactory.core.iotable import IOTable, Value, Writer
 
+#: The most watch values one script may publish (PLAN 5.14i).
+MAX_WATCHES = 32
+#: The longest watch value kept as text, characters.
+MAX_WATCH_VALUE = 80
+#: A watch value's name: never a path, never a tag name's form only.
+WATCH_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_.]{0,39}")
+
+WatchValue = bool | int | float | str | None
+
+
+def watch_value(value: object) -> WatchValue:
+    """A watch value as it is kept (see the module docstring)."""
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, int) and abs(value) < 10**15:
+        return value
+    if isinstance(value, float) and math.isfinite(value):
+        return value
+    try:
+        text = value if isinstance(value, str) else str(value)
+    except Exception:  # an object whose str() fails is still shown
+        text = f"<{type(value).__name__}>"
+    text = "".join(
+        " " if c in "\n\t" else c for c in text if c in "\n\t" or (ord(c) >= 32 and ord(c) != 127)
+    )
+    return text[:MAX_WATCH_VALUE]
+
 
 class PlcIO:
-    """The PLC's view of the I/O table: read any tag, write only DO/AO."""
+    """The PLC's view of the I/O table: read any tag, write only DO/AO; and watch values."""
 
     def __init__(self, table: IOTable) -> None:
         self._table = table
+        #: The watch values published so far, in the order first published (PLAN 5.14i).
+        self.watches: dict[str, WatchValue] = {}
+
+    def watch(self, name: str, value: object) -> None:
+        """Publish one piece of the program's own state (PLAN 5.14i; see the module docstring)."""
+        if not isinstance(name, str) or not WATCH_NAME.fullmatch(name):
+            raise ValueError(
+                f"watch name {name!r}: letters, digits, '_' and '.', starting with a letter or "
+                "'_', at most 40 characters"
+            )
+        if name not in self.watches and len(self.watches) >= MAX_WATCHES:
+            raise ValueError(f"a script may publish at most {MAX_WATCHES} watch values")
+        self.watches[name] = watch_value(value)
 
     def __getitem__(self, tag: str) -> Value:
         if tag not in self._table:

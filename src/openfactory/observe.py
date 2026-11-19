@@ -43,7 +43,9 @@ The sections, in this order:
    changes are no longer held. A recording holds every change, so it is never short.
 
 Tags no component owns (the simulator heartbeat) are listed under the components as scene
-tags.
+tags. A stand-in script's watch values (PLAN 5.14i), when the snapshot has any, follow in their
+own section, "Program (watch values)": not tags, and shown as text (a string quoted and
+escaped).
 
 ``component`` narrows the report to one component: its line, what it is connected to (conveyor
 connections, pipe and valve ends, references such as a transmitter's ``measures``, and the
@@ -120,6 +122,18 @@ def value_text(value: Any) -> str:
     if isinstance(value, float):
         return num(value, 3)
     return str(value)
+
+
+def watch_text(value: Any) -> str:
+    """A watch value (PLAN 5.14i) as text: a number or a bool as ``value_text`` prints it,
+    ``none``, or a string quoted and escaped, so it is shown as itself, never as Markdown."""
+    from openfactory.capture import escape_markdown
+
+    if value is None:
+        return "none"
+    if isinstance(value, bool | int | float):
+        return value_text(value)
+    return f"\u201c{escape_markdown(str(value))}\u201d"
 
 
 def describe(component: Mapping[str, Any], state: Mapping[str, Any]) -> str:
@@ -382,6 +396,17 @@ def look(
     if component is not None:
         near = _connected(component, document, plant)
         lines.append(f"- Connected to: {', '.join(near) if near else 'nothing'}.")
+
+    if component is None and snapshot.get("watch"):  # PLAN 5.14i: the program's own state
+        lines += [
+            "",
+            "## Program (watch values)",
+            "",
+            "Published by the stand-in script with `io.watch`; not tags: no address, not "
+            "exported, not seen by a protocol.",
+            "",
+        ]
+        lines += [f"- {name} = {watch_text(v)}" for name, v in snapshot["watch"].items()]
 
     listed = parts if component is None else [p for p in parts if p.get("carrier") == component]
     lines += ["", "## Parts" if component is None else f"## Parts on {component}", ""]

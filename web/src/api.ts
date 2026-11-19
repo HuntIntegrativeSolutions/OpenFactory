@@ -78,6 +78,8 @@ export interface StateFrame {
   comms?: unknown;
   /** A live run's simulation is paused (PLAN 5.14h); absent otherwise, and never recorded. */
   sim_paused?: boolean;
+  /** The stand-in script's watch values (PLAN 5.14i); absent when it publishes none. */
+  watch?: Record<string, boolean | number | string | null>;
 }
 
 /** Viewer status read by tools/screenshot.py (PLAN 1.13) through `window.__openfactory`. */
