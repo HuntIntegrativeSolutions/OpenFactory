@@ -11,6 +11,10 @@ The picture side starts with [aimed views and a plan view](#aimed-views-and-a-pl
 (PLAN 5.14c): an address that opens the viewer on one component, on an exact camera, or straight
 down on the whole plant.
 
+Each scene's generated `<scene>.CONTEXT.md` (beside the scene, and in its kit) ends its
+commands with a "Looking at the plant" section: these commands written out for that scene, so an
+assistant handed one file knows how to look.
+
 OpenFactory is a training and demo tool, not a safety-rated simulation.
 
 ## `openfactory look`

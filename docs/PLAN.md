@@ -4948,11 +4948,32 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         **Picture looked at:** the sorter at 5.98 s with labels: tags: the fifth status line
         "program: step 20 · boxes_in_transit 0" under the frame line, every component's tag
         values as before.
-  - [ ] 5.14j Tell the assistant how to look. Each scene's generated `CONTEXT.md` gains a
+  - [x] 5.14j Tell the assistant how to look. Each scene's generated `CONTEXT.md` gains a
         "Looking at the plant" section with the `look`, `strip`, `explain`, `captures` and
         screenshot commands for that scene.
         *Done when:* the 2.19 golden files are renewed in the same commit and a test finds each
         command in every shipped scene's context file.
+        *Done (2026-11-19):* `export/context_md.py` `_looking`: the section gives, for that
+        scene, the command that makes a recording (`test --script --record` with a script and
+        checks, else `run --as-fast-as-possible --duration 60 --record`), `look` live and
+        `look <scene>.ofrec --at 6 --component <focus>`, `strip ... --look-at <focus> --labels
+        tags`, `explain <scene>.ofrec`, `--check <first declared check>` when the scene has
+        checks and `--part P000001` when it makes parts, `captures`, and the screenshot runner
+        with paths from the source repository's root (it runs `openfactory run` from there),
+        then one paragraph on the viewer's C, Space, Step and part click. The focus is the
+        first component, not a conveyor, with a bound DO (the sorter's CYL_01), else the first.
+        Renewed in this commit: the 15 committed `CONTEXT.md` beside scenes (12 in `scenes/`,
+        2 in `scenes/examples/`, the wash plant) and the 12 kit copies, by `build_kit.py`; only
+        the context files changed, every kit recording byte for byte as it was.
+        **Done-when:** `tests/unit/test_context_md.py::test_every_context_says_how_to_look_and
+        _each_command_parses` (27, one per committed context file): the look, strip, explain,
+        captures and screenshot commands are each there, the strip names that scene's
+        recording, every `openfactory` command parses with the CLI's own parser (an unknown
+        option or a bad value fails) and the screenshot command with `tools/screenshot.py`'s,
+        its scene path a file from the repository's root; `test_committed_context_is_current`
+        holds the renewal.
+        **5.14 itself is not ticked:** it has a Goal and rulings but no Done-when of its own, so
+        there is no line to hold it to; the owner rules whether 5.14a to 5.14j close it.
 
 #### For the owner to rule
 1. Which drawing set is the pilot (5.0), and which private folder holds the scenes made from

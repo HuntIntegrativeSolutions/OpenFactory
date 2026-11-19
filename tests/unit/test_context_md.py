@@ -130,3 +130,63 @@ def test_a_bundle_input_writes_no_context(tmp_path, monkeypatch):
     ran = runner.invoke(app, ["run", str(target), "--as-fast-as-possible", "--duration", "0.1"])
     assert ran.exit_code == 0, ran.output
     assert not list(tmp_path.glob("*.CONTEXT.md"))
+
+
+CONTEXTS = sorted(p for folder in ("scenes", "kits") for p in (REPO / folder).rglob("*.CONTEXT.md"))
+
+
+def _looking_commands(text: str) -> list[str]:
+    section = text.split("## Looking at the plant\n", 1)[1].split("\n## ", 1)[0]
+    lines = []
+    for block in section.split("```bash\n")[1:]:
+        lines += [ln for ln in block.split("```", 1)[0].splitlines() if ln.strip()]
+    return lines
+
+
+class _Parsed(Exception):
+    pass
+
+
+@pytest.mark.parametrize("context", CONTEXTS, ids=lambda p: str(p.relative_to(REPO)))
+def test_every_context_says_how_to_look_and_each_command_parses(context, monkeypatch):
+    """PLAN 5.14j: every shipped scene's CONTEXT.md (scenes and kits) has a "Looking at the
+    plant" section with the look, strip, explain, captures and screenshot commands for that
+    scene, and each command parses: the openfactory ones with the CLI's own parser, the
+    screenshot one with tools/screenshot.py's."""
+    import argparse
+    import importlib.util
+    import shlex
+
+    import click
+    import typer
+
+    commands = _looking_commands(context.read_text(encoding="utf-8"))
+    scene = context.name.removesuffix(".CONTEXT.md")
+    words = {c.split()[0] + " " + c.split()[1] for c in commands}
+    for wanted in ("openfactory look", "openfactory strip", "openfactory explain",
+                   "openfactory captures", "python tools/screenshot.py"):  # fmt: skip
+        assert wanted in words, (wanted, commands)
+    assert any(f"{scene}.ofrec" in c for c in commands if c.startswith("openfactory strip"))
+    group = typer.main.get_command(app)
+    spec = importlib.util.spec_from_file_location("screenshot_tool", REPO / "tools/screenshot.py")
+    shot = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(shot)
+    real = argparse.ArgumentParser.parse_args
+
+    def stop(self, args=None, namespace=None):  # noqa: ANN001, ANN202
+        real(self, args, namespace)
+        raise _Parsed
+
+    monkeypatch.setattr(argparse.ArgumentParser, "parse_args", stop)
+    for command in commands:
+        argv = shlex.split(command, comments=True)
+        if argv[0] == "python":
+            assert argv[1] == "tools/screenshot.py"
+            assert (REPO / argv[2]).is_file(), argv  # a path from the repository's root
+            with pytest.raises(_Parsed):
+                shot.main(argv[2:])
+            continue
+        assert argv[0] == "openfactory", command
+        sub = group.get_command(click.Context(group), argv[1])
+        assert sub is not None, command
+        sub.make_context(argv[1], argv[2:])  # raises on an unknown option or a bad value

@@ -18,8 +18,8 @@ instead of reverse-engineering the YAML and the lockfiles:
 - every component after composite expansion: type, description, position, every parameter that
   is set (defaults included), each port with its kind and tag (or unbound), the composite it is
   part of, and the fault kinds it supports (PLAN 2.6), with one line on what each kind does;
-- how to read the plant in words with ``openfactory look``, live and from a recording (PLAN
-  5.14b);
+- how to look at the plant (PLAN 5.14b, 5.14j): the ``look``, ``strip``, ``explain``,
+  ``captures`` and screenshot commands for this scene, aimed at its first commanded device;
 - the ``checks:`` block, if any.
 
 The text depends only on the scene, its lockfiles and where its script is, never on the time,
@@ -154,23 +154,98 @@ def _commands(scene: Scene, scene_path: Path) -> list[str]:
     return lines
 
 
-def _looking(scene_path: Path) -> list[str]:
-    """How to read the plant in words (PLAN 5.14b; 5.14j adds the later commands)."""
-    stem = scene_path.stem
+def _focus(scene: Scene) -> str:
+    """The component the example commands aim at: the first one, not a conveyor, with a bound
+    DO tag (the actuator a program drives), else the first component."""
+    commanded = {b.component_id for b in scene.tag_bindings() if b.name.endswith("_DO")}
+    for comp in scene.components:
+        if comp.type not in ("belt_conveyor", "roller_conveyor") and comp.id in commanded:
+            return comp.id
+    return scene.components[0].id
+
+
+def _check_keys(scene: Scene) -> list[str]:
+    """The kinds of check the scene declares, in the order ``checks:`` lists them."""
+    if scene.checks is None:
+        return []
+    found = scene.checks.model_dump(mode="json", exclude_none=True)
+    return [k for k, v in found.items() if k != "duration_s" and v not in ({}, [], False)]
+
+
+def _screenshot(scene_path: Path, focus: str) -> list[str]:
+    """The screenshot runner's command (``tools/screenshot.py``), which runs from the source
+    repository's root, so its paths are written from there; a line saying so without one."""
+    root = next(
+        (p for p in scene_path.resolve().parents if (p / "tools" / "screenshot.py").is_file()), None
+    )
+    if root is None:
+        return [
+            "A screenshot needs `tools/screenshot.py` from the OpenFactory source repository.",
+            "",
+        ]
+    scene = Path(os.path.relpath(scene_path.resolve(), root)).as_posix()
+    script = _script(scene_path)
+    if script:
+        script = Path(os.path.relpath((scene_path.parent / script).resolve(), root)).as_posix()
     return [
-        "## Looking at the plant",
-        "",
-        "`openfactory look` prints the plant in words, as Markdown: each component in a sentence",
-        "with its tags, each part and where it is, the checks, active faults, and the changes of",
-        "the last 5 s (`--since S`; `--component ID` for one component).",
+        "A screenshot, from the source repository's root:",
         "",
         "```bash",
-        "openfactory look   # the running scene (the viewer's server, http://127.0.0.1:8000/)",
-        f"openfactory look {stem}.ofrec --at 6   # a recording made with --record {stem}.ofrec,"
-        " at 6 s",
+        f"python tools/screenshot.py {scene} --seconds 6 --look-at {focus} --labels tags"
+        + (f" --script {script}" if script else "")
+        + f" --out {scene_path.stem}.png",
+        "```",
+    ]
+
+
+def _looking(scene: Scene, scene_path: Path) -> list[str]:
+    """How to look at the plant (PLAN 5.14b; 5.14j): in words, as stills, why it happened, the
+    viewer's captures, and a screenshot, each command for this scene."""
+    name, stem = scene_path.name, scene_path.stem
+    script = _script(scene_path)
+    with_script = f" --script {script}" if script else ""
+    focus = _focus(scene)
+    rec = f"{stem}.ofrec"
+    checks = _check_keys(scene)
+    makes_parts = any("emitter" in c.type for c in scene.components)
+    if script and scene.checks is not None:
+        record = f"openfactory test {name}{with_script} --record {rec}   # a recording to look into"
+    else:
+        record = (
+            f"openfactory run {name} --as-fast-as-possible --duration 60{with_script} "
+            f"--record {rec}   # a recording to look into"
+        )
+    lines = [
+        "## Looking at the plant",
+        "",
+        "How the person at the viewer and an assistant reading text see the same plant",
+        "(docs/looking-at-the-plant.md). Make a recording, then look into it:",
+        "",
+        "```bash",
+        record,
+        "openfactory look   # the running scene in words (the viewer's server, 127.0.0.1:8000)",
+        f"openfactory look {rec} --at 6 --component {focus}   # at 6 s, one component",
+        f"openfactory strip {rec} --at 6 --look-at {focus} --labels tags   # stills, what changed",
+        f"openfactory explain {rec}   # why each failed check failed, line by line with ticks",
+    ]
+    if checks:
+        lines.append(f"openfactory explain {rec} --check {checks[0]}   # one check")
+    if makes_parts:
+        lines.append(f"openfactory explain {rec} --part P000001   # one part's story")
+    lines += [
+        "openfactory captures   # the viewer's captures (C); the last line is the newest folder",
         "```",
         "",
+        *_screenshot(scene_path, focus),
+        "",
+        "`look` gives each component in a sentence with its tags, each part and where it is, the",
+        "checks, active faults, the program's watch values and the last 5 s of changes. `strip`",
+        "and `explain` also take a capture folder. In the viewer: C captures what you see (the",
+        "picture, a note, the state and the last 60 s), Space pauses the simulation and Step",
+        "runs 0.1 s, and a click on a part draws its trail and lists its story.",
+        "",
     ]
+    return lines
 
 
 def _tags(scene: Scene, scene_path: Path) -> list[str]:
@@ -300,7 +375,7 @@ def context_md(scene: Scene, scene_path: str | Path) -> str:
         "",
     ]
     lines += _commands(scene, scene_path)
-    lines += _looking(scene_path)
+    lines += _looking(scene, scene_path)
     lines += _tags(scene, scene_path)
     lines += _components(scene)
     lines += ["## Fault kinds", ""]

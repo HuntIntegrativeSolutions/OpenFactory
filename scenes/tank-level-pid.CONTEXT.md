@@ -36,14 +36,30 @@ unless `openfactory.toml` or `--bind`, `--port` and `--web-port` say otherwise.
 
 ## Looking at the plant
 
-`openfactory look` prints the plant in words, as Markdown: each component in a sentence
-with its tags, each part and where it is, the checks, active faults, and the changes of
-the last 5 s (`--since S`; `--component ID` for one component).
+How the person at the viewer and an assistant reading text see the same plant
+(docs/looking-at-the-plant.md). Make a recording, then look into it:
 
 ```bash
-openfactory look   # the running scene (the viewer's server, http://127.0.0.1:8000/)
-openfactory look tank-level-pid.ofrec --at 6   # a recording made with --record tank-level-pid.ofrec, at 6 s
+openfactory test tank-level-pid.yaml --script ../examples/pyplc/tank-level-pid.py --record tank-level-pid.ofrec   # a recording to look into
+openfactory look   # the running scene in words (the viewer's server, 127.0.0.1:8000)
+openfactory look tank-level-pid.ofrec --at 6 --component SUP_01   # at 6 s, one component
+openfactory strip tank-level-pid.ofrec --at 6 --look-at SUP_01 --labels tags   # stills, what changed
+openfactory explain tank-level-pid.ofrec   # why each failed check failed, line by line with ticks
+openfactory explain tank-level-pid.ofrec --check level_within   # one check
+openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
+
+A screenshot, from the source repository's root:
+
+```bash
+python tools/screenshot.py scenes/tank-level-pid.yaml --seconds 6 --look-at SUP_01 --labels tags --script examples/pyplc/tank-level-pid.py --out tank-level-pid.png
+```
+
+`look` gives each component in a sentence with its tags, each part and where it is, the
+checks, active faults, the program's watch values and the last 5 s of changes. `strip`
+and `explain` also take a capture folder. In the viewer: C captures what you see (the
+picture, a note, the state and the last 60 s), Space pauses the simulation and Step
+runs 0.1 s, and a click on a part draws its trail and lists its story.
 
 ## Tags
 

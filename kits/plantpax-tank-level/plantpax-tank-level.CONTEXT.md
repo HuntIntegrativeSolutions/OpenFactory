@@ -36,14 +36,30 @@ unless `openfactory.toml` or `--bind`, `--port` and `--web-port` say otherwise.
 
 ## Looking at the plant
 
-`openfactory look` prints the plant in words, as Markdown: each component in a sentence
-with its tags, each part and where it is, the checks, active faults, and the changes of
-the last 5 s (`--since S`; `--component ID` for one component).
+How the person at the viewer and an assistant reading text see the same plant
+(docs/looking-at-the-plant.md). Make a recording, then look into it:
 
 ```bash
-openfactory look   # the running scene (the viewer's server, http://127.0.0.1:8000/)
-openfactory look plantpax-tank-level.ofrec --at 6   # a recording made with --record plantpax-tank-level.ofrec, at 6 s
+openfactory test plantpax-tank-level.yaml --script plantpax-tank-level.py --record plantpax-tank-level.ofrec   # a recording to look into
+openfactory look   # the running scene in words (the viewer's server, 127.0.0.1:8000)
+openfactory look plantpax-tank-level.ofrec --at 6 --component P_01   # at 6 s, one component
+openfactory strip plantpax-tank-level.ofrec --at 6 --look-at P_01 --labels tags   # stills, what changed
+openfactory explain plantpax-tank-level.ofrec   # why each failed check failed, line by line with ticks
+openfactory explain plantpax-tank-level.ofrec --check level_within   # one check
+openfactory captures   # the viewer's captures (C); the last line is the newest folder
 ```
+
+A screenshot, from the source repository's root:
+
+```bash
+python tools/screenshot.py kits/plantpax-tank-level/plantpax-tank-level.yaml --seconds 6 --look-at P_01 --labels tags --script kits/plantpax-tank-level/plantpax-tank-level.py --out plantpax-tank-level.png
+```
+
+`look` gives each component in a sentence with its tags, each part and where it is, the
+checks, active faults, the program's watch values and the last 5 s of changes. `strip`
+and `explain` also take a capture folder. In the viewer: C captures what you see (the
+picture, a note, the state and the last 60 s), Space pauses the simulation and Step
+runs 0.1 s, and a click on a part draws its trail and lists its story.
 
 ## Tags
 
