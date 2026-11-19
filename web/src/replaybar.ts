@@ -28,11 +28,17 @@ export function frameTick(value: number, s: Pick<ReplayStatus, "first_tick" | "l
   return s.first_tick + Math.floor((clamped - s.first_tick) / s.frame_every) * s.frame_every;
 }
 
-/** A frame that is not the next one or two of the last shown (a seek, a step back, a loop):
- * parts are put where it has them at once instead of easing there. */
-export function isJump(previous: number | null, next: number, frameEvery = 5): boolean {
+/** How far on a frame may be and still be the replay playing: two recorded frames, or three
+ * times the ticks a 20 Hz state frame covers at the replay's speed, whichever is more. */
+export function jumpLimit(s: Pick<ReplayStatus, "speed" | "dt" | "frame_every">): number {
+  return Math.max(2 * s.frame_every, Math.ceil((3 * s.speed * 0.05) / s.dt - 1e-9));
+}
+
+/** A frame that goes back, or further on than `limit` ticks from the last shown (a seek, a step
+ * back, a loop): parts are put where it has them at once instead of easing there. */
+export function isJump(previous: number | null, next: number, limit = 10): boolean {
   if (previous === null) return true;
-  return next < previous || next - previous > 2 * frameEvery;
+  return next < previous || next - previous > limit;
 }
 
 /** "12.30 s / 60.00 s". */
@@ -109,6 +115,11 @@ export class ReplayBar {
     if (!res.ok) return;
     this.apply((await res.json()) as ReplayStatus);
     this.element.style.display = "flex";
+  }
+
+  /** The largest step on that is not a jump (`jumpLimit`), 10 ticks before the status arrives. */
+  jumpLimit(): number {
+    return this.status ? jumpLimit(this.status) : 10;
   }
 
   /** A state frame arrived: the slider and the time follow it unless the person is dragging. */

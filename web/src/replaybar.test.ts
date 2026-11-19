@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { PartMeshes } from "./parts";
-import { frameTick, isJump, timeText } from "./replaybar";
+import { frameTick, isJump, jumpLimit, timeText } from "./replaybar";
 
 const sorter = { first_tick: 0, last_tick: 3000, frame_every: 5, dt: 0.02 };
 const piece = { first_tick: 755, last_tick: 3752, frame_every: 5, dt: 0.02 }; // a capture's piece
@@ -23,6 +23,19 @@ describe("the replay bar (PLAN 5.14f)", () => {
     expect(isJump(300, 310)).toBe(false);
     expect(isJump(300, 315)).toBe(true);
     expect(isJump(300, 295)).toBe(true);
+  });
+
+  it("does not call a fast replay's frames jumps (the viewer gets 20 frames a second)", () => {
+    // at 4x the state frames are ~10 ticks apart (up to 15): they ease, as before 5.14f
+    const four = jumpLimit({ speed: 4, dt: 0.02, frame_every: 5 });
+    expect(four).toBe(30);
+    expect(isJump(300, 315, four)).toBe(false);
+    // at 10x every frame is ~25 ticks on: still not a jump
+    const ten = jumpLimit({ speed: 10, dt: 0.02, frame_every: 5 });
+    expect(isJump(300, 340, ten)).toBe(false);
+    expect(isJump(300, 300 + ten + 1, ten)).toBe(true);
+    expect(isJump(300, 295, ten)).toBe(true); // back is always a jump
+    expect(jumpLimit({ speed: 1, dt: 0.02, frame_every: 5 })).toBe(10); // 1x: two frames
   });
 
   it("writes the time shown and the recording's length", () => {

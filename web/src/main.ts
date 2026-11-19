@@ -594,7 +594,7 @@ function onFrame(frame: StateFrame): void {
   if (labelMode === "tags") renderLabels(); // the values this frame's io gives (PLAN 5.14d)
   parts.update(frame.parts, (p) => drawnYaw(p, frame));
   // PLAN 5.14f: a replay that seeks or steps back jumps there; its parts do not glide
-  if (replaying() && isJump(shownTick, frame.tick)) parts.snap();
+  if (replaying() && isJump(shownTick, frame.tick, replayBar?.jumpLimit())) parts.snap();
   shownTick = frame.tick;
   replayBar?.frame(frame.tick);
   stepToFrame(frame);

@@ -4693,8 +4693,10 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         404 on a live run; extra keys 422; guarded as `/api/fault` is, and another Origin 403 by
         the write middleware). The viewer: `web/src/replaybar.ts` (`replaybar.test.ts`, 4): the
         bar (step back, play/pause, step forward, a slider over the recording, the time),
-        Space and the arrow keys; a frame that goes back or skips more than two frames
-        (`isJump`) puts every part at its place at once (`PartMeshes.snap`), and
+        Space and the arrow keys; a frame that goes back, or further on than `jumpLimit` (two
+        recorded frames, or three times the ticks a 20 Hz state frame covers at the replay's
+        speed, whichever is more, so a `--speed 4` or `--speed 10` replay still eases), puts
+        every part at its place at once (`isJump`, `PartMeshes.snap`), and
         `PartMeshes.settled` says when every part is drawn where its frame has it.
         `src/openfactory/strip.py` and `openfactory strip FILE.ofrec|CAPTURE [--at T] [--span
         2] [--frames 6] [--look-at ID] [--labels ids|tags|off] [--size 960x540] [--out PNG]`:
@@ -4734,7 +4736,10 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         (`test_replay_seek.py`, 9); the wash plant from the command line
         (`test_a_strip_of_the_wash_plant_from_the_command_line`: a 20 s recording made in the
         test's folder, `strip --at 12 --labels tags`, exit 0, the table printed, a 2900 by 292
-        image).
+        image); a capture folder end to end (`test_capture_viewer.py`: `strip <capture folder>
+        --frames 3` exits 0 and its last still is the capture's own tick, off the 5-tick grid).
+        `python -m openfactory.server.app` now sets the recording header too, so its captures
+        carry the scene's YAML.
         **Images looked at:** the sorter, `--look-at CYL_01`: the plate retracted behind the
         belt in stills 1 to 3 with the tall box arriving, the box pushed off the belt in still
         4, the plate out over the belt in still 5, back in still 6; the same moment in the

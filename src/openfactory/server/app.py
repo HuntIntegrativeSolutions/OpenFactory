@@ -864,6 +864,12 @@ def main(argv: list[str] | None = None) -> int:
     endpoint = Endpoint(bind=args.bind or web.bind, port=args.port or web.port)
     token = settings.server.fault_token
     runtime = Runtime(load(args.scene))
+    from openfactory.record import recording_header
+
+    # a capture's piece of recording carries the scene, as under `openfactory run` (PLAN 5.14e)
+    runtime.recording_header = recording_header(
+        runtime, Path(args.scene).read_text(encoding="utf-8"), None
+    )
     runtime.start()
     log.info("viewer and API on http://%s:%d/", endpoint.bind, endpoint.port)
     if notice := fault_api_notice(endpoint.bind, token):
