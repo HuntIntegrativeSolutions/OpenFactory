@@ -162,7 +162,7 @@ def test_every_context_says_how_to_look_and_each_command_parses(context, monkeyp
 
     commands = _looking_commands(context.read_text(encoding="utf-8"))
     scene = context.name.removesuffix(".CONTEXT.md")
-    words = {" ".join(shlex.split(c)[:2]) for c in commands}
+    words = {" ".join(shlex.split(c, comments=True)[:2]) for c in commands}
     for wanted in ("openfactory look", "openfactory strip", "openfactory explain",
                    "openfactory captures", "python $OPENFACTORY/tools/screenshot.py"):  # fmt: skip
         assert wanted in words, (wanted, commands)
