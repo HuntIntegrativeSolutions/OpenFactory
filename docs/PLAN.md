@@ -4298,6 +4298,12 @@ trusts it.
       the left rail at 2.0 m, EMT-201 at the infeed and REM-201 past the discharge, two cartons
       on the belt; AG-101's stand-in body alone in the last row. Default view: the same,
       PIPE_101 running level above the tank's top and dropping into it, the tank on its legs.
+      *Fix (2026-11-19, before the push):* a takeoff could forge the mark: `laid_out` was a
+      component field but not in `takeoff.PLACEMENT`, so `params: {laid_out: true}` passed
+      `check` and scaffold wrote it, marking a drawn row as laid out (which `layout SCENE`
+      would then move) or writing the key twice on a laid-out one. `laid_out` is now a
+      placement key, refused in `params` naming the row
+      (`test_params_are_checked_against_the_rows_type`, a new case that failed before).
 - [x] 5.6 Review overlay. A top view of the scene drawn over the layout drawing, and a table of
       takeoff rows against scene components, so the checker sees what was missed.
       *Done when:* removing one item from the sample scene shows it in both.
@@ -4348,7 +4354,9 @@ trusts it.
       (`test_written_beside_the_takeoff_or_a_named_folder_never_the_repository`: beside a
       copied takeoff, in `--out`, refused beside the shipped sample with nothing written there,
       a URL refused, the docs say so); `test_the_top_view_lines_up_with_the_sheet_in_
-      millimetres`. `tests/integration/test_review_overlay.py`, the Done-when's picture, from
+      millimetres`; `test_the_registration_inverts_the_frame_at_any_rotation` (the frame
+      turned 0, 90 and 30 degrees: every layout row back to its printed x, y within 1 mm).
+      `tests/integration/test_review_overlay.py`, the Done-when's picture, from
       L-001.png and from L-001.svg: with FT_101 deleted the canvas has red at FT-101's place
       (325 pixels within 26 px), with nothing deleted none.
       **Pictures looked at** (scratch folder, not the repository): the whole sample over

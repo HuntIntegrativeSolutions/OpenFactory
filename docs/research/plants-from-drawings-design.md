@@ -1374,7 +1374,8 @@ layout makes face along the line).
 From its start to its end, a pipe gets right-angle `path` points (ruling 4): layout tries the
 two- and three-segment routes along the axes in a fixed order (x, then y, then z, and the other
 orders after), then a route over everything (up 0.3 m above the highest body between its ends,
-across, down), and takes the first whose runs, as thick as the pipe, pass through no body but
+across, down), then a route in front of everything (out 0.45 m in front of the nearest body,
+along, back), and takes the first whose runs, as thick as the pipe, pass through no body but
 those of its own two ends (`openfactory.core.footprints`). A pipe that no candidate clears keeps
 its straight line and is reported ("no clear route"); the lint then names it too.
 

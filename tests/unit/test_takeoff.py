@@ -379,6 +379,7 @@ def test_an_alias_chain_is_refused_before_it_expands(tmp_path) -> None:
         ("EQ-3", {"description": "x"}, "params.description: set by the row itself"),
         ("EQ-3", {"rotation_deg": 90}, "params.rotation_deg: set by the row itself"),
         ("EQ-3", {"mesh": {"file": "x.glb"}}, "params.mesh: set by the row itself"),
+        ("EQ-3", {"laid_out": True}, "params.laid_out: set by the row itself"),  # PLAN 5.5
         ("EQ-3", {"io": {}}, "params.io: set by the row itself"),
     ],
 )

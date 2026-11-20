@@ -194,3 +194,31 @@ def test_the_top_view_lines_up_with_the_sheet_in_millimetres(copy):
     assert abs(min(xs) - x) / PX_PER_MM <= 1.0 and abs(max(xs) - (x + w)) / PX_PER_MM <= 1.0
     assert (y - min(ys)) / PX_PER_MM == pytest.approx(30.0, abs=1.0)
     assert (max(ys) - (y + h)) / PX_PER_MM == pytest.approx(30.0, abs=1.0)
+
+
+@pytest.mark.parametrize("turn", [0.0, 90.0, 30.0])
+def test_the_registration_inverts_the_frame_at_any_rotation(tmp_path, turn):
+    """Scene metres back to the sheet's printed dimensions through a frame turned ``turn``
+    degrees: every layout row's (x, y) within 1 mm, and its pixel where the datum and scale
+    put it."""
+    import yaml
+
+    from openfactory.review import Registration
+
+    data = yaml.safe_load(SAMPLE.read_text(encoding="utf-8"))
+    data["drawings"][1]["frame"]["rotation_deg"] = turn
+    data.pop("checked")
+    path = tmp_path / "t.takeoff.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    model = tk.load(path).model
+    sheet = model.sheets()["L-001"]
+    reg = Registration(sheet.frame, DATUM_PX, PX_PER_MM)
+    rows = [e for e in model.equipment if e.layout is not None]
+    assert len(rows) == 9
+    for e in rows:
+        (x, _, z), _ = tk.position_of(e, model)
+        sx, sy = reg.sheet(x, z)
+        assert (sx, sy) == pytest.approx((e.layout.x, e.layout.y), abs=1.0), e.tag
+        px, py = reg.px(x, z)
+        assert px == pytest.approx(DATUM_PX[0] + e.layout.x * PX_PER_MM, abs=0.01)
+        assert py == pytest.approx(DATUM_PX[1] - e.layout.y * PX_PER_MM, abs=0.01)

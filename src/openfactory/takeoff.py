@@ -472,8 +472,9 @@ def scene_tag(io: IoRow, by_tag: dict[str, Equipment]) -> str:
     return "_".join(p for p in (ident, code, io.signal) if p)
 
 
-#: Component fields a takeoff row sets itself, never through ``params`` (ruled 2026-11-17).
-PLACEMENT = ("id", "type", "description", "position", "rotation_deg", "mesh", "io")
+#: Component fields a takeoff row sets itself, never through ``params`` (ruled 2026-11-17);
+#: ``laid_out`` only layout gives (PLAN 5.5).
+PLACEMENT = ("id", "type", "description", "position", "rotation_deg", "mesh", "io", "laid_out")
 
 
 def resolve_tags(value: Any, ids: dict[str, str]) -> Any:
