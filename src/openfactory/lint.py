@@ -218,14 +218,15 @@ def _named_ends(cfg: Any) -> set[str]:
     return out
 
 
-def overlaps(components: list[Any], named: Any = str) -> list[str]:
+def overlaps(components: list[Any], named: Any = str, only: Any = None) -> list[str]:
     """W217 (PLAN 5.5): every pair of components whose bodies overlap
     (:mod:`openfactory.core.footprints`), and every run of a link that passes through a body,
     each once. Not a finding: two conveyors (W205's), a component that works on a conveyor
     touching one (:data:`ON_A_CONVEYOR`; its fit is W206, W207 and W214's), a panel device on a
     body or cabinet (:data:`PANEL_TYPES` on :data:`PANEL_HOSTS`), and a component touching what
     it names (a link's ends, a transmitter's measured component, a heater's tank,
-    a drive's load), either way round."""
+    a drive's load), either way round. With ``only`` (a test on a component id), a pair is
+    checked only when it passes for one side (layout's check of what it placed, PLAN 5.5)."""
     from openfactory.core import footprints as fp
 
     bodies = {c.id: fp.boxes(c.config, c.type) for c in components}
@@ -255,7 +256,7 @@ def overlaps(components: list[Any], named: Any = str) -> list[str]:
     ids = [c.id for c in components]
     for i, a in enumerate(ids):
         for b in ids[i + 1 :]:
-            if related(a, b):
+            if related(a, b) or (only is not None and not (only(a) or only(b))):
                 continue
             shared = next(
                 (o for x in bodies[a] for y in bodies[b] if (o := fp.overlap(x, y))), None

@@ -222,7 +222,9 @@ open questions, written as # QUESTION comments (6): EQ-1, EQ-5, EQ-8, EQ-12, EQ-
 ```
 
 **Exit codes:** 0 when every row is placed with no stand-in, no assumption and no question; 3
-when the scene was written with rows to resolve; 1 when nothing was written. A script cannot
+when the scene was written with rows to resolve; 1 when nothing was written, or when the scene
+was written but what layout placed overlaps something (the report lists each W217 finding and
+says the scene was written; [layout](layout.md)). A script cannot
 mistake 3 for a clean build. The scene has no `checks:` and no stand-in script: those come from
 the plant's sequence of operations, which a takeoff does not hold. Until a PLC program is
 written against it, `openfactory lint` reports only W201 and W202 ("no PLC side") on it. Two

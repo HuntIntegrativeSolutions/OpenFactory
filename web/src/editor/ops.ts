@@ -21,6 +21,9 @@ export class EditOps {
   /** New components whose description is still the placeholder: nothing is saved until each
    * has its own (ruled 2026-11-10, decision 5). */
   readonly undescribed = new Set<string>();
+  /** Whether a component carries `laid_out` (PLAN 5.5). Moving or re-typing its position clears
+   * the mark: a person placed it (ruled 2026-11-19, second set). The panel sets this. */
+  laidOut: (id: string) => boolean = () => false;
 
   get size(): number {
     return this.ops.size;
@@ -50,6 +53,11 @@ export class EditOps {
   change(op: PathOp): void {
     this.ops.set(pathKey(op.path), op);
     const [top, id, key] = op.path;
+    if (top === "components" && key === "position" && op.op !== "unset" && this.laidOut(String(id))) {
+      // a later tick of the checkbox sets the same path, so it replaces this
+      const mark: Path = ["components", String(id), "laid_out"];
+      this.ops.set(pathKey(mark), { op: "unset", path: mark });
+    }
     // the description a change writes, and whose: a component's, or the scene's own
     const owner = top === "components" && key === "description" && op.path.length === 3 ? String(id)
       : top === "scene" && id === "description" && op.path.length === 2 ? "scene" : null;

@@ -118,6 +118,10 @@ class Scaffold:
     counts: tuple[int, int, int] = (0, 0, 0)
     #: Each pipe scaffold made and how layout routed it (PLAN 5.5).
     pipes: list[str] = field(default_factory=list)
+    #: W217 findings with a side layout placed (ruled 2026-11-19, second set, ruling 4).
+    overlaps: list[str] = field(default_factory=list)
+    #: Why the overlap check did not run (the scene does not load until a row is filled in).
+    unchecked: str = ""
 
     def tally(self) -> dict[str, list[Outcome]]:
         out: dict[str, list[Outcome]] = {k: [] for k in OUTCOMES}
@@ -126,6 +130,8 @@ class Scaffold:
         return out
 
     def exit_code(self) -> int:
+        if self.overlaps:
+            return 1  # ruling 4: layout's own result overlaps; the scene is still written
         clean = all(o.outcome == "placed" for o in self.outcomes) and not self.questions
         return 0 if clean else 3
 
@@ -159,6 +165,11 @@ class Scaffold:
             f"open questions, written as # QUESTION comments ({len(self.questions)}): "
             + (", ".join(self.questions) or "none")
         )
+        if self.overlaps:
+            lines.append(f"overlaps, what layout placed against everything ({len(self.overlaps)}):")
+            lines += [f"  {m}" for m in self.overlaps]
+        elif self.unchecked:
+            lines.append(f"overlaps: not checked; {self.unchecked}")
         return "\n".join(lines) + "\n"
 
 
@@ -438,6 +449,8 @@ def scaffold(loaded: Loaded) -> Scaffold:
         text += comment(f"NOT CONNECTED (takeoff {c.row}): {c.from_} -> {c.to}, line {c.line}: "
                         f"{why}") + "\n"  # fmt: skip
     ordered = [outcomes[r.row] for r in model.rows()]
+    found: list[str] = []
+    unchecked = "the scene does not load until the unplaced rows are given"
     if not any(o.missing for o in ordered):
         try:
             self_load(text)
@@ -446,6 +459,10 @@ def scaffold(loaded: Loaded) -> Scaffold:
                 f"the scene scaffold wrote does not load, which is a bug in scaffold; nothing "
                 f"was written. The scene loader says: {exc}"
             ) from exc
+        from openfactory.layout import placed_overlaps
+
+        mine = [ids[t] for t in laid_tags] + [p["id"] for p in pipes]
+        found, unchecked = placed_overlaps(text, None, mine), ""
     routed = [
         f"{p['id']} ({p['row']}) {p['note']}, {len(p['path'])} bend"
         + ("" if len(p["path"]) == 1 else "s")
@@ -453,7 +470,7 @@ def scaffold(loaded: Loaded) -> Scaffold:
     ]
     return Scaffold(
         text, ordered, positions, questions, loaded.path.name, f"{model.plant.name}.yaml",
-        (len(model.equipment), len(model.connections), len(model.io)), routed,
+        (len(model.equipment), len(model.connections), len(model.io)), routed, found, unchecked,
     )  # fmt: skip
 
 

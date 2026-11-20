@@ -1,0 +1,22 @@
+# Test fixture (PLAN 5.5 review fixes, 2026-11-19): a tank with a heater, and a pump with a
+# drive. No positions: every row is laid out. Not a shipped scene. Training and demo use only.
+# Not a safety-rated simulation.
+takeoff: "0.1"
+plant: {name: heater-and-drive, description: A heated tank emptied by a pump on a drive.}
+drawings: [{id: P-1, kind: pid, title: Test Heated Tank P&ID, rev: A}]
+equipment:
+  - {row: EQ-1, tag: TK-1, type: tank, description: Test Heated Tank,
+     params: {diameter: 1.0, height: 1.5, initial_level: 1.0}, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-2, tag: HTR-1, type: heater, description: Test Tank Heater,
+     params: {tank: TK-1}, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-3, tag: P-1, type: pump, description: Test Transfer Pump, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-4, tag: M-1, type: vfd_motor, description: Test Transfer Pump Drive,
+     params: {drives: P-1}, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-5, tag: DR-1, type: drain, description: Test Transfer Outlet, ref: [{sheet: P-1}], confidence: read, questions: []}
+connections:
+  - {row: CN-1, from: TK-1.bottom, to: P-1.suction, line: 25-W-1, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-2, from: P-1.discharge, to: DR-1, line: 25-W-2, ref: [{sheet: P-1}], confidence: read, questions: []}
+io:
+  - {row: IO-1, equipment: HTR-1, port: "on", signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: IO-2, equipment: M-1, port: run, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: IO-3, equipment: M-1, port: speed, signal: AO, ref: [{sheet: P-1}], confidence: read, questions: []}

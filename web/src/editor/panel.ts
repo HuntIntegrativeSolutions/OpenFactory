@@ -172,6 +172,7 @@ export class EditorPanel {
 
   constructor(host: PanelHost) {
     this.host = host;
+    this.ops.laidOut = (id) => Boolean(this.componentData(id)?.laid_out); // PLAN 5.5 mark
     this.status = {
       file: "", selected: null, ops: 0, previews: 0, saves: 0, downloads: 0, errors: 0, findings: [],
       message: "", added: [], undescribed: [], palette: [], mode: "move", snap: null, snapping: null,

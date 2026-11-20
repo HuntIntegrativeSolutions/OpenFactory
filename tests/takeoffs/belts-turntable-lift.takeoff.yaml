@@ -1,0 +1,26 @@
+# Test fixture (PLAN 5.5 review fixes, 2026-11-19): two belts joined through a turntable, with a
+# lift after. No positions: every row is laid out. Not a shipped scene. Training and demo use
+# only. Not a safety-rated simulation.
+takeoff: "0.1"
+plant: {name: belts-turntable-lift, description: Two belts through a turntable and a lift after.}
+drawings: [{id: P-1, kind: pid, title: Test Transfer Line Sketch, rev: A}]
+equipment:
+  - {row: EQ-1, tag: CV-1, type: belt_conveyor, description: Test Infeed Belt,
+     params: {length: 2.0, width: 0.5, speed_mps: 0.3}, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-2, tag: TT-1, type: turntable, description: Test Transfer Turntable,
+     params: {length: 0.8, width: 0.6, speed_mps: 0.3}, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-3, tag: CV-2, type: belt_conveyor, description: Test Outfeed Belt,
+     params: {length: 2.0, width: 0.5, speed_mps: 0.3}, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-4, tag: LF-1, type: lift, description: Test Outfeed Lift,
+     params: {length: 0.8, width: 0.6, speed_mps: 0.3, lift_height: 0.6}, ref: [{sheet: P-1}], confidence: read, questions: []}
+connections:
+  - {row: CN-1, from: CV-1, to: TT-1, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-2, from: TT-1, to: CV-2, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-3, from: CV-2, to: LF-1, ref: [{sheet: P-1}], confidence: read, questions: []}
+io:
+  - {row: IO-1, equipment: CV-1, port: run, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: IO-2, equipment: TT-1, port: run, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: IO-3, equipment: TT-1, port: turn, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: IO-4, equipment: CV-2, port: run, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: IO-5, equipment: LF-1, port: run, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: IO-6, equipment: LF-1, port: raise, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}

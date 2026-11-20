@@ -1320,6 +1320,20 @@ position** (ruling 2):
 - in a scene (`openfactory layout SCENE`), the components marked `laid_out: true`, and nothing
   else.
 
+**A device on a laid-out belt** (ruled 2026-11-19, second set, ruling 1) keeps the rail and the
+distance its drawing gave it and follows its belt as a rigid body; it is never spread again.
+*How the scene carries it:* by the device's position alone, no new key (decision 8 stands: the
+scene stores no mount). `layout SCENE` finds the belt a marked device stands on by W214's rule
+(`core/mounts`), reads its rail from the side it is on and its distance from the belt's infeed,
+and after placing the belt places the device again with `place_on_rail`, the same call scaffold
+made, so a freshly scaffolded scene lays out to the same bytes. A marked composite on a belt
+(a stand-in) moves with it rigidly. A device whose belt a person moved away from it no longer
+stands on it and is spread again like any device with no mount.
+
+**A plant in several files** (review fix 1d): on a plant file, only the plant file's own marked
+components are placed; every included component is an obstacle, never moved, its file never
+written. To lay out an area, run layout on the area's file.
+
 ### 7.2 Order and spacing
 
 Deterministic (ruling 1): the same input gives the same positions, byte for byte. Every list is
@@ -1327,14 +1341,19 @@ walked in row order (the takeoff's, or the scene's component order); no set or d
 decides anything; numbers are rounded to 0.1 mm as scaffold rounds them.
 
 - **Process equipment** (supplies, drains, junctions, tanks, valves, pumps) goes on one line
-  along scene +x, in flow order along the connections (ruling 4): each item's rank is the
-  longest chain of connections from a supply to it; supplies are rank 0, drains the last rank
-  whatever their chain, and equal ranks keep row order. Bodies stand 1.0 m clear of each other
-  along x (`GAP_M`), centred on the line.
+  along scene +x, in flow order along the connections (ruling 4), depth first: supplies first
+  in row order; then, of the items whose upstream items are all placed, a successor of the
+  latest placed item that has one, else the first in row order; drains last in row order; a
+  loop with nothing ready takes the first remaining item in row order. So each branch stays
+  together: two tanks fed from one junction are each followed by their own pump, whose straight
+  run from its tank's bottom then crosses no other body. (Until review fix 1e, 2026-11-19, the
+  order was by rank, the longest chain from a supply, which put the two tanks side by side.)
+  Bodies stand 1.0 m clear of each other along x (`GAP_M`), centred on the line.
 - **Instruments** go beside what they measure: a level transmitter 0.15 m outside its tank's
   wall at half the tank's height, a flow transmitter 0.45 m in front of (scene -z) the link it
   measures; a second instrument on the same item steps a further 0.2 m out. A heater goes in its
-  tank, a drive 0.8 m behind its load.
+  tank, a drive 0.8 m behind its load. An instrument or drive whose spot overlaps a body other
+  than what it serves steps further out the same way, 0.2 m at a time, at most 50 times.
 - **Conveyors** go end to end along their connections, heading 0, one row per chain, 2.0 m
   behind (scene +z) the process line; a conveyor connected to a placed one continues it.
 - **Devices on a belt** with no `mount` go on a belt's left rail, spread evenly in row order
@@ -1391,6 +1410,10 @@ docs say so, and PLAN 5.5 records the sample's flows both ways.
   comment says `LAID OUT by openfactory layout (PLAN 5.5), not from a drawing`. The key is not in
   the scene document the viewer and recordings get (`geometry()` never carried it), so no
   recording, kit or golden file moves. `openfactory layout SCENE` re-lays exactly these.
+- **In the editor** (ruling 2 of the second set): moving or re-typing the position of a
+  laid-out component clears its mark, since a person placed it; the form shows the mark as a
+  checkbox, and the scene's author may still set it by hand. The `LAID OUT` comment beside it is
+  a comment and stays until someone removes it.
 - **In scaffold's report:** the row's outcome is `laid out` (between stand-in and assumed in
   the order of 5.1b: unplaced or not connected, stand-in, laid out, assumed, placed), and the
   positions line lists `N laid out by openfactory layout, not from a drawing (rows)` and the
@@ -1398,6 +1421,19 @@ docs say so, and PLAN 5.5 records the sample's flows both ways.
   still unplaced (laid out, but the scene cannot load until a person gives it).
 - **For the checker (5.6):** the review table marks a laid-out component as such, so a laid-out
   position is never read as a dimension off a sheet.
+
+### 7.5a Layout checks its own result (ruled 2026-11-19, second set, ruling 4)
+
+After placing, layout runs W217 over what it placed against everything (a pair is checked when
+one side was placed in this run) and prints every finding. With one, it still writes the scene,
+says so, and exits 1. `takeoff scaffold` and `layout TAKEOFF` check the same way, unless a row
+is unplaced (the scene cannot load until it is given; the report says the check did not run).
+What it avoids cheaply is in 7.2 (an instrument or a drive steps out); a conveyor that continues
+a drawn belt cannot step without leaving that belt's discharge and is reported; the row of other
+items stands past every body.
+
+`openfactory layout SCENE` writes only with `-o SCENE` or `--in-place` (ruling 3); with neither
+it changes nothing and says which to give.
 
 ### 7.6 The overlap lint (ruling 5)
 

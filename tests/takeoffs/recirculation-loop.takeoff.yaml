@@ -1,0 +1,18 @@
+# Test fixture (PLAN 5.5 review fixes, 2026-11-19): a recirculation loop, tank, pump, valve and
+# back to the tank's top. A P&ID only: every row is laid out. Not a shipped scene. Training and
+# demo use only. Not a safety-rated simulation.
+takeoff: "0.1"
+plant: {name: recirculation-loop, description: A tank whose pump returns through a valve to its top.}
+drawings: [{id: P-1, kind: pid, title: Test Recirculation P&ID, rev: A}]
+equipment:
+  - {row: EQ-1, tag: TK-1, type: tank, description: Test Recirculation Tank,
+     params: {diameter: 1.2, height: 1.6, initial_level: 0.8}, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-2, tag: P-1, type: pump, description: Test Recirculation Pump, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-3, tag: XV-1, type: valve_onoff, description: Test Recirculation Return Valve, ref: [{sheet: P-1}], confidence: read, questions: []}
+connections:
+  - {row: CN-1, from: TK-1.bottom, to: P-1.suction, line: 25-W-1, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-2, from: P-1.discharge, to: XV-1, line: 25-W-2, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-3, from: XV-1, to: TK-1.top, line: 25-W-3, ref: [{sheet: P-1}], confidence: read, questions: []}
+io:
+  - {row: IO-1, equipment: P-1, port: run, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: IO-2, equipment: XV-1, port: open, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}

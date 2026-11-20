@@ -91,3 +91,42 @@ describe("EditOps (PLAN 4.1c)", () => {
     expect([...ops.undescribed]).toEqual([]);
   });
 });
+
+describe("the laid_out mark (PLAN 5.5, ruled 2026-11-19 second set)", () => {
+  const laid = new Set(["P_101"]);
+  it("moving or re-typing a laid-out component's position clears its mark", () => {
+    const ops = new EditOps();
+    ops.laidOut = (id) => laid.has(id);
+    ops.change({ op: "set", path: ["components", "P_101", "position"], value: [1, 0.3, 0] });
+    expect(ops.list()).toEqual([
+      { op: "set", path: ["components", "P_101", "position"], value: [1, 0.3, 0] },
+      { op: "unset", path: ["components", "P_101", "laid_out"] },
+    ]);
+    const typed = new EditOps();
+    typed.laidOut = (id) => laid.has(id);
+    typed.change({ op: "set", path: ["components", "P_101", "position", 0], value: 2 });
+    expect(typed.list()).toContainEqual({ op: "unset", path: ["components", "P_101", "laid_out"] });
+  });
+
+  it("leaves a component that is not laid out, and other keys, alone", () => {
+    const ops = new EditOps();
+    ops.laidOut = (id) => laid.has(id);
+    ops.change({ op: "set", path: ["components", "TK_101", "position"], value: [0, 0, 0] });
+    ops.change({ op: "set", path: ["components", "P_101", "kv"], value: 3 });
+    expect(ops.list()).toEqual([
+      { op: "set", path: ["components", "TK_101", "position"], value: [0, 0, 0] },
+      { op: "set", path: ["components", "P_101", "kv"], value: 3 },
+    ]);
+  });
+
+  it("the author may still set the mark by hand, after a move too", () => {
+    const ops = new EditOps();
+    ops.laidOut = (id) => laid.has(id);
+    ops.change({ op: "set", path: ["components", "P_101", "position"], value: [1, 0.3, 0] });
+    ops.change({ op: "set", path: ["components", "P_101", "laid_out"], value: true });
+    expect(ops.list()).toEqual([
+      { op: "set", path: ["components", "P_101", "position"], value: [1, 0.3, 0] },
+      { op: "set", path: ["components", "P_101", "laid_out"], value: true },
+    ]);
+  });
+});

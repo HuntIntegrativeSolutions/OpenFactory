@@ -70,8 +70,10 @@ STUB_M = 0.3
 IN_FRONT_M = 0.45
 #: A level transmitter stands this far outside its tank's wall, m.
 OUTSIDE_M = 0.15
-#: A second instrument on the same item steps out this much further, m.
+#: A second instrument on the same item steps out this much further, m; and one whose spot is
+#: taken steps out by this until it is clear, at most :data:`MAX_STEPS` times.
 STEP_M = 0.2
+MAX_STEPS = 50
 
 NODE_TYPES = ("tank", "supply", "drain", "junction")
 LINK_TYPES = ("valve_onoff", "valve_control", "pump")
@@ -104,6 +106,8 @@ class Item:
     to: str | None = None
     #: A stand-in's or composite's body at its origin, heading 0 (else from footprints).
     local: list[fp.Box] | None = None
+    #: A composite's body where its parts are, exact, used while it stands at ``position``.
+    world: list[fp.Box] | None = None
 
     @property
     def fixed(self) -> bool:
@@ -146,6 +150,8 @@ class Result:
 
 def body(item: Item, position: Vec3, heading: float) -> list[fp.Box]:
     """The item's body at ``position``, turned by ``heading``."""
+    if item.world is not None and position == item.position and heading == item.heading:
+        return list(item.world)
     if item.local is not None:
         x, y, z = position
         out = []
@@ -236,25 +242,38 @@ class _Plant:
         if fa is not None and fb is not None:
             self.edges.append((_base(fa), _nozzle(fa), _base(fb), _nozzle(fb)))
 
-    def ranks(self) -> dict[str, int]:
-        ids = [i.id for i in self.items if i.type in PROCESS]
-        rank = dict.fromkeys(ids, 0)
-        for _ in range(len(ids)):
-            changed = False
-            for a, _, b, _ in self.edges:
-                grows = a in rank and b in rank and self.by_id[b].type != "supply"
-                if grows and rank[b] < rank[a] + 1 <= len(ids):
-                    rank[b] = rank[a] + 1
-                    changed = True
-            if not changed:
-                break
-        last = max(rank.values(), default=0) + 1
-        for i in ids:
-            if self.by_id[i].type == "drain":
-                rank[i] = last
-            elif self.by_id[i].type == "supply":
-                rank[i] = 0
-        return rank
+    def flow_order(self, free: list[Item]) -> list[Item]:
+        """``free`` in flow order along the connections, depth first so each branch stays
+        together (review fix 1e, 2026-11-19: by rank alone, two tanks off one junction stood
+        side by side and the first's pump ran through the second): supplies first in row order;
+        then, of the items whose upstream items are all placed, a successor of the latest
+        placed item that has one, else the first in row order; drains last in row order. A
+        loop with nothing ready takes the first remaining item in row order."""
+        ids = [i.id for i in free]
+        ups: dict[str, list[str]] = {i: [] for i in ids}
+        downs: dict[str, list[str]] = {i: [] for i in ids}
+        for a, _, b, _ in self.edges:
+            if a in ups and b in ups and a != b and self.by_id[b].type != "supply":
+                if a not in ups[b]:
+                    ups[b].append(a)
+                if b not in downs[a]:
+                    downs[a].append(b)
+        drains = [i for i in ids if self.by_id[i].type == "drain"]
+        done: list[str] = [i for i in ids if self.by_id[i].type == "supply"]
+        left = [i for i in ids if i not in done and i not in drains]
+        while left:
+            ready = [i for i in left if all(u in done or u in drains for u in ups[i])]
+            pick = None
+            for last in reversed(done):
+                pick = next((d for d in downs[last] if d in ready), None)
+                if pick is not None:
+                    break
+            if pick is None:
+                pick = ready[0] if ready else left[0]
+            done.append(pick)
+            left.remove(pick)
+        by = {i.id: i for i in free}
+        return [by[i] for i in done + drains]
 
     def line_group(self, start: str) -> tuple[list[tuple[str, str]], bool]:
         """From ``start``, through links, junctions, supplies and drains: the tank ends reached
@@ -317,10 +336,7 @@ def lay_out(  # noqa: C901, PLR0912, PLR0915 - one pass per kind of item, in ord
     free = [i for i in items if not i.fixed]
 
     # 1. process equipment, in flow order, on one line
-    rank = plant.ranks()
-    order = sorted(
-        (i for i in free if i.type in PROCESS), key=lambda i: (rank[i.id], items.index(i))
-    )
+    order = plant.flow_order([i for i in free if i.type in PROCESS])
 
     def tank_top(tank_id: str) -> float:
         t = plant.by_id[tank_id]
@@ -378,15 +394,28 @@ def lay_out(  # noqa: C901, PLR0912, PLR0915 - one pass per kind of item, in ord
         tgt = plant.by_id.get(target or "")
         if item.type == "heater" and tgt is not None and tgt.type == "tank":
             put(item, (tx, ty + 0.1, tz), 0.0, f"in {target}")
-        elif item.type == "vfd_motor":
-            put(item, (tx, 0.0, tz + 0.8 + STEP_M * k), 0.0, f"behind {target}")
+            continue
+        if item.type == "vfd_motor":
+            spot, step, note = (tx, 0.0, tz + 0.8 + STEP_M * k), (0.0, 0.0, STEP_M), "behind"
         elif tgt is not None and tgt.type == "tank":
             wall = fp.bounds(body(tgt, *where(tgt)))  # type: ignore[misc]
             assert wall is not None
             x = wall[1] + OUTSIDE_M + 0.06 + STEP_M * k
-            put(item, (x, ty + float(tgt.cfg.height) / 2, tz), 0.0, f"beside {target}")
+            spot, step = (x, ty + float(tgt.cfg.height) / 2, tz), (STEP_M, 0.0, 0.0)
+            note = "beside"
         else:
-            put(item, (tx, ty, tz - IN_FRONT_M - STEP_M * k), 0.0, f"in front of {target}")
+            spot, step = (tx, ty, tz - IN_FRONT_M - STEP_M * k), (0.0, 0.0, -STEP_M)
+            note = "in front of"
+        # ruled 2026-11-19 (second set): step out, the same way, until clear of every body but
+        # what it serves; bounded, and what stays blocked is the overlap check's to report
+        for _ in range(MAX_STEPS):
+            mine = body(item, spot, 0.0)
+            others = [b for i in items if i.id not in (item.id, target) and where(i) is not None
+                      for b in body(i, *where(i))]  # type: ignore[misc]  # fmt: skip
+            if not any(fp.overlap(m, o) for m in mine for o in others):
+                break
+            spot = (spot[0] + step[0], spot[1] + step[1], spot[2] + step[2])
+        put(item, spot, 0.0, f"{note} {target}")
 
     # 4. conveyors, end to end along their connections
     def length(i: Item) -> float:
@@ -635,6 +664,31 @@ def _dedupe(points: list[Vec3]) -> list[Vec3]:
     return out
 
 
+# --- checking what it placed (ruled 2026-11-19, second set, ruling 4) --------------------------
+
+
+def placed_overlaps(text: str, base_dir: Any, placed: Any, source: Any = None) -> list[str]:
+    """W217 over the scene ``text``, every pair with at least one side among ``placed`` (ids of
+    components or composite instances layout placed in this run): what it placed against
+    everything. Each finding as the lint words it, ``W217 ...``."""
+    from openfactory.core.loader import build
+    from openfactory.core.schema import parse_scene
+    from openfactory.lint import overlaps
+
+    ids = set(placed)
+    scene = parse_scene(text, base_dir, source=source) if source else parse_scene(text, base_dir)
+    loaded = build(scene, base_dir=base_dir)
+
+    def named(cid: str) -> str:
+        inst = scene.composite_of(cid)
+        return f"{cid} (part of {inst}, a {scene.instance_type(inst)})" if inst else cid
+
+    def mine(cid: str) -> bool:
+        return (scene.composite_of(cid) or cid) in ids
+
+    return [f"W217 {m}" for m in overlaps(loaded.components, named, mine)]
+
+
 # --- a scene: re-lay what is marked laid out ---------------------------------------------------
 
 
@@ -642,20 +696,65 @@ def _scene_cfg(comp: Any) -> Any:
     return SimpleNamespace(**{n: getattr(comp, n) for n in type(comp).model_fields})
 
 
-def relayout_scene(text: str, base_dir: Any = None) -> tuple[str, list[str], list[str]]:
-    """``openfactory layout SCENE``: the scene's text with every component marked
-    ``laid_out: true`` placed again (and every such pipe routed again), each by a splice through
-    the 4.7 Document writer, so every other byte stays; the ids moved, and layout's notes. A
-    component not marked is never moved."""
+@dataclass
+class SceneItems:
+    """A scene file read for layout: its own component entries, and what :func:`lay_out` takes."""
+
+    entries: list[dict[str, Any]]
+    items: list[Item]
+    pipes: list[Pipe]
+    links: list[tuple[str, str]]
+    tallest: float | None
+    #: Marked devices standing on a belt: placed again on it after it is (not by lay_out).
+    followers: list[Follower] = field(default_factory=list)
+
+
+@dataclass
+class Follower:
+    """A marked device on a belt (ruled 2026-11-19, second set, ruling 1): it keeps its rail and
+    its distance from the belt's infeed, read back from where it stands, and follows the belt as
+    a rigid body; it is never spread again."""
+
+    item: Item
+    belt: str
+    rail: str
+    along: float
+    rise: float  # its height above the belt top
+    offset: Vec3  # its origin in the belt's frame (a composite, moved rigidly)
+    turn: float  # its heading less the belt's
+
+
+def _on_belt(item: Item, pos: Vec3, heading: float, belts: list[tuple[Item, Vec3, float]]
+             ) -> Follower | None:  # fmt: skip
+    """The belt ``item`` stands on, by W214's rule (``core/mounts._belt_under``), as a
+    :class:`Follower`; None when it stands on none."""
+    from openfactory.core.geometry import to_local
+    from openfactory.core.mounts import _belt_under
+
+    spans = [SimpleNamespace(id=b.id, position=list(p), rotation_deg=h, length=float(b.cfg.length),
+                             width=float(b.cfg.width)) for b, p, h in belts]  # fmt: skip
+    under = _belt_under(pos, spans)
+    if under is None:
+        return None
+    lx, ly, lz = to_local(tuple(under.position), under.rotation_deg, pos)
+    rail = "rail_right" if lz > 1e-6 else "rail_left"  # an eye or stopper on the centre: either
+    turn = heading - under.rotation_deg
+    return Follower(item, under.id, rail, _num(lx), _num(ly), (lx, ly, lz), turn)
+
+
+def scene_items(text: str, base_dir: Any = None, source: Any = None) -> SceneItems:
+    """The scene's components as layout items: a component marked ``laid_out: true`` with no
+    position (to place), every other one at its position (an obstacle). A plant file (its
+    ``source`` path given) adds every included component as an obstacle: layout never moves
+    what another file holds (review fix 1d, 2026-11-19)."""
     import yaml as _yaml
 
-    from openfactory.core.sceneedit import apply_ops
     from openfactory.core.schema import COMPONENT_MODELS, parse_scene
     from openfactory.core.sizing import tallest_part
 
     raw = _yaml.safe_load(text) or {}
     entries = [c for c in raw.get("components") or [] if isinstance(c, dict)]
-    scene = parse_scene(text, base_dir)
+    scene = parse_scene(text, base_dir, source=source) if source else parse_scene(text, base_dir)
     flat = {c.id: c for c in scene.components}
     items: list[Item] = []
     pipes: list[Pipe] = []
@@ -675,17 +774,90 @@ def relayout_scene(text: str, base_dir: Any = None) -> tuple[str, list[str], lis
                               getattr(comp, "from_", None), getattr(comp, "to", None)))  # fmt: skip
             continue
         parts = [c for c in scene.components if scene.composite_of(c.id) == cid]
-        origin = entry["position"]
-        boxes = []
-        for part in parts:  # the instance's body about its own origin
-            for b in fp.boxes(part.config if hasattr(part, "config") else part, part.type):
-                boxes.append((b[0] - origin[0], b[1] - origin[0], b[2] - origin[1],
-                              b[3] - origin[1], b[4] - origin[2], b[5] - origin[2]))  # fmt: skip
-        whole = fp.bounds(boxes)
+        origin = [float(v) for v in entry["position"]]
+        world: list[fp.Box] = []
+        local: list[fp.Box] = []
+        for part in parts:
+            cfg = part.config if hasattr(part, "config") else part
+            world += fp.boxes(cfg, part.type)  # where the parts are: the obstacle, exactly
+            # the instance's body about its own origin at heading 0 (its parts turned back), so
+            # body() turns it once (review fix 1b, 2026-11-19: it was turned twice)
+            d = rotate_y(tuple(float(cfg.position[k]) - origin[k] for k in range(3)), -heading)
+            back = SimpleNamespace(**{n: getattr(cfg, n) for n in type(cfg).model_fields})
+            back.position = list(d)
+            back.rotation_deg = float(getattr(cfg, "rotation_deg", 0.0) or 0.0) - heading
+            local += fp.boxes(back, part.type)
         items.append(Item(cid, kind, SimpleNamespace(), cid, pos, heading,
-                          local=[whole] if whole else None))  # fmt: skip
+                          local=local or None, world=world or None))  # fmt: skip
+    own = {e["id"] for e in entries}
+    for comp in scene.components:  # a plant's included components: obstacles, never moved
+        if comp.id in own or scene.composite_of(comp.id) in own:
+            continue
+        pos = _vec(comp.position)
+        if comp.type == "pipe":
+            pipes.append(Pipe(comp.id, comp.from_, comp.to, float(comp.diameter), True, pos,
+                              [_vec(p) for p in comp.path]))  # fmt: skip
+        else:
+            items.append(Item(comp.id, comp.type, _scene_cfg(comp), comp.id, pos,
+                              float(comp.rotation_deg), getattr(comp, "from_", None),
+                              getattr(comp, "to", None)))  # fmt: skip
     links = [(c.from_, c.to) for c in scene.connections]
-    result = lay_out(items, pipes, links, tallest_part(scene))
+    # a marked device on a belt keeps its rail and distance (ruling 1, 2026-11-19 second set)
+    olds = {i.id: (i.position, i.heading) for i in items if i.position is not None}
+    olds.update({e["id"]: (_vec(e["position"]), float(e.get("rotation_deg", 0.0)))
+                 for e in entries})  # fmt: skip
+    belts = [(i, *olds[i.id]) for i in items if i.type in BELTS]
+    followers = []
+    for item in items:
+        if item.fixed or not (item.type in RAIL_DEVICES or item.local is not None):
+            continue
+        follow = _on_belt(item, *olds[item.id], belts)
+        if follow is not None:
+            followers.append(follow)
+    held = {f.item.id for f in followers}
+    items = [i for i in items if i.id not in held]
+    return SceneItems(entries, items, pipes, links, tallest_part(scene), followers)
+
+
+def follow_belts(read: SceneItems, result: Result) -> None:
+    """Each follower placed again on its belt where the belt now is: a rail device by
+    ``place_on_rail`` at its rail and distance (as scaffold placed it), anything else moved with
+    the belt as a rigid body."""
+    from openfactory.core.mounts import MOUNT_TYPES, place_on_rail
+
+    by_id = {i.id: i for i in read.items}
+    for f in read.followers:
+        belt = by_id[f.belt]
+        spot = result.placed.get(belt.id)
+        pos, heading = (spot.position, spot.heading) if spot else (belt.position, belt.heading)
+        assert pos is not None
+        if f.item.type in MOUNT_TYPES:
+            ns = SimpleNamespace(id=belt.id, type=belt.type, position=list(pos),
+                                 rotation_deg=heading, length=float(belt.cfg.length),
+                                 width=float(belt.cfg.width))  # fmt: skip
+            params = {n: v for n, v in vars(f.item.cfg).items() if n != "rotation_deg"}
+            params["position"] = [0.0, pos[1] + f.rise, 0.0]  # the height it keeps
+            done = place_on_rail(f.item.type, params, ns, f.rail, f.along, read.tallest)
+            at, turn = tuple(done.position), done.rotation_deg
+        else:
+            d = rotate_y(f.offset, heading)
+            at, turn = (pos[0] + d[0], pos[1] + d[1], pos[2] + d[2]), heading + f.turn
+        result.placed[f.item.id] = Placed(_vec(at), _num(turn), None, f"on {belt.id}")  # type: ignore[arg-type]
+
+
+def relayout_scene(
+    text: str, base_dir: Any = None, source: Any = None
+) -> tuple[str, list[str], list[str]]:
+    """``openfactory layout SCENE``: the scene's text with every component marked
+    ``laid_out: true`` placed again (and every such pipe routed again), each by a splice through
+    the 4.7 Document writer, so every other byte stays; the ids moved, and layout's notes. A
+    component not marked is never moved."""
+    from openfactory.core.sceneedit import apply_ops
+
+    read = scene_items(text, base_dir, source)
+    entries = read.entries
+    result = lay_out(read.items, read.pipes, read.links, read.tallest)
+    follow_belts(read, result)
     ops: list[dict[str, Any]] = []
     for entry in entries:
         spot = result.placed.get(entry["id"])

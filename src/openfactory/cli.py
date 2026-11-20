@@ -1648,6 +1648,10 @@ def takeoff_scaffold(
         raise typer.Exit(1) from None
     output.write_bytes(result.text.encode("utf-8"))
     typer.echo(result.report().replace(result.scene_name, output.name, 1), nl=False)
+    if result.overlaps:  # ruled 2026-11-19 (second set): written, and exit 1
+        typer.echo(f"{output} was written; exit 1 for the overlap findings above (move what "
+                   "layout placed, or give those rows their position from the drawing)",
+                   )  # fmt: skip
     raise typer.Exit(result.exit_code())
 
 
@@ -1667,10 +1671,15 @@ def layout_cmd(
         bool,
         typer.Option("--in-scenes", help="Allow writing inside the project's scenes/ folder."),
     ] = False,
+    in_place: Annotated[
+        bool,
+        typer.Option("--in-place", help="A scene: write the result back to the scene itself."),
+    ] = False,
 ) -> None:
-    """Place what no drawing placed (PLAN 5.5): for a takeoff, write its scene as `takeoff
+    """Place what no drawing placed (PLAN 5.5): for a takeoff, write its scene (-o) as `takeoff
     scaffold` does, every row with no position laid out and every pipe routed; for a scene,
-    place again every component marked `laid_out: true` and nothing else. Deterministic, in
+    place again every component marked `laid_out: true` and nothing else, written to -o SCENE
+    or, with --in-place, back to the scene; with neither it writes nothing. Deterministic, in
     Python, no browser. Every position it gives is marked laid out, not from a drawing."""
     import yaml
 
@@ -1682,7 +1691,14 @@ def layout_cmd(
     except (OSError, yaml.YAMLError) as exc:
         typer.echo(f"error: {file}: {exc}", err=True)
         raise typer.Exit(1) from None
+    if output is not None and in_place:
+        typer.echo("error: give -o SCENE or --in-place, not both", err=True)
+        raise typer.Exit(1)
     if isinstance(data, dict) and "takeoff" in data:
+        if in_place:
+            typer.echo(f"error: {file} is a takeoff; --in-place would write a scene over it. "
+                       "Give -o SCENE, the scene to write", err=True)  # fmt: skip
+            raise typer.Exit(1)
         if output is None:
             typer.echo("error: a takeoff needs -o SCENE, the scene to write", err=True)
             raise typer.Exit(1)
@@ -1690,6 +1706,10 @@ def layout_cmd(
         return
     from openfactory.layout import relayout_scene
 
+    if output is None and not in_place:  # ruled 2026-11-19: it never writes unasked
+        typer.echo(f"error: nothing written; give -o SCENE to write the laid-out scene to a new "
+                   f"file, or --in-place to write it back to {file.name}", err=True)  # fmt: skip
+        raise typer.Exit(1)
     target = (output or file).resolve()
     root = project_root(target.parent if target.parent.exists() else Path.cwd())
     if root is not None and not in_scenes and target.is_relative_to(root / "scenes"):
@@ -1700,7 +1720,8 @@ def layout_cmd(
         typer.echo(f"error: {output} exists; pass --force to overwrite it", err=True)
         raise typer.Exit(1)
     try:
-        text, moved, notes = relayout_scene(file.read_text(encoding="utf-8"), file.parent)
+        text, moved, notes = relayout_scene(file.read_text(encoding="utf-8"), file.parent,
+                                            file.resolve())  # fmt: skip
     except (OSError, ValueError, KeyError) as exc:
         typer.echo(f"error: {file}: {exc}", err=True)
         raise typer.Exit(1) from None
@@ -1709,6 +1730,15 @@ def layout_cmd(
     typer.echo(f"{file.name}: laid out {len(moved)} marked component(s){said}")
     for note in notes:
         typer.echo(f"  {note}")
+    from openfactory.layout import placed_overlaps
+
+    found = placed_overlaps(text, file.parent, moved, file.resolve()) if moved else []
+    if found:  # ruled 2026-11-19 (second set): what it placed against everything
+        typer.echo(f"overlaps, what layout placed against everything ({len(found)}):")
+        for m in found:
+            typer.echo(f"  {m}")
+        typer.echo(f"{output or file} was written; exit 1 for the overlap findings above")
+        raise typer.Exit(1)
 
 
 def _pair(text: str) -> tuple[float, float]:

@@ -4304,6 +4304,55 @@ trusts it.
       would then move) or writing the key twice on a laid-out one. `laid_out` is now a
       placement key, refused in `params` naming the row
       (`test_params_are_checked_against_the_rows_type`, a new case that failed before).
+      *Ruled 2026-11-19 (the owner, second set, on review of a503673..53328e8):* (1) a device
+      mounted on a belt that layout placed keeps the rail and the distance its drawing gave it,
+      and follows its belt as a rigid body when layout runs again, never re-spread; (2) moving
+      or re-typing a laid-out component's position in the editor clears its mark; the mark
+      stays the author's to set by hand; (3) `layout SCENE` writes only with `-o` or
+      `--in-place`; (4) layout runs W217 over what it placed against everything, reports every
+      finding and exits 1, still writing the scene and saying so.
+      *Review fixes (2026-11-19), each with a test that failed before:* (a) **mounts kept**: the
+      scene carries the mount by the device's position alone (no new key; decision 8 stands):
+      `layout SCENE` finds the belt a marked device stands on by W214's rule, reads its rail and
+      distance back, and places it again with `place_on_rail` after the belt
+      (`test_layout_on_a_freshly_scaffolded_scene_changes_no_byte`, stripped, kept-mounts and
+      kept-six: the kept-mounts case moved PE_201 from 1.2 to 1.0 m before;
+      `test_a_mounted_device_follows_its_laid_out_belt_as_a_rigid_body`). (b) **a turned
+      composite**: an unmarked composite obstacle is its parts' own bodies, and a marked one's
+      body is built at heading 0 (`test_a_turned_composite_obstacle_is_its_parts_bodies`: it
+      was turned twice). (c) **its own check** (ruling 4): `placed_overlaps`, W217 on pairs
+      with a side placed in this run, in `takeoff scaffold`, `layout TAKEOFF` and `layout
+      SCENE`; a finding prints, the scene is written and the exit is 1; an instrument or drive
+      whose spot is taken steps out 0.2 m at a time (at most 50) before the check
+      (`tests/unit/test_layout_checks.py`: a belt continuing a drawn belt onto a drawn tank is
+      reported, exit 1, in scaffold and in `layout SCENE`; a flow transmitter and a drive each
+      step past a drawn tank; both landed on it before). The row of other items stands past
+      every body, so it cannot land on a drawn one. (d) **plants**: on a plant file, layout
+      places only the plant file's own marked components; included components are obstacles,
+      never moved, their files never written (`test_layout_on_a_plant_keeps_included_
+      components_as_obstacles`; it was refused with "a plant file (include:) is loaded from its
+      path"). Chosen over refusing, as the included positions are already plant coordinates.
+      (e) **topology** (`tests/takeoffs/`, four fixtures, none a shipped scene;
+      `tests/unit/test_layout_topologies.py`): a junction feeding two tanks with a pump each, a
+      recirculation loop, two belts through a turntable with a lift after, a tank with a heater
+      and a pump with a drive; each lays out with no error and no overlap finding, builds and
+      runs a tick. The junction had two findings before ("the run of P_1 passes through TK_2",
+      "the run of P_2 passes through P_1"): the line order is now depth first along the
+      connections, so each branch stays together (the sample's order did not change); the other
+      three passed before. Top views looked at (scratch folder): the junction line SUP_1, J_1,
+      TK_1, P_1, TK_2, P_2, DR_1, DR_2; the loop TK_1, P_1, XV_1 with the return rising past the
+      valve and over the pump into the tank's top (also a 3D view); CV_1, TT_1, CV_2, LF_1 end
+      to end; TK_1 with its heater, P_1 and DR_1 on the line and M_1 behind the pump. (f)
+      **ruling 3**: `--in-place`; neither flag writes nothing and names both; both together, and
+      `--in-place` on a takeoff, are refused (`test_layout_scene_writes_only_with_o_or_in_place`).
+      (g) **ruling 2**: `EditOps.laidOut`, so a set of a laid-out component's position also
+      unsets its `laid_out` (`web/src/editor/ops.test.ts`, three cases;
+      `tests/integration/test_editor_laid_out.py`: the checkbox ticked on TK_101, cleared after
+      its x is re-typed, the save without the key; both screenshots looked at). The `LAID OUT`
+      comment stays until someone removes it. **Decision beyond the rulings:** a turn by
+      typing `rotation_deg` alone keeps the mark (ruling 2 names position); a turn by dragging
+      sets the position too and clears it. Docs: `docs/layout.md`, `docs/takeoff.md` (exit 1),
+      the design note §7. Shipped scenes did not move: kits current, run references unchanged.
 - [x] 5.6 Review overlay. A top view of the scene drawn over the layout drawing, and a table of
       takeoff rows against scene components, so the checker sees what was missed.
       *Done when:* removing one item from the sample scene shows it in both.

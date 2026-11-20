@@ -176,3 +176,118 @@ def test_a_routed_pipes_length_is_its_drawn_length(laid):
     assert pipe.length == pytest.approx(drawn) and pipe.length > 1.0
     docs = (REPO / "docs" / "layout.md").read_text(encoding="utf-8")
     assert "drawn length" in docs and "friction" in docs
+
+
+# --- review fixes, 2026-11-19 (second set) -----------------------------------------------------
+
+
+def _cli(*args: str):  # noqa: ANN202
+    from typer.testing import CliRunner
+
+    from openfactory.cli import app
+
+    return CliRunner().invoke(app, list(args))
+
+
+def test_layout_scene_writes_only_with_o_or_in_place(laid, tmp_path):
+    """Ruling 3 (2026-11-19, second set): with neither -o nor --in-place it changes nothing and
+    says which to give; each flag writes; both, and --in-place on a takeoff, are refused."""
+    path, _ = laid
+    text = path.read_text(encoding="utf-8")
+    at = list(load(path).scene.components[0].position)
+    shifted = text.replace(f"position: {at}".replace("'", ""), "position: [9.0, 0.3, 9.0]", 1)
+    assert shifted != text
+    path.write_text(shifted, encoding="utf-8")
+    done = _cli("layout", str(path))
+    assert done.exit_code == 1
+    assert "-o" in done.output and "--in-place" in done.output
+    assert path.read_text(encoding="utf-8") == shifted  # nothing written
+    out = tmp_path / "again.yaml"
+    done = _cli("layout", str(path), "-o", str(out))
+    assert done.exit_code == 0, done.output
+    assert out.read_text(encoding="utf-8") == text
+    assert path.read_text(encoding="utf-8") == shifted  # -o leaves the source alone
+    done = _cli("layout", str(path), "--in-place")
+    assert done.exit_code == 0, done.output
+    assert path.read_text(encoding="utf-8") == text
+    done = _cli("layout", str(path), "--in-place", "-o", str(tmp_path / "x.yaml"))
+    assert done.exit_code == 1 and "not both" in done.output
+    assert not (tmp_path / "x.yaml").exists()
+    bare = stripped(tmp_path)
+    before = bare.read_bytes()
+    done = _cli("layout", str(bare), "--in-place")
+    assert done.exit_code == 1 and "takeoff" in done.output
+    assert bare.read_bytes() == before
+    docs = (REPO / "docs" / "layout.md").read_text(encoding="utf-8")
+    assert "--in-place" in docs
+
+
+TURNED_BODY = """\
+openfactory: "0.1"
+scene: {name: turned, description: A long body turned 90 degrees.}
+plc: {protocol: modbus_tcp}
+composites:
+  - type: long_item
+    description: A long body
+    parts:
+      - {id: body, type: scenery, description: Body, position: [0.5, 0.25, 0],
+         size: [2.0, 0.5, 0.4]}
+    io: {}
+components:
+  - id: ITEM_01
+    type: long_item
+    description: A long body, turned
+    position: [3.0, 0.0, 1.0]
+    rotation_deg: 90
+"""
+
+
+def test_a_turned_composite_obstacle_is_its_parts_bodies(tmp_path):
+    """Review fix 1b: a composite (or stand-in) turned 90 degrees and not marked is an obstacle
+    whose body is the bounds of its parts' footprints, not those turned a second time."""
+    from openfactory.core import footprints as fp
+    from openfactory.layout import body, scene_items
+
+    path = tmp_path / "turned.yaml"
+    path.write_text(TURNED_BODY, encoding="utf-8")
+    read = scene_items(TURNED_BODY, tmp_path)
+    item = next(i for i in read.items if i.id == "ITEM_01")
+    assert item.fixed
+    parts = [c for c in load(path).components if c.id.startswith("ITEM_01")]
+    want = fp.bounds(b for p in parts for b in fp.boxes(p.config, p.type))
+    got = fp.bounds(body(item, item.position, item.heading))
+    assert got == pytest.approx(want, abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    "keep",
+    [(), ("PE-201", "CYL-201"), ("SUP-101", "LV-101", "TK-101", "CV-201", "PE-201", "EMT-201")],
+    ids=["stripped", "kept-mounts", "kept-six"],
+)
+def test_layout_on_a_freshly_scaffolded_scene_changes_no_byte(tmp_path, keep):
+    """Ruling 1 (2026-11-19, second set), the general test: `layout SCENE -o` on the scene
+    scaffold just wrote gives the same bytes, so a mounted device keeps its drawing's rail and
+    distance and nothing is re-spread."""
+    path, _ = write_scene(tmp_path, stripped(tmp_path, keep))
+    out = tmp_path / "again.yaml"
+    done = _cli("layout", str(path), "-o", str(out))
+    assert done.exit_code == 0, done.output
+    assert out.read_text(encoding="utf-8") == path.read_text(encoding="utf-8")
+
+
+def test_a_mounted_device_follows_its_laid_out_belt_as_a_rigid_body(tmp_path):
+    """Ruling 1: the sample with only PE-201's and CYL-201's mounts kept; the belt moved and laid
+    out again, the eye stays 1.2 m and the pusher 2.0 m from its infeed, on the left rail."""
+    path, _ = write_scene(tmp_path, stripped(tmp_path, keep=("PE-201", "CYL-201")))
+    text = path.read_text(encoding="utf-8")
+    scene = {c.id: c for c in load(path).scene.components}
+    moved = text
+    for cid in ("CV_201", "PE_201", "CYL_201"):  # the belt and its devices, 5 m along x
+        at = list(scene[cid].position)
+        moved = moved.replace(f"position: {at}".replace("'", ""),
+                              f"position: {[round(at[0] + 5, 4), at[1], at[2]]}")  # fmt: skip
+    assert moved != text
+    again, ids, _ = relayout_scene(moved, path.parent)
+    assert again == text and {"CV_201", "PE_201", "CYL_201"} <= set(ids)
+    assert scene["PE_201"].position[0] == pytest.approx(scene["CV_201"].position[0] + 1.2)
+    assert scene["CYL_201"].position[0] == pytest.approx(scene["CV_201"].position[0] + 2.0)

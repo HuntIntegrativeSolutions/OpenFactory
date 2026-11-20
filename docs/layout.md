@@ -12,8 +12,13 @@ are not the drawn plant's (below).
 
 ```bash
 openfactory layout plant.takeoff.yaml -o plant.yaml   # a takeoff: as takeoff scaffold, laid out
-openfactory layout plant.yaml                         # a scene: place again what is marked
+openfactory layout plant.yaml -o plant-2.yaml        # a scene: place again what is marked
+openfactory layout plant.yaml --in-place              # the same, written back to plant.yaml
 ```
+
+On a scene, `layout` writes only when told where: `-o SCENE` (a new file; `--force` to
+overwrite one) or `--in-place` (the scene itself). With neither it writes nothing and says which
+to give; both together are refused, and so is `--in-place` on a takeoff.
 
 `openfactory takeoff scaffold` lays out the same way; `openfactory layout TAKEOFF` is the same
 command under the name of what it does. On a scene, `layout` places again exactly the components
@@ -29,7 +34,22 @@ each change is a splice through the same writer as the editor's.
 A general arrangement drawing therefore overrides layout row by row: give a row its `layout`
 from the sheet, scaffold again, and that item stops being laid out. A device mounted on a belt
 that layout placed (`mount` with `along` from the sheet) follows the belt and is marked laid
-out too, since its scene position rests on a laid-out one.
+out too, since its scene position rests on a laid-out one. When `layout SCENE` runs again, a
+marked device standing on a belt keeps its rail and its distance from the belt's infeed, read
+back from where it stands, and moves with the belt; it is never spread again.
+
+In the editor, moving or re-typing a laid-out component's position clears its mark: a person
+placed it. The mark is a checkbox in the form, and the scene's author may still set it by
+hand. The `LAID OUT` comment beside the component stays until someone removes it.
+
+## A plant in several files
+
+On a plant file (one with `include:`, [PLAN 5.4](scene-format.md)), `layout` places only the
+plant file's own components marked `laid_out: true`. Every included component is an
+obstacle: laid-out items keep clear of it, and it is never moved and its file never written,
+marked or not. To lay out an area, run `layout` on the area's own file. Write a plant's result
+beside the plant file (`-o` in the same folder, or `--in-place`), since its `include:` paths are
+relative to it.
 
 ## How it places
 
@@ -38,11 +58,11 @@ byte for byte. Items are taken in row order; nothing is random or iterated in ha
 
 | What | Where |
 |---|---|
-| Process equipment: supplies, valves, tanks, pumps, junctions, drains | One line along +x in flow order along the connections: supplies first, drains last, each item ranked by the longest chain of connections from a supply; 1.0 m clear between bodies |
+| Process equipment: supplies, valves, tanks, pumps, junctions, drains | One line along +x in flow order along the connections, depth first so each branch stays together (two tanks off one junction are each followed by their own pump): supplies first, drains last; 1.0 m clear between bodies |
 | A tank | 0.25 m up, so its bottom nozzle (drawn 0.05 m up) is on the low line |
 | A pump, and lines that join a tank's bottom | The low line, 0.3 m up |
 | A valve, supply, drain or junction whose connections lead only into one tank's top | That tank's high line, 0.3 m above its top |
-| A level transmitter | 0.15 m outside its tank's wall, at half its height |
+| A level transmitter | 0.15 m outside its tank's wall, at half its height (further out if that spot is taken) |
 | A flow transmitter | 0.45 m in front of (scene -z) what it measures |
 | A heater; a drive | In its tank; 0.8 m behind its load |
 | Conveyors | End to end along their connections, heading 0, one row per chain, 2.0 m behind the process line |
@@ -51,6 +71,21 @@ byte for byte. Items are taken in row order; nothing is random or iterated in ha
 | Anything else (a stand-in, a panel device, scenery) | A row 2.0 m behind the conveyors, on the floor |
 
 With some items placed by a drawing, the laid-out ones start 2.0 m past the drawn ones' largest x.
+
+## It checks what it placed
+
+After placing, layout runs the overlap check (W217, below) over what it placed against
+everything, drawn or laid out, and prints every finding. With one or more it **still writes the
+scene, says so, and exits 1**, so a script or an assistant cannot miss it. `takeoff scaffold`
+and `layout TAKEOFF` check the same way, unless a row is unplaced for a parameter with no
+default (the scene cannot load until it is given; the report says the check did not run).
+
+Where it is cheap, layout avoids the overlap first: an instrument or a drive whose spot is
+taken steps further out the same way (a flow transmitter further in front, a level transmitter
+further from the wall, a drive further behind), 0.2 m at a time, up to 50 times, before the
+check. A conveyor that continues a drawn belt cannot step without leaving that belt's
+discharge, and the row of other items is placed past every body, so for those the check's
+report is the answer: give the row its position from the drawing, or move what is in the way.
 
 ## Pipe routes
 

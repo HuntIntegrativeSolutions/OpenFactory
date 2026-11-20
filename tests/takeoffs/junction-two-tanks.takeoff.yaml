@@ -1,0 +1,28 @@
+# Test fixture (PLAN 5.5 review fixes, 2026-11-19): a junction feeding two tanks, one pump
+# each. A P&ID only, no positions: every row is laid out. Not a shipped scene. Training and demo
+# use only. Not a safety-rated simulation.
+takeoff: "0.1"
+plant: {name: junction-two-tanks, description: A junction feeding two tanks with a pump each.}
+drawings: [{id: P-1, kind: pid, title: Test Two Tank P&ID, rev: A}]
+equipment:
+  - {row: EQ-1, tag: SUP-1, type: supply, description: Test Water Supply, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-2, tag: J-1, type: junction, description: Test Supply Header Junction, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-3, tag: TK-1, type: tank, description: Test Tank One,
+     params: {diameter: 1.0, height: 1.5}, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-4, tag: TK-2, type: tank, description: Test Tank Two,
+     params: {diameter: 1.0, height: 1.5}, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-5, tag: P-1, type: pump, description: Test Tank One Pump, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-6, tag: P-2, type: pump, description: Test Tank Two Pump, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-7, tag: DR-1, type: drain, description: Test Tank One Outlet, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: EQ-8, tag: DR-2, type: drain, description: Test Tank Two Outlet, ref: [{sheet: P-1}], confidence: read, questions: []}
+connections:
+  - {row: CN-1, from: SUP-1, to: J-1, line: 50-W-1, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-2, from: J-1, to: TK-1.top, line: 25-W-2, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-3, from: J-1, to: TK-2.top, line: 25-W-3, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-4, from: TK-1.bottom, to: P-1.suction, line: 25-W-4, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-5, from: P-1.discharge, to: DR-1, line: 25-W-5, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-6, from: TK-2.bottom, to: P-2.suction, line: 25-W-6, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: CN-7, from: P-2.discharge, to: DR-2, line: 25-W-7, ref: [{sheet: P-1}], confidence: read, questions: []}
+io:
+  - {row: IO-1, equipment: P-1, port: run, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
+  - {row: IO-2, equipment: P-2, port: run, signal: DO, ref: [{sheet: P-1}], confidence: read, questions: []}
