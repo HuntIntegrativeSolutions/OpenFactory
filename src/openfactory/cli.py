@@ -1711,6 +1711,89 @@ def layout_cmd(
         typer.echo(f"  {note}")
 
 
+def _pair(text: str) -> tuple[float, float]:
+    try:
+        x, y = (float(v) for v in text.split(","))
+    except ValueError:
+        raise typer.BadParameter(f"{text!r}: expected X,Y in pixels") from None
+    return x, y
+
+
+@app.command("review")
+def review_cmd(
+    takeoff: Annotated[Path, typer.Argument(help="The takeoff file.", metavar="TAKEOFF")],
+    scene: Annotated[Path, typer.Argument(help="The scene made from it.", metavar="SCENE")],
+    drawing: Annotated[
+        Path, typer.Option("--drawing", help="The layout drawing, a PNG or SVG file.")
+    ],
+    datum_px: Annotated[
+        str, typer.Option("--datum-px", help="Where the sheet's datum is in the picture: X,Y.")
+    ],
+    px_per_unit: Annotated[
+        float, typer.Option("--px-per-unit", help="Pixels per sheet unit (the frame's units).")
+    ],
+    sheet: Annotated[
+        str | None, typer.Option("--sheet", help="The layout sheet's id (if more than one).")
+    ] = None,
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            "--out", help="The folder to write to (default: beside the takeoff)."
+        ),  # fmt: skip
+    ] = None,
+    png: Annotated[
+        bool, typer.Option("--png", help="Also write the overlay as a PNG (needs Playwright).")
+    ] = False,
+    in_repo: Annotated[
+        bool, typer.Option("--in-repo", help="Allow writing inside the OpenFactory repository.")
+    ] = False,
+) -> None:
+    """The scene's top view over its layout drawing, and a table of takeoff rows against scene
+    components (PLAN 5.6). The drawing is loaded as an image only (PNG or SVG; anything else is
+    refused by name; nothing is fetched). Written beside the takeoff or to --out: as private as
+    the drawing."""
+    from openfactory import review as rv
+    from openfactory import takeoff as tk
+
+    if rv.URL.match(str(drawing)):
+        typer.echo(f"error: {drawing}: a URL; review reads a file you name and fetches nothing",
+                   err=True)  # fmt: skip
+        raise typer.Exit(1)
+    folder = out if out is not None else rv.default_dir(takeoff)
+    if rv.in_repository(folder) and not in_repo:
+        typer.echo(
+            f"error: {folder} is inside the OpenFactory repository; the review is as "
+            "private as the drawing: name a folder outside it with --out",
+            err=True,
+        )
+        raise typer.Exit(1)
+    try:
+        data_url = rv.drawing_data_url(drawing)
+        result = rv.review(tk.load(takeoff), scene, sheet, _pair(datum_px), px_per_unit)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(1) from None
+    folder.mkdir(parents=True, exist_ok=True)
+    stem = scene.name.removesuffix(".yaml")
+    table, page = folder / f"{stem}.review.md", folder / f"{stem}.review.html"
+    table.write_text(result.table(), encoding="utf-8")
+    text = rv.overlay_html(result, data_url)
+    page.write_text(text, encoding="utf-8")
+    written = [table, page]
+    if png:
+        try:
+            rv.render_png(text, folder / f"{stem}.review.png")
+        except ImportError:
+            typer.echo("error: --png needs Playwright (the dev extra); the HTML is written",
+                       err=True)  # fmt: skip
+            raise typer.Exit(1) from None
+        written.append(folder / f"{stem}.review.png")
+    counts = ", ".join(f"{n} {k}" for k, n in result.counts().items())
+    typer.echo(f"{scene.name} on {result.sheet}: {counts}")
+    for path in written:
+        typer.echo(f"  wrote {path}")
+
+
 def main() -> None:
     app()
 

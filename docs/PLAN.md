@@ -4298,9 +4298,64 @@ trusts it.
       the left rail at 2.0 m, EMT-201 at the infeed and REM-201 past the discharge, two cartons
       on the belt; AG-101's stand-in body alone in the last row. Default view: the same,
       PIPE_101 running level above the tank's top and dropping into it, the tank on its legs.
-- [ ] 5.6 Review overlay. A top view of the scene drawn over the layout drawing, and a table of
+- [x] 5.6 Review overlay. A top view of the scene drawn over the layout drawing, and a table of
       takeoff rows against scene components, so the checker sees what was missed.
       *Done when:* removing one item from the sample scene shows it in both.
+      *Ruled 2026-11-19 (the owner):* (1) the drawing is loaded as an image only (an `<img>` or
+      a canvas draw), never inlined as markup, so nothing in a drawing file can run; PNG and
+      SVG; any other type is refused by name. (2) The overlay and its table are as private as
+      the drawing: written beside the takeoff or to a folder the person names, never into the
+      repository by default; the docs say so. (3) The drawing's path is given by the person on
+      the command line; nothing fetches a URL. (4) The table lists every takeoff row against
+      its scene component: present, missing, or in the scene with no row.
+      *Done (2026-11-19)* to the design note §8: `src/openfactory/review.py` and `openfactory
+      review TAKEOFF SCENE --drawing FILE --datum-px X,Y --px-per-unit S [--sheet ID] [--out
+      DIR] [--png] [--in-repo]`, writing `<scene>.review.md` (the table),
+      `<scene>.review.html` (the overlay and the table) and with `--png` a picture drawn by
+      headless Chromium. **The drawing** is its bytes as a `data:` URL in an `Image` drawn on a
+      canvas, never its markup; PNG or SVG by suffix and first bytes, anything else refused by
+      name ("PDF is not a drawing review loads; give a PNG or SVG"), a file whose bytes are not
+      its suffix refused, a URL refused; the page's content security policy is
+      `default-src 'none'; img-src data:` (with inline style and script), so it loads nothing.
+      **Registration:** the sheet's `frame` (units, datum, rotation) takes scene metres to the
+      sheet's dimensions; the frame says nothing of pixels, so the person gives the datum's
+      pixel and the pixels per sheet unit (a decision beyond the rulings: reading them from the
+      drawing would mean parsing it). **The top view:** each component's body
+      (`core/footprints.outline`, the bodies of 5.5's W217; a cylinder tank as its circle) and
+      each link's runs; present green, laid out dashed grey, in the scene with no row blue, a
+      missing row dashed red with a ring and `MISSING <tag>` where the takeoff puts it. **The
+      table:** every takeoff row in order (equipment, connections, I/O) as present, missing or
+      not made, then every scene component no row accounts for ("in the scene with no row");
+      a present equipment row says where its position came from (sheet dimensions, a rail,
+      `at`, or laid out by `openfactory layout`) and, placed from the drawing, how far the
+      scene has it from the takeoff, in mm. **Where:** beside the takeoff by default, or
+      `--out`; a folder inside the OpenFactory repository is refused without `--in-repo`.
+      Docs: `docs/review.md` (new, in the site).
+      **How well the sample lines up** (L-001 at its datum (120, 930) px and 0.14 px/mm,
+      measured against the symbols L-001.svg itself draws): SUP-101, LV-101, TK-101, LT-101,
+      P-101 and FT-101 centred on their symbols to 0.00 mm, the tank's radius 0.00 mm, the
+      belt's ends 0.00 mm, its sides 30 mm outside the drawn belt (the rails, which the sheet
+      leaves out); the sheet and the takeoff share their dimensions, so this measures the
+      registration, not the reading.
+      *Tests:* `tests/unit/test_review.py`: the Done-when's table
+      (`test_the_table_lists_every_row_and_a_removed_item_shows_as_missing`: all 32 rows in
+      order, all present; FT_101 deleted from a copy of the scaffolded sample, EQ-7 and IO-9
+      missing and nothing else) and ruling 4 (`test_a_component_with_no_row_is_listed_and_a_
+      laid_out_one_says_so`); ruling 1 (`test_the_drawing_is_loaded_as_an_image_only`: an SVG
+      carrying a script and text reaches the page only as base64, no `<svg`, the policy, no
+      URL in the page; `test_any_other_type_is_refused_by_name`, PDF, JPG, DXF and no suffix;
+      `test_a_file_that_is_not_what_its_suffix_says_and_a_url_are_refused`); rulings 2 and 3
+      (`test_written_beside_the_takeoff_or_a_named_folder_never_the_repository`: beside a
+      copied takeoff, in `--out`, refused beside the shipped sample with nothing written there,
+      a URL refused, the docs say so); `test_the_top_view_lines_up_with_the_sheet_in_
+      millimetres`. `tests/integration/test_review_overlay.py`, the Done-when's picture, from
+      L-001.png and from L-001.svg: with FT_101 deleted the canvas has red at FT-101's place
+      (325 pixels within 26 px), with nothing deleted none.
+      **Pictures looked at** (scratch folder, not the repository): the whole sample over
+      L-001.png, every outline green on its symbol, the tank's circle on the drawn circle, the
+      pipes along the drawn process line; FT_101 deleted, over L-001.svg and over L-001.png: a
+      red dashed ring at X 4800 on the process line labelled `MISSING FT-101`, everything else
+      as before.
 
 #### Phase C: equipment found in a plant (order set by 5.0)
 - [ ] 5.7 Bulk solids. ADR first: material as a mass flow, not as parts. Then hopper and silo

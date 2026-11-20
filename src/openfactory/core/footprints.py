@@ -195,3 +195,20 @@ def runs(points: Sequence[Sequence[float]], radius: float) -> list[Box]:
         for p, q in zip(points, points[1:], strict=False)
         if math.dist(p, q) > 1e-9
     ]
+
+
+def outline(cfg: Any, type_name: str | None = None) -> list[list[tuple[float, float]]]:
+    """The component's body seen from above: each box as its four corners in the scene's
+    x-z plane, turned as the viewer turns it (the review overlay, PLAN 5.6)."""
+    kind = type_name or cfg.type
+    x, _, z = (float(v) for v in cfg.position)
+    heading = 0.0 if kind in UNTURNED else float(getattr(cfg, "rotation_deg", 0.0) or 0.0)
+    r = math.radians(heading)
+    c, s = math.cos(r), math.sin(r)
+    out = []
+    for x0, x1, _, _, z0, z1 in _local(cfg, kind):
+        out.append([
+            (x + lx * c + lz * s, z - lx * s + lz * c)
+            for lx, lz in ((x0, z0), (x1, z0), (x1, z1), (x0, z1))
+        ])  # fmt: skip
+    return out

@@ -81,7 +81,7 @@ Give a pipe a `length` to fix its friction whatever its route.
   and a comment `LAID OUT by openfactory layout (PLAN 5.5), not from a drawing: <where>`.
 - In scaffold's report: the outcome `laid out`, a positions entry `laid out by openfactory
   layout, not from a drawing (rows)`, and a line for the routed pipes.
-- In the review overlay and table (PLAN 5.6): a laid-out component is drawn dashed
+- In the [review overlay](review.md) and its table: a laid-out component is drawn dashed
   and listed as laid out.
 
 The mark is not sent to the viewer and is not in a recording.

@@ -1417,3 +1417,31 @@ a heater's tank, a drive's load). Layout and the lint use the same bodies.
   (ruling 1); the footprints are written in Python from the viewer's sizes instead.
 - **A comment as the only mark:** a comment is not data the loader or the review table can read.
 
+## 8. Review overlay (5.6)
+
+*Written 2026-11-19 to the owner's rulings of that day (PLAN 5.6).*
+
+`openfactory review TAKEOFF SCENE --drawing L-001.png` writes an overlay and a table:
+
+- **The table** (`<scene>.review.md`): every takeoff equipment row against its scene component
+  (the row's scene id): `present` (with where its position came from: the drawing, a mount, `at`
+  in scene metres, or laid out), `missing` (a row with no component), and every scene component
+  no row names (`in the scene with no row`), pipes included, which scaffold makes from
+  connection rows and which are listed under their connection row (ruling 4).
+- **The overlay** (`<scene>.review.html`, and `<scene>.review.png` with `--png`): the drawing,
+  loaded **as an image only** (an `<img>` whose `src` is the file's bytes as a `data:` URL,
+  drawn on a canvas), never inlined as markup, so nothing in a drawing file can run (ruling 1).
+  PNG and SVG only, by the file's first bytes and its suffix; any other type is refused by name.
+  Over it, the scene's top view: each component's body outline from
+  `openfactory.core.footprints`, with its id; a missing row drawn where its takeoff row puts it,
+  dashed and red, with its tag; a component with no row in blue; a laid-out one dashed grey.
+- **Registration.** The sheet's `frame` (units, datum, rotation) maps scene metres to sheet
+  units. Where the sheet's datum is in the picture, and how many pixels make one sheet unit, is
+  not in the frame and cannot be read from the drawing without parsing it, so the person gives
+  them: `--datum-px X,Y --px-per-unit S` (the sample: 120,930 and 0.14 px per mm). Sheet y runs
+  up, picture y down.
+- **Privacy (ruling 2).** The overlay and its table are as private as the drawing: written
+  beside the takeoff by default, or to the folder `--out` names; never into the repository by
+  default (inside the repository only with `--in-repo`, which the tests use for nothing; they
+  write to their own folder). **Nothing fetches** (ruling 3): the drawing's path comes from the
+  command line, a URL is refused, and the page loads nothing from the network.
