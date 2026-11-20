@@ -1482,3 +1482,14 @@ a heater's tank, a drive's load). Layout and the lint use the same bodies.
   default (inside the repository only with `--in-repo`, which the tests use for nothing; they
   write to their own folder). **Nothing fetches** (ruling 3): the drawing's path comes from the
   command line, a URL is refused, and the page loads nothing from the network.
+
+**Review fixes (2026-11-19, second set).** A component with the row's id but another type is
+`different type`, the table naming both (a row of type `unknown` takes any type, its stand-in
+included). For a row placed from the drawing, "off the takeoff" also gives the heading
+difference in degrees (not for valves and pumps, which are drawn unturned). An I/O row is
+`present` only when its scene tag is on the row's own port; on another port of the same
+component it is `on another port`, naming the port. A connection from a link to a node, joined
+with no pipe, is present when the link's `to` names the node. An SVG with no absolute width and
+height of its own is refused by name (give it a size, or export a PNG). The never-in-the-
+repository default holds for any OpenFactory checkout the output folder is in, found by looking
+at the folder's own parents only.

@@ -21,8 +21,10 @@ Playwright, the development extra).
 
 **The overlay and its table are as private as the drawing**: the page carries the drawing
 itself. They are written beside the takeoff, or to the folder `--out` names, and **never into
-the repository by default**: `review` refuses a folder inside the OpenFactory repository unless
-`--in-repo` is given. Keep a customer's review with the customer's drawings, in the private
+the repository by default**: `review` refuses a folder inside an OpenFactory repository unless
+`--in-repo` is given. That holds for any OpenFactory checkout the folder is in (a git work tree
+holding `src/openfactory` or naming `openfactory` in its `pyproject.toml`), not only the one
+`review` runs from; only the folder's own parent folders are looked at. Keep a customer's review with the customer's drawings, in the private
 project folder (Milestone 5, rule 1).
 
 ## The drawing is loaded as an image only
@@ -33,6 +35,10 @@ project folder (Milestone 5, rule 1).
 - The page holds the drawing's bytes as a `data:` URL in an image and draws it on a canvas. It is
   **never inlined as markup**, so nothing in a drawing file can run: an SVG's scripts do not run
   in an image.
+- **An SVG must give its own size**: an absolute `width` and `height` on its `svg` element
+  (pixels, millimetres or another absolute unit). Without them a browser draws it on a small
+  fallback canvas and the registration below means nothing, so `review` refuses it by name:
+  give the `svg` element a width and height, or export the sheet as a PNG.
 - **Nothing is fetched.** The drawing's path is the one given on the command line, a URL is
   refused, and the page's content security policy lets it load nothing but its own image.
 
@@ -68,12 +74,16 @@ Every takeoff row, in order, then every scene component no row accounts for:
 
 | Status | For |
 |---|---|
-| `present` | an equipment row whose component is in the scene (a composite instance by its parts); a connection row whose pipe, link end or conveyor connection is there; an I/O row whose scene tag its component carries |
+| `present` | an equipment row whose component is in the scene with the row's type (a composite instance by its parts; anything, a stand-in included, for a row of type `unknown`); a connection row whose pipe, link end or conveyor connection is there (a link joined straight to its node, its `to` naming it, with no pipe, counts); an I/O row whose scene tag is on the row's own port (a composite's io name) |
+| `different type` | the row's id in the scene, but as another type; the table names both |
+| `on another port` | an I/O row whose scene tag is on its component, but on another port; the table names that port |
 | `missing` | a row with nothing in the scene for it |
 | `not made` | a connection scaffold could not make (a conveyor to a tank) |
 | `in the scene with no row` | a component no takeoff row names |
 
 A present equipment row says where its position came from: the sheet's dimensions, a rail, `at`
 in scene metres, or laid out by `openfactory layout`. For one placed from the drawing, the last
-column says how far the scene has it from where the takeoff puts it, in millimetres, so a
-component moved in the editor after scaffolding shows too.
+column says how far the scene has it from where the takeoff puts it, in millimetres, and how far
+it is turned from the takeoff's heading, in degrees (`0 mm, 90°`: a belt turned in place), so a
+component moved or turned in the editor after scaffolding shows too. Valves and pumps are drawn
+on the scene's axes whatever their heading, so they have no degrees.

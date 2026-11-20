@@ -4413,6 +4413,23 @@ trusts it.
       pipes along the drawn process line; FT_101 deleted, over L-001.svg and over L-001.png: a
       red dashed ring at X 4800 on the process line labelled `MISSING FT-101`, everything else
       as before.
+      *Review fixes (2026-11-19, second set), each with a test that failed before*
+      (`tests/unit/test_review.py`): (a) the row's id with another type is `different type`,
+      the table naming both; a stand-in for a row of type `unknown` stays present
+      (`test_a_component_with_the_rows_id_but_another_type_is_a_different_type`); (b) "off the
+      takeoff" also gives the heading difference in degrees for a drawn row, not for valves and
+      pumps, which are drawn unturned (`test_off_the_takeoff_gives_the_heading_difference`: a
+      belt turned 90 degrees in place reads `0 mm, 90°`; 360 reads 0); (c) an I/O row is present
+      only on its own port, else `on another port` naming it, a composite's port being its io
+      name (`test_an_io_row_on_another_port_of_its_component_says_which`); (d) a link joined to
+      its node with no pipe is present when its `to` names the node, missing when not
+      (`test_a_link_to_a_node_with_no_pipe_is_present_when_the_link_names_it`); (e) an SVG with
+      no absolute width and height of its own is refused by name, give it a size or export a PNG
+      (`test_an_svg_with_no_size_of_its_own_is_refused_by_name`, a viewBox only and 100 %); (f)
+      the default refuses any OpenFactory checkout the folder is in (a git work tree holding
+      `src/openfactory` or naming it in `pyproject.toml`), looking at the folder's own parents
+      only (`test_never_into_any_openfactory_checkout_by_default`). The sample's review is all
+      present as before. Docs: `docs/review.md`, the design note §8.
 
 #### Phase C: equipment found in a plant (order set by 5.0)
 - [ ] 5.7 Bulk solids. ADR first: material as a mass flow, not as parts. Then hopper and silo

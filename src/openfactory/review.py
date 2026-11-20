@@ -92,8 +92,27 @@ def drawing_data_url(path: Path) -> str:
         head = data[:4096].lstrip(b"\xef\xbb\xbf \t\r\n").lower()
         if not (head.startswith((b"<?xml", b"<svg", b"<!--")) and b"<svg" in head):
             raise DrawingRefused(f"{path.name}: named .svg, but it is not an SVG file")
+        if not _sized(head):  # review fix 2e: no silent fallback canvas
+            raise DrawingRefused(
+                f"{path.name}: the svg element has no width and height of its own (in px, mm or "
+                "another absolute unit), so a browser would draw it on a fallback canvas; give it "
+                "a width and height, or export the sheet as a PNG"
+            )
         mime = "image/svg+xml"
     return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+
+
+#: An absolute length an SVG's own width or height may be given in (no percentages).
+SVG_LENGTH = re.compile(rb"^\s*[0-9.]+(e[+-]?[0-9]+)?\s*(px|mm|cm|in|pt|pc)?\s*$")
+
+
+def _sized(head: bytes) -> bool:
+    """Whether the opening ``<svg`` tag gives an absolute width and height."""
+    tag = re.search(rb"<svg\b[^>]*>", head)
+    if tag is None:
+        return False
+    attrs = dict(re.findall(rb'\s(width|height)\s*=\s*["\']([^"\']*)["\']', tag.group(0)))
+    return all(SVG_LENGTH.match(attrs.get(k, b"%")) for k in (b"width", b"height"))
 
 
 @dataclass
@@ -131,6 +150,8 @@ class Row:
     status: str
     position: str = ""
     off_mm: float | None = None
+    #: The scene's heading less the takeoff's, degrees in (-180, 180] (review fix 2b).
+    off_deg: float | None = None
 
 
 @dataclass
@@ -164,6 +185,8 @@ class Review:
         ]
         for r in self.rows:
             off = "" if r.off_mm is None else f"{r.off_mm:.0f} mm"
+            if r.off_deg:
+                off += f", {r.off_deg:.0f}°"
             lines.append(
                 f"| {cell(r.row)} | {cell(r.what)} | {cell(r.scene)} | {r.status} | "
                 f"{cell(r.position)} | {off} |"
@@ -242,11 +265,23 @@ def review(
         laid = all(getattr(p.config, "laid_out", False) for p in parts)
         anchor = comps.get(sid) or parts[0]
         where = "laid out by openfactory layout, not from a drawing" if laid else _source(e)
+        # review fix 2a: the row's id with another type is not the row (a stand-in, or anything,
+        # stands for a row of unknown type)
+        actual = anchor.type if sid in comps else scene.instance_type(sid)
+        if e.type != "unknown" and actual != e.type:
+            rows.append(Row(e.row, f"{e.tag} ({e.type})", f"{sid} ({actual})", "different type",
+                            f"the takeoff says {e.type}, the scene has {actual}"))  # fmt: skip
+            for p in parts:
+                shapes.append(shape(p, "no row", f"{e.tag}?"))
+            continue
         row = Row(e.row, f"{e.tag} ({e.type})", sid, "present", where)
         if drawn and not laid and sid in comps:
-            pos, _ = tk.position_of(e, model)
+            pos, heading = tk.position_of(e, model)
             x, _, z = anchor.config.position
             row.off_mm = round(math.hypot(x - pos[0], z - pos[2]) * 1000, 1)
+            if anchor.type not in fp.UNTURNED:  # review fix 2b: the heading too
+                turn = (float(anchor.config.rotation_deg) - float(heading)) % 360.0
+                row.off_deg = round(turn - 360.0 if turn > 180.0 else turn, 1) + 0.0
         rows.append(row)
         for p in parts:
             shapes.append(shape(p, "laid out" if laid else "present", e.tag))
@@ -256,6 +291,11 @@ def review(
     joined = {(c.from_, c.to) for c in scene.connections}
     for c in model.connections:
         what = f"{c.from_} -> {c.to}" + (f" ({c.line})" if c.line else "")
+        a, b = ids.get(c.from_.partition(".")[0]), ids.get(c.to.partition(".")[0])
+        if c.row in pipe_of and pipe_of[c.row]["id"] not in comps and _joined(comps, a, c.to, ids):
+            # review fix 2d: a link joined to its node with no pipe, its `to` naming the node
+            rows.append(Row(c.row, what, f"{a} -> {b}", "present", "joined with no pipe"))
+            continue
         if c.row in pipe_of:
             pid = pipe_of[c.row]["id"]
             ok = pid in comps
@@ -271,7 +311,6 @@ def review(
         if made is not None:
             rows.append(Row(c.row, what, "", "not made", made[1]))
             continue
-        a, b = ids.get(c.from_.partition(".")[0]), ids.get(c.to.partition(".")[0])
         ok = (a, b) in joined
         link = comps.get(b or "")
         if not ok and link is not None:
@@ -279,14 +318,21 @@ def review(
         rows.append(Row(c.row, what, f"{a} -> {b}", "present" if ok else "missing"))
 
     owners = {b.name: b.component_id for b in scene.tag_bindings()}
+    ports = _ports(scene_path)
     by_tag = model.by_tag()
     for io in model.io:
         name = tk.scene_tag(io, by_tag)
         sid = ids.get(io.equipment, "")
         owner = owners.get(name)
         ok = owner is not None and (owner == sid or scene.composite_of(owner) == sid)
-        rows.append(Row(io.row, f"{io.equipment}.{io.port} ({io.signal})", name,
-                        "present" if ok else "missing"))  # fmt: skip
+        what = f"{io.equipment}.{io.port} ({io.signal})"
+        on = ports.get(name)
+        if ok and on is not None and on[0] == sid and on[1] != io.port:
+            # review fix 2c: present only on the row's own port (a composite's: its io name)
+            rows.append(Row(io.row, what, name, "on another port",
+                            f"on {sid}'s {on[1]}, not {io.port}"))  # fmt: skip
+            continue
+        rows.append(Row(io.row, what, name, "present" if ok else "missing"))
 
     for comp in plant.components:
         inst = scene.composite_of(comp.id)
@@ -297,6 +343,37 @@ def review(
         if inst:
             accounted.add(inst)
     return Review(rows, shapes, drawing.id, scene_path.name, loaded.path.name)
+
+
+def _joined(comps: dict[str, Any], link_id: str | None, to: str, ids: dict[str, str]) -> bool:
+    """Whether the scene's link ``link_id`` names the connection row's ``to`` as its own ``to``."""
+    link = comps.get(link_id or "")
+    if link is None:
+        return False
+    tag, _, port = to.partition(".")
+    want = ids.get(tag, "")
+    got = str(getattr(link.config, "to", ""))
+    return got == want or (bool(port) and got == f"{want}.{port}")
+
+
+def _ports(scene_path: Path) -> dict[str, tuple[str, str]]:
+    """Each scene tag's (component or composite instance id, port or io name), from the scene
+    file's own ``io`` mappings."""
+    import yaml
+
+    try:
+        raw = yaml.safe_load(scene_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return {}
+    out: dict[str, tuple[str, str]] = {}
+    for entry in raw.get("components") or []:
+        if not isinstance(entry, dict) or not isinstance(entry.get("io"), dict):
+            continue
+        for port, value in entry["io"].items():
+            tag = value.get("tag") if isinstance(value, dict) else value
+            if isinstance(tag, str):
+                out[tag] = (str(entry.get("id")), str(port))
+    return out
 
 
 def _source(e: Any) -> str:
@@ -425,9 +502,28 @@ def default_dir(takeoff: Path) -> Path:
     return takeoff.resolve().parent
 
 
+def is_checkout(folder: Path) -> bool:
+    """Whether ``folder`` is the root of an OpenFactory checkout: a git work tree holding this
+    project's package (``src/openfactory``) or naming it in its ``pyproject.toml``."""
+    if not (folder / ".git").exists():
+        return False
+    if (folder / "src" / "openfactory").is_dir():
+        return True
+    try:
+        project = (folder / "pyproject.toml").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return re.search(r'(?m)^name\s*=\s*"openfactory"\s*$', project) is not None
+
+
 def in_repository(path: Path) -> bool:
-    """Whether ``path`` is inside this package's own source repository."""
-    return (REPO / ".git").exists() and path.resolve().is_relative_to(REPO)
+    """Whether ``path`` is inside an OpenFactory checkout: this package's own, or any other the
+    folder is in (review fix 2f, 2026-11-19). Only the folder's own ancestors are looked at, each
+    for two names; nothing is listed or walked."""
+    target = path.resolve()
+    if (REPO / ".git").exists() and target.is_relative_to(REPO):
+        return True
+    return any(is_checkout(folder) for folder in (target, *target.parents))
 
 
 def render_png(page_html: str, out: Path) -> None:

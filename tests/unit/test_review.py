@@ -222,3 +222,106 @@ def test_the_registration_inverts_the_frame_at_any_rotation(tmp_path, turn):
         px, py = reg.px(x, z)
         assert px == pytest.approx(DATUM_PX[0] + e.layout.x * PX_PER_MM, abs=0.01)
         assert py == pytest.approx(DATUM_PX[1] - e.layout.y * PX_PER_MM, abs=0.01)
+
+
+# --- review fixes, 2026-11-19 (second set) -----------------------------------------------------
+
+
+def edited(scene: Path, ops: list[dict], name: str) -> Path:
+    text, _ = apply_ops(scene.read_text(encoding="utf-8"), ops)
+    out = scene.with_name(name)
+    out.write_text(text, encoding="utf-8")
+    return out
+
+
+def rows_of(takeoff: Path, scene: Path) -> dict:
+    rev = review(tk.load(takeoff), scene, None, DATUM_PX, PX_PER_MM)
+    return {r.row: r for r in rev.rows}, rev
+
+
+def test_a_component_with_the_rows_id_but_another_type_is_a_different_type(copy):
+    """Review fix 2a: the row's id with another type is "different type", naming both; a
+    stand-in for an unknown type stays present."""
+    takeoff, scene = copy
+    other = {"id": "PE_201", "type": "scenery", "description": "Not A Photo Eye",
+             "position": [1.2, 0.5, 2.2], "size": [0.2, 0.2, 0.2]}  # fmt: skip
+    swapped = edited(scene, [{"op": "delete", "id": "PE_201"},
+                             {"op": "add", "component": other}], "swapped.yaml")  # fmt: skip
+    rows, rev = rows_of(takeoff, swapped)
+    assert rows["EQ-10"].status == "different type"
+    line = next(x for x in rev.table().splitlines() if x.startswith("| EQ-10 "))
+    assert "photo_eye" in line and "scenery" in line
+    assert rows["EQ-5"].status == "present"  # AG-101: the stand-in for its unknown type
+
+
+def test_off_the_takeoff_gives_the_heading_difference(copy):
+    """Review fix 2b: a belt turned 90 degrees in place no longer reads as on the drawing."""
+    takeoff, scene = copy
+    turned = edited(scene, [{"op": "set", "path": ["components", "CV_201", "rotation_deg"],
+                             "value": 90}], "turned.yaml")  # fmt: skip
+    rows, rev = rows_of(takeoff, turned)
+    assert rows["EQ-9"].off_mm == 0 and rows["EQ-9"].off_deg == pytest.approx(90)
+    line = next(x for x in rev.table().splitlines() if x.startswith("| EQ-9 "))
+    assert "0 mm, 90°" in line
+    wrapped = edited(scene, [{"op": "set", "path": ["components", "CV_201", "rotation_deg"],
+                              "value": 360}], "wrapped.yaml")  # fmt: skip
+    assert rows_of(takeoff, wrapped)[0]["EQ-9"].off_deg == pytest.approx(0)
+    whole, _ = rows_of(takeoff, scene)
+    assert all(r.off_deg in (None, 0) for r in whole.values())  # the sample as drawn
+
+
+def test_an_io_row_on_another_port_of_its_component_says_which(copy):
+    """Review fix 2c: an I/O row is present only when its tag is on the row's port."""
+    takeoff, scene = copy
+    text = scene.read_text(encoding="utf-8")
+    text = text.replace("extended: {tag: CYL_201_EXT_DI", "@@: {tag: CYL_201_EXT_DI")
+    text = text.replace("retracted: {tag: CYL_201_RET_DI", "extended: {tag: CYL_201_RET_DI")
+    text = text.replace("@@: {tag: CYL_201_EXT_DI", "retracted: {tag: CYL_201_EXT_DI")
+    swapped = scene.with_name("swapped-ports.yaml")
+    swapped.write_text(text, encoding="utf-8")
+    rows, _ = rows_of(takeoff, swapped)
+    assert rows["IO-14"].status == "on another port" and "retracted" in rows["IO-14"].position
+    assert rows["IO-15"].status == "on another port" and "extended" in rows["IO-15"].position
+    assert rows["IO-13"].status == "present"
+    assert rows_of(takeoff, scene)[0]["IO-5"].status == "present"  # a stand-in's io name
+
+
+def test_a_link_to_a_node_with_no_pipe_is_present_when_the_link_names_it(copy):
+    """Review fix 2d: CN-4, P-101.discharge to DR-101, joined with no pipe."""
+    takeoff, scene = copy
+    direct = edited(scene, [{"op": "delete", "id": "PIPE_102"},
+                            {"op": "set", "path": ["components", "P_101", "to"],
+                             "value": "DR_101"}], "direct.yaml")  # fmt: skip
+    assert rows_of(takeoff, direct)[0]["CN-4"].status == "present"
+    elsewhere = edited(scene, [{"op": "delete", "id": "PIPE_102"},
+                               {"op": "set", "path": ["components", "P_101", "to"],
+                                "value": "TK_101.top"}], "elsewhere.yaml")  # fmt: skip
+    assert rows_of(takeoff, elsewhere)[0]["CN-4"].status == "missing"
+
+
+@pytest.mark.parametrize("size", ['viewBox="0 0 100 50"', 'width="100%" height="100%"'])
+def test_an_svg_with_no_size_of_its_own_is_refused_by_name(tmp_path, size):
+    """Review fix 2e: no silent fallback canvas; give it a size, or export a PNG."""
+    svg = tmp_path / "L-009.svg"
+    svg.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" {size}><rect/></svg>', "utf-8")
+    with pytest.raises(DrawingRefused, match=r"L-009\.svg.*width and height.*PNG"):
+        drawing_data_url(svg)
+    assert drawing_data_url(SVG).startswith("data:image/svg+xml")  # the sample has its size
+
+
+def test_never_into_any_openfactory_checkout_by_default(copy, tmp_path):
+    """Review fix 2f: the default holds for any OpenFactory checkout the output folder is in."""
+    takeoff, scene = copy
+    other = tmp_path / "another-checkout"
+    (other / ".git").mkdir(parents=True)
+    (other / "src" / "openfactory").mkdir(parents=True)
+    (other / "pyproject.toml").write_text('[project]\nname = "openfactory"\n', "utf-8")
+    inside = other / "docs" / "reviews"
+    args = ["--drawing", str(PNG), "--datum-px", "120,930", "--px-per-unit", "0.14"]
+    done = runner.invoke(app, ["review", str(takeoff), str(scene), *args, "--out", str(inside)])
+    assert done.exit_code == 1 and "inside the OpenFactory repository" in done.output
+    assert not inside.exists()
+    plain = tmp_path / "not-a-checkout"
+    (plain / ".git").mkdir(parents=True)  # a git folder, but not OpenFactory's
+    done = runner.invoke(app, ["review", str(takeoff), str(scene), *args, "--out", str(plain)])
+    assert done.exit_code == 0, done.output
