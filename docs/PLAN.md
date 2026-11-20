@@ -4454,12 +4454,54 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
       tick for the change log (`IoLog.feed`, PLAN 5.14a; +0.06 to +0.07 ms a tick on
       `load-200`, which has 21 tags and 190 parts). Re-measure that copy and the diff at 1,000 tags as part of
       this task, and say whether it needs to become a list of the tags written that tick.
-- [ ] 5.13 Authoring guide for assistants. `docs/authoring-from-drawings.md` (public): the steps,
+- [x] 5.13 Authoring guide for assistants. `docs/authoring-from-drawings.md` (public): the steps,
       the takeoff file, what to ask the person. The HIS skill that runs it on a customer's
       drawings lives outside this repository.
-
       *Carried from 5.1c (2026-11-16):* the guide shows the sample's PNGs,
       `docs/samples/wash-skid/P-001.png` and `L-001.png`.
+      *Done when (ruled 2026-11-19):* a fresh assistant session given only
+      `docs/authoring-from-drawings.md` and the sample's sheets (`P-001.png`, `L-001.png`, the
+      I/O sheet) writes a takeoff that `takeoff check` accepts and whose equipment, connection
+      and I/O rows match the shipped sample's; every difference is listed in the report and
+      either fixed in the guide or explained.
+      *Done (2026-11-20):* the guide, in the site's Reference, in the order an assistant works:
+      what to ask first (and what to do with no one to ask), the sample's sheets, the takeoff
+      file taught with an invented plant (not the sample's rows), a type table (needs, I/O
+      ports, line ends), reading a P&ID, a layout sheet and an I/O list, what a demo adds,
+      confidence and questions, `takeoff check`, `scaffold`, `review` and `layout`, what laid
+      out means, where private drawings live, what the tool does not do; not safety-rated.
+      `tests/unit/test_authoring_guide.py` (3): the worked example passes `check` and shares no
+      tag with the sample; the type table equals the code's parameters with no default, ports
+      and kinds, and line ends, for every type; the sheets shown, the statement, the nav.
+      **The test, twice**, each a fresh subagent in a scratch folder holding only the guide,
+      `P-001.png`, `L-001.png` and `IO-001.csv`, allowed only `takeoff check` on its own file
+      (each listed what it read: those four files). *Run 1:* 0 errors; all 15 I/O rows equal
+      (port, signal, `plc_tag`, range, units), every `layout` and `mount` equal, the 4
+      connections equal but for naming the valve's `inlet`/`outlet`; differences: SUP-101 and
+      DR-101 `read` (sample `assumed`), PE-201 `inferred`, the demo rows tagged EM-201 and
+      RM-201, the I/O list's rev `"-"`, and the parameters below. Guide changes from it: a list
+      with no title block; tags name items everywhere; a needed parameter not printed (never
+      made up, never scaled off a sheet not to scale; leave out and ask); type from the tag's
+      letters and the I/O; zones for an item across two; an item mounted on another; blank
+      analog ranges; line ends off the sheet are `assumed` even when drawn; any row may have
+      questions, and what confidence covers; demo rows' tags; where a sheet's questions go.
+      *Run 2* (the revised guide): 0 errors after one fix (an unquoted comma); every tag, type,
+      `layout`, `mount`, confidence mark and connection equal; the I/O rows equal but IO-15's
+      inferred name (`CYL201.RET`, the sample's `CYL201.Ret_LS`). Guide changes from it: quote
+      text with a comma; where questions about the whole job go; with no one to ask, leave a
+      missing value out; read an abbreviated name the way the list names its neighbours; a
+      connection's zone. Not run a third time: those last changes are small and local.
+      **Explained, not fixed in the guide:** (1) the sample's parameters that no sheet prints:
+      TK-101's diameter, height, initial and high level, LV-101's kv, P-101's duty, CV-201's
+      speed, CYL-201's extend time, PE-201's beam length, LT-101's and FT-101's `lag_s`,
+      SUP-101's pressure and AG-101's size are in the shipped takeoff, some on `read` rows,
+      but on neither sheet; both runs left them out and asked, which is the faithful reading.
+      This is a fault in the sample, not the guide, for the owner to rule on (print them on
+      the sheets, or mark those rows `assumed` with questions; either re-marks the sample and
+      changes its rows digest). (2) EMT-201 and REM-201 have `at` in the sample; the guide
+      leaves them to layout, which places them at the belt's ends. (3) FT-101's extra P-001
+      zone (the flow element's, D2) follows the guide's rule of every zone drawn in. (4) The
+      datum `[0, 0, 0]` and the I/O list's title and rev are the guide's defaults.
 #### Seeing the plant together
 - [x] 5.14 Seeing the plant together (ruled 2026-11-15). *Goal:* while a PLC program is being
       written, the person and the assistant see the same plant at the same moment, and both can
