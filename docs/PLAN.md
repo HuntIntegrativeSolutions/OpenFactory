@@ -4246,7 +4246,7 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
       *Carried from 5.1c (2026-11-16):* the guide shows the sample's PNGs,
       `docs/samples/wash-skid/P-001.png` and `L-001.png`.
 #### Seeing the plant together
-- [ ] 5.14 Seeing the plant together (ruled 2026-11-15). *Goal:* while a PLC program is being
+- [x] 5.14 Seeing the plant together (ruled 2026-11-15). *Goal:* while a PLC program is being
       written, the person and the assistant see the same plant at the same moment, and both can
       answer "what happened and why". The person watches the viewer; the assistant reads text
       and still images. Every sub-task gives both of them something.
@@ -4788,7 +4788,8 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         tag changes; which part tripped a sensor is whichever part was inside the beam at that
         tick, from positions. `openfactory explain FILE.ofrec --check NAME | --part ID`; `GET
         /api/explain` on a live run uses the 60 s buffer of 5.14e.
-        *Done when:* on a sorter run whose program fires the pusher 0.5 s late, `explain` for the
+        *Done when (amended 2026-11-19, the owner: at 0.5 s the pusher still catches every
+        box):* on a sorter run whose program fires the pusher 0.6 s late, `explain` for the
         failed `parts_reached` check names the part, the tick of the late command, and how far
         past the pusher the part was (within 2 cm of the recording); the trail is drawn and
         looked at.
@@ -4975,8 +4976,24 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
         option or a bad value fails) and the screenshot command with `tools/screenshot.py`'s,
         its scene path a file in the scene's folder; `test_committed_context_is_current`
         holds the renewal.
-        **5.14 itself is not ticked:** it has a Goal and rulings but no Done-when of its own, so
-        there is no line to hold it to; the owner rules whether 5.14a to 5.14j close it.
+        **5.14 itself was not ticked here:** it had a Goal and rulings but no Done-when of its
+        own; the owner ruled on 2026-11-19 (below) that 5.14a to 5.14j are its Done-when.
+      *Ruled 2026-11-19 (the owner, on review of 1d4510b..a503673):* **5.14 is ticked: 5.14a to
+      5.14j are its Done-when.** 5.14g's Done-when reads 0.6 s late (at 0.5 s the pusher still
+      catches every box), amended in its text above. Confirmed as built: `/api/explain` is a
+      POST; watch values show on the status lines with `labels=tags`; `explain` lists commands
+      by nearness and says so; pause and step go in the event log; one step is 0.1 s, 1 to 100
+      a request.
+      *Review fixes (2026-11-19), each with a test that failed before:* (1) `POST /api/step`
+      when another client resumes between the step's pause and its ticks answers 409 ("another
+      client resumed the run before this step's ticks were queued; nothing was stepped"), not
+      500: `Scheduler.step_ticks` raised RuntimeError and the endpoint caught only TimeoutError
+      (`tests/unit/test_pause.py::test_a_step_when_another_client_resumes_between_its_pause_and
+      _its_ticks_answers_409`). (2) An explanation's closing note covers watch values too: when
+      the story lists any, it adds that they are listed by time while the part was in the scene,
+      and whether one concerned the part cannot be told from the data
+      (`tests/unit/test_explain.py::test_the_closing_note_covers_watch_values_too`, which also
+      holds that a story with none says nothing of them).
 
 #### For the owner to rule
 1. Which drawing set is the pilot (5.0), and which private folder holds the scenes made from

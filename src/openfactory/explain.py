@@ -26,7 +26,8 @@ and every runtime event. So:
   from the data; the report says it lists commands by nearness, not by intent.
 - **The program's own state (PLAN 5.14i):** each watch value the stand-in script published that
   changed between two frames while the part was in the scene ("between ticks A and B"), at most
-  :data:`MAX_WATCH_STEPS`.
+  :data:`MAX_WATCH_STEPS`. They are listed by time, not by what they concerned: the closing note
+  says whether a change concerned this part cannot be told from the data.
 - **Faults and events:** a fault, a clear or a button press on the carrier or a device within
   :data:`NEAR_M`. In exam mode (the recording's header says so) fault, clear and comms events
   are left out, as ``look`` leaves them out, and the report says so.
@@ -677,11 +678,18 @@ def _story(d: _Data, pid: str, steps: list[Step]) -> list[str]:
             else f"between {d.t(s.tick)} and {d.t(s.until)} (ticks {s.tick} to {s.until})"
         )
         out.append(f"- {when}: {s.text}. *[{s.basis}]*")
-    out.append(
+    note = (
         f"- Commands are listed by nearness (the carrier, and devices within {num(NEAR_M, 1)} m "
         f"of {pid}), not by intent: whether a command was meant for {pid} cannot be told from "
         "the data."
     )
+    if any(s.text.startswith(("the program's ", "and ")) and "watch" in s.basis + s.text
+           for s in steps):  # fmt: skip
+        note += (
+            f" Changes of the program's watch values are listed by time, while {pid} was in the "
+            f"scene: whether one concerned {pid} cannot be told from the data either."
+        )
+    out.append(note)
     return out
 
 

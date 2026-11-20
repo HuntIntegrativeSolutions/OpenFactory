@@ -336,7 +336,13 @@ class Runtime:
         """Pause, then run ``steps`` x 0.1 s and answer once they have run (PLAN 5.14h)."""
         self.pause(True)
         ticks = max(1, round(self.STEP_S / self.scheduler.dt)) * int(steps)
-        self.scheduler.step_ticks(ticks)
+        try:
+            self.scheduler.step_ticks(ticks)
+        except RuntimeError:  # another client resumed between this pause and the ticks
+            raise RuntimeError(
+                "step: another client resumed the run before this step's ticks were queued; "
+                "nothing was stepped, and the run is running"
+            ) from None
         with self.lock:
             self._event({"type": "step", "id": "simulation", "value": ticks,
                          "core_t": self.loaded.time, "core_tick": self.loaded.tick})  # fmt: skip

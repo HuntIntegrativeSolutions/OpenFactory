@@ -182,3 +182,25 @@ def test_frames_carry_sim_paused_and_the_snapshot_never_does(running):
         "plc_attached": False, "protocols": [],
     }  # fmt: skip
     assert client.get("/api/status").json()["paused"] is True
+
+
+def test_a_step_when_another_client_resumes_between_its_pause_and_its_ticks_answers_409(running):
+    """``Runtime.step`` pauses, then queues its ticks; a resume from another client in between
+    made ``step_ticks`` raise RuntimeError, which the endpoint did not catch (500)."""
+    rt, client = running, http(running)
+    wait_tick(rt, 10)
+    pause = rt.pause
+
+    def another_client_resumes(paused: bool) -> object:
+        out = pause(paused)
+        if paused:
+            pause(False)  # the other client's resume lands before the step's ticks
+        return out
+
+    rt.pause = another_client_resumes  # type: ignore[method-assign]
+    answer = client.post("/api/step", json={"steps": 1})
+    print(answer.status_code, answer.json())
+    assert answer.status_code == 409
+    assert "another client resumed" in answer.json()["detail"]
+    assert not rt.scheduler.paused  # the run is running, as the other client asked
+    assert not [e for e in rt.events if e["type"] == "step"]

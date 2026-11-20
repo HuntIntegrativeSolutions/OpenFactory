@@ -165,6 +165,26 @@ def test_a_part_a_check_by_its_start_and_what_is_not_there(late):
         explain(rec, check="no_such_check")
 
 
+def test_the_closing_note_covers_watch_values_too(late):
+    """A change of the program's state is listed by time while the part is in the scene;
+    whether it concerned this part cannot be told from the data, and the note says so. With
+    no watch values in the story, the note says nothing of them."""
+    import copy
+
+    _, rec, _ = late
+    story = explain(rec, part="P000002")
+    note = story.text.rstrip("\n").split("\n")[-1]
+    print(note)
+    assert any(s.text.startswith("the program's step went") for s in story.steps)
+    assert "watch values are listed by time" in note
+    assert "whether one concerned P000002 cannot be told from the data" in note
+    plain = copy.deepcopy(rec)
+    for _, frame in plain.frames:
+        frame.pop("watch", None)
+    quiet = explain(plain, part="P000002").text.rstrip("\n").split("\n")[-1]
+    assert "listed by nearness" in quiet and "watch" not in quiet
+
+
 def test_live_and_replay_explain_through_the_same_recording_path(late, tmp_path):
     """The live run's last 60 s, read as a capture's piece, tell the same story of P000002 as
     the whole recording, from where the piece starts; a replay explains up to the frame shown."""

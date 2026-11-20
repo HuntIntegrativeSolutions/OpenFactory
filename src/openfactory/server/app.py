@@ -127,7 +127,9 @@ Behavior spec
 - Pause and step a live run (PLAN 5.14h; 404 in a replay): ``GET /api/pause`` says ``{paused,
   tick, t, plc_attached, protocols}``; ``POST /api/pause`` with ``{"paused": true|false}`` pauses
   after the tick in progress or resumes, and ``POST /api/step`` with ``{"steps": N}`` (1 to 100)
-  pauses and runs N x 0.1 s, answering once they have run; each answers as ``GET`` does. **Write
+  pauses and runs N x 0.1 s, answering once they have run (409 when another client resumed
+  between the step's pause and its ticks, or the ticks did not run); each answers as ``GET``
+  does. **Write
   endpoints, guarded as /api/fault is** (open on loopback, the fault token beyond it; another
   ``Origin`` 403 and a body that is not JSON 415 by the write middleware), and **off for a
   trainee in exam mode** (403 without the instructor's token). While paused, ``/ws/state`` frames
@@ -692,7 +694,7 @@ def create_app(
         trainee_refusal(request)
         try:
             return live.step(body.steps)
-        except TimeoutError as exc:
+        except (TimeoutError, RuntimeError) as exc:  # not run, or resumed between pause and ticks
             raise HTTPException(409, str(exc)) from None
 
     captures = Path(capture_dir) if capture_dir is not None else Path.cwd() / DEFAULT_DIR

@@ -323,7 +323,9 @@ it or of a device within 1 m, with where the part was at that moment (how far fr
 end, and how far past or before the device along the flow), any push across the flow that left
 it on the belt, and how it left: the remover that counted it, gone with no remover counting it
 (lost), or still in the scene. Commands are listed by nearness, not by intent: whether a command
-was meant for that part is not in the data, and the report says so.
+was meant for that part is not in the data, and the report says so. The program's watch values
+are listed by time, each change while the part was in the scene; whether one concerned that
+part is not in the data either, and the closing note says that too.
 
 A failed check names its first part: for `parts_reached`, the first part of that name another
 remover took; for `none_lost`, the first part lost; for `max_cycle_s`, the part that took
