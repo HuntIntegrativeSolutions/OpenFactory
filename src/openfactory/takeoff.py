@@ -779,9 +779,10 @@ def _check_mount(
         what = f"a {belt.type}" if belt else "not an equipment tag"
         err(e, f"mount conveyor {m.conveyor} is {what}, not a belt or roller conveyor")
         return
-    if belt.mount is not None or (belt.layout is None and belt.at is None):
+    if belt.mount is not None:
         err(e, f"mount conveyor {m.conveyor} has no position of its own")
         return
+    # a belt with no position at all is laid out (PLAN 5.5), and the device follows it
     if belt.tag in bad_params:
         return  # its params are reported on its own row
     length = float(belt.params.get("length", _model_default(belt.type, "length")))

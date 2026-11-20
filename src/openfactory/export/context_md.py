@@ -317,8 +317,8 @@ def _components(scene: Scene) -> list[str]:
         params = {
             k: v
             for k, v in comp.model_dump(mode="json", by_alias=True).items()
-            if k not in _SKIP and v is not None
-        }
+            if k not in _SKIP and v is not None and not (k == "laid_out" and v is False)
+        }  # PLAN 5.5: `laid_out` is shown only when a component is laid out
         if params:
             shown = ", ".join(f"`{k}` {_value(v)}" for k, v in params.items())
             lines.append(f"Parameters: {shown}")

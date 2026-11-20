@@ -63,7 +63,9 @@ def test_lockfile_conflict_is_an_error(tmp_path, sorter):
 
 
 def test_tags_no_plc_side_writes_or_reads_are_warnings_a_script_clears(tmp_path):
-    findings = lint_scene(QUEUE)
+    # the queue scene's emitters stand 0.3 m apart, so their 0.345 m hoppers overlap (W217,
+    # PLAN 5.5); a test scene, and not what this test is about
+    findings = [f for f in lint_scene(QUEUE) if f.code != "W217"]
     print("\n".join(map(str, findings)))
     assert codes(findings) == ["W201", "W201", "W202"]
     script = tmp_path / "plc.py"
@@ -73,7 +75,7 @@ def test_tags_no_plc_side_writes_or_reads_are_warnings_a_script_clears(tmp_path)
         "    io[\"CONV_B_RUN_DO\"] = io['PE_B_DI'] or t > 1\n"
     )
     assert script_tags([script]) == ({"CONV_A_RUN_DO", "CONV_B_RUN_DO"}, {"PE_B_DI"})
-    assert lint_scene(QUEUE, [script]) == []
+    assert [f for f in lint_scene(QUEUE, [script]) if f.code != "W217"] == []
     result = runner.invoke(app, ["lint", str(QUEUE), "--script", str(script)])
     assert result.exit_code == 0
 

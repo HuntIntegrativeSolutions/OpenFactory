@@ -1,4 +1,4 @@
-# Plants from drawings: design proposal (PLAN 5.1 to 5.4)
+# Plants from drawings: design proposal (PLAN 5.1 to 5.6)
 
 *Proposal of 2026-11-15, ruled by the owner the same day: all eleven decisions of section 6 as
 recommended, with three additions (A, B and C, written into sections 3 and 5 and listed in
@@ -1295,3 +1295,125 @@ The decisions as they were put:
 11. **5.1: the sample drawing set's form.** Recommended: SVG drawn as text by us (by hand or a
     primitives-only script), an I/O list as CSV, CC-BY-4.0, under `docs/samples/wash-skid/`,
     with the deliberate traps of section 3.7. (Section 3.7.)
+
+---
+
+## 7. Layout from topology (5.5)
+
+*Written 2026-11-19, before the build, to the owner's rulings of that day (PLAN 5.5). A P&ID
+has no geometry; a takeoff read from one alone has rows with no `layout`, `mount` or `at`. Until
+5.5, scaffold wrote those rows in a holding row past the plant's far edge, 1.5 m apart, and drew
+every pipe it made straight, its origin halfway between its ends.*
+
+### 7.1 What it places, and what it never moves
+
+`openfactory layout` runs in Python, with no browser (ruling 1). It places **only what has no
+position** (ruling 2):
+
+- in a takeoff, an equipment row with no `layout`, `mount` or `at`; a row with any of the three
+  is where the drawing put it, and layout treats its body as an obstacle;
+- every pipe scaffold makes: a pipe is no row of the takeoff and has no drawn position, so its
+  origin and `path` are layout's (a drawn pipe route would need a `path` in the takeoff, which
+  it does not have);
+- a device whose `mount` names a belt that layout placed follows the belt (`place_on_rail` as
+  before) and is marked laid out too, since its scene position rests on a laid-out one;
+- in a scene (`openfactory layout SCENE`), the components marked `laid_out: true`, and nothing
+  else.
+
+### 7.2 Order and spacing
+
+Deterministic (ruling 1): the same input gives the same positions, byte for byte. Every list is
+walked in row order (the takeoff's, or the scene's component order); no set or dictionary order
+decides anything; numbers are rounded to 0.1 mm as scaffold rounds them.
+
+- **Process equipment** (supplies, drains, junctions, tanks, valves, pumps) goes on one line
+  along scene +x, in flow order along the connections (ruling 4): each item's rank is the
+  longest chain of connections from a supply to it; supplies are rank 0, drains the last rank
+  whatever their chain, and equal ranks keep row order. Bodies stand 1.0 m clear of each other
+  along x (`GAP_M`), centred on the line.
+- **Instruments** go beside what they measure: a level transmitter 0.15 m outside its tank's
+  wall at half the tank's height, a flow transmitter 0.45 m in front of (scene -z) the link it
+  measures; a second instrument on the same item steps a further 0.2 m out. A heater goes in its
+  tank, a drive 0.8 m behind its load.
+- **Conveyors** go end to end along their connections, heading 0, one row per chain, 2.0 m
+  behind (scene +z) the process line; a conveyor connected to a placed one continues it.
+- **Devices on a belt** with no `mount` go on a belt's left rail, spread evenly in row order
+  (along = length · (k + 1) / (n + 1)), by `place_on_rail`; the belt is the one whose tag
+  shares the device's loop number (the digits of PE-201 and CV-201), else the first belt.
+- **A box emitter** goes at the infeed of a belt nothing feeds (along the deepest part's length,
+  just above the belt top, as the sample's EQ-12), **a part remover** past the discharge of a
+  belt that feeds nothing (as EQ-13); by loop number again, else the first such belt.
+- **Anything else** (a stand-in, a panel device, scenery) goes in a row 2.0 m behind the last
+  conveyor row, 1.0 m clear of each other, standing on the floor.
+- With items already placed by a drawing, the free items start 2.0 m past the placed ones'
+  largest x, so nothing laid out lands among drawn items.
+
+### 7.3 Elevation
+
+- A **tank** stands 0.25 m up (`TANK_Y_M`), so its bottom nozzle, which the viewer and the pipe
+  length put 0.05 m up, is on the **low line** at 0.3 m (`LINE_Y_M`).
+- A **pump** is on the low line (its base then clears the floor).
+- A **valve, supply, drain or junction** is on the **high line** of a tank, 0.3 m above that
+  tank's top, when the connections from it lead (through links) into that tank's top and to no
+  pump or low nozzle; otherwise on the low line. So a make-up supply and its control valve sit
+  above the tank they fill, and a drain sits level with the pump that feeds it.
+
+Elevation changes heads: a supply's and a drain's head and a tank's static head all count it
+(ADR-0005). A laid-out plant is a demo picture of the topology, not a hydraulic model of the
+site; the drawing's elevations override it.
+
+### 7.4 Pipe routes
+
+A valve or a pump is drawn as straight runs from its `from` end through its own origin to its
+`to` end, and takes no `path`. Layout keeps them straight by putting a link and its neighbours
+on the same line: same height, same z. A pipe whose `from` is a link starts at its own origin,
+which layout puts on that link's line 0.35 m downstream of it (`JOIN_M`, clear of its body); a
+pipe from a node starts at the node (a tank's top, or the wall point a low nozzle faces, which
+layout makes face along the line).
+
+From its start to its end, a pipe gets right-angle `path` points (ruling 4): layout tries the
+two- and three-segment routes along the axes in a fixed order (x, then y, then z, and the other
+orders after), then a route over everything (up 0.3 m above the highest body between its ends,
+across, down), and takes the first whose runs, as thick as the pipe, pass through no body but
+those of its own two ends (`openfactory.core.footprints`). A pipe that no candidate clears keeps
+its straight line and is reported ("no clear route"); the lint then names it too.
+
+**A pipe's default length is its drawn length** (PLAN 3.2): its `from` end through each `path`
+point to its `to` end. So layout changes a pipe's length and with it its friction (ruling 6),
+and elevation changes heads (7.3): a laid-out plant's flows are not the drawn plant's. The
+docs say so, and PLAN 5.5 records the sample's flows both ways.
+
+### 7.5 What is marked, and where (ruling 3)
+
+- **In the scene:** each laid-out component carries `laid_out: true`, an optional key (default
+  false) on every component and composite instance (an instance passes it to its parts); its
+  comment says `LAID OUT by openfactory layout (PLAN 5.5), not from a drawing`. The key is not in
+  the scene document the viewer and recordings get (`geometry()` never carried it), so no
+  recording, kit or golden file moves. `openfactory layout SCENE` re-lays exactly these.
+- **In scaffold's report:** the row's outcome is `laid out` (between stand-in and assumed in
+  the order of 5.1b: unplaced or not connected, stand-in, laid out, assumed, placed), and the
+  positions line lists `N laid out by openfactory layout, not from a drawing (rows)` and the
+  pipes it routed. The holding row is gone; a row unplaced for a parameter with no default is
+  still unplaced (laid out, but the scene cannot load until a person gives it).
+- **For the checker (5.6):** the review table marks a laid-out component as such, so a laid-out
+  position is never read as a dimension off a sheet.
+
+### 7.6 The overlap lint (ruling 5)
+
+`W217`: two components whose bodies overlap, or a run of a link through a body, for every
+component, not only conveyors (W205 stays for two conveyors). Bodies are
+`openfactory.core.footprints`: per type, the body the viewer draws, as boxes in three
+dimensions, so a supply above a tank's top is clear of it. What is meant to touch is not a
+finding: a component that works on a conveyor touching one, a panel device on a body or
+cabinet, and a component touching what it names (a link's ends, a transmitter's measured item,
+a heater's tank, a drive's load). Layout and the lint use the same bodies.
+
+### 7.7 Alternatives not taken
+
+- **A force-directed or optimising layout:** nicer for large plants, but hard to make byte for
+  byte deterministic across platforms and hard for a person to predict. The rules above can be
+  read and checked by hand.
+- **Laying out in the browser** (4.1e's `place.ts` works from what the viewer drew): ruled out
+  (ruling 1); the footprints are written in Python from the viewer's sizes instead.
+- **A comment as the only mark:** a comment is not data the loader or the review table can read.
+

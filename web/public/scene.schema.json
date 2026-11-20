@@ -260,6 +260,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "bidirectional": {
           "default": false,
           "description": "Runs both ways: needs io.reverse; with run and reverse on, parts move toward the infeed end and hand back to the conveyor feeding it.",
@@ -441,6 +447,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "box_emitter",
@@ -706,6 +718,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "color_sensor",
@@ -1000,6 +1018,12 @@
           "title": "Rotation Deg",
           "type": "number"
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5); its parts are too.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "io": {
           "additionalProperties": true,
           "description": "Composite io name -> tag.",
@@ -1203,6 +1227,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "counter_display",
@@ -1466,6 +1496,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "distance_sensor",
           "title": "Type",
@@ -1600,6 +1636,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "diverter_arm",
@@ -1833,6 +1875,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "drain",
           "title": "Type",
@@ -2009,6 +2057,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "heater",
@@ -2214,6 +2268,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "junction",
           "title": "Type",
@@ -2340,6 +2400,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "lift",
@@ -2657,6 +2723,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "part_remover",
           "title": "Type",
@@ -2814,6 +2886,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "photo_eye",
           "title": "Type",
@@ -2922,6 +3000,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "pick_and_place",
@@ -3198,6 +3282,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "pilot_light",
           "title": "Type",
@@ -3304,6 +3394,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "from": {
           "description": "Upstream end: TANK.nozzle, a supply, drain, junction, or link.",
@@ -3550,6 +3646,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "from": {
           "description": "Upstream end: TANK.nozzle, a supply, drain, junction, or link.",
           "maxLength": 80,
@@ -3781,6 +3883,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "pushbutton",
           "title": "Type",
@@ -3897,6 +4005,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "pusher",
@@ -4063,6 +4177,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "bidirectional": {
           "default": false,
@@ -4250,6 +4370,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "scenery",
           "title": "Type",
@@ -4358,6 +4484,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "selector_switch",
@@ -4491,6 +4623,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "stopper",
@@ -4660,6 +4798,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "supply",
           "title": "Type",
@@ -4756,6 +4900,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "tank",
@@ -5062,6 +5212,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "type": {
           "const": "transmitter",
           "title": "Type",
@@ -5211,6 +5367,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "turntable",
@@ -5415,6 +5577,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "from": {
           "description": "Upstream end: TANK.nozzle, a supply, drain, junction, or link.",
@@ -5634,6 +5802,12 @@
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
         },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
         "from": {
           "description": "Upstream end: TANK.nozzle, a supply, drain, junction, or link.",
           "maxLength": 80,
@@ -5817,6 +5991,12 @@
           ],
           "default": null,
           "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
         },
         "type": {
           "const": "vfd_motor",

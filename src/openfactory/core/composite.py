@@ -573,6 +573,8 @@ def expand(scene: Scene, scene_dir: Path | None = None) -> Expansion:
         parts = _instance(comp.id, comp.type, comp.description, comp.position, comp.rotation_deg,
                           comp.params(), dict(comp.io), defs, out)  # fmt: skip
         for part in parts:
+            if comp.laid_out:  # PLAN 5.5: an instance's mark is its parts'
+                object.__setattr__(part, "laid_out", True)
             out.composite_of[part.id] = comp.id
         out.instance_type[comp.id] = comp.type
         flat.extend(parts)

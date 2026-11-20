@@ -1651,6 +1651,66 @@ def takeoff_scaffold(
     raise typer.Exit(result.exit_code())
 
 
+@app.command("layout")
+def layout_cmd(
+    file: Annotated[
+        Path, typer.Argument(help="A takeoff (.takeoff.yaml) or a scene.", metavar="FILE")
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="The scene file to write.", metavar="SCENE"),
+    ] = None,
+    force: Annotated[
+        bool, typer.Option("--force", help="Overwrite an existing scene file.")
+    ] = False,
+    in_scenes: Annotated[
+        bool,
+        typer.Option("--in-scenes", help="Allow writing inside the project's scenes/ folder."),
+    ] = False,
+) -> None:
+    """Place what no drawing placed (PLAN 5.5): for a takeoff, write its scene as `takeoff
+    scaffold` does, every row with no position laid out and every pipe routed; for a scene,
+    place again every component marked `laid_out: true` and nothing else. Deterministic, in
+    Python, no browser. Every position it gives is marked laid out, not from a drawing."""
+    import yaml
+
+    from openfactory.core.composite import project_root
+
+    data = None
+    try:
+        data = yaml.safe_load(file.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        typer.echo(f"error: {file}: {exc}", err=True)
+        raise typer.Exit(1) from None
+    if isinstance(data, dict) and "takeoff" in data:
+        if output is None:
+            typer.echo("error: a takeoff needs -o SCENE, the scene to write", err=True)
+            raise typer.Exit(1)
+        takeoff_scaffold(file, output, force, in_scenes)
+        return
+    from openfactory.layout import relayout_scene
+
+    target = (output or file).resolve()
+    root = project_root(target.parent if target.parent.exists() else Path.cwd())
+    if root is not None and not in_scenes and target.is_relative_to(root / "scenes"):
+        typer.echo(f"error: {target} is inside {root / 'scenes'}; pass --in-scenes to write there",
+                   err=True)  # fmt: skip
+        raise typer.Exit(1)
+    if output is not None and output.exists() and not force:
+        typer.echo(f"error: {output} exists; pass --force to overwrite it", err=True)
+        raise typer.Exit(1)
+    try:
+        text, moved, notes = relayout_scene(file.read_text(encoding="utf-8"), file.parent)
+    except (OSError, ValueError, KeyError) as exc:
+        typer.echo(f"error: {file}: {exc}", err=True)
+        raise typer.Exit(1) from None
+    (output or file).write_bytes(text.encode("utf-8"))
+    said = f": {', '.join(moved)}" if moved else "; nothing is marked laid_out"
+    typer.echo(f"{file.name}: laid out {len(moved)} marked component(s){said}")
+    for note in notes:
+        typer.echo(f"  {note}")
+
+
 def main() -> None:
     app()
 

@@ -59,7 +59,7 @@ Not a safety-rated simulation. OpenFactory is a training and demo tool.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import yaml
@@ -82,11 +82,12 @@ from openfactory.takeoff import (
     scene_tag,
 )
 
-OUTCOMES = ("placed", "assumed", "stand-in", "unplaced", "not connected")
+OUTCOMES = ("placed", "assumed", "laid out", "stand-in", "unplaced", "not connected")
 NODE_TYPES = ("tank", "supply", "drain", "junction")
 LINK_TYPES = ("pipe", "valve_onoff", "valve_control", "pump")
 CONVEYOR_LIKE = (*RAIL_CONVEYORS, "turntable", "lift")
-HOLDING_GAP_M = 1.5
+#: The comment on everything layout placed (PLAN 5.5, ruling 3).
+LAID_OUT = "LAID OUT by openfactory layout (PLAN 5.5), not from a drawing"
 
 
 @dataclass
@@ -115,6 +116,8 @@ class Scaffold:
     source_name: str = ""
     scene_name: str = ""
     counts: tuple[int, int, int] = (0, 0, 0)
+    #: Each pipe scaffold made and how layout routed it (PLAN 5.5).
+    pipes: list[str] = field(default_factory=list)
 
     def tally(self) -> dict[str, list[Outcome]]:
         out: dict[str, list[Outcome]] = {k: [] for k in OUTCOMES}
@@ -148,6 +151,10 @@ class Scaffold:
             lines.append(f"  {parts} = {n}, but the takeoff has {total} rows")
         where = [f"{len(rows)} {src} ({', '.join(rows)})" for src, rows in self.positions.items()]
         lines.append("positions: " + "; ".join(where))
+        if self.pipes:
+            lines.append(
+                f"pipes, routed by openfactory layout ({len(self.pipes)}): " + "; ".join(self.pipes)
+            )
         lines.append(
             f"open questions, written as # QUESTION comments ({len(self.questions)}): "
             + (", ".join(self.questions) or "none")
@@ -292,19 +299,23 @@ def scaffold(loaded: Loaded) -> Scaffold:
         for q in r.questions:
             q_of.setdefault(target or "", []).append((r.row, q))
 
-    # positions
+    # positions: what the drawing gives, then layout for the rest (PLAN 5.5)
     placed_pos: dict[str, tuple[tuple[float, float, float], float]] = {}
-    unplaced: list[Equipment] = []
+    deferred: list[Equipment] = []  # mounted on a belt that layout places
+    free: list[Equipment] = []
+    by_tag = model.by_tag()
     for e in model.equipment:
-        try:
-            if e.type == "unknown" and e.mount is not None:
-                stand = e.model_copy(update={"type": "photo_eye"})
-                placed_pos[e.tag] = position_of(stand, model)
-            else:
-                placed_pos[e.tag] = position_of(e, model)
-        except ValueError:
-            unplaced.append(e)
+        if e.layout is None and e.mount is None and e.at is None:
+            free.append(e)
             continue
+        if (
+            e.mount is not None
+            and by_tag[e.mount.conveyor].layout is None
+            and (by_tag[e.mount.conveyor].at is None)
+        ):
+            deferred.append(e)
+            continue
+        placed_pos[e.tag] = _drawn_position(e, model)
         if e.layout is not None:
             src = f"from {e.layout.sheet} dimensions"
         elif e.mount is not None:
@@ -313,19 +324,31 @@ def scaffold(loaded: Loaded) -> Scaffold:
         else:
             src = "in scene metres with no layout sheet"
         positions.setdefault(src, []).append(f"{e.row} {e.tag}" if e.at is not None else e.row)
-    far = max((p[0][0] for p in placed_pos.values()), default=0.0)
-    for k, e in enumerate(unplaced):
-        placed_pos[e.tag] = ((_num(far + HOLDING_GAP_M * (k + 1)), 0.0, 0.0), 0.0)
-        positions.setdefault("in the holding row (no position)", []).append(e.row)
-    unplaced_tags = {u.tag for u in unplaced}
 
-    # connections
     plan = plan_connections(model)
     links, pipes = plan.links, plan.pipes
+    laid = _lay_out(model, ids, plan, placed_pos, free)
+    laid_tags: dict[str, str] = {}
+    for e in free:
+        spot = laid.placed[ids[e.tag]]
+        placed_pos[e.tag] = (spot.position, spot.heading)
+        laid_tags[e.tag] = spot.note
+    for e in deferred:  # a device on a laid-out belt follows it, and is laid out too
+        assert e.mount is not None
+        belt = by_tag[e.mount.conveyor]
+        placed_pos[e.tag] = _drawn_position(e, model, placed_pos[belt.tag])
+        laid_tags[e.tag] = f"on {e.mount.conveyor}'s {e.mount.rail} rail, which layout placed"
+    if laid_tags:
+        rows = [e.row for e in model.equipment if e.tag in laid_tags]
+        positions["laid out by openfactory layout, not from a drawing"] = rows
+
+    # connections
     outcomes: dict[str, Outcome] = dict(plan.outcomes)
     for pipe in pipes:
-        (pa, _), (pb, _) = placed_pos[pipe["a"]], placed_pos[pipe["b"]]
-        pipe["position"] = [_num((x + y) / 2) for x, y in zip(pa, pb, strict=True)]
+        spot = laid.placed[pipe["id"]]
+        pipe["position"] = list(spot.position)
+        pipe["path"] = [list(p) for p in spot.path or []]
+        pipe["note"] = spot.note
 
     # components
     out: list[str] = []
@@ -336,17 +359,20 @@ def scaffold(loaded: Loaded) -> Scaffold:
         rows_io = io_of.get(e.tag, [])
         for row, q in q_of.get(e.tag, []):
             out.append("  " + comment(f"QUESTION ({row}): {q}"))
+        laid_note = f", {LAID_OUT}: {laid_tags[e.tag]}" if e.tag in laid_tags else ""
         if e.type == "unknown":
             ctype = f"standin_{sid.lower()}"
             composites += _standin(ctype, e, rows_io)
             out.append(f"  - id: {sid}  " + comment(
                 f"PLACEHOLDER: takeoff {e.row} {e.tag} ({_sheet_note(e) or 'no sheet'}), "
-                "type unknown"))  # fmt: skip
+                f"type unknown{laid_note}"))  # fmt: skip
             out.append(f"    type: {ctype}")
             out.append(f"    description: {flow('PLACEHOLDER ' + e.description)}")
             out.append(f"    position: {flow([_num(v) for v in pos])}")
             if heading:
                 out.append(f"    rotation_deg: {flow(_num(heading))}")
+            if e.tag in laid_tags:
+                out.append("    laid_out: true")
             for name in ("length", "width", "height"):
                 if name in e.params:
                     out.append(f"    {name}: {flow(e.params[name])}")
@@ -362,12 +388,17 @@ def scaffold(loaded: Loaded) -> Scaffold:
                     f"{e.mount.rail} rail")  # fmt: skip
         assumed = e.confidence == "assumed"
         mark = ", assumed" if assumed else ""
-        out.append(f"  - id: {sid}  " + comment(f"takeoff {e.row} {e.tag} ({note}{mark})"))
+        if e.tag in laid_tags and e.mount is None:
+            note = _sheet_note(e) or "no sheet"
+        out.append(f"  - id: {sid}  "
+                   + comment(f"takeoff {e.row} {e.tag} ({note}{mark}{laid_note})"))  # fmt: skip
         out.append(f"    type: {e.type}")
         out.append(f"    description: {flow(e.description)}")
         out.append(f"    position: {flow([_num(v) for v in pos])}")
         if heading:
             out.append(f"    rotation_deg: {flow(_num(heading))}")
+        if e.tag in laid_tags:
+            out.append("    laid_out: true")
         for key, val in links.get(e.tag, {}).items():
             out.append(f"    {key}: {flow(val)}")
         for key, val in e.params.items():
@@ -376,11 +407,11 @@ def scaffold(loaded: Loaded) -> Scaffold:
             out.append("    " + comment(f"{name}: no default; give it from the drawing "
                                         f"(takeoff {e.row})"))  # fmt: skip
         out += _io_lines(e, rows_io, model, standin=False)
-        if e.tag in unplaced_tags:
-            outcomes[e.row] = Outcome(e.row, "unplaced", f"{e.tag} (no position)", bool(missing))
-        elif missing:
+        if missing:
             why = "missing " + ", ".join(missing) + ", which has no default"
             outcomes[e.row] = Outcome(e.row, "unplaced", f"{e.tag} ({why})", True)
+        elif e.tag in laid_tags:
+            outcomes[e.row] = Outcome(e.row, "laid out", e.tag)
         elif assumed:
             outcomes[e.row] = Outcome(e.row, "assumed", e.tag)
         else:
@@ -415,10 +446,88 @@ def scaffold(loaded: Loaded) -> Scaffold:
                 f"the scene scaffold wrote does not load, which is a bug in scaffold; nothing "
                 f"was written. The scene loader says: {exc}"
             ) from exc
+    routed = [
+        f"{p['id']} ({p['row']}) {p['note']}, {len(p['path'])} bend"
+        + ("" if len(p["path"]) == 1 else "s")
+        for p in pipes
+    ]
     return Scaffold(
         text, ordered, positions, questions, loaded.path.name, f"{model.plant.name}.yaml",
-        (len(model.equipment), len(model.connections), len(model.io)),
+        (len(model.equipment), len(model.connections), len(model.io)), routed,
     )  # fmt: skip
+
+
+def _drawn_position(
+    e: Equipment, model: Takeoff, belt_at: tuple[tuple[float, float, float], float] | None = None
+) -> tuple[tuple[float, float, float], float]:
+    """A row's position from its drawing (a stand-in on a rail as a photo eye would be); a
+    mount on a belt layout placed, from that belt's place (``belt_at``)."""
+    row = e.model_copy(update={"type": "photo_eye"}) if e.type == "unknown" and e.mount else e
+    if belt_at is None:
+        return position_of(row, model)
+    from openfactory.core.mounts import place_on_rail
+    from openfactory.takeoff import conveyor_config, mount_along_m, tallest_part
+
+    assert row.mount is not None
+    belt = model.by_tag()[row.mount.conveyor]
+    cfg = conveyor_config(belt.model_copy(update={"at": belt_at[0]}), model)
+    cfg.rotation_deg = belt_at[1]
+    done = place_on_rail(row.type, dict(row.params), cfg, f"rail_{row.mount.rail}",
+                         mount_along_m(row.mount, model), tallest_part(model))  # fmt: skip
+    return tuple(done.position), done.rotation_deg  # type: ignore[return-value]
+
+
+def row_config(e: Equipment, ids: dict[str, str]) -> Any:
+    """What layout reads of a row: its type's defaults and its parameters."""
+    from types import SimpleNamespace
+
+    from pydantic_core import PydanticUndefined
+
+    values: dict[str, Any] = {}
+    model = COMPONENT_MODELS.get(e.type)
+    if model is not None:
+        for name, info in model.model_fields.items():
+            if info.default_factory is not None:
+                values[name] = info.default_factory()  # type: ignore[call-arg]
+            elif info.default is not PydanticUndefined:
+                values[name] = info.default
+        aliases = {info.alias: name for name, info in model.model_fields.items() if info.alias}
+    else:
+        aliases = {}
+    for key, value in e.params.items():
+        values[aliases.get(key, key)] = resolve_tags(value, ids)
+    if e.type == "box_emitter":
+        values["parts"] = [SimpleNamespace(size=p.get("size", [0.3, 0.3, 0.3]))
+                           for p in values.get("parts") or [] if isinstance(p, dict)]  # fmt: skip
+    return SimpleNamespace(**values)
+
+
+def _lay_out(
+    model: Takeoff, ids: dict[str, str], plan: Plan,
+    placed_pos: dict[str, tuple[tuple[float, float, float], float]], free: list[Equipment],
+) -> Any:  # fmt: skip
+    """Layout (PLAN 5.5) for the rows with no position and for every pipe scaffold makes."""
+    from openfactory.layout import Item, Pipe, lay_out
+    from openfactory.takeoff import tallest_part
+
+    items = []
+    for e in model.equipment:
+        cfg = row_config(e, ids)
+        link = plan.links.get(e.tag, {})
+        local = None
+        if e.type == "unknown":
+            size = [float(e.params.get(k, 1.0)) for k in ("length", "height", "width")]
+            local = [(-size[0] / 2, size[0] / 2, 0.0, size[1], -size[2] / 2, size[2] / 2)]
+        at = placed_pos.get(e.tag)
+        items.append(Item(
+            ids[e.tag], e.type, cfg, e.tag, at[0] if at else None, at[1] if at else 0.0,
+            link.get("from"), link.get("to"), local,
+        ))  # fmt: skip
+    mounted = {ids[e.tag] for e in model.equipment if e.mount is not None}
+    items = [i for i in items if i.id not in mounted or i.fixed]  # deferred mounts come after
+    pipes = [Pipe(p["id"], p["from"], p["to"], p["diameter"] or 0.05) for p in plan.pipes]
+    links = [(a, b) for a, b, _ in plan.conveyor_links]
+    return lay_out(items, pipes, links, tallest_part(model))
 
 
 def _along(e: Equipment, model: Takeoff) -> float:
@@ -521,9 +630,12 @@ def _pipe_lines(pipe: dict[str, Any]) -> list[str]:
         "    type: pipe",
         f"    description: {flow('Line ' + (pipe['line'] or pipe['id']))}",
         f"    position: {flow(pipe['position'])}",
+        "    laid_out: true  " + comment(f"{LAID_OUT}: {pipe.get('note') or 'routed'}"),
         f"    from: {flow(pipe['from'])}",
         f"    to: {flow(pipe['to'])}",
     ]
     if pipe["diameter"]:
         lines.append(f"    diameter: {flow(pipe['diameter'])}")
+    if pipe.get("path"):
+        lines.append(f"    path: {flow(pipe['path'])}")
     return lines

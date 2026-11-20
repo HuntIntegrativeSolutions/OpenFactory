@@ -85,6 +85,16 @@ centre line, and the plate height after the loader's default.
   pattern (a malformed or duplicate one is a load error). The heartbeat is not a binding: its
   plant name is ``plc.heartbeat_plc_tag``.
 
+- ``W217`` two components whose bodies overlap, or a run of a link (a pipe, or a valve's or
+  pump's runs to its ends) that passes through a body (PLAN 5.5, ruled 2026-11-19: the overlap
+  lint covers every component, not only conveyors). Bodies are
+  :mod:`openfactory.core.footprints`' boxes, in three dimensions, sharing more than 1 mm in each
+  axis. Not a finding: two conveyors (W205), a component that works on a conveyor touching one
+  (eyes, sensors, pushers, stoppers, arms, emitters, removers, pick-and-place; their fit is
+  W206, W207 and W214's), a panel device (button, light, selector, counter) on a scenery body or
+  a drive cabinet, and a component touching what it names (a link's ``from`` and ``to``,
+  a transmitter's ``measures``, a heater's ``tank``, a drive's ``drives``).
+
 - ``W216`` a file that a plant includes (PLAN 5.4c) with a Modbus lockfile beside it: run alone it
   has its own address map, which is not the plant's; ``--area`` runs it at the plant's.
 
@@ -121,6 +131,7 @@ from openfactory.core.loader import build
 from openfactory.core.mounts import short_of_belt
 from openfactory.core.schema import (
     CARRIER_TYPES,
+    LINK_TYPES,
     PLC_WRITES,
     load_scene,
     parse_scene,
@@ -182,6 +193,85 @@ def _footprint(comp) -> tuple[float, float, float, float]:
             )  # fmt: skip
     xs, zs = [c[0] for c in corners], [c[1] for c in corners]
     return min(xs), max(xs), min(zs), max(zs)
+
+
+#: Types that work on a conveyor: touching one is how they are used, not an overlap (W217).
+ON_A_CONVEYOR = frozenset({
+    "photo_eye", "distance_sensor", "color_sensor", "pusher", "stopper", "diverter_arm",
+    "box_emitter", "part_remover", "pick_and_place",
+})  # fmt: skip
+#: Panel devices, mounted on a face: touching a body or a cabinet is how they are fitted (W217).
+PANEL_TYPES = frozenset({"pushbutton", "pilot_light", "selector_switch", "counter_display"})
+#: What a panel device is fitted to.
+PANEL_HOSTS = frozenset({"scenery", "vfd_motor"})
+#: The radius each link's runs are drawn with, m (web/src/components/process.ts).
+RUN_RADIUS_M = {"valve_onoff": 0.025, "valve_control": 0.025, "pump": 0.03}
+
+
+def _named_ends(cfg: Any) -> set[str]:
+    """The components a component names as what it is joined to or works on."""
+    out = set()
+    for key in ("from_", "to", "measures", "tank", "drives"):
+        value = getattr(cfg, key, None)
+        if isinstance(value, str) and value:
+            out.add(value.partition(".")[0])
+    return out
+
+
+def overlaps(components: list[Any], named: Any = str) -> list[str]:
+    """W217 (PLAN 5.5): every pair of components whose bodies overlap
+    (:mod:`openfactory.core.footprints`), and every run of a link that passes through a body,
+    each once. Not a finding: two conveyors (W205's), a component that works on a conveyor
+    touching one (:data:`ON_A_CONVEYOR`; its fit is W206, W207 and W214's), a panel device on a
+    body or cabinet (:data:`PANEL_TYPES` on :data:`PANEL_HOSTS`), and a component touching what
+    it names (a link's ends, a transmitter's measured component, a heater's tank,
+    a drive's load), either way round."""
+    from openfactory.core import footprints as fp
+
+    bodies = {c.id: fp.boxes(c.config, c.type) for c in components}
+    runs: dict[str, list[Any]] = {}
+    for c in components:
+        points = getattr(c, "points", None)
+        if c.type in LINK_TYPES and points:
+            radius = max(float(c.config.diameter) / 2, 0.015) if c.type == "pipe" else (
+                RUN_RADIUS_M[c.type])  # fmt: skip
+            runs[c.id] = fp.runs(points, radius)
+    ends = {c.id: _named_ends(c.config) for c in components}
+    types = {c.id: c.type for c in components}
+
+    def related(a: str, b: str) -> bool:
+        if b in ends[a] or a in ends[b]:
+            return True
+        ta, tb = types[a], types[b]
+        if ta in CARRIER_TYPES and tb in CARRIER_TYPES:
+            return True  # W205
+        for x, y in ((ta, tb), (tb, ta)):
+            on_belt = x in CARRIER_TYPES and y in ON_A_CONVEYOR
+            if on_belt or (x in PANEL_HOSTS and y in PANEL_TYPES):
+                return True
+        return False
+
+    out = []
+    ids = [c.id for c in components]
+    for i, a in enumerate(ids):
+        for b in ids[i + 1 :]:
+            if related(a, b):
+                continue
+            shared = next(
+                (o for x in bodies[a] for y in bodies[b] if (o := fp.overlap(x, y))), None
+            )
+            if shared is not None:
+                dx, dy, dz = shared
+                out.append(f"{named(a)} and {named(b)} overlap by {dx:.3g} m x {dy:.3g} m x "
+                           f"{dz:.3g} m (x, y, z)")  # fmt: skip
+                continue
+            for link, other in ((a, b), (b, a)):
+                if link in runs and any(
+                    fp.overlap(r, y) for r in runs[link] for y in bodies[other]
+                ):
+                    out.append(f"the run of {named(link)} passes through {named(other)}")
+                    break
+    return out
 
 
 def _plant_findings(scene: Any) -> list[Finding]:
@@ -278,6 +368,7 @@ def lint_scene(
                     Finding("warning", "W205", f"conveyors {named(a.id)} and {named(b.id)} "
                             f"overlap by {overlap_x:.3g} m x {overlap_z:.3g} m at the same height")
                 )  # fmt: skip
+    findings += [Finding("warning", "W217", m) for m in overlaps(loaded.components, named)]
     parts = emitted_parts(scene)
     for pusher in (c for c in loaded.components if c.type == "pusher"):
         cfg = pusher.config

@@ -40,11 +40,12 @@ def test_the_sample_scaffolds_to_a_scene_that_validates_and_reports_every_row(tm
     done = CliRunner().invoke(cli, ["takeoff", "scaffold", str(SAMPLE), "-o", str(out)])
     assert done.exit_code == 3, done.output
     assert "32 rows (13 equipment, 4 connections, 15 I/O)" in done.output
-    assert "25 + 4 + 3 + 0 + 0 = 32: every row accounted for" in done.output
+    assert "25 + 4 + 0 + 3 + 0 + 0 = 32: every row accounted for" in done.output
     scene = load_scene(out)  # validates
     result = scaffold(tk.load(SAMPLE))
     assert counts(result) == {
-        "placed": 25, "assumed": 4, "stand-in": 3, "unplaced": 0, "not connected": 0
+        "placed": 25, "assumed": 4, "laid out": 0, "stand-in": 3, "unplaced": 0,
+        "not connected": 0,
     }  # fmt: skip
     assert {o.row for o in result.tally()["assumed"]} == {"EQ-1", "EQ-8", "EQ-12", "EQ-13"}
     assert [o.row for o in result.tally()["stand-in"]] == ["EQ-5", "IO-5", "IO-6"]
@@ -136,19 +137,26 @@ def test_it_refuses_an_existing_scene_scenes_folder_and_an_invalid_takeoff(tmp_p
     assert done.exit_code == 1 and not fresh.exists()
 
 
-def test_unplaced_and_not_connected_rows_are_reported_not_dropped(tmp_path) -> None:
+def test_laid_out_and_not_connected_rows_are_reported_not_dropped(tmp_path) -> None:
+    """A row with no position is laid out (PLAN 5.5; the holding row of 5.1b is gone), marked
+    so in the scene and the report; a connection scaffold cannot make is a comment."""
     data = sample()
     item = next(e for e in data["equipment"] if e["tag"] == "FT-101")
-    del item["layout"]  # no position: the holding row
+    del item["layout"]  # no position: layout places it
     data["connections"].append({"row": "CN-5", "from": "CV-201", "to": "TK-101.top",
                                 "confidence": "read"})  # fmt: skip
     result = from_data(tmp_path, data)
-    assert counts(result)["unplaced"] == 1 and counts(result)["not connected"] == 1
+    assert counts(result)["laid out"] == 1 and counts(result)["not connected"] == 1
     assert sum(counts(result).values()) == 33 == len(result.outcomes)
     assert "# NOT CONNECTED (takeoff CN-5): CV-201 -> TK-101.top" in result.text
     scene = load_scene_text(result.text)
     ft = next(c for c in scene.components if c.id == "FT_101")
-    assert ft.position[0] == pytest.approx(3.15 + 1.5)  # past the far edge (REM-201 at 3.15)
+    pump = next(c for c in scene.components if c.id == "P_101")
+    assert ft.laid_out and not pump.laid_out
+    assert ft.position == pytest.approx(
+        [pump.position[0], pump.position[1], pump.position[2] - 0.45]
+    )  # in front of what it measures
+    assert "laid out by openfactory layout, not from a drawing (EQ-7)" in result.report()
     assert set(OUTCOMES) == set(counts(result))
 
 
@@ -243,7 +251,8 @@ def test_an_assumed_io_or_connection_row_is_assumed(tmp_path) -> None:
     next(r for r in data["io"] if r["row"] == "IO-5")["confidence"] = "assumed"  # a stand-in's
     result = from_data(tmp_path, data)
     assert counts(result) == {
-        "placed": 23, "assumed": 6, "stand-in": 3, "unplaced": 0, "not connected": 0
+        "placed": 23, "assumed": 6, "laid out": 0, "stand-in": 3, "unplaced": 0,
+        "not connected": 0,
     }  # fmt: skip
     notes = {o.row: o.note for o in result.tally()["assumed"]}
     assert notes["IO-4"] == "LT-101.pv" and notes["CN-2"] == "LV-101 -> TK-101.top"

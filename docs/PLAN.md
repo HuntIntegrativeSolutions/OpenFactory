@@ -4195,7 +4195,7 @@ trusts it.
       recording moves). *Tests:* `dim.test.ts` ("says which command edits another file's
       component", both forms and the plant file edited); `test_editor_plant.py` reads the new
       message.
-- [ ] 5.5 Layout from topology. A P&ID has no geometry. `openfactory layout` places equipment and
+- [x] 5.5 Layout from topology. A P&ID has no geometry. `openfactory layout` places equipment and
       routes pipes when positions are missing; a general arrangement drawing overrides it.
       Depends on 4.1g (nozzle positions).
       *Done when:* the sample P&ID's scaffold, with no positions, lays out with no overlap finding,
@@ -4212,6 +4212,92 @@ trusts it.
       is drawn as straight runs from its `from` end through its `path` points to its `to` end, a
       valve or pump as a body at its origin with runs to its two ends; there is no pipe routing,
       and a pipe's default length (its friction) is its drawn length.
+      *Ruled 2026-11-19 (the owner):* (1) `openfactory layout` runs in Python, with no browser,
+      and is deterministic: the same input gives the same positions, byte for byte. (2) It never
+      moves anything a drawing placed (a takeoff row with `layout`, `mount` or `at`, or a scene
+      component not marked as laid out); it places only what has no position. (3) Every
+      position it gives is marked as laid out, not from a drawing, in the scene and in
+      scaffold's report, so the checker never takes it for a dimension off a sheet. (4)
+      Equipment goes in flow order along the connections (supplies first, drains last); pipes
+      get right-angle `path` points that pass through no equipment footprint. (5) "No overlap
+      finding" means a lint that covers every component's footprint, not only conveyors; if it
+      finds overlaps in shipped scenes, report them, and do not move shipped scenes. (6) A
+      pipe's default length is its drawn length, so layout changes friction: say so in the docs
+      and report the sample's flows before and after.
+      *Done (2026-11-19)* to [the design note](research/plants-from-drawings-design.md) §7,
+      written first. **Bodies:** `src/openfactory/core/footprints.py`, per type the body the
+      viewer draws (`web/src/components`), as boxes in three dimensions (a supply above a
+      tank's top is clear of it), and a link's runs. **The overlap lint (ruling 5): W217**, two
+      components whose bodies overlap or a run of a link through a body, for every component
+      (W205 stays for two conveyors); not a finding: a device that works on a conveyor touching
+      one, a panel device on a body or cabinet, a component touching what it names (a link's
+      ends, a transmitter's measured item, a heater's tank, a drive's load). **Layout:**
+      `src/openfactory/layout.py`, `openfactory layout TAKEOFF -o SCENE` (the scaffold, laid
+      out) and `openfactory layout SCENE` (places again exactly what is marked, by splices
+      through the 4.7 writer); `takeoff scaffold` lays out too, and its holding row is gone.
+      Process equipment on one line in flow order (rank: the longest chain from a supply;
+      drains last), 1.0 m clear; tanks 0.25 m up so a bottom nozzle is on the 0.3 m low line
+      with the pumps; a valve, supply or drain that leads only into one tank's top on that
+      tank's high line, 0.3 m above it; instruments beside what they measure; conveyors end to
+      end in rows 2.0 m behind; rail devices with no mount spread on a belt's left rail (the
+      belt of the same loop number, else the first); an emitter at a free infeed, a remover
+      past a free discharge; the rest in a row behind. Every pipe scaffold makes is routed (a
+      pipe has no row and no drawn position): its origin 0.35 m downstream of the link it
+      leaves, a 0.3 m stub out of a low nozzle, then the first right-angle route that clears
+      every body but its ends'. **The mark (ruling 3):** `laid_out: true` on a component or a
+      composite instance (its parts take it; a new optional key, default false, kept out of
+      the viewer's document and recordings and out of CONTEXT.md when false, so no kit moves),
+      a `LAID OUT by openfactory layout (PLAN 5.5), not from a drawing` comment, the outcome
+      `laid out` in scaffold's report with a positions entry and a pipes line. A mount on a
+      belt layout placed follows the belt and is laid out too (`takeoff check` no longer
+      refuses a mount on a belt with no position). Docs: `docs/layout.md` (new, in the site),
+      `docs/takeoff.md`. **Decisions beyond the rulings:** "positions removed" removes all three
+      of `layout`, `mount` and `at` (ruling 2 names all three); every scaffolded pipe is routed,
+      the drawn sample's too; rail devices with no mount go on a belt by loop number.
+      *Tests:* `tests/unit/test_layout.py`: the Done-when
+      (`test_the_sample_with_no_positions_lays_out_with_no_overlap_finding`: a copy of the
+      sample takeoff with every `layout`, `mount` and `at` removed, made in the test, scaffolds
+      to a scene with 12 rows laid out and AG-101 a laid-out stand-in, that builds and steps,
+      with no W204, W205, W212, W213, W214 or W217); ruling 1
+      (`test_it_is_deterministic_byte_for_byte_in_python`, two processes with different
+      `PYTHONHASHSEED`); ruling 2 (`test_it_never_moves_what_a_drawing_placed`: six rows kept
+      drawn stay where `position_of` puts them, the rest are laid out past them, and on the
+      scene only a marked component moves, every other byte the same); ruling 3
+      (`test_every_position_it_gives_is_marked_in_the_scene_and_the_report`; the shipped
+      sample marks only its two pipes); ruling 4
+      (`test_equipment_in_flow_order_and_pipes_at_right_angles_through_no_body`: SUP, LV, TK,
+      P, DR in that order along x, every run of a pipe, valve or pump along one axis, no W217);
+      `test_a_device_mounted_on_a_laid_out_belt_follows_it_and_is_marked`; ruling 6
+      (`test_a_routed_pipes_length_is_its_drawn_length`, and the docs say so).
+      `tests/unit/test_overlap_lint.py` (ruling 5): a pump inside a tank it is not joined to,
+      a run through a body and a route round it, what is meant to touch, bodies in three
+      dimensions, and every shipped scene, example and plant with no W217 (19).
+      `test_scaffold.py` gained the laid-out outcome (its holding-row test is now
+      `test_laid_out_and_not_connected_rows_are_reported_not_dropped`).
+      **Overlaps the wider lint found (ruling 5): none in a shipped scene.** The first draft of
+      the bodies found five, all from the draft, none an overlap: PE_PICK inside the hull of
+      palletizer-lite's pick-and-place gantry (the gantry is now its beams and legs; the eye
+      stands clear of them), and the HOA selector of each of four composite instances
+      (`variable-item-demo`'s MX_01 and MX_02, `wash-plant`'s FAN_101 and FAN_201) on its own
+      scenery body (a panel device on a body is how it is fitted). Outside shipped scenes: the
+      drawn sample's scaffold before routing had "the run of LV_101 passes through TK_101"
+      (PIPE_101's origin halfway between the valve and the tank's top, 0.025 m into the
+      shell), which routing removed; the test scene `tests/scenes/queue-parity.yaml` has its
+      five emitters 0.3 m apart, their 0.345 m hoppers overlapping (four W217; a test scene,
+      left as it is, `test_lint.py` filters them).
+      **The sample's flows (ruling 6)**, LV-101 at 100 % and P-101 running, after 120 s:
+      drawn positions with scaffold's straight pipes from a midpoint (before 5.5), PIPE_101
+      1.04 m and PIPE_102 0.70 m, make-up 7.99 m³/h, transfer 5.98 m³/h; drawn positions with
+      routed pipes, 0.95 m and 1.05 m, 8.00 and 5.93 m³/h; every position laid out, 1.65 m and
+      0.96 m, 7.93 and 5.86 m³/h (`docs/layout.md` has the table).
+      **Screenshots looked at** (written to the session's scratch folder, not the repository;
+      the laid-out scene forced LV-101 to 100 %, P-101 and CV-201 on): top view
+      (`--view top`): the process line across the top, SUP-101, LV-101, PIPE_101 over to the
+      tank, TK-101 with its blue level, LT-101 beside it, P-101 with FT-101 in front, PIPE_102
+      to DR-101; CV-201 running (green) in a row behind with PE-201's heads at 1.0 m, CYL-201 on
+      the left rail at 2.0 m, EMT-201 at the infeed and REM-201 past the discharge, two cartons
+      on the belt; AG-101's stand-in body alone in the last row. Default view: the same,
+      PIPE_101 running level above the tank's top and dropping into it, the tank on its legs.
 - [ ] 5.6 Review overlay. A top view of the scene drawn over the layout drawing, and a table of
       takeoff rows against scene components, so the checker sees what was missed.
       *Done when:* removing one item from the sample scene shows it in both.

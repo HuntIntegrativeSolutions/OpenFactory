@@ -142,7 +142,8 @@ scene tag that is not a valid tag (give `scene_tag:`); `range` on a discrete sig
 of `layout`, `mount` and `at`; a `layout` or `mount` on a sheet not in `drawings` or with no
 `frame`; a frame with another unit or a datum that is not three numbers; a `mount` on something
 that is not a belt or roller conveyor, of a type not placed on a rail, on a rail other than
-`left` or `right`, or with `along` outside the belt; a line the scaffold would make into a pipe
+`left` or `right`, or with `along` outside the belt (a belt with no position at all is laid
+out, and the device follows it); a line the scaffold would make into a pipe
 whose id (`PIPE_101`, ...) is another row's scene id (give that row an `id:`).
 
 **Warnings:** `type: unknown` (the scaffold places a stand-in carrying its I/O); an `at:` row
@@ -181,15 +182,16 @@ path it is given.
 | A known type with what it needs | the component, its description and parameters, a comment naming the row and sheet | placed |
 | A row marked `assumed`: equipment, connection or I/O | the same, the component's comment saying `assumed` | assumed |
 | `type: unknown` (or no `type`) | a stand-in: a local composite `standin_<id>`, a `scenery` body sized from `length`, `width`, `height` (else 1 m) whose io are exactly the row's I/O rows: each DO and AO a command, the first DI following the first DO, the first AI the first AO, any other DI false and any other AI the low end of its range; its description starts `PLACEHOLDER` | stand-in, with each of its I/O rows |
-| No position, or a parameter with no default missing | placed in a holding row past the plant's far edge, 1.5 m apart (a missing parameter is a comment to fill in) | unplaced |
+| No position (no `layout`, `mount` or `at`) | placed by [layout](layout.md) (PLAN 5.5), marked `laid_out: true` and commented `LAID OUT by openfactory layout (PLAN 5.5), not from a drawing` | laid out |
+| A parameter with no default missing | the component, and a comment to fill it in | unplaced |
 | A connection between two conveyors | a `connections:` entry | placed |
 | A connection into a valve or pump | that link's `from` | placed |
-| A connection from a link to a tank nozzle, supply, drain or junction, or between two of those | a `pipe` (`PIPE_101`, ...) sized from the line number (`25-W-101`: 25 mm), and the link's `to` names it | placed |
+| A connection from a link to a tank nozzle, supply, drain or junction, or between two of those | a `pipe` (`PIPE_101`, ...) sized from the line number (`25-W-101`: 25 mm), and the link's `to` names it; its origin and right-angle `path` routed by [layout](layout.md) and marked laid out (a pipe has no row and no drawn position) | placed |
 | Any other connection (a conveyor to a tank) | a `# NOT CONNECTED` comment at the end | not connected |
 | An I/O row | the binding `{tag, plc_tag}` with its `range` and `units` | placed |
 
 A row's outcome is the first that applies: unplaced or not connected, then stand-in (a
-stand-in's I/O rows too), then assumed, then placed. A parameter a row leaves out that has a
+stand-in's I/O rows too), then laid out, then assumed, then placed. A parameter a row leaves out that has a
 documented default is left out of the scene too, so the type's default applies; it is not
 marked in the scene and does not make the row assumed.
 
@@ -199,8 +201,9 @@ takeoff. Before it writes, `scaffold` loads the scene it made (a key written twi
 the scene loader); a scene that does not load is a bug in `scaffold`, reported with the loader's
 message, exit 1, and nothing is written. That load is skipped only when a row is unplaced for a
 parameter with no default, since that scene cannot load until a person gives it. The report also says where each position came from: a layout sheet's
-dimensions, a rail, or scene metres with no layout sheet. Devices on a rail sit where
-`place_on_rail` puts them.
+dimensions, a rail, scene metres with no layout sheet, or laid out by `openfactory layout`, not
+from a drawing; and how layout routed each pipe. Devices on a rail sit where `place_on_rail`
+puts them; a device mounted on a belt that layout placed follows the belt and is laid out too.
 
 The sample's report:
 
@@ -208,11 +211,13 @@ The sample's report:
 wash-skid.takeoff.yaml -> wash-skid.yaml: 32 rows (13 equipment, 4 connections, 15 I/O)
   placed         25
   assumed         4   EQ-1 SUP-101; EQ-8 DR-101; EQ-12 EMT-201; EQ-13 REM-201
+  laid out        0
   stand-in        3   EQ-5 AG-101 (type unknown: standin_ag_101); IO-5 -> run; IO-6 -> running
   unplaced        0
   not connected   0
-  25 + 4 + 3 + 0 + 0 = 32: every row accounted for
+  25 + 4 + 0 + 3 + 0 + 0 = 32: every row accounted for
 positions: 9 from L-001 dimensions (EQ-1, EQ-2, EQ-3, EQ-4, EQ-5, EQ-6, EQ-7, EQ-8, EQ-9); 2 on CV-201's left rail (L-001) (EQ-10, EQ-11); 2 in scene metres with no layout sheet (EQ-12 EMT-201, EQ-13 REM-201)
+pipes, routed by openfactory layout (2): PIPE_101 (CN-2) routed, 1 bend; PIPE_102 (CN-4) routed, 0 bends
 open questions, written as # QUESTION comments (6): EQ-1, EQ-5, EQ-8, EQ-12, EQ-13, IO-15
 ```
 

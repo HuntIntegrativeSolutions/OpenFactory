@@ -567,6 +567,11 @@ class ComponentBase(StrictModel):
     mesh: MeshSpec | None = Field(
         None, description="Custom housing drawn by the viewer (PLAN 2.15); visual only."
     )
+    laid_out: bool = Field(
+        False,
+        description="Placed by `openfactory layout` (PLAN 5.5), not from a drawing; "
+        "`openfactory layout SCENE` moves only these.",
+    )
 
 
 class BeltConveyorIO(IOModel):
@@ -1664,6 +1669,9 @@ class CompositeInstance(StrictModel):
     description: Annotated[str, StringConstraints(min_length=1)]
     position: Vec3
     rotation_deg: float = 0.0
+    laid_out: bool = Field(
+        False, description="Placed by `openfactory layout` (PLAN 5.5); its parts are too."
+    )
     io: dict[str, Any] = Field(default_factory=dict, description="Composite io name -> tag.")
 
     def params(self) -> dict[str, Any]:
