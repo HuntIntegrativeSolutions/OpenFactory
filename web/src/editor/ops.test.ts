@@ -130,3 +130,45 @@ describe("the laid_out mark (PLAN 5.5, ruled 2026-11-19 second set)", () => {
     ]);
   });
 });
+
+describe("the laid_out mark, review of 2026-11-20 (gaps 2b and 2d)", () => {
+  const laid = new Set(["P_101", "PE_201"]);
+  const file: Record<string, number[]> = { P_101: [1, 0.3, 0], PE_201: [1.2, 0.1, 2.5] };
+  const fresh = (): EditOps => {
+    const ops = new EditOps();
+    ops.laidOut = (id) => laid.has(id);
+    ops.fileValue = (path) => (path[2] === "position" ? file[String(path[1])] : undefined);
+    return ops;
+  };
+
+  it("a move undone before saving (moved back to the file's position) keeps the mark", () => {
+    const ops = fresh();
+    ops.change({ op: "set", path: ["components", "P_101", "position"], value: [4, 0.3, 0] });
+    expect(ops.list()).toContainEqual({ op: "unset", path: ["components", "P_101", "laid_out"] });
+    ops.change({ op: "set", path: ["components", "P_101", "position"], value: [1, 0.3, 0] });
+    expect(ops.list()).toEqual([]);
+  });
+
+  it("typed axis by axis away and back, the same", () => {
+    const ops = fresh();
+    ops.change({ op: "set", path: ["components", "P_101", "position", 0], value: 20 });
+    expect(ops.list()).toContainEqual({ op: "unset", path: ["components", "P_101", "laid_out"] });
+    ops.change({ op: "set", path: ["components", "P_101", "position", 0], value: 1 });
+    expect(ops.list()).toEqual([]);
+  });
+
+  it("moving back does not undo a mark the person cleared with the checkbox", () => {
+    const ops = fresh();
+    ops.change({ op: "set", path: ["components", "P_101", "position"], value: [4, 0.3, 0] });
+    ops.change({ op: "set", path: ["components", "P_101", "laid_out"], value: false });
+    ops.change({ op: "set", path: ["components", "P_101", "position"], value: [1, 0.3, 0] });
+    expect(ops.list()).toEqual([{ op: "set", path: ["components", "P_101", "laid_out"], value: false }]);
+  });
+
+  it("a device carried with its belt keeps its mark", () => {
+    const ops = fresh();
+    ops.change({ op: "set", path: ["components", "PE_201", "position"], value: [3.2, 0.1, 2.5] }, { keepMark: true });
+    expect(ops.list()).toEqual([{ op: "set", path: ["components", "PE_201", "position"], value: [3.2, 0.1, 2.5] }]);
+  });
+});
+

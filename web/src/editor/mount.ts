@@ -68,3 +68,31 @@ export function findRail(at: [number, number, number], conveyors: { id: string; 
   }
   return best?.drop ?? null;
 }
+
+/** A laid-out device that rides a belt: its rail and its distance from the infeed end. */
+export interface Follower {
+  id: string;
+  conveyor: string;
+  rail: "rail_left" | "rail_right";
+  along: number;
+}
+
+/**
+ * The laid-out devices standing on `belt` before it moves (ruled 2026-11-20, ruling 2: a
+ * laid-out device on a belt moves with its belt in the editor, as it does in `openfactory
+ * layout`): each marked device of a type the drop rules place, found on the belt's rails as a
+ * drop would find it (no grid: it keeps its exact distance). A device the person placed (no
+ * mark) stays where it is, as before.
+ */
+export function followersOn(
+  belt: { id: string; ports: (SnapPort | RailPort)[] },
+  devices: { id: string; type: string; position: [number, number, number]; laid_out?: unknown; composite?: unknown }[],
+): Follower[] {
+  const out: Follower[] = [];
+  for (const d of devices) {
+    if (d.id === belt.id || !d.laid_out || d.composite || !MOUNT_TYPES.includes(d.type)) continue;
+    const drop = findRail(d.position, [belt], false);
+    if (drop) out.push({ id: d.id, conveyor: belt.id, rail: drop.rail, along: drop.along });
+  }
+  return out;
+}

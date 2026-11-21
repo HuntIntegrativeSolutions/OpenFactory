@@ -25,6 +25,7 @@ import {
 } from "./forms";
 import { readOnlyMessage } from "./dim";
 import { Drafts, valueEditor, watchUnchanged, type CompoundHost } from "./compound";
+import type { Follower } from "./mount";
 import { EditOps } from "./ops";
 import type { Placement } from "./place";
 
@@ -64,6 +65,8 @@ export interface EditorStatus {
   mounting: string | null;
   /** The last drop on a rail: the rail and distance the editor chose and the server's placement. */
   mount: { id: string; conveyor: string; rail: string; along: number; position: number[]; rotation_deg: number; swing_deg?: number } | null;
+  /** The laid-out devices last carried with a moved belt (PLAN 5.5, ruled 2026-11-20). */
+  carried: { conveyor: string; ids: string[] } | null;
   /** A Delete waiting for the user (PLAN 4.1f): what it removes and what it leaves to fix. */
   confirm: { id: string; remove: string[]; fix: string[] } | null;
   /** Deletes done. */
@@ -146,6 +149,8 @@ export class EditorPanel {
   private schema: JsonSchema = {};
   private base = "";
   private data: Preview["data"] = null;
+  /** The file as it is on disk, as last loaded (a moved-back position is no change). */
+  private fileData: Preview["data"] = null;
   private readonly ops = new EditOps();
   /** Lists and mappings still being filled in, kept across redraws (compound.ts Drafts). */
   private readonly drafts = new Drafts();
@@ -173,10 +178,15 @@ export class EditorPanel {
   constructor(host: PanelHost) {
     this.host = host;
     this.ops.laidOut = (id) => Boolean(this.componentData(id)?.laid_out); // PLAN 5.5 mark
+    this.ops.fileValue = (path) => {
+      if (path.length !== 3 || path[0] !== "components") return undefined;
+      const list = (this.fileData?.components ?? []) as Record<string, unknown>[];
+      return list.find((c) => c.id === path[1])?.[String(path[2])];
+    };
     this.status = {
       file: "", selected: null, ops: 0, previews: 0, saves: 0, downloads: 0, errors: 0, findings: [],
       message: "", added: [], undescribed: [], palette: [], mode: "move", snap: null, snapping: null,
-      placed: null, confirm: null, deletes: 0, acks: 0, ack: null, fits: 0, fit: null, mounting: null, mount: null,
+      placed: null, confirm: null, deletes: 0, acks: 0, ack: null, fits: 0, fit: null, mounting: null, mount: null, carried: null,
       plant: null, readonly: null,
     };
     this.element = document.createElement("div");
@@ -317,11 +327,31 @@ export class EditorPanel {
   }
 
   /** A drag ended on a snap (PLAN 4.1d): the snapped pose and the connection it makes. */
-  snapTo(id: string, position: [number, number, number], rotationDeg: number, connection: { from: string; to: string }): void {
+  snapTo(id: string, position: [number, number, number], rotationDeg: number, connection: { from: string; to: string }, followers: Follower[] = []): void {
     this.ops.change({ op: "set", path: ["components", id, "position"], value: position });
     this.ops.change({ op: "set", path: ["components", id, "rotation_deg"], value: rotationDeg });
     this.ops.connect(connection.from, connection.to);
-    void this.preview();
+    void this.preview().then(() => this.carry(followers));
+  }
+
+  /** The laid-out devices on a belt that just moved, placed again on its rails at the rail and
+   * distance each had, by the server's drop rules; each keeps its mark (ruled 2026-11-20,
+   * ruling 2, as `openfactory layout` moves them). */
+  private async carry(followers: Follower[]): Promise<void> {
+    if (!followers.length) return;
+    for (const f of followers) {
+      const res = await this.post("/api/edit/mount", { id: f.id, conveyor: f.conveyor, rail: f.rail, along: f.along });
+      if (!res.ok) {
+        this.renderFindings(`${f.id} not carried with ${f.conveyor} (${res.status}): ${String((await res.json()).detail)}`);
+        continue;
+      }
+      const placed = (await res.json()) as { position: [number, number, number]; rotation_deg: number; swing_deg?: number };
+      this.ops.change({ op: "set", path: ["components", f.id, "position"], value: placed.position }, { keepMark: true });
+      this.ops.change({ op: "set", path: ["components", f.id, "rotation_deg"], value: placed.rotation_deg });
+      if (placed.swing_deg !== undefined) this.ops.change({ op: "set", path: ["components", f.id, "swing_deg"], value: placed.swing_deg });
+    }
+    await this.preview();
+    this.status.carried = { conveyor: followers[0].conveyor, ids: followers.map((f) => f.id) }; // last: tests wait on it
   }
 
   /** A device dropped on a rail (PLAN 4.1g1): the editor chose the rail and the distance along
@@ -342,10 +372,10 @@ export class EditorPanel {
   }
 
   /** A drag in the plant ended (main.ts): the new position and, after a turn, rotation. */
-  moveTo(id: string, position: [number, number, number], rotationDeg: number | null): void {
+  moveTo(id: string, position: [number, number, number], rotationDeg: number | null, followers: Follower[] = []): void {
     this.ops.change({ op: "set", path: ["components", id, "position"], value: position });
     if (rotationDeg !== null) this.ops.change({ op: "set", path: ["components", id, "rotation_deg"], value: rotationDeg });
-    void this.preview();
+    void this.preview().then(() => this.carry(followers));
   }
 
   private async addComponent(type: string): Promise<void> {
@@ -492,6 +522,7 @@ export class EditorPanel {
     const src = (await (await fetch("/api/edit/source")).json()) as { name: string; base: string; data: Preview["data"]; plant?: string };
     this.base = src.base;
     this.data = src.data;
+    this.fileData = src.data;
     this.status.file = src.name;
     this.status.plant = src.plant ?? null;
     // a description still the placeholder `openfactory new` or the palette wrote holds Save

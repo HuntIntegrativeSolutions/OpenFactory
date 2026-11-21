@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findRail, type RailPort } from "./mount";
+import { findRail, followersOn, type RailPort } from "./mount";
 
 /** The rails core/mounts.py publishes for a belt at `origin`, turned `rot` degrees. */
 function belt(id: string, origin: [number, number, number], rot: number, length = 3, width = 0.5) {
@@ -49,3 +49,21 @@ describe("dropping a device on a rail (PLAN 4.1g1)", () => {
     expect(findRail([1, 0, 0.42], [near, far])!.conveyor).toBe("CONV_B");
   });
 });
+
+describe("followersOn (PLAN 5.5, ruled 2026-11-20, ruling 2)", () => {
+  const cv = belt("CV_201", [0, 0, 2.5], 0);
+  it("finds the laid-out devices on a belt with their rail and exact distance", () => {
+    const found = followersOn(cv, [
+      { id: "PE_201", type: "photo_eye", position: [1.2, 0.1, 2.5], laid_out: true },
+      { id: "CYL_201", type: "pusher", position: [2.0, 0.15, 2.2], laid_out: true },
+      { id: "PE_202", type: "photo_eye", position: [1.73, 0.1, 2.5], laid_out: false }, // placed by a person
+      { id: "TK_101", type: "tank", position: [1, 0, 2.5], laid_out: true }, // not a rail type
+      { id: "PE_9", type: "photo_eye", position: [9, 0.1, 9], laid_out: true }, // on no belt
+    ]);
+    expect(found).toEqual([
+      { id: "PE_201", conveyor: "CV_201", rail: "rail_right", along: 1.2 },
+      { id: "CYL_201", conveyor: "CV_201", rail: "rail_left", along: 2 },
+    ]);
+  });
+});
+

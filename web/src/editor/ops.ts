@@ -14,6 +14,13 @@ interface Added {
   placeholder: string;
 }
 
+/** Two scene values equal (numbers to 1e-9). */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) <= 1e-9;
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((v, i) => sameValue(v, b[i]));
+  return a === b && a !== undefined;
+}
+
 export class EditOps {
   private ops = new Map<string, EditOp>();
   private added = new Map<string, Added>();
@@ -24,6 +31,11 @@ export class EditOps {
   /** Whether a component carries `laid_out` (PLAN 5.5). Moving or re-typing its position clears
    * the mark: a person placed it (ruled 2026-11-19, second set). The panel sets this. */
   laidOut: (id: string) => boolean = () => false;
+  /** A value as the file on disk has it (the panel sets this): a position moved back to it is
+   * no change, and the mark it cleared comes back (ruled 2026-11-20, gap 2d). */
+  fileValue: (path: Path) => unknown = () => undefined;
+  /** Marks this object cleared by a move, not by the person's own tick of the checkbox. */
+  private clearedByMove = new Set<string>();
 
   get size(): number {
     return this.ops.size;
@@ -50,13 +62,24 @@ export class EditOps {
   }
 
   /** A change to one value (set, set_raw, unset) of a component, or of the scene. */
-  change(op: PathOp): void {
-    this.ops.set(pathKey(op.path), op);
+  change(op: PathOp, opts: { keepMark?: boolean } = {}): void {
     const [top, id, key] = op.path;
-    if (top === "components" && key === "position" && op.op !== "unset" && this.laidOut(String(id))) {
+    const mark: Path = ["components", String(id), "laid_out"];
+    if (top === "components" && key === "laid_out" && op.path.length === 3) this.clearedByMove.delete(String(id));
+    this.ops.set(pathKey(op.path), op);
+    if (top === "components" && key === "position" && this.positionIsFiles(String(id))) {
+      // moved back to where the file has it (dragged or typed): no change, and a mark the move
+      // cleared returns (review of 2026-11-20, gap 2d)
+      for (const [k, o] of this.ops) {
+        if ("path" in o && o.path[0] === "components" && o.path[1] === id && o.path[2] === "position") this.ops.delete(k);
+      }
+      if (this.clearedByMove.delete(String(id))) this.ops.delete(pathKey(mark));
+      return;
+    }
+    if (top === "components" && key === "position" && op.op !== "unset" && !opts.keepMark && this.laidOut(String(id))) {
       // a later tick of the checkbox sets the same path, so it replaces this
-      const mark: Path = ["components", String(id), "laid_out"];
       this.ops.set(pathKey(mark), { op: "unset", path: mark });
+      this.clearedByMove.add(String(id));
     }
     // the description a change writes, and whose: a component's, or the scene's own
     const owner = top === "components" && key === "description" && op.path.length === 3 ? String(id)
@@ -67,6 +90,22 @@ export class EditOps {
     const value = op.op === "set" ? op.value : null;
     if (typeof value === "string" && value.trim() && value !== placeholder) this.undescribed.delete(owner);
     else this.undescribed.add(owner);
+  }
+
+  /** Whether the pending position of component `id` (a whole value, or typed axis by axis)
+   * is the file's own. */
+  private positionIsFiles(id: string): boolean {
+    const file = this.fileValue(["components", id, "position"]);
+    if (!Array.isArray(file)) return false;
+    const now = [...file];
+    for (const o of this.ops.values()) {
+      if (!("path" in o) || o.path[0] !== "components" || o.path[1] !== id || o.path[2] !== "position") continue;
+      if (o.op !== "set") return false;
+      if (o.path.length === 3 && Array.isArray(o.value)) now.splice(0, now.length, ...o.value);
+      else if (o.path.length === 4 && typeof o.path[3] === "number") now[o.path[3]] = o.value;
+      else return false;
+    }
+    return sameValue(now, file);
   }
 
   /** A new component; `library` when the scene must first add `{library: name}`. */
@@ -112,6 +151,7 @@ export class EditOps {
   }
 
   clear(): void {
+    this.clearedByMove.clear();
     this.ops.clear();
     this.added.clear();
     this.placeholders.clear();

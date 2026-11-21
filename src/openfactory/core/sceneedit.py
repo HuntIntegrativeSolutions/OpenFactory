@@ -23,7 +23,10 @@ Operations (JSON objects). A ``path`` is a list of keys from the top of the scen
   ``components:`` (the scene settings form).
 - ``{"op": "set_raw", "path": [...], "literal": "text"}``: the same with YAML source text, as the
   inverse of a set uses to restore the exact original spelling.
-- ``{"op": "unset", "path": [...]}``: removes the key (its whole lines).
+- ``{"op": "unset", "path": [...]}``: removes the key (its whole lines). Clearing a component's
+  ``laid_out`` mark (an unset, or a set to false, which removes the key as false is its default)
+  also removes the ``LAID OUT by openfactory layout`` comment from its lines (PLAN 5.5, ruled
+  2026-11-20).
 - ``{"op": "move", "id": "CONV_02", "position": [x, y, z], "rotation_deg": r}``: a set of the
   position and, when given, the rotation.
 - ``{"op": "add", "component": {...}}``: appends a component, written in the shipped scenes'
@@ -258,7 +261,47 @@ def _connect(doc: Document, up: str, down: str) -> Op:
     return _inserted(doc.splice(at, at, f"{lead}connections:\n  - {entry}\n"))
 
 
+#: The comment layout and scaffold write on a laid-out component (PLAN 5.5), with its note.
+_LAID_OUT = re.compile(
+    r", LAID OUT by openfactory layout \(PLAN 5\.5\), not from a drawing(?:: .*?)?(?=\)$|$)",
+    re.M,
+)
+
+
+def _unmark(doc: Document, comp_id: str) -> Op | None:
+    """Remove the LAID OUT comment from a component's own lines (ruled 2026-11-20, ruling 3:
+    when its mark is cleared); the inverse, or None when it has none."""
+    _, node = doc.find(_resolve(doc, ["components", comp_id]))
+    start, end = doc._line_start(node.start_mark.index), node.end_mark.index
+    text = doc.text[start:end]
+    cleared = _LAID_OUT.sub("", text)
+    if cleared == text:
+        return None
+    return _inserted(doc.splice(start, end, cleared))
+
+
+def _clears_mark(op: Op) -> str | None:
+    """The component whose ``laid_out`` mark ``op`` clears (an unset, or a set to false)."""
+    path = list(op.get("path") or [])
+    if len(path) != 3 or path[0] != "components" or path[2] != "laid_out":
+        return None
+    if op.get("op") == "unset" or (op.get("op") == "set" and op.get("value") is False):
+        return str(path[1])
+    return None
+
+
 def _apply(doc: Document, op: Op) -> Op:
+    cleared = _clears_mark(op)
+    if cleared is not None:  # PLAN 5.5, ruling 3 of 2026-11-20: the comment goes with the mark
+        path = list(op["path"])  # false is the default: the key goes, as an unset
+        first = _apply_one(doc, {"op": "unset", "path": path}) if doc.has(
+            _resolve(doc, path[:-1]) + (path[-1],)) else {"op": "batch", "ops": []}  # fmt: skip
+        comment = _unmark(doc, cleared)
+        return first if comment is None else {"op": "batch", "ops": [comment, first]}
+    return _apply_one(doc, op)
+
+
+def _apply_one(doc: Document, op: Op) -> Op:
     kind = op.get("op")
     if kind == "set":
         return _set(doc, list(op["path"]), emit(op["value"]), op["value"])

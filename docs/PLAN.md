@@ -4380,6 +4380,35 @@ trusts it.
       typing `rotation_deg` alone keeps the mark (ruling 2 names position); a turn by dragging
       sets the position too and clears it. Docs: `docs/layout.md`, `docs/takeoff.md` (exit 1),
       the design note §7. Shipped scenes did not move: kits current, run references unchanged.
+      *Ruled 2026-11-20 (the owner, on review of 53328e8..af710fc):* (2) a laid-out device
+      mounted on a belt moves with its belt in the editor, as it does in `layout`; (3) when the
+      editor clears a `laid_out` mark, the save also removes that component's LAID OUT comment.
+      *Done (2026-11-20), each test first:* (2a) **already passing**: every type
+      `place_on_rail` accepts on each rail, and a distance sensor looking down on the belt's
+      centre, its mount kept and its belt laid out, scaffolded and laid out again, changes no
+      byte (`tests/unit/test_layout_mounts.py`, 14 cases; faf2092 had fixed it). (2b) ruling 2:
+      `web/src/editor/mount.ts` `followersOn` finds a belt's marked rail devices before it
+      moves (their rail and exact distance, as a drop would find them); after the belt's move
+      the panel places each again through `POST /api/edit/mount`, the one copy of the drop
+      rules, keeping its mark (`EditOps.change(..., {keepMark})`); the belt the person moved
+      loses its own. A limit, named in `docs/layout.md`: a laid-out emitter or remover at the
+      belt's ends is not carried (layout places it again). (2c) ruling 3: `core/sceneedit.py`
+      removes the `LAID OUT by openfactory layout` comment from the component's own lines
+      when an op clears its mark (an unset, or a set to false, which removes the key), with an
+      exact inverse. (2d) a move taken back before Save, dragged or typed axis by axis back to
+      the file's position, is no change and the mark the move cleared returns
+      (`EditOps.fileValue`); a mark the person unticked stays unticked. *Tests* (each failed
+      before its change): `web/src/editor/mount.test.ts` (followersOn) and `ops.test.ts` (move
+      back, typed back, the checkbox, keepMark); `tests/unit/test_laid_out_edits.py` (4: a
+      moved tank, an unticked transmitter, a stand-in, a pipe: the comment gone, no other line
+      but the position, and back byte for byte); `tests/integration/test_editor_laid_out.py`:
+      `test_dragging_a_belt_carries_its_laid_out_devices_with_their_marks` (CV_201 dragged
+      +1 m: PE_201 and CYL_201 the same distance along, the same rail and height, marked),
+      `test_a_move_undone_before_saving_keeps_the_mark`, and
+      `test_retyping_a_laid_out_position_clears_the_mark` (now: the comment gone, and the only
+      changed lines the id line's comment, the position and the mark). Screenshot looked at:
+      the belt dragged to x 2.5 with its eye and pusher on it, the emitter left at the old
+      infeed (the named limit).
 - [x] 5.6 Review overlay. A top view of the scene drawn over the layout drawing, and a table of
       takeoff rows against scene components, so the checker sees what was missed.
       *Done when:* removing one item from the sample scene shows it in both.

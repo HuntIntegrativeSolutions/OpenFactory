@@ -41,7 +41,7 @@ import { dimForeign, foreignFile } from "./editor/dim";
 import { recolorGizmo } from "./editor/gizmo";
 import { SnapMarker } from "./editor/markers";
 import { findSnap, loadPorts, localPort, worldPort, type Snap } from "./editor/snap";
-import { findRail, MOUNT_TYPES, railsOf, type RailDrop } from "./editor/mount";
+import { findRail, followersOn, MOUNT_TYPES, railsOf, type RailDrop } from "./editor/mount";
 import { placeNew, type Rect } from "./editor/place";
 import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
@@ -1451,6 +1451,13 @@ async function startEditor(): Promise<void> {
     }
     suppressClick = true; // the click that ends a drag does not change the selection
     if (!selectedId || !dragStart) return;
+    // PLAN 5.5 (ruled 2026-11-20, ruling 2): a belt's laid-out devices ride with it, found on
+    // its rails where it stood before the drag
+    const moved = doc?.components.find((c) => c.id === selectedId);
+    const followers = moved && railsOf(moved.snaps as never).length
+      ? followersOn({ id: moved.id, ports: railsOf(moved.snaps as never) },
+          (doc?.components ?? []).map((c) => ({ ...c, ...(panel.componentData(c.id) ?? {}) })) as never)
+      : [];
     dragStart = null;
     marker.hide();
     panel.status.snapping = null;
@@ -1468,7 +1475,7 @@ async function startEditor(): Promise<void> {
       const at = snapped.pose.position.map((v) => Number(v.toFixed(4))) as [number, number, number];
       const deg = Number(snapped.pose.rotation_deg.toFixed(4));
       panel.status.snap = { id: selectedId, mine: snapped.mine, theirs: snapped.theirs.id, port: snapped.theirs.port, connection: snapped.connection };
-      panel.snapTo(selectedId, at, deg, snapped.connection);
+      panel.snapTo(selectedId, at, deg, snapped.connection, followers);
       return;
     }
     const p = handle.position;
@@ -1476,7 +1483,7 @@ async function startEditor(): Promise<void> {
     let deg = THREE.MathUtils.radToDeg(handle.rotation.y);
     deg = Number((((deg % 360) + 540) % 360 - 180).toFixed(1));
     const before = Number(panel.componentData(selectedId)?.rotation_deg ?? 0);
-    panel.moveTo(selectedId, position, Math.abs(deg - before) > 1e-6 ? deg : null);
+    panel.moveTo(selectedId, position, Math.abs(deg - before) > 1e-6 ? deg : null, followers);
   });
   gizmo.addEventListener("objectChange", () => {
     if (!dragStart) return;
