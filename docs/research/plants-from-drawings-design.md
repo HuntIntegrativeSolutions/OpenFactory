@@ -624,6 +624,16 @@ was B4, which no even zone grid could hold beside the others), and the sample wa
 so the mark's date and rows digest below are the new ones (`1e822ddb5b17bd3a`; it was
 `2c9c61b4ae244f3a`).
 
+*Changed 2026-11-20 (ruled):* the sample obeys its own guide (`docs/authoring-from-drawings.md`).
+The values a real drawing carries are now printed on the sheets and their rows stay `read`:
+TK-101's diameter, height and LSH-101 set point (P-001's tank data block), P-101's duty and
+LV-101's Kv (P-001, under their tags), CV-201's speed (L-001, the belt's label). The values no
+drawing prints stay, on rows now marked `assumed` with a question naming each: TK-101's
+initial level, LT-101's and FT-101's `lag_s`, AG-101's size, PE-201's beam length, CYL-201's
+extend time. No number changed. CN-4's zone is D2, where P-001 prints its line number (it was
+E2; found by the guide's third test run). The sample was marked again: rows digest `366010d67977895a`
+(it was `1e822ddb5b17bd3a`), dated 2026-11-20.
+
 ```yaml
 takeoff: "0.1"
 plant:
@@ -635,8 +645,7 @@ drawings:
   - {id: L-001, kind: layout, title: Wash Water Skid and Reject Belt Layout, rev: A,
      frame: {units: mm, datum: [-3.0, 0, 4.0], rotation_deg: 0}}
   - {id: IO-001, kind: io_list, title: Wash Water Skid I/O List, rev: A}
-checked: {by: XX, date: 2026-11-17, drawings: [P-001@A, L-001@A, IO-001@A],
-          rows: 1e822ddb5b17bd3a}
+checked: {by: XX, date: 2026-11-20, drawings: [P-001@A, L-001@A, IO-001@A], rows: 366010d67977895a}
 equipment:
   - {row: EQ-1, tag: SUP-101, type: supply, description: Wash Water Make-Up Supply,
      params: {pressure_bar: 2.0}, ref: [{sheet: P-001, grid: A1}, {sheet: L-001, grid: A2}],
@@ -649,17 +658,20 @@ equipment:
   - {row: EQ-3, tag: TK-101, type: tank, description: Wash Water Tank,
      params: {diameter: 1.2, height: 1.8, initial_level: 0.9, hi_level: 1.6},
      ref: [{sheet: P-001, grid: C2}, {sheet: L-001, grid: B2}],
-     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 500}, confidence: read, questions: []}
+     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 500}, confidence: assumed,
+     questions: ["Initial level not on the drawings; initial_level 0.9 m assumed."]}
   - {row: EQ-4, tag: LT-101, type: transmitter,
      description: Wash Water Tank Level Transmitter,
      params: {measures: TK-101.level, range: [0, 1.8], lag_s: 1.0},
      ref: [{sheet: P-001, grid: C3}, {sheet: L-001, grid: B2}],
-     layout: {sheet: L-001, x: 3700, y: 4000, elevation: 1400}, confidence: read, questions: []}
+     layout: {sheet: L-001, x: 3700, y: 4000, elevation: 1400}, confidence: assumed,
+     questions: ["Lag not on the drawings; lag_s 1.0 s assumed."]}
   - {row: EQ-5, tag: AG-101, type: unknown, description: Wash Water Tank Agitator,
      params: {length: 0.3, width: 0.3, height: 0.6},
      ref: [{sheet: P-001, grid: C1}, {sheet: L-001, grid: B2}],
-     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 2400}, confidence: read,
-     questions: ["No agitator type yet (5.9); a stand-in until then."]}
+     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 2400}, confidence: assumed,
+     questions: ["No agitator type yet (5.9); a stand-in until then.",
+                 "Size not on the drawings; length 0.3 m, width 0.3 m, height 0.6 m assumed."]}
   - {row: EQ-6, tag: P-101, type: pump, description: Wash Water Transfer Pump,
      params: {design_flow_m3h: 3.0, design_head_m: 6.0},
      ref: [{sheet: P-001, grid: D2}, {sheet: L-001, grid: C2}],
@@ -668,7 +680,8 @@ equipment:
      description: Wash Water Transfer Flow Transmitter,
      params: {measures: P-101.flow, range: [0, 5.0], lag_s: 0.5},
      ref: [{sheet: P-001, grid: D3}, {sheet: L-001, grid: C2}],
-     layout: {sheet: L-001, x: 4800, y: 4000, elevation: 600}, confidence: read, questions: []}
+     layout: {sheet: L-001, x: 4800, y: 4000, elevation: 600}, confidence: assumed,
+     questions: ["Lag not on the drawings; lag_s 0.5 s assumed."]}
   - {row: EQ-8, tag: DR-101, type: drain, description: Wash Water To Washer,
      ref: [{sheet: P-001, grid: E2}, {sheet: L-001, grid: D2}],
      layout: {sheet: L-001, x: 5600, y: 4000, elevation: 300}, confidence: assumed,
@@ -678,11 +691,12 @@ equipment:
      layout: {sheet: L-001, x: 3000, y: 1500, elevation: 0}, confidence: read, questions: []}
   - {row: EQ-10, tag: PE-201, type: photo_eye, description: Carton Reject Belt Photo Eye,
      params: {beam_length: 0.6}, ref: [{sheet: L-001, grid: C4}],
-     mount: {conveyor: CV-201, sheet: L-001, along: 1200, rail: left}, confidence: read, questions: []}
+     mount: {conveyor: CV-201, sheet: L-001, along: 1200, rail: left}, confidence: assumed,
+     questions: ["Beam length not on the drawings; beam_length 0.6 m assumed."]}
   - {row: EQ-11, tag: CYL-201, type: pusher, description: Carton Reject Pusher,
      params: {stroke: 0.6, extend_time_s: 0.4}, ref: [{sheet: L-001, grid: C4}],
-     mount: {conveyor: CV-201, sheet: L-001, along: 2000, rail: left}, confidence: read,
-     questions: []}
+     mount: {conveyor: CV-201, sheet: L-001, along: 2000, rail: left}, confidence: assumed,
+     questions: ["Extend time not on the drawings; extend_time_s 0.4 s assumed."]}
   - {row: EQ-12, tag: EMT-201, type: box_emitter, description: Carton Reject Belt Carton Source,
      params: {interval_s: 4.0, parts: [{name: carton, size: [0.3, 0.3, 0.3], weight: 1.0}]},
      ref: [], at: [0.3, 0.155, 2.5], confidence: assumed,
@@ -698,7 +712,7 @@ connections:
   - {row: CN-3, from: TK-101.bottom, to: P-101.suction, line: 25-W-102,
      ref: [{sheet: P-001, grid: D2}], confidence: read, questions: []}
   - {row: CN-4, from: P-101.discharge, to: DR-101, line: 25-W-103,
-     ref: [{sheet: P-001, grid: E2}], confidence: read, questions: []}
+     ref: [{sheet: P-001, grid: D2}], confidence: read, questions: []}
 io:
   - {row: IO-1, equipment: LV-101, port: position, signal: AO, plc_tag: LV101_CV,
      ref: [{sheet: IO-001, row: 1}], confidence: read, questions: []}
@@ -912,15 +926,16 @@ composites:
 
 ```text
 wash-skid.takeoff.yaml -> wash-skid.yaml: 32 rows (13 equipment, 4 connections, 15 I/O)
-  placed          25
-  assumed          4   EQ-1 SUP-101, EQ-8 DR-101, EQ-12 EMT-201, EQ-13 REM-201
-  stand-in         3   EQ-5 AG-101 (type unknown: standin_ag_101); IO-5 -> run; IO-6 -> running
-  unplaced         0
-  not connected    0
-  25 + 4 + 3 + 0 + 0 = 32: every row accounted for
-positions: 9 from L-001 dimensions, 2 on CV-201's left rail (L-001), 2 in scene metres with no
-  layout sheet (EQ-12 EMT-201, EQ-13 REM-201)
-open questions, written as # QUESTION comments (6): EQ-1, EQ-5, EQ-8, EQ-12, EQ-13, IO-15
+  placed         20
+  assumed         9   EQ-1 SUP-101; EQ-3 TK-101; EQ-4 LT-101; EQ-7 FT-101; EQ-8 DR-101; EQ-10 PE-201; EQ-11 CYL-201; EQ-12 EMT-201; EQ-13 REM-201
+  laid out        0
+  stand-in        3   EQ-5 AG-101 (type unknown: standin_ag_101); IO-5 -> run; IO-6 -> running
+  unplaced        0
+  not connected   0
+  20 + 9 + 0 + 3 + 0 + 0 = 32: every row accounted for
+positions: 9 from L-001 dimensions (EQ-1, EQ-2, EQ-3, EQ-4, EQ-5, EQ-6, EQ-7, EQ-8, EQ-9); 2 on CV-201's left rail (L-001) (EQ-10, EQ-11); 2 in scene metres with no layout sheet (EQ-12 EMT-201, EQ-13 REM-201)
+pipes, routed by openfactory layout (2): PIPE_101 (CN-2) routed, 1 bend; PIPE_102 (CN-4) routed, 0 bends
+open questions, written as # QUESTION comments (11): EQ-1, EQ-3, EQ-4, EQ-5, EQ-7, EQ-8, EQ-10, EQ-11, EQ-12, EQ-13, IO-15
 ```
 
 Each row has exactly one outcome, so the outcomes add up to the rows. Open questions are listed

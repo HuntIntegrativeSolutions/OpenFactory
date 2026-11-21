@@ -3640,6 +3640,33 @@ trusts it.
         sample passes `check`, fails `--strict` on its questions, and a copy with them answered
         is stale until marked, then passes `--strict`. Scaffolding the sample gives the worked
         example's counts, 25 placed, 4 assumed, 3 stand-in (5.1b's test).
+        *Ruled 2026-11-20 (the owner, on review of 53328e8..af710fc), ruling 1: the sample obeys
+        its own guide.* Values a real drawing carries are printed on the sheets and their rows
+        stay `read`; values no drawing prints stay in the takeoff, the row marked `assumed`
+        with a question naming each; no number changes. *Done (2026-11-20):*
+        `tools/make_sample_sheets.py` prints on P-001 LV-101's `KV 6` under its tag, TK-101's
+        data block beside it (`DIA 1200 x 1800 H`, `LSH-101 AT 1600`) and P-101's duty under its
+        tag (`3.0 M3/H AT 6.0 M`), and on L-001 the belt's speed in its label (`..., 3000 LG x
+        500 W, 0.4 M/S, TOB EL 0`); nothing else on either sheet moved, both PNGs rendered again
+        and looked at. TK-101, LT-101, FT-101, AG-101, PE-201 and CYL-201 are now `assumed`,
+        each with a question naming its value (initial level; both `lag_s`; AG-101's size;
+        PE-201's beam length; CYL-201's extend time); SUP-101 was already. CN-4's zone is D2,
+        where P-001 prints its line number (it said E2; found by the guide's third run, 5.13).
+        Re-marked `--mark XX`: rows digest `366010d67977895a` (was `1e822ddb5b17bd3a`), dated
+        2026-11-20; revisions stay A (nothing but the printed values changed on the sheets: a
+        decision beyond the ruling, which says nothing else moves). Scaffolding now gives 20
+        placed, 9 assumed, 3 stand-in, 11 open questions. **The scaffolded scene's diff**:
+        six `# QUESTION` lines added; the trailing comment on five component lines (TK_101,
+        LT_101, FT_101, PE_201, CYL_201) gains `, assumed`, as scaffold writes on every assumed
+        row; PIPE_102's comment reads `P-001 D2` for `E2`; no key or value changed. (So the
+        scene moved by more than its QUESTION comments: those six comment edits, which come
+        from the re-marking itself.) *Test:* `tests/unit/test_sample_set.py::test_every_param_
+        on_a_read_row_is_printed_on_its_sheets` (a value on a `read` row is printed within
+        110 px of its tag or bubble on a sheet its `ref` names, or on its own I/O-list rows, in
+        the takeoff's units or in mm; a `measures` by its bubble's letter and the measured tag);
+        it failed before with exactly the ruling's fifteen values and passes now. The tests and
+        docs that quote the mark, the counts and the questions follow (`test_takeoff.py`,
+        `test_scaffold.py`, `docs/takeoff.md`, the design note §3.6).
 - [x] 5.2 Generic equipment. Something on the drawing has no component: it must still appear, with
       its I/O and a simple behaviour (a delay, a first-order lag, a permissive). First test how far
       a composite goes today (computed DIs exist, 2.16); add a `machine` primitive only for what a
@@ -4502,6 +4529,22 @@ Each type in 5.7 to 5.11 has the usual Done-when: a unit test, a docstring spec,
       leaves them to layout, which places them at the belt's ends. (3) FT-101's extra P-001
       zone (the flow element's, D2) follows the guide's rule of every zone drawn in. (4) The
       datum `[0, 0, 0]` and the I/O list's title and rev are the guide's defaults.
+      *Run 3 (2026-11-20, after ruling 1 re-marked the sample):* a fresh subagent, the same
+      four files only, `takeoff check` 0 errors. Every value the sheets now print matches the
+      shipped takeoff: TK-101's diameter, height and `hi_level`, LV-101's `kv`, P-101's duty,
+      CV-201's speed, CYL-201's stroke, both ranges. Differences, each explained or fixed:
+      (1) the values no sheet prints (SUP-101's pressure, TK-101's initial level, both
+      `lag_s`, AG-101's size, PE-201's beam length, CYL-201's extend time): the run left them
+      out and asked, so its rows stay `read`; the shipped sample gives them, so its rows are
+      `assumed` (ruling 1): both follow the guide (leave out and ask, or give a typical value
+      with the row `assumed`). (2) CN-4's zone: the run's D2 is right; the sample is fixed
+      (5.1c). (3) EMT-201 and REM-201 `at`, FT-101's extra zone, the datum and the I/O list's
+      rev: as explained after runs 1 and 2. (4) Row numbers: the run numbered AG-101 (zone C1)
+      before TK-101 (C2), zone by zone; the sample numbers in flow order; a row number is a
+      label. Guide changes from it (the run's own list of what it found unclear): a pump's
+      duty, a tank's size and a belt's speed named as parameters; a set point measured from
+      the tank's bottom; a label across a zone boundary; a belt's `y` is its centreline; an
+      item on its host is `read` when the sheet says so; the demo default cross-referenced.
 #### Seeing the plant together
 - [x] 5.14 Seeing the plant together (ruled 2026-11-15). *Goal:* while a PLC program is being
       written, the person and the assistant see the same plant at the same moment, and both can

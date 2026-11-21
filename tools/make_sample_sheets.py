@@ -174,6 +174,7 @@ def p001() -> str:
     svg.line(vx, vy, vx, vy - 34)
     svg.add(f'<path d="M {vx - 18} {vy - 34} A 18 14 0 0 1 {vx + 18} {vy - 34} Z" fill="#ffffff"/>')
     svg.text(vx, vy + 34, "LV-101", 12, "middle", "bold")
+    svg.text(vx, vy + 48, "KV 6", 10, "middle")  # its data, printed beside it (ruled 2026-11-20)
     svg.line(vx + 30, vy, 690, vy, **thick)
     svg.line(690, vy, 690, 310, **thick)
     svg.text(510, 272, "25-W-101", 11)
@@ -182,6 +183,9 @@ def p001() -> str:
     svg.rect(630, 310, 140, 120, fill="#ffffff", **{"stroke-width": "2.5"})
     svg.text(686, 380, "TK-101", 13, "middle", "bold")
     svg.text(686, 397, "WASH WATER TANK", 9, "middle")  # clear of the shaft at x 745
+    # its data block, between the tank and the pump (ruled 2026-11-20)
+    svg.text(782, 372, "DIA 1200 x 1800 H", 9)
+    svg.text(782, 386, "LSH-101 AT 1600", 9)
     svg.circle(745, 170, 22, fill="#ffffff")
     svg.text(745, 175, "M", 14, "middle", "bold")
     svg.line(745, 192, 745, 418)
@@ -207,6 +211,7 @@ def p001() -> str:
     svg.poly([(946, 445), (960, 409), (974, 445)], closed=True)
     svg.text(960, 480, "P-101", 12, "middle", "bold")
     svg.text(960, 494, "TRANSFER PUMP", 9, "middle")
+    svg.text(960, 507, "3.0 M3/H AT 6.0 M", 9, "middle")  # its duty (ruled 2026-11-20)
 
     # discharge 25-W-103 through FE/FT-101 (D3) to the washer, off this drawing (E2)
     svg.line(985, 430, 1170, 430, **thick)
@@ -334,8 +339,8 @@ def l001() -> str:
         svg.line(x, btop, x, bbot, **faint)
     _, cl = _px(0, 1500)
     svg.arrow(bx + 30, cl, bx2 - 30, cl, 10)
-    svg.text((bx + bx2) / 2, bbot + 18, "CV-201 CARTON REJECT BELT, 3000 LG x 500 W, TOB EL 0", 11,
-             "middle", "bold")  # fmt: skip
+    label = "CV-201 CARTON REJECT BELT, 3000 LG x 500 W, 0.4 M/S, TOB EL 0"  # speed: 2026-11-20
+    svg.text((bx + bx2) / 2, bbot + 18, label, 11, "middle", "bold")
     svg.text((bx + bx2) / 2, bbot + 32, "FLOW +X. INFEED END AT X 3000.", 10, "middle")
     svg.text(bx - 6, cl + 4, "INFEED", 10, "end")
     # PE-201 on the left (north) rail 1200 from the infeed, its beam across the belt

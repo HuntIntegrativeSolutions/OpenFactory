@@ -34,30 +34,34 @@ def counts(result) -> dict[str, int]:
 
 
 def test_the_sample_scaffolds_to_a_scene_that_validates_and_reports_every_row(tmp_path) -> None:
-    """Done-when: 32 rows, 25 placed, 4 assumed, 3 stand-in; AG-101 a stand-in carrying IO-5
+    """Done-when: 32 rows (25 placed, 4 assumed until the re-marking of 2026-11-20; now 20
+    placed, 9 assumed), 3 stand-in; AG-101 a stand-in carrying IO-5
     and IO-6; exit 3."""
     out = tmp_path / "wash-skid.yaml"
     done = CliRunner().invoke(cli, ["takeoff", "scaffold", str(SAMPLE), "-o", str(out)])
     assert done.exit_code == 3, done.output
     assert "32 rows (13 equipment, 4 connections, 15 I/O)" in done.output
-    assert "25 + 4 + 0 + 3 + 0 + 0 = 32: every row accounted for" in done.output
+    assert "20 + 9 + 0 + 3 + 0 + 0 = 32: every row accounted for" in done.output
     scene = load_scene(out)  # validates
     result = scaffold(tk.load(SAMPLE))
     assert counts(result) == {
-        "placed": 25, "assumed": 4, "laid out": 0, "stand-in": 3, "unplaced": 0,
+        "placed": 20, "assumed": 9, "laid out": 0, "stand-in": 3, "unplaced": 0,
         "not connected": 0,
     }  # fmt: skip
-    assert {o.row for o in result.tally()["assumed"]} == {"EQ-1", "EQ-8", "EQ-12", "EQ-13"}
+    assert {o.row for o in result.tally()["assumed"]} == {
+        "EQ-1", "EQ-3", "EQ-4", "EQ-7", "EQ-8", "EQ-10", "EQ-11", "EQ-12", "EQ-13"
+    }  # fmt: skip
     assert [o.row for o in result.tally()["stand-in"]] == ["EQ-5", "IO-5", "IO-6"]
     ag = next(c for c in scene.components if c.id == "AG_101_BODY")
     assert ag.type == "scenery" and scene.instance_type("AG_101") == "standin_ag_101"
     tags = {b.name: b.plc_tag for b in scene.tag_bindings()}
     assert tags["AG_101_RUN_DO"] == "AG101.Run" and tags["AG_101_RUN_DI"] == "AG101.Running"
     assert (
-        "open questions, written as # QUESTION comments (6): EQ-1, EQ-5, EQ-8, EQ-12, "
-        "EQ-13, IO-15" in done.output
+        "open questions, written as # QUESTION comments (11): EQ-1, EQ-3, EQ-4, EQ-5, EQ-7, "
+        "EQ-8, EQ-10, EQ-11, EQ-12, EQ-13, IO-15" in done.output
     )
-    for row in ("EQ-1", "EQ-5", "EQ-8", "EQ-12", "EQ-13", "IO-15"):
+    for row in ("EQ-1", "EQ-3", "EQ-4", "EQ-5", "EQ-7", "EQ-8", "EQ-10", "EQ-11", "EQ-12",
+                "EQ-13", "IO-15"):  # fmt: skip
         assert f"# QUESTION ({row}):" in result.text
 
 
@@ -166,6 +170,8 @@ def test_a_clean_takeoff_exits_0(tmp_path) -> None:
     data["equipment"] = [e for e in data["equipment"] if e["tag"] in keep]
     data["connections"] = []
     data["io"] = [r for r in data["io"] if r["equipment"] in keep]
+    pe = next(e for e in data["equipment"] if e["tag"] == "PE-201")
+    pe.update(confidence="read", questions=[])  # as if its beam length were printed
     out = tmp_path / "clean.yaml"
     path = tmp_path / "clean.takeoff.yaml"
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
@@ -251,12 +257,12 @@ def test_an_assumed_io_or_connection_row_is_assumed(tmp_path) -> None:
     next(r for r in data["io"] if r["row"] == "IO-5")["confidence"] = "assumed"  # a stand-in's
     result = from_data(tmp_path, data)
     assert counts(result) == {
-        "placed": 23, "assumed": 6, "laid out": 0, "stand-in": 3, "unplaced": 0,
+        "placed": 18, "assumed": 11, "laid out": 0, "stand-in": 3, "unplaced": 0,
         "not connected": 0,
     }  # fmt: skip
     notes = {o.row: o.note for o in result.tally()["assumed"]}
     assert notes["IO-4"] == "LT-101.pv" and notes["CN-2"] == "LV-101 -> TK-101.top"
-    assert counts(scaffold(tk.load(SAMPLE)))["assumed"] == 4  # the sample's four are equipment
+    assert counts(scaffold(tk.load(SAMPLE)))["assumed"] == 9  # the sample's nine are equipment
 
 
 def test_a_stand_in_with_two_dis_and_two_ais(tmp_path) -> None:

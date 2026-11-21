@@ -49,19 +49,21 @@ def run(*args: str):
     return CliRunner().invoke(cli, ["takeoff", "check", *args])
 
 
-def test_the_sample_passes_check_and_strict_fails_on_its_six_open_questions() -> None:
+def test_the_sample_passes_check_and_strict_fails_on_its_open_questions() -> None:
     done = run(str(SAMPLE))
     assert done.exit_code == 0, done.output
     assert "32 rows (13 equipment, 4 connections, 15 I/O)" in done.output
     assert "WARN  EQ-5 (L-001): AG-101 has type unknown" in done.output
-    assert "checked: current (XX, 2026-11-17)" in done.output
+    assert "checked: current (XX, 2026-11-20)" in done.output
     strict = run(str(SAMPLE), "--strict")
     assert strict.exit_code == 1
     assert (
-        "FAIL (--strict): 6 rows have open questions: EQ-1, EQ-5, EQ-8, EQ-12, EQ-13, IO-15"
-        in strict.output
+        "FAIL (--strict): 11 rows have open questions: EQ-1, EQ-3, EQ-4, EQ-5, EQ-7, EQ-8, "
+        "EQ-10, EQ-11, EQ-12, EQ-13, IO-15" in strict.output
     )
-    assert tk.rows_digest(sample()) == "1e822ddb5b17bd3a"  # the note's mark is current
+    assert (
+        tk.rows_digest(sample()) == "366010d67977895a"
+    )  # the mark is current (re-marked 2026-11-20)
 
 
 def _err(data: dict, rid: str, edit) -> dict:  # noqa: ANN001
@@ -192,7 +194,7 @@ def test_the_two_warnings(tmp_path) -> None:
 def test_mark_writes_the_mark_and_changes_no_other_byte(tmp_path) -> None:
     path = tmp_path / "w.takeoff.yaml"
     text = SAMPLE.read_text(encoding="utf-8")
-    text = text.replace("rows: 1e822ddb5b17bd3a}", "rows: ffffffffffffffff}")
+    text = text.replace("rows: 366010d67977895a}", "rows: ffffffffffffffff}")
     path.write_bytes(text.encode("utf-8"))
     assert "checked: stale, rows changed since checking" in run(str(path)).output
     new = tk.write_mark(tk.load(path), "QA", dt.date(2026, 11, 16))
@@ -201,11 +203,11 @@ def test_mark_writes_the_mark_and_changes_no_other_byte(tmp_path) -> None:
     assert new.startswith(head) and new.endswith(after)  # every other byte as it was
     assert (
         "checked: {by: QA, date: 2026-11-16, drawings: [P-001@A, L-001@A, IO-001@A], rows: "
-        "1e822ddb5b17bd3a}\n" in new
+        "366010d67977895a}\n" in new
     )
     done = run(str(path), "--mark", "QA")
     assert done.exit_code == 0 and "checked: current (QA, " in done.output
-    assert tk.load(path).model.checked.rows == "1e822ddb5b17bd3a"
+    assert tk.load(path).model.checked.rows == "366010d67977895a"
     # a takeoff with no mark gets one at the end, its other bytes kept
     bare = text.split("checked: ", 1)[0] + after
     path.write_text(bare, encoding="utf-8")
@@ -239,7 +241,7 @@ def test_a_changed_sheet_revision_fails_strict_naming_the_sheet(tmp_path) -> Non
     digest = tk.rows_digest(data)
     edited = text.replace("title: Wash Water Skid and Reject Belt Layout, rev: A",
                           "title: Wash Water Skid and Reject Belt Layout, rev: B")  # fmt: skip
-    edited = edited.replace("1e822ddb5b17bd3a", digest)
+    edited = edited.replace("366010d67977895a", digest)
     path.write_text(edited, encoding="utf-8")
     done = run(str(path), "--strict")
     assert done.exit_code == 1
@@ -347,7 +349,7 @@ def test_a_key_written_twice_is_refused_naming_the_key_and_its_line(tmp_path) ->
     ("old", "new", "message"),
     [
         ("plant:", "plant: &p", "anchors and aliases"),
-        ("questions: []}\n  - {row: EQ-4", "questions: []}\n  - &a {row: EQ-4", "anchors"),
+        ("questions: []}\n  - {row: EQ-3", "questions: []}\n  - &a {row: EQ-3", "anchors"),
         ('takeoff: "0.1"', 'takeoff: "0.1"\nx: &a [1]\ny: *a', "anchors and aliases"),
         ("plant:", "<<: {extra: 1}\nplant:", "the merge key << is not allowed"),
     ],

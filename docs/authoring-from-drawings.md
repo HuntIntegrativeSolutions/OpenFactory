@@ -210,13 +210,15 @@ Work across the sheet zone by zone, and write a row for each thing as you meet i
 
 - **Equipment.** Every tank, pump, valve, conveyor and motor-driven item is an equipment row:
   its tag as printed, its type from the table, its grid zone in `ref`. The data printed beside
-  it (a tank's size, a pump's duty, a valve's kv, notes on the sheet) are its `params`.
+  it or in its data block are its `params`: a tank's size as `diameter` and `height`; a pump's
+  duty, a flow at a head, as `design_flow_m3h` and `design_head_m`; a valve's `kv`; a belt's
+  speed as `speed_mps`.
 - **Instruments.** An instrument bubble that transmits (`LT`, `FT`, `PT`, `TT`) is a
   `transmitter` row whose `measures` names what it reads; its `range` and units come from the
   I/O list. A flow element drawn with its transmitter (`FE` and `FT` on one line) is the one
   transmitter row. **A level switch on a tank** (`LSH`, `LSL`) is not a row of its own: it is
   the tank's `hi_sw` or `lo_sw` port, used by an `io` row, and its set point, if printed, is
-  the tank's `hi_level` or `lo_level`.
+  the tank's `hi_level` or `lo_level`, measured up from the tank's bottom.
 - **Lines.** Every line between two pieces of equipment is a connection row, from upstream to
   downstream (follow the flow arrows), with its line number. Name the port where it matters:
   a tank's `top` or `bottom` (or a nozzle the drawing names); a pump's `suction` and
@@ -234,7 +236,8 @@ Work across the sheet zone by zone, and write a row for each thing as you meet i
 - **Grid zones.** `ref` lists every zone the item is drawn in on each sheet (an element in one
   zone and its bubble in the next: both). For an item across a zone boundary, use the zone that
   holds its reference point (section 5: a belt's infeed end, a tank's centre). A connection's
-  `ref` is the zone its line number is printed in.
+  `ref` is the zone its line number is printed in; a label printed across a zone boundary
+  takes the zone its first character is in.
 
 ## 5. Reading the layout sheet
 
@@ -249,7 +252,8 @@ A layout sheet gives positions. Copy them as printed; the tool converts them to 
   datum (an `EL` figure), all in the sheet's units. Use the point the sheet dimensions for each
   type: a tank's centre (its elevation the bottom of the tank); a pump, valve, supply or drain
   at its line (its elevation the line's); a transmitter where it is drawn; a conveyor the
-  centre of its **infeed end** (the end parts arrive at; its elevation the belt top). A
+  centre of its **infeed end** (the end parts arrive at: its `x` the infeed, its `y` the belt's
+  centreline, its elevation the belt top). A
   conveyor drawn running other than to the right adds `heading_deg`: its direction on the
   sheet, counter-clockwise from the sheet's x, in degrees.
 - **A device on a belt**, `mount: {conveyor, sheet, along, rail}`: a photo eye, pusher,
@@ -263,7 +267,8 @@ A layout sheet gives positions. Copy them as printed; the tool converts them to 
   position in the scene that no sheet shows.
 
 - **An item mounted on another** (an agitator on a tank's top) with no ordinates of its own
-  takes its host's `x` and `y` and its own printed `elevation`.
+  takes its host's `x` and `y` and its own printed `elevation`; when the sheet says so ("ON
+  TK-101 TOP"), that is `read`.
 
 Never invent a dimension. A position read off a sheet is `read`; one worked out from other
 dimensions (say, a device at the middle of a belt marked only "centred") is `inferred`, with a
@@ -292,7 +297,8 @@ Every point of the list is an `io` row, in the list's order.
 
 ## 7. For a demo: what the drawings do not show
 
-A conveyor line in a demo needs parts to carry. Add a `box_emitter` at the infeed of each line's
+With no one to ask, treat the job as a demo (section 1, question 6). A conveyor line in a demo
+needs parts to carry. Add a `box_emitter` at the infeed of each line's
 first belt (`params: {interval_s: 4.0, parts: [{name: carton, size: [0.3, 0.3, 0.3], weight:
 1.0}]}`, sized from what the line carries if anyone knows) and a `part_remover` past its last
 belt's discharge (`params: {size: [0.3, 1.0, 1.0]}`). Neither is on the drawings: `confidence:

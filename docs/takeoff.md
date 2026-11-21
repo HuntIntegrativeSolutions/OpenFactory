@@ -51,15 +51,17 @@ drawings:
   - {id: L-001, kind: layout, title: Wash Water Skid and Reject Belt Layout, rev: A,
      frame: {units: mm, datum: [-3.0, 0, 4.0], rotation_deg: 0}}
   - {id: IO-001, kind: io_list, title: Wash Water Skid I/O List, rev: A}
-checked: {by: XX, date: 2026-11-17, drawings: [P-001@A, L-001@A, IO-001@A], rows: 1e822ddb5b17bd3a}
+checked: {by: XX, date: 2026-11-20, drawings: [P-001@A, L-001@A, IO-001@A], rows: 366010d67977895a}
 equipment:
   - {row: EQ-3, tag: TK-101, type: tank, description: Wash Water Tank,
      params: {diameter: 1.2, height: 1.8, initial_level: 0.9, hi_level: 1.6},
      ref: [{sheet: P-001, grid: C2}, {sheet: L-001, grid: B2}],
-     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 500}, confidence: read, questions: []}
+     layout: {sheet: L-001, x: 3000, y: 4000, elevation: 500}, confidence: assumed,
+     questions: ["Initial level not on the drawings; initial_level 0.9 m assumed."]}
   - {row: EQ-10, tag: PE-201, type: photo_eye, description: Carton Reject Belt Photo Eye,
      params: {beam_length: 0.6}, ref: [{sheet: L-001, grid: C4}],
-     mount: {conveyor: CV-201, sheet: L-001, along: 1200, rail: left}, confidence: read, questions: []}
+     mount: {conveyor: CV-201, sheet: L-001, along: 1200, rail: left}, confidence: assumed,
+     questions: ["Beam length not on the drawings; beam_length 0.6 m assumed."]}
 connections:
   - {row: CN-3, from: TK-101.bottom, to: P-101.suction, line: 25-W-102,
      ref: [{sheet: P-001, grid: D2}], confidence: read, questions: []}
@@ -209,16 +211,16 @@ The sample's report:
 
 ```text
 wash-skid.takeoff.yaml -> wash-skid.yaml: 32 rows (13 equipment, 4 connections, 15 I/O)
-  placed         25
-  assumed         4   EQ-1 SUP-101; EQ-8 DR-101; EQ-12 EMT-201; EQ-13 REM-201
+  placed         20
+  assumed         9   EQ-1 SUP-101; EQ-3 TK-101; EQ-4 LT-101; EQ-7 FT-101; EQ-8 DR-101; EQ-10 PE-201; EQ-11 CYL-201; EQ-12 EMT-201; EQ-13 REM-201
   laid out        0
   stand-in        3   EQ-5 AG-101 (type unknown: standin_ag_101); IO-5 -> run; IO-6 -> running
   unplaced        0
   not connected   0
-  25 + 4 + 0 + 3 + 0 + 0 = 32: every row accounted for
+  20 + 9 + 0 + 3 + 0 + 0 = 32: every row accounted for
 positions: 9 from L-001 dimensions (EQ-1, EQ-2, EQ-3, EQ-4, EQ-5, EQ-6, EQ-7, EQ-8, EQ-9); 2 on CV-201's left rail (L-001) (EQ-10, EQ-11); 2 in scene metres with no layout sheet (EQ-12 EMT-201, EQ-13 REM-201)
 pipes, routed by openfactory layout (2): PIPE_101 (CN-2) routed, 1 bend; PIPE_102 (CN-4) routed, 0 bends
-open questions, written as # QUESTION comments (6): EQ-1, EQ-5, EQ-8, EQ-12, EQ-13, IO-15
+open questions, written as # QUESTION comments (11): EQ-1, EQ-3, EQ-4, EQ-5, EQ-7, EQ-8, EQ-10, EQ-11, EQ-12, EQ-13, IO-15
 ```
 
 **Exit codes:** 0 when every row is placed with no stand-in, no assumption and no question; 3

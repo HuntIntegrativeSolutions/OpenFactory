@@ -133,3 +133,78 @@ def test_no_text_touches_a_vertical_line() -> None:
         touching += [(sheet, text, x) for text, x0, x1, top, base in texts
                      for x, y1, y2 in lines if x0 < x < x1 and y1 < base and y2 > top]  # fmt: skip
     assert touching == []
+
+
+#: A number as printed (a token, not part of a word or a longer number).
+_NUMBER = r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])"
+#: A value counts as printed for an item when it is within this many pixels of the item's tag.
+NEAR_PX = 110
+
+
+def _texts(sheet: str) -> list[tuple[float, float, str]]:
+    path = SET / f"{sheet}.svg"
+    if not path.is_file():
+        return []
+    return [(float(t.get("x", 0)), float(t.get("y", 0)), "".join(t.itertext()))
+            for t in ET.parse(path).getroot().iter() if t.tag.endswith("text")]  # fmt: skip
+
+
+def _near_tag(tag: str, sheet: str) -> list[str]:
+    """The texts printed near the item's tag on a sheet: within :data:`NEAR_PX` of a text
+    naming the tag, or of its instrument bubble (its letters over its loop number)."""
+    import math
+
+    texts = _texts(sheet)
+    letters, _, loop = tag.partition("-")
+    anchors = [(x, y) for x, y, t in texts if tag in t]
+    anchors += [
+        (x, y) for x, y, t in texts if t == letters
+        for x2, y2, t2 in texts if t2 == loop and abs(x2 - x) < 1 and 0 < y2 - y < 30
+    ]  # fmt: skip
+    return [t for x, y, t in texts if any(math.dist((x, y), a) <= NEAR_PX for a in anchors)]
+
+
+def _listed(scene_id: str) -> list[str]:
+    rows = list(csv.DictReader((SET / "IO-001.csv").open(encoding="utf-8")))
+    return [v for r in rows if r["component"] == scene_id for v in r.values() if v]
+
+
+def _values(value: object) -> list[object]:
+    if isinstance(value, list | tuple):
+        return [v for x in value for v in _values(x)]
+    if isinstance(value, dict):
+        return [v for x in value.values() for v in _values(x)]
+    return [value]
+
+
+def test_every_param_on_a_read_row_is_printed_on_its_sheets() -> None:
+    """PLAN 5.1c, ruled 2026-11-20 (1): the sample obeys its own guide. A value on a row marked
+    `read` is printed beside the item on a sheet the row names in `ref` (within NEAR_PX of its
+    tag or bubble), or on its own rows of the I/O list: a number in the takeoff's units or, for
+    a length, in millimetres. A transmitter's `measures` is printed by its bubble's first letter
+    (L level, F flow, T temperature, P pressure) and the measured item's tag on the sheet.
+    Values no drawing prints belong on an `assumed` row with a question naming each."""
+    import re
+
+    model = tk.load(SET / "wash-skid.takeoff.yaml").model
+    kinds = {"level": "L", "flow": "F", "temperature": "T", "pressure": "P"}
+    missing = []
+    for e in model.equipment:
+        if e.confidence != "read":
+            continue
+        near = [t for r in e.ref for t in _near_tag(e.tag, r.sheet)] + _listed(tk.scene_id(e))
+        numbers = {float(n) for t in near for n in re.findall(_NUMBER, t)}
+        for name, value in e.params.items():
+            if name == "measures":
+                tag, _, kind = str(value).partition(".")
+                sheets = " ".join(t for r in e.ref for _, _, t in _texts(r.sheet))
+                if not (tag in sheets and e.tag.startswith(kinds.get(kind, "?"))):
+                    missing.append(f"{e.tag}.{name} = {value}")
+                continue
+            for v in _values(value):
+                if isinstance(v, bool) or not isinstance(v, int | float):
+                    continue
+                if float(v) not in numbers and round(float(v) * 1000, 6) not in numbers:
+                    missing.append(f"{e.tag}.{name} = {v}")
+    print("\n".join(missing))
+    assert missing == []
