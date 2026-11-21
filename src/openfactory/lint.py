@@ -13,6 +13,14 @@ Errors (``openfactory lint`` exits 1):
   9; the default ``bottom`` and ``top`` may stay unused).
 - ``E103`` a part of the flow network with no node of known head (no tank, supply or open drain):
   its heads are undefined and nothing can flow in it.
+- ``E105`` to ``E109`` the solids network (PLAN 5.7a, ADR-0006): ``E105`` a bulk link end (an
+  airlock's, a screw's or a slide gate's ``from`` or ``to``) that names no component, or one that
+  is not in the solids network; ``E106`` a bin or bulk supply with no ``material``; ``E107`` a
+  material no ``materials:`` entry declares; ``E108`` a bulk end joined to a liquid component
+  (a tank's nozzle, a pipe, a pump; a liquid link that names a bulk component does not load,
+  E100); ``E109`` a link that would carry one material into a bin of another (a bin holds one
+  material in 5.7a). These are found before the scene is built, and a scene with any of them is
+  reported without the findings that need it built.
 - ``E104`` a component ``mesh`` (PLAN 2.15) whose file resolves outside the scene's folder once
   symlinks are followed (``../``, an absolute path, or a link out). The loader never reads such a
   file and the editor never serves it; this makes the editor's preview say so and its save refuse
@@ -313,6 +321,9 @@ def lint_scene(
         else:
             text = read_scene_text(path) if text is None else text
             scene = parse_scene(text, path.parent, source=path, overrides=overrides)
+        bulk = _bulk_findings(scene)
+        if bulk:
+            return bulk  # the network cannot be built (PLAN 5.7a)
         loaded = build(scene, base_dir=path.parent)
         scene_dir = path.parent  # `path` is reused below for a pusher's push path
     except (OSError, ValueError, ValidationError) as exc:
@@ -455,6 +466,64 @@ def lint_scene(
                         "the source) or list it in THIRD_PARTY.md")
             )  # fmt: skip
     return findings
+
+
+def _bulk_findings(scene: Any) -> list[Finding]:
+    """E105 to E109 on the scene's solids network (PLAN 5.7a, ADR-0006), from the scene alone."""
+    from openfactory.core.schema import BULK_LINK_TYPES, BULK_TYPES, PROCESS_TYPES
+
+    out: list[Finding] = []
+    by_id = {c.id: c for c in scene.components}
+    declared = {m.name for m in scene.materials or []}
+    for comp in scene.components:
+        if comp.type in ("bin", "bulk_supply"):
+            if comp.material is None:  # type: ignore[attr-defined]
+                out.append(Finding("error", "E106", f"{comp.id}: a {comp.type} names no material; "
+                                   "give `material:`, declared in `materials:`"))  # fmt: skip
+            elif comp.material not in declared:  # type: ignore[attr-defined]
+                listed = ", ".join(sorted(declared)) or "none"
+                out.append(Finding("error", "E107", f"{comp.id}: material "
+                                   f"{comp.material!r} is not declared in `materials:` "  # type: ignore[attr-defined]
+                                   f"(declared: {listed})"))  # fmt: skip
+        if comp.type not in BULK_LINK_TYPES:
+            continue
+        for side, ref in (("from", comp.from_), ("to", comp.to)):  # type: ignore[attr-defined]
+            name, _, port = ref.partition(".")
+            other = by_id.get(name)
+            where = f"{comp.id}.{side}"
+            if other is None:
+                out.append(Finding("error", "E105", f"{where}: {ref!r} names no component"))
+            elif other.type in PROCESS_TYPES:
+                text = (f"{where}: {ref!r} is a {other.type}, a liquid component; the solids "
+                        "network meets no liquid one (ADR-0006)")  # fmt: skip
+                out.append(Finding("error", "E108", text))
+            elif other.type not in BULK_TYPES:
+                out.append(Finding("error", "E105", f"{where}: {name} is a {other.type}, not in "
+                                   "the solids network"))  # fmt: skip
+            elif port:
+                out.append(Finding("error", "E105", f"{where}: {ref!r}: a bulk end names a "
+                                   f"component, not a port ({name})"))  # fmt: skip
+    if out:
+        return out
+
+    def carried(cid: str, seen: frozenset[str] = frozenset()) -> str | None:
+        """The material that reaches the end of link or node ``cid``, if one is named."""
+        comp = by_id[cid]
+        if comp.type in ("bin", "bulk_supply"):
+            return comp.material  # type: ignore[attr-defined, no-any-return]
+        if comp.type in BULK_LINK_TYPES and cid not in seen:
+            return carried(comp.from_, seen | {cid})  # type: ignore[attr-defined]
+        return None
+
+    for comp in scene.components:
+        if comp.type in BULK_LINK_TYPES:
+            dst = by_id[comp.to]  # type: ignore[attr-defined]
+            brought = carried(comp.id)
+            if dst.type == "bin" and brought is not None and brought != dst.material:  # type: ignore[attr-defined]
+                out.append(Finding("error", "E109", f"{comp.id}: carries {brought} into "
+                                   f"{dst.id}, which holds {dst.material}; a bin holds one "  # type: ignore[attr-defined]
+                                   "material (ADR-0006 decision 2)"))  # fmt: skip
+    return out
 
 
 #: Ticks a tank's time constant must span (W211), at the default 50 Hz.

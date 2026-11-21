@@ -1,0 +1,515 @@
+{
+  "tags": [
+    {
+      "name": "_types_",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "name": "OF_Bin",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Level": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_LoSw": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Weight": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "Level, from the outlet",
+              "enabled": true,
+              "historyEnabled": true,
+              "name": "Level",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Level}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Float4",
+              "documentation": "Weight from the load cells (contents and tare)",
+              "enabled": true,
+              "historyEnabled": true,
+              "name": "Weight",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Weight}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "High level switch (on at hi_level)",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "HiSw",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_HiSw}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Low level switch (on at lo_level)",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "LoSw",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_LoSw}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_RotaryAirlock",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Plugged": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Speed": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Run command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Run",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Run}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Float4",
+              "documentation": "Speed command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Speed",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Speed}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Running feedback",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Running",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Running}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Plug switch at its outlet",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Plugged",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Plugged}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_ScrewConveyor",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Motion": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Plugged": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Run command",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Run",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Run}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Running feedback",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Running",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Running}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Zero-speed switch: on while the screw turns",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Motion",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Motion}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Plug switch at its outlet",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Plugged",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Plugged}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        },
+        {
+          "name": "OF_SlideGate",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Closed": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Open": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Opened": {
+              "dataType": "String",
+              "value": ""
+            }
+          },
+          "tagType": "UdtType",
+          "tags": [
+            {
+              "accessRights": "Read_Write",
+              "dataType": "Boolean",
+              "documentation": "Open command (held; released, it closes)",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Open",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Open}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Open limit switch",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Opened",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Opened}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            },
+            {
+              "accessRights": "Read_Only",
+              "dataType": "Boolean",
+              "documentation": "Closed limit switch",
+              "enabled": true,
+              "historyEnabled": false,
+              "name": "Closed",
+              "opcItemPath": "nsu=urn:openfactory:sim;s={Tag_Closed}",
+              "opcServer": "OpenFactory",
+              "tagType": "AtomicTag",
+              "valueSource": "opc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SILO_BATCH_WEIGH",
+      "tagType": "Folder",
+      "tags": [
+        {
+          "documentation": "Silo Fill Gate",
+          "name": "SG_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "SG_01"
+            },
+            "Tag_Closed": {
+              "dataType": "String",
+              "value": "SG_01_ZSC_DI"
+            },
+            "Tag_Open": {
+              "dataType": "String",
+              "value": "SG_01_OPEN_DO"
+            },
+            "Tag_Opened": {
+              "dataType": "String",
+              "value": "SG_01_ZSO_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_SlideGate"
+        },
+        {
+          "documentation": "Flour Storage Silo",
+          "name": "SILO_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "SILO_01"
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": "SILO_01_LSH_DI"
+            },
+            "Tag_Level": {
+              "dataType": "String",
+              "value": "SILO_01_LT_AI"
+            },
+            "Tag_LoSw": {
+              "dataType": "String",
+              "value": "SILO_01_LSL_DI"
+            },
+            "Tag_Weight": {
+              "dataType": "String",
+              "value": "SILO_01_WT_AI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 4.5,
+              "engLow": 0.0,
+              "engUnit": "m",
+              "name": "Level"
+            },
+            {
+              "engHigh": 10000.0,
+              "engLow": 0.0,
+              "engUnit": "kg",
+              "name": "Weight"
+            }
+          ],
+          "typeId": "OF_Bin"
+        },
+        {
+          "documentation": "Silo Discharge Rotary Airlock",
+          "name": "RV_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "RV_01"
+            },
+            "Tag_Plugged": {
+              "dataType": "String",
+              "value": "RV_01_PLUG_DI"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "RV_01_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "RV_01_RUN_DI"
+            },
+            "Tag_Speed": {
+              "dataType": "String",
+              "value": "RV_01_SPD_AO"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "engHigh": 100.0,
+              "engLow": 0.0,
+              "engUnit": "%",
+              "name": "Speed"
+            }
+          ],
+          "typeId": "OF_RotaryAirlock"
+        },
+        {
+          "documentation": "Weigh Hopper Feed Screw Conveyor",
+          "name": "SC_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "SC_01"
+            },
+            "Tag_Motion": {
+              "dataType": "String",
+              "value": "SC_01_ZSS_DI"
+            },
+            "Tag_Plugged": {
+              "dataType": "String",
+              "value": "SC_01_PLUG_DI"
+            },
+            "Tag_Run": {
+              "dataType": "String",
+              "value": "SC_01_RUN_DO"
+            },
+            "Tag_Running": {
+              "dataType": "String",
+              "value": "SC_01_RUN_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_ScrewConveyor"
+        },
+        {
+          "documentation": "Batch Weigh Hopper",
+          "name": "WH_01",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "WH_01"
+            },
+            "Tag_HiSw": {
+              "dataType": "String",
+              "value": "WH_01_LSH_DI"
+            },
+            "Tag_Level": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_LoSw": {
+              "dataType": "String",
+              "value": ""
+            },
+            "Tag_Weight": {
+              "dataType": "String",
+              "value": "WH_01_WT_AI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "tags": [
+            {
+              "enabled": false,
+              "name": "Level"
+            },
+            {
+              "engHigh": 750.0,
+              "engLow": 0.0,
+              "engUnit": "kg",
+              "name": "Weight"
+            },
+            {
+              "enabled": false,
+              "name": "LoSw"
+            }
+          ],
+          "typeId": "OF_Bin"
+        },
+        {
+          "documentation": "Weigh Hopper Discharge Gate",
+          "name": "SG_02",
+          "parameters": {
+            "InstanceName": {
+              "dataType": "String",
+              "value": "SG_02"
+            },
+            "Tag_Closed": {
+              "dataType": "String",
+              "value": "SG_02_ZSC_DI"
+            },
+            "Tag_Open": {
+              "dataType": "String",
+              "value": "SG_02_OPEN_DO"
+            },
+            "Tag_Opened": {
+              "dataType": "String",
+              "value": "SG_02_ZSO_DI"
+            }
+          },
+          "tagType": "UdtInstance",
+          "typeId": "OF_SlideGate"
+        },
+        {
+          "accessRights": "Read_Only",
+          "dataType": "Boolean",
+          "documentation": "OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops",
+          "enabled": true,
+          "historyEnabled": false,
+          "name": "SIM_HEARTBEAT",
+          "opcItemPath": "nsu=urn:openfactory:sim;s=SIM_HEARTBEAT_DI",
+          "opcServer": "OpenFactory",
+          "tagType": "AtomicTag",
+          "valueSource": "opc"
+        }
+      ]
+    }
+  ],
+  "version": "8.3.0"
+}

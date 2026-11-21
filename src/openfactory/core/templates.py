@@ -39,6 +39,9 @@ import yaml
 #: The id prefix of each built-in type: the shipped scenes' own where they have one.
 PREFIX: dict[str, str] = {
     "belt_conveyor": "CONV",
+    "bin": "BIN",
+    "bulk_discharge": "BDIS",
+    "bulk_supply": "BSUP",
     "box_emitter": "EMT",
     "color_sensor": "CS",
     "counter_display": "CNT",
@@ -57,8 +60,11 @@ PREFIX: dict[str, str] = {
     "pushbutton": "PB",
     "pusher": "CYL",
     "roller_conveyor": "RCONV",
+    "rotary_airlock": "RV",
     "scenery": "SCN",
+    "screw_conveyor": "SC",
     "selector_switch": "SS",
+    "slide_gate": "SG",
     "stopper": "STP",
     "supply": "SUP",
     "tank": "TK",
@@ -104,10 +110,20 @@ REFERENCES: dict[str, list[tuple[str, tuple[str, ...], str]]] = {
     "pump": [("from", (), ""), ("to", (), "")],
     "valve_control": [("from", (), ""), ("to", (), "")],
     "valve_onoff": [("from", (), ""), ("to", (), "")],
+    # the solids network (PLAN 5.7a): an airlock or a gate under a bin, a screw from either
+    "rotary_airlock": [("from", ("bin",), ""), ("to", ("screw_conveyor", "bin"), "")],
+    "screw_conveyor": [
+        ("from", ("rotary_airlock", "bin"), ""),
+        ("to", ("bin", "bulk_discharge"), ""),
+    ],  # fmt: skip
+    "slide_gate": [("from", ("bin", "bulk_supply"), ""), ("to", ("bin", "bulk_discharge"), "")],
 }
 
 #: What a new one of these types needs before the scene loads, beyond fields to fill in.
-NOTES: dict[str, str] = {"junction": "connect a pipe to it before it loads"}
+NOTES: dict[str, str] = {
+    "junction": "connect a pipe to it before it loads",
+    "bin": "name a material declared in the scene's materials: before it loads",
+}
 
 _KIND_SUFFIX = ("DI", "DO", "AI", "AO")
 

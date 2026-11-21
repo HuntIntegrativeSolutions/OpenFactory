@@ -976,6 +976,185 @@ Faults: `jammed`, `drift`.
 A jammed motor stalls and draws twice its rating, so the drive trips after `trip_s`; `drift`
 acts on `speed_fb`.
 
+## Bulk solids
+
+Bulk components (PLAN 5.7a) live in the solids network, not on the conveyors and not in the
+liquid flow network: bulk material (grain, powder, pellets) as a **mass**, never as parts
+(`core/solidsnet.py`, [ADR-0006](adr/ADR-0006-bulk-solids-mass-flow.md)). **Nodes** hold or
+exchange it: a `bin` holds a mass of one material, a `bulk_supply` gives it and a
+`bulk_discharge` takes it. **Links** move it from `from` to `to`: a `rotary_airlock` or a
+`slide_gate` under a bin's or a supply's outlet, within the tick, and a `screw_conveyor`, which
+carries it for its travel time. A link's `from` is a bin or a bulk supply, or, for a screw only,
+the airlock or gate that drops into its inlet; its `to` is a bin, a bulk discharge or a screw.
+No bulk link joins a liquid component, and no liquid link joins a bulk one. Each tick the links
+move material downstream first, each up to its rated flow at its speed, what is upstream and the
+room downstream; a link into a full bin, or a screw whose outlet has no room, is **blocked** and
+holds what it has (ADR-0006 decision 3). The network steps right after the liquid network, with
+the feeders' commands of the end of the last tick. Each scene names its materials once, in
+`materials:` (a `name` and a `bulk_density`, kg/m³, see [the scene format](scene-format.md)).
+Masses are in kg, flows in kg/s, levels in m. A simulated silo or hopper is a picture for
+training; it models no dust, no explosion, no structural load and no safety function, and it is
+not a safety-rated simulation.
+
+### `bin`
+
+Origin: the centre of the outlet, at the outlet's height. A silo or hopper holding a mass of one
+`material`, a cylinder of `diameter` (or a box of `length` × `width`) with `height` of straight
+wall over a cone (or a pyramid) of `cone_height` down to an outlet `outlet_diameter` across; a
+flat bottom when `cone_height` is 0. Its capacity is its volume × its material's bulk density; a
+link into it when full is blocked. The level is the height, from the outlet, of the volume (mass
+/ bulk density) through its shape, the surface drawn flat. The weight is the contents plus
+`tare_kg`, as its load cells read it. Level switches turn on at their level and off 0.02 m back.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `shape` | `cylinder` | `cylinder` (with `diameter`) or `box` (with `length` and `width`) |
+| `diameter` | 2.0 | Cylinder diameter, m |
+| `length` | none | Box length along local x, m (box only) |
+| `width` | none | Box width along local z, m (box only) |
+| `height` | 3.0 | Height of the straight wall, m |
+| `cone_height` | 0 | Height of the cone or pyramid under the wall, m (0: flat bottom) |
+| `outlet_diameter` | 0.3 | The outlet across (a cone's round, a pyramid's square), m |
+| `material` | none | What it holds: a name in `materials:` (lint E106 when unset, E107 when undeclared) |
+| `initial_mass_kg` | 0 | Mass at start, kg; at most its capacity |
+| `tare_kg` | 0 | Empty weight on the load cells, kg |
+| `load_cell_kg` | full plus tare | The `weight` port's range, kg |
+| `hi_level` | 90 % of `cone_height + height` | Level where `hi_sw` turns on, m |
+| `lo_level` | 10 % of `cone_height + height` | Level where `lo_sw` turns on, m |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `level` | AI | no | Level from the outlet, m, 0 to `cone_height + height` |
+| `weight` | AI | no | Weight from the load cells (contents and tare), kg, 0 to `load_cell_kg` |
+| `hi_sw` | DI | no | High level switch (LSH): on at `hi_level` |
+| `lo_sw` | DI | no | Low level switch (LSL): on at `lo_level` |
+
+Faults: `bridge`, `stuck_on`, `stuck_off`, `drift`. A bridge over the outlet gives nothing while
+the bin holds mass, until the fault is cleared; stuck faults hold the switches; `drift` acts on
+the analog inputs.
+
+### `bulk_supply`
+
+Origin: where it gives. Material arriving from off the drawing (a delivery line, a truck): while
+`enable` is on (unbound: always) it gives up to `capacity_kg_s` a second (unset: as much as the
+links under it take), of its `material`, and it is never exhausted. A link under it (a slide
+gate, an airlock, a screw) takes what it gives. Its state reports what it gave.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `material` | none | What it gives: a name in `materials:` (lint E106 when unset, E107 when undeclared) |
+| `capacity_kg_s` | none | Most it gives a second, kg/s; unset, unlimited |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `enable` | DO | no | Enable (unbound: always enabled) |
+
+Faults: none.
+
+### `bulk_discharge`
+
+Origin: where it takes. Material leaving the drawing (a mixer, a mill): it takes up to
+`demand_kg_s` a second (unset: everything that arrives); a link that brings more is blocked. Its
+state reports what it took.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `demand_kg_s` | none | Most it takes a second, kg/s; unset, everything |
+
+No ports.
+
+Faults: none.
+
+### `rotary_airlock`
+
+Origin: the valve's centre, under its bin's outlet; it is drawn with chutes to its two ends. A
+rotary valve between `from` (a bin or a bulk supply) and `to` (a bin, a bulk discharge or a
+screw): while `run` is on it turns at `speed` (unbound: 100 %) and moves up to `capacity_kg_s` ×
+speed a second, arriving in the same tick. `running` follows `run`; `plugged` reads true while
+its outlet cannot take what it brings (the bin below full, the screw below blocked or full at
+its inlet, or the plugged-chute fault).
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `from` | required | Upstream end: a bin or a bulk supply |
+| `to` | required | Downstream end: a bin, a bulk discharge or a screw conveyor |
+| `capacity_kg_s` | 2.0 | Rated flow at full speed, kg/s |
+| `size` | 0.35 | Its body across, m (drawing only) |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `run` | DO | yes | Run command |
+| `speed` | AO | no | Speed command, 0 to 100 % |
+| `running` | DI | no | Running feedback |
+| `plugged` | DI | no | Plug switch at its outlet |
+
+Faults: `trip`, `plugged`, `stuck_on`, `stuck_off`.
+A trip stops its motor and drops `running` while `run` is on, until cleared; `plugged` blocks
+its outlet; stuck faults hold the DIs.
+
+### `screw_conveyor`
+
+Origin: the centre of the inlet end; it runs `length` along local +x, rising `incline_deg`. A
+screw feeder or conveyor between `from` (a bin or a bulk supply it draws from, or the airlock or
+gate that drops into its inlet) and `to`. While `run` is on it turns at `speed` (unbound: 100 %).
+What enters its inlet reaches its outlet `travel_s` later at full speed (`travel_s` / speed at
+part speed): plug flow, so a PLC sees the dead time a real screw has. It holds at most
+`capacity_kg_s` × `travel_s`. Drawing from a bin it takes up to `capacity_kg_s` × speed a second;
+under a feeder its inlet takes one tick's worth at full speed, so a faster feeder above it runs
+it full. **Blocked** (its outlet has no room for what arrives there), it keeps what is on it,
+stops conveying and takes nothing in, until there is room; stopped, it holds its load. `running`
+follows `run`; `motion` (a zero-speed switch) is on while it turns; `plugged` is on while it is
+blocked.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `from` | required | Upstream end: a bin, a bulk supply, or the feeder above its inlet |
+| `to` | required | Downstream end: a bin, a bulk discharge or another screw conveyor |
+| `capacity_kg_s` | 2.0 | Rated flow at full speed and full fill, kg/s |
+| `length` | 3.0 | Inlet to outlet, m |
+| `diameter` | 0.25 | Trough diameter, m (drawing only) |
+| `incline_deg` | 0 | Rise along its length, degrees (-45 to 60) |
+| `travel_s` | 4.0 | Inlet to outlet at full speed, s |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `run` | DO | yes | Run command |
+| `speed` | AO | no | Speed command, 0 to 100 % |
+| `running` | DI | no | Running feedback |
+| `motion` | DI | no | Zero-speed switch: on while the screw turns |
+| `plugged` | DI | no | Plug switch at its outlet |
+
+Faults: `trip`, `jammed`, `plugged`, `stuck_on`, `stuck_off`. A trip stops its motor and drops
+`running` and `motion` while `run` is on; a jammed screw stops turning with `running` honest and
+`motion` off; `plugged` blocks its outlet; stuck faults hold the DIs.
+
+### `slide_gate`
+
+Origin: the gate's centre, under its bin's or supply's outlet; it is drawn with chutes to its two
+ends. A gate between `from` (a bin or a bulk supply) and `to`: held `open` opens it, released it
+closes, taking `travel_s` for a full stroke and reversing at once mid-travel, as `valve_onoff`
+does. At opening `x` it passes up to `capacity_kg_s` × `x` a second, arriving in the same tick;
+shut, nothing. It starts closed. `opened` and `closed` are limit switches (ZSO, ZSC), both false
+mid-travel; `plugged` reads true while its outlet cannot take what it brings.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `from` | required | Upstream end: a bin or a bulk supply |
+| `to` | required | Downstream end: a bin, a bulk discharge or a screw conveyor |
+| `capacity_kg_s` | 10.0 | Rated flow fully open, kg/s |
+| `travel_s` | 1.0 | Full open or close time, s |
+| `size` | 0.35 | Its body across, m (drawing only) |
+
+| Port | Kind | Required | Meaning |
+|---|---|---|---|
+| `open` | DO | yes | Open command (held; released, it closes) |
+| `opened` | DI | no | Open limit switch |
+| `closed` | DI | no | Closed limit switch |
+| `plugged` | DI | no | Plug switch at its outlet |
+
+Faults: `jammed`, `plugged`, `stuck_on`, `stuck_off`. A jammed gate stops where it is with its
+limits honest; `plugged` blocks its outlet; stuck faults hold the DIs.
+
 ## Scenery
 
 ### `scenery`

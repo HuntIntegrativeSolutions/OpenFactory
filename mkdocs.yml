@@ -71,6 +71,7 @@ nav:
       - guides/batch-mix-heat.md
       - guides/plantpax-tank-level.md
       - guides/inline-reject.md
+      - guides/silo-batch-weigh.md
   - Reference:
       - scene-format.md
       - editor.md

@@ -86,6 +86,10 @@ class Reversals:
             self.extreme = command
 
 
+#: A bin holding no more than this is empty, and one this close to its capacity is full, kg.
+EMPTY_MASS_KG = 1e-6
+
+
 @dataclass
 class ProcessWatch:
     after: dict[str, float]
@@ -99,6 +103,15 @@ class ProcessWatch:
     fractions: dict[str, Recipe] = field(default_factory=dict)
     temperatures: dict[str, Recipe] = field(default_factory=dict)
     _was_on: dict[str, bool] = field(default_factory=dict)
+    #: Bins (PLAN 5.7a): the first time each was empty and full, and each batch's mass.
+    bins: dict[str, Any] = field(default_factory=dict)
+    empty_at: dict[str, float | None] = field(default_factory=dict)
+    full_at: dict[str, float | None] = field(default_factory=dict)
+    least: dict[str, float] = field(default_factory=dict)
+    most: dict[str, float] = field(default_factory=dict)
+    batches: dict[str, list[float]] = field(default_factory=dict)
+    _outlets: dict[str, list[Any]] = field(default_factory=dict)
+    _taking: dict[str, bool] = field(default_factory=dict)
 
     @classmethod
     def build(cls, checks: Any, components: list[Any]) -> ProcessWatch | None:
@@ -123,6 +136,18 @@ class ProcessWatch:
             tid: Recipe(spec.after_s, {"temperature": Band()})
             for tid, spec in checks.temperature_within.items()
         }
+        watched = [*checks.never_empty, *checks.never_full, *checks.batch_within]
+        watch.bins = {bid: by_id[bid] for bid in dict.fromkeys(watched)}
+        for bid, comp in watch.bins.items():
+            watch.empty_at[bid] = watch.full_at[bid] = None
+            watch.least[bid] = watch.most[bid] = comp.node.mass
+            watch.batches[bid] = []
+            watch._outlets[bid] = [
+                c.link
+                for c in components
+                if getattr(c, "solids_links", None) and c.config.from_ == bid
+            ]
+            watch._taking[bid] = False
         return watch
 
     def record(self, time: float) -> None:
@@ -150,6 +175,19 @@ class ProcessWatch:
                 self.dry_ticks[pid] += 1
         for cid, comp in self.commanded.items():
             self.reversals[cid].record(comp.command)  # each type's command, 0 to 100 %
+        for bid, comp in self.bins.items():
+            node = comp.node
+            mass = node.mass
+            self.least[bid] = min(self.least[bid], mass)
+            self.most[bid] = max(self.most[bid], mass)
+            if mass <= EMPTY_MASS_KG and self.empty_at[bid] is None:
+                self.empty_at[bid] = time
+            if mass >= node.capacity - EMPTY_MASS_KG and self.full_at[bid] is None:
+                self.full_at[bid] = time
+            out = sum(lk.moved for lk in self._outlets[bid])
+            if out > 0 and not self._taking[bid]:  # a link starts taking: a batch
+                self.batches[bid].append(mass + out)  # its mass before this tick's take
+            self._taking[bid] = out > 0
 
 
 def _shares(node: Any, bands: dict[str, Band]) -> dict[str, float]:

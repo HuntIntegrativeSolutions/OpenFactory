@@ -75,7 +75,10 @@ The whole sample is `docs/samples/wash-skid/wash-skid.takeoff.yaml`.
 - **Rows.** `equipment`, `connections` and `io`, each with its own `row` id (`EQ-3`, `CN-3`,
   `IO-4`), never reused. An equipment row has the tag on the drawing, a built-in `type` (or
   `unknown`), an ISA-5.1 style `description` and the type's `params` as read. Its scene id is
-  the tag with `-` as `_` unless `id:` says otherwise.
+  the tag with `-` as `_` unless `id:` says otherwise. The bulk-solids types (PLAN 5.7a: `bin`,
+  `bulk_supply`, `bulk_discharge`, `rotary_airlock`, `screw_conveyor`, `slide_gate`) are not
+  takeoff types yet: `check` refuses them, and scaffold and layout do not place them. Write
+  `unknown` for such an item and add it to the scene by hand.
 - **Where it was read.** `ref` lists every place the row appears: a sheet and its grid zone, or
   a list and its row. An `assumed` row with no `ref` is an item the drawing does not show.
 - **Confidence.** `read` (printed on the drawing), `inferred` (deduced from it) or `assumed`
@@ -135,18 +138,19 @@ its line; an anchor, alias or merge key (`&`, `*`, `<<`), which a takeoff has no
 **Errors:** the schema (an unknown key, a wrong value; text holding a line break, a tab or any
 other control character, since every text is one line); a parameter in `params` that the row's
 type does not have, of the wrong type, or one of `id`, `type`, `description`, `position`,
-`rotation_deg`, `mesh` and `io`, which the row sets itself; a duplicate row id, tag, scene id, scene
-tag or `plc_tag`; a `ref` to a sheet not in `drawings`; an unknown type (write `unknown` for an
-item with no type yet); a connection end that is not an equipment tag, or a port its type does
-not have (a tank's `bottom`, `top` and nozzles, a link's pipe ports); an I/O row on a missing
-item or port, or whose `signal` is not the port's kind; a `plc_tag` outside the grammar; a
-scene tag that is not a valid tag (give `scene_tag:`); `range` on a discrete signal; more than one
-of `layout`, `mount` and `at`; a `layout` or `mount` on a sheet not in `drawings` or with no
-`frame`; a frame with another unit or a datum that is not three numbers; a `mount` on something
-that is not a belt or roller conveyor, of a type not placed on a rail, on a rail other than
-`left` or `right`, or with `along` outside the belt (a belt with no position at all is laid
-out, and the device follows it); a line the scaffold would make into a pipe
-whose id (`PIPE_101`, ...) is another row's scene id (give that row an `id:`).
+`rotation_deg`, `mesh` and `io`, which the row sets itself; a duplicate row id, tag, scene id,
+scene tag or `plc_tag`; a `ref` to a sheet not in `drawings`; an unknown type (write `unknown` for
+an item with no type yet); a bulk-solids type (PLAN 5.7a, not a takeoff type yet); a connection
+end that is not an equipment tag, or a port its type does not have (a tank's `bottom`, `top` and
+nozzles, a link's pipe ports); an I/O row on a missing item or port, or whose `signal` is not the
+port's kind; a `plc_tag` outside the grammar; a scene tag that is not a valid tag (give
+`scene_tag:`); `range` on a discrete signal; more than one of `layout`, `mount` and `at`; a
+`layout` or `mount` on a sheet not in `drawings` or with no `frame`; a frame with another unit or
+a datum that is not three numbers; a `mount` on something that is not a belt or roller conveyor,
+of a type not placed on a rail, on a rail other than `left` or `right`, or with `along` outside
+the belt (a belt with no position at all is laid out, and the device follows it); a line the
+scaffold would make into a pipe whose id (`PIPE_101`, ...) is another row's scene id (give that
+row an `id:`).
 
 **Warnings:** `type: unknown` (the scaffold places a stand-in carrying its I/O); an `at:` row
 whose `ref` names a layout sheet (the drawing could have given its position).

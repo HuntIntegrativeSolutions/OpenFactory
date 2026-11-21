@@ -3,7 +3,7 @@
 One guide per shipped scene in `scenes/` (PLAN 2.7). Each scene comes with both Modbus address
 lockfiles (`float32` and `int16_scaled`, ADR-0004), an OpenPLC program in `examples/openplc/`, and
 a stand-in Python PLC in `examples/pyplc/` that runs the same sequence with no PLC installed
-(PLAN 2.10). Start with the OpenPLC quickstart: it sets up the container once, and every other
+(PLAN 2.10). `silo-batch-weigh` (PLAN 5.7a) has the stand-in only, no OpenPLC program yet. Start with the OpenPLC quickstart: it sets up the container once, and every other
 guide refers back to it.
 
 OpenFactory is a training and demo tool. It is not a safety-rated simulation, and none of these
@@ -23,6 +23,7 @@ programs is a safety-rated program.
 | `batch-mix-heat` | [Batch mix and heat](batch-mix-heat.md) | A batch sequence: water and a warm syrup filled to a level each, heated to 50 °C and held, graded on the recipe and the temperature | two supplies, on/off valves, tank, level and temperature transmitters, heater, pilot light |
 | `plantpax-tank-level` | [PlantPAx tank level](plantpax-tank-level.md) | The PlantPAx demo plant: `tank-level-pid`'s loop plus a transfer pump started as the load step, controlled by OpenPLC or by `P_AIn`, `P_PIDE`, `P_ValveC` and `P_Motor` ([the L5X](../plantpax.md)) | supply, control valve, tank, level transmitter, consumer, transfer pump |
 | `inline-reject` | [Inline reject](inline-reject.md) | Built only in the scene editor: two belts snapped end to end, a photo eye above good boxes, and a pusher that knocks oversize ones off the side into a reject bin | belt conveyors, photo eye, pusher, emitter, removers |
+| `silo-batch-weigh` | [Silo batch weighing](silo-batch-weigh.md) | Bulk solids (PLAN 5.7a): an airlock and a screw fill a weigh hopper to a 250 kg batch with a fast and a slow feed and an in-flight allowance, then a gate empties it; the silo refills itself. A stand-in PLC only, no OpenPLC program yet | silo and weigh hopper (bins), rotary airlock, screw conveyor, slide gates, bulk supply and discharge |
 
 Every scene runs the same three ways:
 

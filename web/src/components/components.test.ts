@@ -18,7 +18,8 @@ function color(object: THREE.Object3D | undefined): number {
 describe("component mesh builders", () => {
   it("cover every Milestone 1 type and place them at the scene origin and rotation", () => {
     for (const type of Object.keys(BUILDERS)) {
-      if (["pipe", "valve_onoff", "valve_control", "pump"].includes(type)) continue; // drawn in scene coordinates (below)
+      // links are drawn in scene coordinates, between their ends (below; bulk links, PLAN 5.7a)
+      if (["pipe", "valve_onoff", "valve_control", "pump", "rotary_airlock", "screw_conveyor", "slide_gate"].includes(type)) continue;
       const view = buildComponent(geom(type, { length: 2, width: 0.5, beam_length: 0.6, stroke: 0.5, size: [0.3, 1, 1] }), ctx);
       expect(view.type).toBe(type);
       expect(view.object.position.toArray()).toEqual([1, 0.2, -0.3]);

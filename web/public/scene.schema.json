@@ -209,6 +209,30 @@
       "title": "AoTagSpec",
       "type": "object"
     },
+    "BatchBand": {
+      "additionalProperties": false,
+      "description": "A batch a bin must make (PLAN 5.7a): its mass when its outflow starts, within a band.",
+      "properties": {
+        "target_kg": {
+          "description": "The batch weight, kg.",
+          "exclusiveMinimum": 0,
+          "title": "Target Kg",
+          "type": "number"
+        },
+        "tolerance_kg": {
+          "description": "Either side of target_kg, kg.",
+          "exclusiveMinimum": 0,
+          "title": "Tolerance Kg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "target_kg",
+        "tolerance_kg"
+      ],
+      "title": "BatchBand",
+      "type": "object"
+    },
     "BeltConveyor": {
       "additionalProperties": false,
       "description": "Origin: center of the infeed end, at belt top-surface height. Flow is local +x.",
@@ -397,6 +421,305 @@
       "title": "BeltConveyorIO",
       "type": "object"
     },
+    "Bin": {
+      "additionalProperties": false,
+      "description": "Origin: the centre of the outlet, at the outlet's height. A silo or hopper holding a mass\nof one material (PLAN 5.7a, ADR-0006): a cylinder or box over a cone or pyramid.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "bin",
+          "title": "Type",
+          "type": "string"
+        },
+        "shape": {
+          "default": "cylinder",
+          "description": "A cylinder (diameter) or a box (length, width).",
+          "enum": [
+            "cylinder",
+            "box"
+          ],
+          "title": "Shape",
+          "type": "string"
+        },
+        "diameter": {
+          "default": 2.0,
+          "description": "Cylinder diameter, m.",
+          "exclusiveMinimum": 0,
+          "title": "Diameter",
+          "type": "number"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Box length along local x, m.",
+          "title": "Length"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Box width along local z, m.",
+          "title": "Width"
+        },
+        "height": {
+          "default": 3.0,
+          "description": "Height of the straight wall, m.",
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "cone_height": {
+          "default": 0.0,
+          "description": "Height of the cone or pyramid under the wall, m (0: flat bottom).",
+          "minimum": 0,
+          "title": "Cone Height",
+          "type": "number"
+        },
+        "outlet_diameter": {
+          "default": 0.3,
+          "description": "The outlet across (a cone's round, a pyramid's square), m.",
+          "exclusiveMinimum": 0,
+          "title": "Outlet Diameter",
+          "type": "number"
+        },
+        "material": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What it holds: a name in `materials:` (lint E106 when unset).",
+          "title": "Material"
+        },
+        "initial_mass_kg": {
+          "default": 0.0,
+          "description": "Mass at start, kg.",
+          "minimum": 0,
+          "title": "Initial Mass Kg",
+          "type": "number"
+        },
+        "tare_kg": {
+          "default": 0.0,
+          "description": "Empty weight on the load cells, kg.",
+          "minimum": 0,
+          "title": "Tare Kg",
+          "type": "number"
+        },
+        "load_cell_kg": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The weight port's range, kg. Default: full of its material, plus tare.",
+          "title": "Load Cell Kg"
+        },
+        "hi_level": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Level where hi_sw turns on, m (off 0.02 m lower). Default 90 %.",
+          "title": "Hi Level"
+        },
+        "lo_level": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Level where lo_sw turns on, m (off 0.02 m higher). Default 10 %.",
+          "title": "Lo Level"
+        },
+        "io": {
+          "$ref": "#/$defs/BinIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type"
+      ],
+      "title": "Bin",
+      "type": "object"
+    },
+    "BinIO": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Level, from the outlet",
+          "title": "Level",
+          "x-io-kind": "AI",
+          "x-range-from": "level_span",
+          "x-units": "m"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Weight from the load cells (contents and tare)",
+          "title": "Weight",
+          "x-io-kind": "AI",
+          "x-range-from": "weight_span",
+          "x-units": "kg"
+        },
+        "hi_sw": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "High level switch (on at hi_level)",
+          "title": "Hi Sw",
+          "x-io-kind": "DI"
+        },
+        "lo_sw": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Low level switch (on at lo_level)",
+          "title": "Lo Sw",
+          "x-io-kind": "DI"
+        }
+      },
+      "title": "BinIO",
+      "type": "object"
+    },
     "BoxEmitter": {
       "additionalProperties": false,
       "description": "Origin: spawn point, the center of each new part.",
@@ -521,6 +844,232 @@
         }
       },
       "title": "BoxEmitterIO",
+      "type": "object"
+    },
+    "BulkDischarge": {
+      "additionalProperties": false,
+      "description": "Origin: where it takes. Material leaving the drawing (PLAN 5.7a, ADR-0006): a mixer, a\nmill, a bagger off the drawing.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "bulk_discharge",
+          "title": "Type",
+          "type": "string"
+        },
+        "demand_kg_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Most it takes a second, kg/s. Unset: everything that arrives.",
+          "title": "Demand Kg S"
+        },
+        "io": {
+          "$ref": "#/$defs/BulkDischargeIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type"
+      ],
+      "title": "BulkDischarge",
+      "type": "object"
+    },
+    "BulkDischargeIO": {
+      "additionalProperties": false,
+      "description": "A discharge has no ports.",
+      "properties": {},
+      "title": "BulkDischargeIO",
+      "type": "object"
+    },
+    "BulkSupply": {
+      "additionalProperties": false,
+      "description": "Origin: where it gives. Material arriving from off the drawing (PLAN 5.7a, ADR-0006): a\ntruck, a line; a link under it takes what it gives.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "bulk_supply",
+          "title": "Type",
+          "type": "string"
+        },
+        "material": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What it gives: a name in `materials:` (lint E106 when unset).",
+          "title": "Material"
+        },
+        "capacity_kg_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Most it gives a second, kg/s. Unset: unlimited.",
+          "title": "Capacity Kg S"
+        },
+        "io": {
+          "$ref": "#/$defs/BulkSupplyIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "type"
+      ],
+      "title": "BulkSupply",
+      "type": "object"
+    },
+    "BulkSupplyIO": {
+      "additionalProperties": false,
+      "properties": {
+        "enable": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable (unbound: always enabled)",
+          "title": "Enable",
+          "x-io-kind": "DO"
+        }
+      },
+      "title": "BulkSupplyIO",
       "type": "object"
     },
     "Checks": {
@@ -662,6 +1211,39 @@
             "maxLength": 40
           },
           "title": "Temperature Within",
+          "type": "object"
+        },
+        "never_empty": {
+          "description": "Bins that are never empty from start to end (PLAN 5.7a, ADR-0006).",
+          "items": {
+            "maxLength": 40,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Never Empty",
+          "type": "array"
+        },
+        "never_full": {
+          "description": "Bins that never fill to their capacity (PLAN 5.7a, ADR-0006).",
+          "items": {
+            "maxLength": 40,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Never Full",
+          "type": "array"
+        },
+        "batch_within": {
+          "description": "Bin -> {target_kg, tolerance_kg}: each time a link starts taking from the bin its mass is a batch, within tolerance_kg of target_kg; at least one batch in the run (PLAN 5.7a, ADR-0006).",
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]*$": {
+              "$ref": "#/$defs/BatchBand"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 40
+          },
+          "title": "Batch Within",
           "type": "object"
         }
       },
@@ -957,7 +1539,10 @@
           "not": {
             "enum": [
               "belt_conveyor",
+              "bin",
               "box_emitter",
+              "bulk_discharge",
+              "bulk_supply",
               "color_sensor",
               "counter_display",
               "distance_sensor",
@@ -975,8 +1560,11 @@
               "pushbutton",
               "pusher",
               "roller_conveyor",
+              "rotary_airlock",
               "scenery",
+              "screw_conveyor",
               "selector_switch",
+              "slide_gate",
               "stopper",
               "supply",
               "tank",
@@ -2565,6 +3153,44 @@
         "raise"
       ],
       "title": "LiftIO",
+      "type": "object"
+    },
+    "Material": {
+      "additionalProperties": false,
+      "description": "A bulk material (PLAN 5.7a, ADR-0006 decision 15): what a bin holds and a supply gives.",
+      "properties": {
+        "name": {
+          "description": "What bins and supplies call it.",
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "bulk_density": {
+          "description": "Bulk density, kg/m³: a bin's level and capacity follow from it.",
+          "exclusiveMinimum": 0,
+          "title": "Bulk Density",
+          "type": "number"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What it is, for the reader.",
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name",
+        "bulk_density"
+      ],
+      "title": "Material",
       "type": "object"
     },
     "MeshSpec": {
@@ -4250,6 +4876,199 @@
       "title": "RollerConveyor",
       "type": "object"
     },
+    "RotaryAirlock": {
+      "additionalProperties": false,
+      "description": "Origin: the valve's centre, under its bin's outlet. A rotary valve feeding at its speed\n(PLAN 5.7a, ADR-0006).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
+        "from": {
+          "description": "Upstream end: a bin or a bulk_supply.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Downstream end: a bin, a bulk_discharge or a screw_conveyor.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "To",
+          "type": "string"
+        },
+        "capacity_kg_s": {
+          "default": 2.0,
+          "description": "Rated flow at full speed, kg/s.",
+          "exclusiveMinimum": 0,
+          "title": "Capacity Kg S",
+          "type": "number"
+        },
+        "type": {
+          "const": "rotary_airlock",
+          "title": "Type",
+          "type": "string"
+        },
+        "size": {
+          "default": 0.35,
+          "description": "Its body across, m (drawing only).",
+          "exclusiveMinimum": 0,
+          "title": "Size",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/RotaryAirlockIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "from",
+        "to",
+        "type",
+        "io"
+      ],
+      "title": "RotaryAirlock",
+      "type": "object"
+    },
+    "RotaryAirlockIO": {
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Run command",
+          "title": "Run",
+          "x-io-kind": "DO"
+        },
+        "speed": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AoTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Speed command",
+          "title": "Speed",
+          "x-io-kind": "AO",
+          "x-range": [
+            0.0,
+            100.0
+          ],
+          "x-units": "%"
+        },
+        "running": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Running feedback",
+          "title": "Running",
+          "x-io-kind": "DI"
+        },
+        "plugged": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Plug switch at its outlet",
+          "title": "Plugged",
+          "x-io-kind": "DI"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "RotaryAirlockIO",
+      "type": "object"
+    },
     "SceneMeta": {
       "additionalProperties": false,
       "properties": {
@@ -4435,6 +5254,240 @@
       "title": "SceneryIO",
       "type": "object"
     },
+    "ScrewConveyor": {
+      "additionalProperties": false,
+      "description": "Origin: the centre of the inlet end. A screw conveyor or feeder along local +x, rising\n``incline_deg`` (PLAN 5.7a, ADR-0006): it carries for ``travel_s``.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
+        "from": {
+          "description": "Upstream end: a bin or a bulk_supply.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Downstream end: a bin, a bulk_discharge or a screw_conveyor.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "To",
+          "type": "string"
+        },
+        "capacity_kg_s": {
+          "default": 2.0,
+          "description": "Rated flow at full speed, kg/s.",
+          "exclusiveMinimum": 0,
+          "title": "Capacity Kg S",
+          "type": "number"
+        },
+        "type": {
+          "const": "screw_conveyor",
+          "title": "Type",
+          "type": "string"
+        },
+        "length": {
+          "default": 3.0,
+          "description": "Inlet to outlet, m.",
+          "exclusiveMinimum": 0,
+          "title": "Length",
+          "type": "number"
+        },
+        "diameter": {
+          "default": 0.25,
+          "description": "Trough diameter, m (drawing only).",
+          "exclusiveMinimum": 0,
+          "title": "Diameter",
+          "type": "number"
+        },
+        "incline_deg": {
+          "default": 0.0,
+          "description": "Rise along its length, degrees.",
+          "maximum": 60,
+          "minimum": -45,
+          "title": "Incline Deg",
+          "type": "number"
+        },
+        "travel_s": {
+          "default": 4.0,
+          "description": "Inlet to outlet at full speed, s.",
+          "exclusiveMinimum": 0,
+          "title": "Travel S",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/ScrewConveyorIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "from",
+        "to",
+        "type",
+        "io"
+      ],
+      "title": "ScrewConveyor",
+      "type": "object"
+    },
+    "ScrewConveyorIO": {
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Run command",
+          "title": "Run",
+          "x-io-kind": "DO"
+        },
+        "speed": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_AO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/AoTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Speed command",
+          "title": "Speed",
+          "x-io-kind": "AO",
+          "x-range": [
+            0.0,
+            100.0
+          ],
+          "x-units": "%"
+        },
+        "running": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Running feedback",
+          "title": "Running",
+          "x-io-kind": "DI"
+        },
+        "motion": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Zero-speed switch: on while the screw turns",
+          "title": "Motion",
+          "x-io-kind": "DI"
+        },
+        "plugged": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Plug switch at its outlet",
+          "title": "Plugged",
+          "x-io-kind": "DI"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "ScrewConveyorIO",
+      "type": "object"
+    },
     "SelectorSwitch": {
       "additionalProperties": false,
       "properties": {
@@ -4571,6 +5624,201 @@
         "pos_a"
       ],
       "title": "SelectorSwitchIO",
+      "type": "object"
+    },
+    "SlideGate": {
+      "additionalProperties": false,
+      "description": "Origin: the gate's centre, under its bin's or supply's outlet. A gate that opens while\n``open`` is held, passing its rated flow when fully open (PLAN 5.7a, ADR-0006).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "position": {
+          "description": "Local origin in meters, x along flow, y up.",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "description": "Rotation about the vertical (y) axis, degrees.",
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "mesh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeshSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Custom housing drawn by the viewer (PLAN 2.15); visual only."
+        },
+        "laid_out": {
+          "default": false,
+          "description": "Placed by `openfactory layout` (PLAN 5.5), not from a drawing; `openfactory layout SCENE` moves only these.",
+          "title": "Laid Out",
+          "type": "boolean"
+        },
+        "from": {
+          "description": "Upstream end: a bin or a bulk_supply.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Downstream end: a bin, a bulk_discharge or a screw_conveyor.",
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+          "title": "To",
+          "type": "string"
+        },
+        "capacity_kg_s": {
+          "default": 10.0,
+          "description": "Rated flow fully open, kg/s.",
+          "exclusiveMinimum": 0,
+          "title": "Capacity Kg S",
+          "type": "number"
+        },
+        "type": {
+          "const": "slide_gate",
+          "title": "Type",
+          "type": "string"
+        },
+        "travel_s": {
+          "default": 1.0,
+          "description": "Full open or close time, s.",
+          "exclusiveMinimum": 0,
+          "title": "Travel S",
+          "type": "number"
+        },
+        "size": {
+          "default": 0.35,
+          "description": "Its body across, m (drawing only).",
+          "exclusiveMinimum": 0,
+          "title": "Size",
+          "type": "number"
+        },
+        "io": {
+          "$ref": "#/$defs/SlideGateIO"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "position",
+        "from",
+        "to",
+        "type",
+        "io"
+      ],
+      "title": "SlideGate",
+      "type": "object"
+    },
+    "SlideGateIO": {
+      "additionalProperties": false,
+      "properties": {
+        "open": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DO$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DoTagSpec"
+            }
+          ],
+          "description": "Open command (held; released, it closes)",
+          "title": "Open",
+          "x-io-kind": "DO"
+        },
+        "opened": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Open limit switch",
+          "title": "Opened",
+          "x-io-kind": "DI"
+        },
+        "closed": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Closed limit switch",
+          "title": "Closed",
+          "x-io-kind": "DI"
+        },
+        "plugged": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^[A-Z][A-Z0-9_]*_DI$",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/DiTagSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Plug switch at its outlet",
+          "title": "Plugged",
+          "x-io-kind": "DI"
+        }
+      },
+      "required": [
+        "open"
+      ],
+      "title": "SlideGateIO",
       "type": "object"
     },
     "Stopper": {
@@ -6213,6 +7461,22 @@
       "title": "Composites",
       "type": "array"
     },
+    "materials": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Material"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Bulk materials (PLAN 5.7a, ADR-0006): each a name and a bulk density, kg/m³, named by bins and bulk supplies.",
+      "title": "Materials"
+    },
     "components": {
       "items": {
         "oneOf": [
@@ -6299,6 +7563,24 @@
           },
           {
             "$ref": "#/$defs/VfdMotor"
+          },
+          {
+            "$ref": "#/$defs/Bin"
+          },
+          {
+            "$ref": "#/$defs/BulkSupply"
+          },
+          {
+            "$ref": "#/$defs/BulkDischarge"
+          },
+          {
+            "$ref": "#/$defs/RotaryAirlock"
+          },
+          {
+            "$ref": "#/$defs/ScrewConveyor"
+          },
+          {
+            "$ref": "#/$defs/SlideGate"
           },
           {
             "$ref": "#/$defs/Scenery"

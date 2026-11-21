@@ -48,6 +48,7 @@ from openfactory.core.logic import LogicStage
 from openfactory.core.process_watch import ProcessWatch
 from openfactory.core.schema import CARRIER_TYPES, Scene, load_scene
 from openfactory.core.sizing import resolve_defaults
+from openfactory.core.solidsnet import Network as SolidsNetwork
 from openfactory.core.transforms import TransformStage
 from openfactory.core.world import World
 
@@ -74,6 +75,9 @@ class LoadedScene:
     #: The process flow network (PLAN 3.1, ADR-0005), solved right after the kinematics each
     #: tick; None when no component has flow elements.
     flownet: Network | None = None
+    #: The solids network (PLAN 5.7a, ADR-0006), stepped right after the flow network each
+    #: tick; None when no component is a bulk type.
+    solidsnet: SolidsNetwork | None = None
     #: What the scene's process checks need from every tick (PLAN 3.3); None without them.
     watch: ProcessWatch | None = None
     #: Custom meshes (PLAN 2.15) that resolved to a usable file: component id -> file.
@@ -106,6 +110,8 @@ class LoadedScene:
         self.kinematics.step(dt)
         if self.flownet is not None:
             self.flownet.step(dt)  # with the actuator states from the end of the last tick
+        if self.solidsnet is not None:
+            self.solidsnet.step(dt)  # the same: feeders' commands from the end of the last tick
         if self.logic is not None:
             self.logic.step()  # composite logic: values from the end of the last tick
         for comp in self.components:
@@ -225,6 +231,7 @@ def build(
     if logic is not None:
         logic.prime()
     flownet = build_flownet(components)
+    solidsnet = build_solidsnet(components)
     by_id = {c.id: c for c in components}
     for comp in components:
         bind = getattr(comp, "bind", None)
@@ -241,6 +248,7 @@ def build(
         meshes=meshes,
         logic=logic,
         flownet=flownet,
+        solidsnet=solidsnet,
         watch=ProcessWatch.build(scene.checks, components),
     )
 
@@ -258,6 +266,23 @@ def build_flownet(components: list[Component]) -> Network | None:
         built = getattr(comp, "flow_built", None)
         if built is not None:
             built(by_id)  # a pipe sizes itself from where its ends are
+    return net
+
+
+def build_solidsnet(components: list[Component]) -> SolidsNetwork | None:
+    """The solids network of the bulk components (``solids_nodes()`` and ``solids_links()``,
+    PLAN 5.7a), in scene order; None when there are none, so a scene with no bulk type steps
+    exactly as before."""
+    nodes = [n for c in components for n in getattr(c, "solids_nodes", list)()]
+    links = [lk for c in components for lk in getattr(c, "solids_links", list)()]
+    if not nodes and not links:
+        return None
+    net = SolidsNetwork.build(nodes, links)
+    by_id = {c.id: c for c in components}
+    for comp in components:
+        built = getattr(comp, "solids_built", None)
+        if built is not None:
+            built(by_id)  # a link's chutes from where its ends are
     return net
 
 

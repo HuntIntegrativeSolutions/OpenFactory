@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml
 
 from openfactory import takeoff as tk
-from openfactory.core.schema import COMPONENT_MODELS
+from openfactory.core.schema import BULK_TYPES, COMPONENT_MODELS
 from openfactory.core.snaps import PIPE_PORT_NAMES
 
 REPO = Path(__file__).resolve().parents[2]
@@ -49,7 +49,8 @@ def test_the_worked_example_passes_takeoff_check(tmp_path):
 
 def test_the_type_table_is_the_codes():
     rows = table()
-    assert set(rows) == (set(COMPONENT_MODELS) - {"pipe"}) | {"unknown"}
+    # the bulk types are not in the takeoff or the guide in PLAN 5.7a (the owner's order)
+    assert set(rows) == (set(COMPONENT_MODELS) - {"pipe"} - BULK_TYPES) | {"unknown"}
     for kind, (need, ports, ends) in rows.items():
         if kind == "unknown":
             continue

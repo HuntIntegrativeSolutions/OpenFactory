@@ -19,6 +19,7 @@ import {
   selectorSwitch,
   stopper,
 } from "./devices";
+import { bin, bulkDischarge, bulkSupply, rotaryAirlock, screwConveyor, slideGate } from "./bulk";
 import { drain, heater, junction, pipe, pump, supply, tank, transmitter, valveControl, valveOnoff, vfdMotor } from "./process";
 import type { BuildContext, Builder, ComponentView } from "./types";
 
@@ -51,6 +52,12 @@ export const BUILDERS: Record<string, Builder> = {
   heater,
   transmitter,
   vfd_motor: vfdMotor,
+  bin,
+  bulk_supply: bulkSupply,
+  bulk_discharge: bulkDischarge,
+  rotary_airlock: rotaryAirlock,
+  screw_conveyor: screwConveyor,
+  slide_gate: slideGate,
   scenery,
 };
 
@@ -66,6 +73,8 @@ export function buildComponent(g: ComponentGeometry, ctx: BuildContext): Compone
 const PROCESS_DEPTH: Record<string, number> = {
   tank: 0, supply: 0.3, drain: 0.3, junction: 0, pump: 0.17, valve_onoff: 0, valve_control: 0,
   heater: 0, transmitter: 0, vfd_motor: 0,
+  // bulk solids (PLAN 5.7a): a bin stands on its outlet, a discharge's stub hangs 0.4 m
+  bin: 0, bulk_supply: 0, bulk_discharge: 0.4, rotary_airlock: 0, screw_conveyor: 0, slide_gate: 0,
 };
 
 /**

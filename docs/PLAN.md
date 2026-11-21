@@ -361,6 +361,12 @@ CC-BY GLTF models replace primitives where it helps readability.
 | `heater` | on, power (AO) | temp (AI) | Immersion heater in one tank: rated power times the command while covered, less the tank's UA loss; well mixed. | 3 (3.2) |
 | `transmitter` | — | pv (AI) | Level, temperature, fraction, flow or pressure over its range, with lag, seeded noise, and faults including NE 43 `signal_fail`. | 3 (3.2) |
 | `vfd_motor` | run, speed (AO), reset | running, speed_fb (AI), fault | Drives a pump or a belt/roller conveyor in place of its run and speed; ramps; trips on overload (a pump's shaft power above rating for `trip_s`), reset by edge. | 3 (3.2) |
+| `bin` | — | level (AI), weight (AI), hi_sw, lo_sw | Node of the solids network (ADR-0006): a mass of one material in a cylinder or box over a cone or pyramid; level from the mass, bulk density and shape; weight with tare; full blocks what feeds it; a bridge fault. | 5 (5.7a) |
+| `bulk_supply` | enable (opt) | — | Node of the solids network: material from off the drawing, up to `capacity_kg_s`, never exhausted. | 5 (5.7a) |
+| `bulk_discharge` | — | — | Node of the solids network: material leaving the drawing, up to `demand_kg_s`. | 5 (5.7a) |
+| `rotary_airlock` | run, speed (opt) | running, plugged | Feeder link under a bin: `capacity_kg_s` × speed, the same tick; blocked by a full outlet; trip and plugged-chute faults. | 5 (5.7a) |
+| `screw_conveyor` | run, speed (opt) | running, motion, plugged | Carrying link: plug flow over `travel_s`, holds at most `capacity_kg_s` × `travel_s`; blocked, it keeps its load and takes nothing in. | 5 (5.7a) |
+| `slide_gate` | open | opened, closed, plugged | Feeder link under a bin or supply: opens over `travel_s`, `capacity_kg_s` × opening. | 5 (5.7a) |
 | `scenery` | — | — | A body only: a box of `size` in `color`, or a mesh; no I/O, no physics, parts pass through. The body of the `driven_item` and `variable_item` library composites. | 5 (5.2c) |
 
 #### Milestone 1 behavior as built
@@ -4522,13 +4528,38 @@ trusts it.
       a weigh hopper to a batch weight and discharging through a gate (`slide_gate`, added to
       the ADR); kg and kg/s on every port; the order below. The ADR also gained the
       blocked-feeder rule (decision 3). 5.7 is ticked when 5.7a and 5.7b are both done.
-  - [ ] 5.7a The solids network (`core/solidsnet.py`) and `bin`, `rotary_airlock`,
+  - [x] 5.7a The solids network (`core/solidsnet.py`) and `bin`, `rotary_airlock`,
         `screw_conveyor`, `slide_gate`, `bulk_supply`, `bulk_discharge`; the `materials:`
         block; the bridge, plugged-chute and motor-trip faults; the lint for bulk ends and
         materials; the viewer's fill, load and gate; the checks `never_empty`, `never_full`
         and `batch_within`; the shipped scene `silo-batch-weigh` with its stand-in PLC,
         lockfiles and kit. Takeoff, scaffold, layout and the authoring guide do not learn the
         bulk types in this round.
+        *Done (2026-11-20):* `core/solidsnet.py` (nodes `Bin`, `Supply`, `Discharge`; links
+        `Feeder`, `Carrier`; downstream-first order; the carrying ring and the blocked-feeder
+        rule of ADR-0006 decision 3), stepped in `LoadedScene.step` right after the flow
+        network and built only when a scene has a bulk type. One module per type under
+        `components/` with its docstring spec; `docs/components.md`, "Bulk solids"; §5's
+        table; `materials:` and the three checks in `docs/scene-format.md`; the exported JSON
+        Schema. Faults `bridge`, `plugged`, `trip` in the PLAN 2.6 model. Lint E105 to E109.
+        The takeoff refuses a bulk type (`takeoff check`), and `docs/takeoff.md` and the
+        authoring guide say so. Viewer: `web/src/components/bulk.ts` (a bin's fill as a solid
+        at its level through cone and wall, the screw's load as a ridge of 16 segments, the
+        gate's blade, ISA-101 colours; `bulk.test.ts`); screenshots at empty, part full and
+        full looked at. The scene `silo-batch-weigh` (guide `docs/guides/silo-batch-weigh.md`,
+        stand-in `examples/pyplc/silo-batch-weigh.py`, no OpenPLC program yet): 60 s, 1 batch
+        of 250.09 kg; 300 s, 6 batches of 250.09 kg; the silo never empty, never full.
+        *Tests:* `tests/unit/test_solidsnet.py` (mass balance over 300 s with every link
+        starting, stopping and blocking: worst 1.0e-9 kg of 5,611 kg, 1.8e-13; two runs the
+        same bytes; dead time equals travel time; half speed doubles it; a full bin blocks its
+        feeder; the blocked-feeder rule; no wall clock), `tests/unit/test_bulk_components.py`
+        (each type, the faults, the lint codes, the checks, and the shipped scene's mass
+        balance over 300 s: 3.0e-9 kg of 7,169 kg, 4.2e-13). The network and the components
+        were written before their tests in this round, so those tests did not fail first; the
+        takeoff's refusal and the authoring guide's table were changed with their tests. Every
+        shipped scene records the same bytes at 60 s as before the network was wired in, and
+        every kit is current. Tick time on `silo-batch-weigh`, 60 s three times: 199 µs mean
+        with the bulk network, 121 µs with it not stepped.
   - [ ] 5.7b `bucket_elevator`, `bulk_belt` (with its `rate` belt scale) and the slipping-belt
         fault, to the same ADR.
   - [ ] 5.7c Later (ruling 2): bulk into a liquid tank, a powder dosed into a mix tank as an

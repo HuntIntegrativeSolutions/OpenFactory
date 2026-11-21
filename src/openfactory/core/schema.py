@@ -1397,6 +1397,213 @@ class VfdMotorIO(IOModel):
     fault: DiTag | None = port("DI", "Drive fault (overload trip)")
 
 
+#: A bulk material's name (PLAN 5.7a, ADR-0006 decision 15): lowercase, declared in `materials:`.
+MaterialName = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
+#: A bulk link's end (ADR-0006): a bin, a supply, a discharge, or a screw; no nozzles.
+BulkEnd = Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z0-9_]*(\.[a-z][a-z0-9_]*)?$",
+                                           max_length=80)]  # fmt: skip
+
+
+class Material(StrictModel):
+    """A bulk material (PLAN 5.7a, ADR-0006 decision 15): what a bin holds and a supply gives."""
+
+    name: MaterialName = Field(description="What bins and supplies call it.")
+    bulk_density: PositiveFloat = Field(
+        description="Bulk density, kg/m³: a bin's level and capacity follow from it."
+    )
+    description: str | None = Field(None, description="What it is, for the reader.")
+
+
+class BinIO(IOModel):
+    level: AiTag | None = port("AI", "Level, from the outlet", units="m", range_from="level_span")
+    weight: AiTag | None = port(
+        "AI", "Weight from the load cells (contents and tare)", units="kg",
+        range_from="weight_span",
+    )  # fmt: skip
+    hi_sw: DiTag | None = port("DI", "High level switch (on at hi_level)")
+    lo_sw: DiTag | None = port("DI", "Low level switch (on at lo_level)")
+
+
+class Bin(ComponentBase):
+    """Origin: the centre of the outlet, at the outlet's height. A silo or hopper holding a mass
+    of one material (PLAN 5.7a, ADR-0006): a cylinder or box over a cone or pyramid."""
+
+    type: Literal["bin"]
+    shape: Literal["cylinder", "box"] = Field(
+        "cylinder", description="A cylinder (diameter) or a box (length, width)."
+    )
+    diameter: PositiveFloat = Field(2.0, description="Cylinder diameter, m.")
+    length: PositiveFloat | None = Field(None, description="Box length along local x, m.")
+    width: PositiveFloat | None = Field(None, description="Box width along local z, m.")
+    height: PositiveFloat = Field(3.0, description="Height of the straight wall, m.")
+    cone_height: float = Field(
+        0.0, ge=0, description="Height of the cone or pyramid under the wall, m (0: flat bottom)."
+    )
+    outlet_diameter: PositiveFloat = Field(
+        0.3, description="The outlet across (a cone's round, a pyramid's square), m."
+    )
+    material: MaterialName | None = Field(
+        None, description="What it holds: a name in `materials:` (lint E106 when unset)."
+    )
+    initial_mass_kg: float = Field(0.0, ge=0, description="Mass at start, kg.")
+    tare_kg: float = Field(0.0, ge=0, description="Empty weight on the load cells, kg.")
+    load_cell_kg: PositiveFloat | None = Field(
+        None, description="The weight port's range, kg. Default: full of its material, plus tare."
+    )
+    hi_level: PositiveFloat | None = Field(
+        None, description="Level where hi_sw turns on, m (off 0.02 m lower). Default 90 %."
+    )
+    lo_level: float | None = Field(
+        None, ge=0, description="Level where lo_sw turns on, m (off 0.02 m higher). Default 10 %."
+    )
+    io: BinIO = Field(default_factory=BinIO)
+
+    #: The material's bulk density, kg/m³, set when the scene is validated.
+    _density: float | None = PrivateAttr(default=None)
+
+    @model_validator(mode="after")
+    def _fits(self) -> Bin:
+        if self.shape == "box" and (self.length is None or self.width is None):
+            raise ValueError(f"{self.id}: a box bin needs length and width")
+        if self.shape == "cylinder" and (self.length or self.width):
+            raise ValueError(f"{self.id}: a cylinder bin takes diameter, not length or width")
+        across = min(self.length, self.width) if self.shape == "box" else self.diameter  # type: ignore[type-var]
+        if self.cone_height > 0 and self.outlet_diameter > across:  # type: ignore[operator]
+            raise ValueError(f"{self.id}: outlet_diameter is wider than the bin")
+        if not 0 <= self.low() < self.high() <= self.level_span:
+            raise ValueError(f"{self.id}: needs 0 <= lo_level < hi_level <= cone_height + height")
+        return self
+
+    def shape_of(self) -> Any:
+        from openfactory.core.solidsnet import BinShape
+
+        return BinShape(self.shape, self.diameter, self.length or 0.0, self.width or 0.0,
+                        self.height, self.cone_height, self.outlet_diameter)  # fmt: skip
+
+    @property
+    def level_span(self) -> float:
+        """The level port's range: outlet to the top of the wall, m."""
+        return self.cone_height + self.height
+
+    def capacity_kg(self) -> float:
+        """Full of its material, kg; ValueError when the scene declares no density for it."""
+        if self._density is None:
+            raise ValueError(f"{self.id}: names no declared material, so it has no capacity "
+                             "(lint E106, E107)")  # fmt: skip
+        return self.shape_of().volume() * self._density
+
+    @property
+    def weight_span(self) -> float:
+        """The weight port's range, kg: ``load_cell_kg``, else full plus tare. A bin naming no
+        declared material still loads (lint E106, E107 say why it cannot run): 1 kg."""
+        if self.load_cell_kg is not None:
+            return self.load_cell_kg
+        if self._density is None:
+            return 1.0
+        return self.capacity_kg() + self.tare_kg
+
+    def high(self) -> float:
+        return self.hi_level if self.hi_level is not None else 0.9 * self.level_span
+
+    def low(self) -> float:
+        return self.lo_level if self.lo_level is not None else 0.1 * self.level_span
+
+
+class BulkSupplyIO(IOModel):
+    enable: DoTag | None = port("DO", "Enable (unbound: always enabled)")
+
+
+class BulkSupply(ComponentBase):
+    """Origin: where it gives. Material arriving from off the drawing (PLAN 5.7a, ADR-0006): a
+    truck, a line; a link under it takes what it gives."""
+
+    type: Literal["bulk_supply"]
+    material: MaterialName | None = Field(
+        None, description="What it gives: a name in `materials:` (lint E106 when unset)."
+    )
+    capacity_kg_s: PositiveFloat | None = Field(
+        None, description="Most it gives a second, kg/s. Unset: unlimited."
+    )
+    io: BulkSupplyIO = Field(default_factory=BulkSupplyIO)
+
+
+class BulkDischargeIO(IOModel):
+    """A discharge has no ports."""
+
+
+class BulkDischarge(ComponentBase):
+    """Origin: where it takes. Material leaving the drawing (PLAN 5.7a, ADR-0006): a mixer, a
+    mill, a bagger off the drawing."""
+
+    type: Literal["bulk_discharge"]
+    demand_kg_s: PositiveFloat | None = Field(
+        None, description="Most it takes a second, kg/s. Unset: everything that arrives."
+    )
+    io: BulkDischargeIO = Field(default_factory=BulkDischargeIO)
+
+
+class _BulkLink(ComponentBase):
+    """A link of the solids network (ADR-0006 decision 3)."""
+
+    from_: BulkEnd = Field(alias="from", description="Upstream end: a bin or a bulk_supply.")
+    to: BulkEnd = Field(description="Downstream end: a bin, a bulk_discharge or a screw_conveyor.")
+    capacity_kg_s: PositiveFloat = Field(2.0, description="Rated flow at full speed, kg/s.")
+
+
+class RotaryAirlockIO(IOModel):
+    run: DoTag = port("DO", "Run command", required=True)
+    speed: AoTag | None = port("AO", "Speed command", range=(0.0, 100.0), units="%")
+    running: DiTag | None = port("DI", "Running feedback")
+    plugged: DiTag | None = port("DI", "Plug switch at its outlet")
+
+
+class RotaryAirlock(_BulkLink):
+    """Origin: the valve's centre, under its bin's outlet. A rotary valve feeding at its speed
+    (PLAN 5.7a, ADR-0006)."""
+
+    type: Literal["rotary_airlock"]
+    size: PositiveFloat = Field(0.35, description="Its body across, m (drawing only).")
+    io: RotaryAirlockIO
+
+
+class ScrewConveyorIO(IOModel):
+    run: DoTag = port("DO", "Run command", required=True)
+    speed: AoTag | None = port("AO", "Speed command", range=(0.0, 100.0), units="%")
+    running: DiTag | None = port("DI", "Running feedback")
+    motion: DiTag | None = port("DI", "Zero-speed switch: on while the screw turns")
+    plugged: DiTag | None = port("DI", "Plug switch at its outlet")
+
+
+class ScrewConveyor(_BulkLink):
+    """Origin: the centre of the inlet end. A screw conveyor or feeder along local +x, rising
+    ``incline_deg`` (PLAN 5.7a, ADR-0006): it carries for ``travel_s``."""
+
+    type: Literal["screw_conveyor"]
+    length: PositiveFloat = Field(3.0, description="Inlet to outlet, m.")
+    diameter: PositiveFloat = Field(0.25, description="Trough diameter, m (drawing only).")
+    incline_deg: float = Field(0.0, ge=-45, le=60, description="Rise along its length, degrees.")
+    travel_s: PositiveFloat = Field(4.0, description="Inlet to outlet at full speed, s.")
+    io: ScrewConveyorIO
+
+
+class SlideGateIO(IOModel):
+    open: DoTag = port("DO", "Open command (held; released, it closes)", required=True)
+    opened: DiTag | None = port("DI", "Open limit switch")
+    closed: DiTag | None = port("DI", "Closed limit switch")
+    plugged: DiTag | None = port("DI", "Plug switch at its outlet")
+
+
+class SlideGate(_BulkLink):
+    """Origin: the gate's centre, under its bin's or supply's outlet. A gate that opens while
+    ``open`` is held, passing its rated flow when fully open (PLAN 5.7a, ADR-0006)."""
+
+    type: Literal["slide_gate"]
+    capacity_kg_s: PositiveFloat = Field(10.0, description="Rated flow fully open, kg/s.")
+    travel_s: PositiveFloat = Field(1.0, description="Full open or close time, s.")
+    size: PositiveFloat = Field(0.35, description="Its body across, m (drawing only).")
+    io: SlideGateIO
+
+
 class SceneryIO(IOModel):
     """No ports: scenery has no I/O (PLAN 5.2c)."""
 
@@ -1456,6 +1663,13 @@ PROCESS_TYPES = frozenset(
 )
 #: Process types that are links of the flow network (``from``/``to``).
 LINK_TYPES = frozenset({"pipe", "valve_onoff", "valve_control", "pump"})
+#: Bulk types (PLAN 5.7a, ADR-0006): the solids network, which meets neither the flow network
+#: nor the parts world.
+BULK_TYPES = frozenset(
+    {"bin", "bulk_supply", "bulk_discharge", "rotary_airlock", "screw_conveyor", "slide_gate"}
+)
+#: Bulk types that are links of the solids network (``from``/``to``); the screw carries.
+BULK_LINK_TYPES = frozenset({"rotary_airlock", "screw_conveyor", "slide_gate"})
 
 
 Component = Annotated[
@@ -1487,6 +1701,12 @@ Component = Annotated[
     | Heater
     | Transmitter
     | VfdMotor
+    | Bin
+    | BulkSupply
+    | BulkDischarge
+    | RotaryAirlock
+    | ScrewConveyor
+    | SlideGate
     | Scenery,
     Field(discriminator="type"),
 ]
@@ -1523,6 +1743,12 @@ COMPONENT_MODELS: dict[str, type[ComponentBase]] = {
         Heater,
         Transmitter,
         VfdMotor,
+        Bin,
+        BulkSupply,
+        BulkDischarge,
+        RotaryAirlock,
+        ScrewConveyor,
+        SlideGate,
         Scenery,
     )
 }
@@ -1713,6 +1939,12 @@ SceneComponent = Annotated[
     | Annotated[Heater, Tag("heater")]
     | Annotated[Transmitter, Tag("transmitter")]
     | Annotated[VfdMotor, Tag("vfd_motor")]
+    | Annotated[Bin, Tag("bin")]
+    | Annotated[BulkSupply, Tag("bulk_supply")]
+    | Annotated[BulkDischarge, Tag("bulk_discharge")]
+    | Annotated[RotaryAirlock, Tag("rotary_airlock")]
+    | Annotated[ScrewConveyor, Tag("screw_conveyor")]
+    | Annotated[SlideGate, Tag("slide_gate")]
     | Annotated[Scenery, Tag("scenery")]
     | Annotated[CompositeInstance, Tag("composite")],
     Discriminator(_component_kind),
@@ -1817,6 +2049,13 @@ class TemperatureBand(StrictModel):
         return self
 
 
+class BatchBand(StrictModel):
+    """A batch a bin must make (PLAN 5.7a): its mass when its outflow starts, within a band."""
+
+    target_kg: PositiveFloat = Field(description="The batch weight, kg.")
+    tolerance_kg: PositiveFloat = Field(description="Either side of target_kg, kg.")
+
+
 class Checks(StrictModel):
     """Exercise checks (PLAN 2.11), evaluated by ``openfactory test`` at the end of a run."""
 
@@ -1870,9 +2109,27 @@ class Checks(StrictModel):
         "(PLAN 3.3).",
     )
 
+    never_empty: list[ComponentId] = Field(
+        default_factory=list,
+        description="Bins that are never empty from start to end (PLAN 5.7a, ADR-0006).",
+    )
+    never_full: list[ComponentId] = Field(
+        default_factory=list,
+        description="Bins that never fill to their capacity (PLAN 5.7a, ADR-0006).",
+    )
+    batch_within: dict[ComponentId, BatchBand] = Field(
+        default_factory=dict,
+        description="Bin -> {target_kg, tolerance_kg}: each time a link starts taking from the "
+        "bin its mass is a batch, within tolerance_kg of target_kg; at least one batch in the "
+        "run (PLAN 5.7a, ADR-0006).",
+    )
+
     def watches_process(self) -> bool:
         return bool(
-            self.level_within
+            self.never_empty
+            or self.never_full
+            or self.batch_within
+            or self.level_within
             or self.never_overflow
             or self.never_dry
             or self.max_starts
@@ -1914,6 +2171,11 @@ class Scene(StrictModel):
         description="Component types declared from built-in parts (PLAN 2.16), or loaded by name "
         "from a _library/ folder ({library: name}, PLAN 2.5b); a component whose type names one "
         "is expanded into its parts at load.",
+    )
+    materials: list[Material] | None = Field(
+        None,
+        description="Bulk materials (PLAN 5.7a, ADR-0006): each a name and a bulk density, kg/m³, "
+        "named by bins and bulk supplies.",
     )
     components: list[SceneComponent] = Field(min_length=1)
     connections: list[Connection] = Field(
@@ -2011,6 +2273,26 @@ class Scene(StrictModel):
                                   units_label=binding_units_label(c.binding),
                                   plc_tag=binding_plc_tag(c.binding))  # fmt: skip
             self._computed.setdefault(c.after, []).append(computed)
+        return self
+
+    @model_validator(mode="after")
+    def _materials(self) -> Scene:
+        """Each bin learns its material's bulk density (PLAN 5.7a), and starts within its
+        capacity. A bin naming no declared material is lint's (E106, E107), not a load error."""
+        density: dict[str, float] = {}
+        for m in self.materials or []:
+            if m.name in density:
+                raise ValueError(f"materials: {m.name!r} is declared twice")
+            density[m.name] = m.bulk_density
+        for comp in self.components:
+            if isinstance(comp, Bin) and comp.material in density:
+                comp._density = density[comp.material]
+                full = comp.capacity_kg()
+                if comp.initial_mass_kg > full + 1e-9:
+                    raise ValueError(
+                        f"{comp.id}: initial_mass_kg {comp.initial_mass_kg:g} is more than it "
+                        f"holds full of {comp.material} ({full:.6g} kg)"
+                    )
         return self
 
     @model_validator(mode="after")
@@ -2184,6 +2466,11 @@ class Scene(StrictModel):
                     continue
                 if nozzle:
                     raise ValueError(f"{where}: {name} is a {other.type}, not a tank: no nozzles")
+                if other.type in BULK_TYPES:
+                    raise ValueError(
+                        f"{where}: {name} is a {other.type}, in the solids network (ADR-0006); "
+                        "a liquid link cannot join it"
+                    )
                 if other.type not in PROCESS_TYPES or other.type in ("heater", "transmitter"):
                     raise ValueError(
                         f"{where}: {name} is a {other.type}, not part of the flow network"
@@ -2283,6 +2570,9 @@ class Scene(StrictModel):
             ("max_starts", list(self.checks.max_starts), "pump"),
             ("fractions_within", list(self.checks.fractions_within), "tank"),
             ("temperature_within", list(self.checks.temperature_within), "tank"),
+            ("never_empty", self.checks.never_empty, "bin"),
+            ("never_full", self.checks.never_full, "bin"),
+            ("batch_within", list(self.checks.batch_within), "bin"),
         )
         for key, ids, kind in process:
             for cid in ids:

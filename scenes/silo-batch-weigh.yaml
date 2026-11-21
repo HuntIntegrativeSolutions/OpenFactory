@@ -1,0 +1,115 @@
+# OpenFactory example scene — training and demo use only. Not a safety-rated simulation.
+# PLAN 5.7a, the first bulk-solids scene (ADR-0006): a rotary airlock under a flour silo feeds a
+# screw conveyor that fills a weigh hopper on load cells to a batch weight; a slide gate under
+# the hopper then drops the batch into a mixer. A delivery line refills the silo through a slide
+# gate on its roof. It models no dust, no explosion, no structural load and no safety function.
+# PLC program: examples/pyplc/silo-batch-weigh.py (stand-in script).
+openfactory: "0.1"
+scene:
+  name: silo-batch-weigh
+  description: A silo, its airlock and a screw fill a weigh hopper to a batch weight, then a gate empties it into a mixer.
+  author: HIS Controls
+  seed: 7
+  units: meters
+plc:
+  protocol: modbus_tcp
+checks:                            # PLAN 5.7a: `openfactory test` grades a program against these
+  duration_s: 60
+  batch_within: {WH_01: {target_kg: 250, tolerance_kg: 5}}
+  never_empty: [SILO_01]
+  never_full: [SILO_01]
+materials:
+  - name: flour
+    bulk_density: 550
+    description: Wheat flour, as stored in bulk (aerated flour is lighter, packed heavier).
+components:
+  - id: LN_01
+    type: bulk_supply
+    description: Flour Delivery Line
+    position: [0, 8.4, 0]
+    material: flour
+  - id: SG_01
+    type: slide_gate
+    description: Silo Fill Gate
+    position: [0, 7.9, 0]
+    from: LN_01
+    to: SILO_01
+    capacity_kg_s: 15
+    io:
+      open: SG_01_OPEN_DO
+      opened: SG_01_ZSO_DI
+      closed: SG_01_ZSC_DI
+  - id: SILO_01
+    type: bin
+    description: Flour Storage Silo
+    position: [0, 3.0, 0]
+    diameter: 2.0
+    height: 3.0
+    cone_height: 1.5
+    outlet_diameter: 0.3
+    material: flour
+    initial_mass_kg: 4000
+    tare_kg: 1800
+    load_cell_kg: 10000
+    io:
+      level: SILO_01_LT_AI
+      weight: SILO_01_WT_AI
+      hi_sw: SILO_01_LSH_DI
+      lo_sw: SILO_01_LSL_DI
+  - id: RV_01
+    type: rotary_airlock
+    description: Silo Discharge Rotary Airlock
+    position: [0, 2.65, 0]
+    from: SILO_01
+    to: SC_01
+    capacity_kg_s: 12
+    io:
+      run: RV_01_RUN_DO
+      speed: RV_01_SPD_AO
+      running: RV_01_RUN_DI
+      plugged: RV_01_PLUG_DI
+  - id: SC_01
+    type: screw_conveyor
+    description: Weigh Hopper Feed Screw Conveyor
+    position: [0, 2.3, 0]
+    from: RV_01
+    to: WH_01
+    length: 3.0
+    incline_deg: 10
+    capacity_kg_s: 10
+    travel_s: 5
+    io:
+      run: SC_01_RUN_DO
+      running: SC_01_RUN_DI
+      motion: SC_01_ZSS_DI
+      plugged: SC_01_PLUG_DI
+  - id: WH_01
+    type: bin
+    description: Batch Weigh Hopper
+    position: [2.954, 1.2, 0]
+    diameter: 1.0
+    height: 0.8
+    cone_height: 0.6
+    outlet_diameter: 0.2
+    material: flour
+    tare_kg: 180
+    load_cell_kg: 750
+    io:
+      weight: WH_01_WT_AI
+      hi_sw: WH_01_LSH_DI
+  - id: SG_02
+    type: slide_gate
+    description: Weigh Hopper Discharge Gate
+    position: [2.954, 0.95, 0]
+    from: WH_01
+    to: MX_01
+    capacity_kg_s: 25
+    travel_s: 0.8
+    io:
+      open: SG_02_OPEN_DO
+      opened: SG_02_ZSO_DI
+      closed: SG_02_ZSC_DI
+  - id: MX_01
+    type: bulk_discharge
+    description: Mixer Flour Inlet
+    position: [2.954, 0.4, 0]

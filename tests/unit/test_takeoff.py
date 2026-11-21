@@ -92,6 +92,8 @@ CASES = [  # (row named, sheet named, a fragment of the message, the edit)
     ("IO-2", "IO-001", "duplicate plc_tag 'LV101_CV'", lambda d, r: r.update(plc_tag="LV101_CV")),
     ("EQ-3", "P-009", "ref names sheet P-009", lambda d, r: r["ref"].append({"sheet": "P-009"})),
     ("EQ-3", "L-001", "unknown type 'vat'", lambda d, r: r.update(type="vat")),
+    # PLAN 5.7a: the takeoff does not take the bulk types yet (the owner's order, 2026-11-20)
+    ("EQ-3", "L-001", "bin is a bulk type", lambda d, r: r.update(type="bin")),
     (
         "CN-1",
         "P-001",

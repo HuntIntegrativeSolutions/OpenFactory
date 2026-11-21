@@ -193,6 +193,25 @@ io:
 - Not with `window:`, which makes the binding a DI. A YAML line for now: the editor's form does
   not edit binding options.
 
+## `materials:`: bulk materials (PLAN 5.7a)
+
+A scene with bulk components ([the component reference](components.md), bulk solids;
+[ADR-0006](adr/ADR-0006-bulk-solids-mass-flow.md)) names its materials once, at the top level:
+
+```yaml
+materials:
+  - name: flour            # lower case: what bins and bulk supplies call it
+    bulk_density: 550      # kg/m³, as stored: a bin's capacity and level follow from it
+    description: Wheat flour, as stored in bulk.   # optional
+```
+
+A `bin` and a `bulk_supply` each name one (`material: flour`). A name declared twice does not
+load. A bin or supply naming none is lint error E106, one naming an undeclared material E107,
+and a link carrying one material into a bin of another E109 (a bin holds one material). A bin's
+`initial_mass_kg` above its capacity does not load. Masses are in kg and flows in kg/s on every
+port; a plant's t/h is a scaling in the PLC. A scene with no `materials:` and no bulk component
+runs exactly as before.
+
 ## `checks:`: exercise checks (PLAN 2.11)
 
 A scene may declare what a correct control program achieves. `openfactory test` runs the scene,
@@ -228,6 +247,9 @@ Every key is optional. `--duration` on `test` overrides `duration_s`.
 | `max_reversals` | `{VALVE_OR_PUMP: N}`: its command turns back at most `N` times in the run (wear), **and** it moves at least once. The command is a `valve_control`'s position, a `valve_onoff`'s open command (0 or 100 %) or a running `pump`'s speed setpoint (0 while stopped), on its 0 to 100 % span. A reversal is a turn back by **more than 10 %** of the span from the furthest point the command reached in its last direction; the first move sets a direction and is not one. |
 | `fractions_within` | `{TANK: {fractions: {INGREDIENT: [lo, hi]}, after_s: T}}`: from `T` to the end of the run each named ingredient's share of the tank's volume, in %, stays in its band, the tank is **never empty**, **and** the run reaches `T`. An ingredient is `water` (what a tank starts with) or one a `supply` in the scene delivers, checked at load. |
 | `temperature_within` | `{TANK: {band: [lo, hi], after_s: T}}`: from `T` to the end of the run the tank's temperature, in °C, stays in the band, the tank is **never empty**, **and** the run reaches `T`. |
+| `never_empty` | `[BIN, ...]`: the bin never holds nothing, from start to end (PLAN 5.7a). |
+| `never_full` | `[BIN, ...]`: the bin never fills to its capacity (PLAN 5.7a). |
+| `batch_within` | `{BIN: {target_kg: M, tolerance_kg: T}}`: each time a link starts taking from the bin (after a tick when none took), its mass then is a batch, and **every** batch is within `T` of `M`, **and** there is at least one batch (PLAN 5.7a). |
 
 Two failure rules close the easy passes:
 

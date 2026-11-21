@@ -76,13 +76,15 @@ def test_a_new_component_of_every_type_loads(type_name, tmp_path):
     text, inverses = apply_ops(BASE, [{"op": "add", "component": comp}])
     entry = next(i for i in palette(data, tmp_path) if i["type"] == type_name)
     if entry["needs"] and any(comp[f] == "" for f in entry["needs"]):
-        assert type_name in {"pipe", "pump", "valve_control", "valve_onoff", "vfd_motor"}
+        assert type_name in {"pipe", "pump", "valve_control", "valve_onoff", "vfd_motor",
+                             "rotary_airlock", "screw_conveyor", "slide_gate"}  # fmt: skip
         empty = "|".join(f for f in entry["needs"] if comp[f] == "")
         with pytest.raises(Exception, match=empty):
             loads(text, tmp_path)  # the preview's E100 names the field to fill in
     elif entry["note"]:
-        assert type_name == "junction"
-        with pytest.raises(Exception, match="no link connects"):
+        assert type_name in {"junction", "bin"}
+        why = "no link connects" if type_name == "junction" else "names no declared material"
+        with pytest.raises(Exception, match=why):
             loads(text, tmp_path)
     else:
         loads(text, tmp_path)

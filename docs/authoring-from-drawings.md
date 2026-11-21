@@ -150,6 +150,11 @@ row cannot be placed (the scaffold reports it). Other parameters have defaults a
 out. **I/O ports** are what an `io` row's `port` and `signal` may be. **Line ends** are the ports
 a connection may name on it.
 
+The bulk-solids types of PLAN 5.7a (`bin`, `bulk_supply`, `bulk_discharge`, `rotary_airlock`,
+`screw_conveyor`, `slide_gate`) are not here: the takeoff does not take them yet (`takeoff
+check` refuses them). Give a silo, hopper, airlock, screw or gate `type: unknown` (a stand-in
+carrying its I/O), and ask the person whether to add the bulk item to the scene by hand.
+
 | Type | Use it for | Needs | I/O ports | Line ends |
 |---|---|---|---|---|
 | `belt_conveyor` | a belt conveyor | `length`, `width`, `speed_mps` | `run` DO, `speed` AO, `running` DI, `reverse` DO | |

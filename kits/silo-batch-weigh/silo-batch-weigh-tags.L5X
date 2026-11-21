@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="OpenFactory" TargetType="Controller" ContainsContext="true" Owner="OpenFactory">
+<Controller Use="Context" Name="OpenFactory">
+<Tags>
+<Tag Name="RV_01_PLUG_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Silo Discharge Rotary Airlock — Plug switch at its outlet]]></Description>
+</Tag>
+<Tag Name="RV_01_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Silo Discharge Rotary Airlock — Running feedback]]></Description>
+</Tag>
+<Tag Name="SC_01_PLUG_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Weigh Hopper Feed Screw Conveyor — Plug switch at its outlet]]></Description>
+</Tag>
+<Tag Name="SC_01_RUN_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Weigh Hopper Feed Screw Conveyor — Running feedback]]></Description>
+</Tag>
+<Tag Name="SC_01_ZSS_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Weigh Hopper Feed Screw Conveyor — Zero-speed switch: on while the screw turns]]></Description>
+</Tag>
+<Tag Name="SG_01_ZSC_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Silo Fill Gate — Closed limit switch]]></Description>
+</Tag>
+<Tag Name="SG_01_ZSO_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Silo Fill Gate — Open limit switch]]></Description>
+</Tag>
+<Tag Name="SG_02_ZSC_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Weigh Hopper Discharge Gate — Closed limit switch]]></Description>
+</Tag>
+<Tag Name="SG_02_ZSO_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Weigh Hopper Discharge Gate — Open limit switch]]></Description>
+</Tag>
+<Tag Name="SILO_01_LSH_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Flour Storage Silo — High level switch (on at hi_level)]]></Description>
+</Tag>
+<Tag Name="SILO_01_LSL_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Flour Storage Silo — Low level switch (on at lo_level)]]></Description>
+</Tag>
+<Tag Name="WH_01_LSH_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Batch Weigh Hopper — High level switch (on at hi_level)]]></Description>
+</Tag>
+<Tag Name="SIM_HEARTBEAT_DI" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[OpenFactory simulator heartbeat — 1 Hz square wave in simulated time, changes every 0.5 s; stops changing when the simulation or its protocol server stops]]></Description>
+</Tag>
+<Tag Name="RV_01_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Silo Discharge Rotary Airlock — Run command]]></Description>
+</Tag>
+<Tag Name="SC_01_RUN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Weigh Hopper Feed Screw Conveyor — Run command]]></Description>
+</Tag>
+<Tag Name="SG_01_OPEN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Silo Fill Gate — Open command (held; released, it closes)]]></Description>
+</Tag>
+<Tag Name="SG_02_OPEN_DO" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Weigh Hopper Discharge Gate — Open command (held; released, it closes)]]></Description>
+</Tag>
+<Tag Name="SILO_01_LT_AI" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Flour Storage Silo — Level, from the outlet [0 to 4.5 m]]]></Description>
+</Tag>
+<Tag Name="SILO_01_WT_AI" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Flour Storage Silo — Weight from the load cells (contents and tare) [0 to 10000 kg]]]></Description>
+</Tag>
+<Tag Name="WH_01_WT_AI" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Batch Weigh Hopper — Weight from the load cells (contents and tare) [0 to 750 kg]]]></Description>
+</Tag>
+<Tag Name="RV_01_SPD_AO" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Silo Discharge Rotary Airlock — Speed command [0 to 100 %]]]></Description>
+</Tag>
+</Tags>
+</Controller>
+</RSLogix5000Content>

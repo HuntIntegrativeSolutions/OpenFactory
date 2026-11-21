@@ -58,7 +58,7 @@ import yaml
 from pydantic import AfterValidator, Field, StringConstraints, ValidationError, field_validator
 
 from openfactory.core.geometry import rotate_y
-from openfactory.core.schema import COMPONENT_MODELS, StrictModel, port_specs
+from openfactory.core.schema import BULK_TYPES, COMPONENT_MODELS, StrictModel, port_specs
 
 TAKEOFF_VERSION = "0.1"
 #: The largest takeoff file read, bytes.
@@ -682,6 +682,12 @@ def check(loaded: Loaded) -> list[Finding]:
             warn(e, f"{e.tag} has type unknown: scaffold places a stand-in carrying its I/O")
         elif e.type not in COMPONENT_MODELS:
             err(e, f"unknown type {e.type!r}; write `unknown` for an item with no type yet")
+        elif e.type in BULK_TYPES:
+            err(
+                e,
+                f"{e.type} is a bulk type (PLAN 5.7a), which the takeoff does not take "
+                "yet; write `unknown` (a stand-in) and add the bulk item to the scene by hand",
+            )
         forms = [k for k in ("layout", "mount", "at") if getattr(e, k) is not None]
         if len(forms) > 1:
             err(e, f"more than one position: {', '.join(forms)}; give one")

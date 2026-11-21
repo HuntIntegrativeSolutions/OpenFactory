@@ -157,13 +157,13 @@ export const junction: Builder = (g) => {
  * no status of its own.
  */
 /** A link's drawn points (scene coordinates), or a 1 m stub from its origin without them. */
-function linkPoints(g: Parameters<Builder>[0]): THREE.Vector3[] {
+export function linkPoints(g: Parameters<Builder>[0]): THREE.Vector3[] {
   const raw = Array.isArray(g.points) ? (g.points as number[][]) : [];
   return (raw.length >= 2 ? raw : [g.position, [g.position[0] + 1, g.position[1], g.position[2]]]).map((p) => new THREE.Vector3(p[0], p[1], p[2]));
 }
 
 /** Pipe segments through `points` into `group`, a fitting at each bend. */
-function runs(group: THREE.Group, points: THREE.Vector3[], radius: number): void {
+export function runs(group: THREE.Group, points: THREE.Vector3[], radius: number): void {
   const material = new THREE.MeshStandardMaterial({ color: NEUTRAL.structure, roughness: 0.5, metalness: 0.3 });
   for (let i = 0; i + 1 < points.length; i++) {
     const a = points[i], b = points[i + 1];

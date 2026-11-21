@@ -33,6 +33,14 @@ Process checks (PLAN 3.3, ADR-0005 decision 10), from the run's
   temperature (°C) stays in the band, the tank is never empty, and the run reached T. An empty
   tank fails both: it holds no batch to grade.
 
+Bulk checks (PLAN 5.7a, ADR-0006), from the same watch:
+
+- ``never_empty: [BIN, ...]``: the bin never held nothing, from start to end.
+- ``never_full: [BIN, ...]``: the bin never filled to its capacity.
+- ``batch_within: {BIN: {target_kg: M, tolerance_kg: T}}``: each time a link starts taking from
+  the bin (after a tick when none took), its mass then (before that tick's take) is a batch, and
+  every batch is within T of M; a run with no batch fails.
+
 ``duration_s`` is not a check; it is how long ``openfactory test`` runs.
 
 Live (PLAN 4.1i, 2026-11-13): each result also says whether a failure is ``settled``, that is,
@@ -197,6 +205,33 @@ def _process(checks: Checks, loaded: Any) -> list[CheckResult]:
         name = f"temperature_within {tid}: {tspec.band[0]:g} to {tspec.band[1]:g} °C after "
         name += f"{tspec.after_s:g} s"
         out.append(_recipe(name, watch.temperatures[tid], {"temperature": tspec.band}, "°C"))
+    for bid in checks.never_empty:
+        at = watch.empty_at[bid]
+        detail = (
+            f"empty at {at:.2f} s"
+            if at is not None
+            else f"never empty; least {watch.least[bid]:.1f} kg"
+        )
+        out.append(CheckResult(f"never_empty {bid}", at is None, detail, at is not None))
+    for bid in checks.never_full:
+        at = watch.full_at[bid]
+        detail = (
+            f"full at {at:.2f} s"
+            if at is not None
+            else f"never full; most {watch.most[bid]:.1f} kg"
+        )
+        out.append(CheckResult(f"never_full {bid}", at is None, detail, at is not None))
+    for bid, bspec in checks.batch_within.items():
+        lo, hi = bspec.target_kg - bspec.tolerance_kg, bspec.target_kg + bspec.tolerance_kg
+        made = watch.batches[bid]
+        bad = [m for m in made if not lo - 1e-9 <= m <= hi + 1e-9]
+        name = f"batch_within {bid}: {bspec.target_kg:g} ± {bspec.tolerance_kg:g} kg"
+        if not made:
+            out.append(CheckResult(name, False, "no batch: nothing ever left it"))
+            continue
+        detail = (f"{len(made)} batch{'es' if len(made) != 1 else ''}, {min(made):.2f} to "
+                  f"{max(made):.2f} kg")  # fmt: skip
+        out.append(CheckResult(name, not bad, detail, bool(bad)))
     # PLAN 5.14g: a failed process check's subject is the tank, pump or valve it names
     return [r if r.passed else replace(r, subject=r.name.split()[1].rstrip(":")) for r in out]
 
