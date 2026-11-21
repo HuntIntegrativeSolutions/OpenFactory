@@ -67,6 +67,13 @@ export class EditOps {
     const mark: Path = ["components", String(id), "laid_out"];
     if (top === "components" && key === "laid_out" && op.path.length === 3) this.clearedByMove.delete(String(id));
     this.ops.set(pathKey(op.path), op);
+    if (top === "components" && key !== "position" && op.op === "set" && sameValue(op.value, this.fileValue(op.path))) {
+      // set back to the value the file has (a belt moved and carried back, its devices' turns):
+      // no change (review of 2026-11-20, second set, 1c); a description still goes through the
+      // placeholder bookkeeping below
+      this.ops.delete(pathKey(op.path));
+      if (key !== "description") return;
+    }
     if (top === "components" && key === "position" && this.positionIsFiles(String(id))) {
       // moved back to where the file has it (dragged or typed): no change, and a mark the move
       // cleared returns (review of 2026-11-20, gap 2d)

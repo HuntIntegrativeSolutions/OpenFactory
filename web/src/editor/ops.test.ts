@@ -172,3 +172,57 @@ describe("the laid_out mark, review of 2026-11-20 (gaps 2b and 2d)", () => {
   });
 });
 
+describe("a belt moved and moved back carries nothing into the file (review of 2026-11-20, second set, 1c)", () => {
+  const file: Record<string, Record<string, unknown>> = {
+    CV_201: { position: [0, 0, 2.5], laid_out: true },
+    CYL_201: { position: [2, 0.15, 2.2], rotation_deg: 0, laid_out: true },
+  };
+  const fresh = (): EditOps => {
+    const ops = new EditOps();
+    ops.laidOut = (id) => Boolean(file[id]?.laid_out);
+    ops.fileValue = (path) => file[String(path[1])]?.[String(path[2])];
+    return ops;
+  };
+
+  it("a set back to the value the file has is no change, for any key", () => {
+    const ops = fresh();
+    ops.change({ op: "set", path: ["components", "CYL_201", "rotation_deg"], value: 90 });
+    expect(ops.size).toBe(1);
+    ops.change({ op: "set", path: ["components", "CYL_201", "rotation_deg"], value: 0 });
+    expect(ops.list()).toEqual([]);
+  });
+
+  it("the belt and its carried pusher, moved and carried back, leave no op", () => {
+    const ops = fresh();
+    ops.change({ op: "set", path: ["components", "CV_201", "position"], value: [1, 0, 2.5] });
+    ops.change({ op: "set", path: ["components", "CYL_201", "position"], value: [3, 0.15, 2.2] }, { keepMark: true });
+    ops.change({ op: "set", path: ["components", "CYL_201", "rotation_deg"], value: 0 });
+    ops.change({ op: "set", path: ["components", "CV_201", "position"], value: [0, 0, 2.5] });
+    ops.change({ op: "set", path: ["components", "CYL_201", "position"], value: [2, 0.15, 2.2 + 1e-12] }, { keepMark: true });
+    ops.change({ op: "set", path: ["components", "CYL_201", "rotation_deg"], value: 0 });
+    expect(ops.list()).toEqual([]);
+  });
+});
+
+describe("the set-back rule keeps the rules it sits beside (review of 2026-11-20, second set, 1c)", () => {
+  it("a placeholder description typed back is held again, so nothing saves", () => {
+    const ops = new EditOps();
+    ops.fileValue = (path) => (path[2] === "description" ? "Describe this conveyor" : undefined);
+    ops.holdPlaceholder("CV_9", "Describe this conveyor");
+    ops.change({ op: "set", path: ["components", "CV_9", "description"], value: "Infeed Belt Conveyor" });
+    expect(ops.undescribed.has("CV_9")).toBe(false);
+    ops.change({ op: "set", path: ["components", "CV_9", "description"], value: "Describe this conveyor" });
+    expect(ops.list()).toEqual([]);
+    expect(ops.undescribed.has("CV_9")).toBe(true);
+  });
+
+  it("a mark a move cleared, ticked again, is no change when the file has it", () => {
+    const ops = new EditOps();
+    ops.laidOut = () => true;
+    ops.fileValue = (path) => (path[2] === "laid_out" ? true : path[2] === "position" ? [1, 0, 0] : undefined);
+    ops.change({ op: "set", path: ["components", "TK_1", "position"], value: [4, 0, 0] });
+    expect(ops.list()).toContainEqual({ op: "unset", path: ["components", "TK_1", "laid_out"] });
+    ops.change({ op: "set", path: ["components", "TK_1", "laid_out"], value: true });
+    expect(ops.list()).toEqual([{ op: "set", path: ["components", "TK_1", "position"], value: [4, 0, 0] }]);
+  });
+});

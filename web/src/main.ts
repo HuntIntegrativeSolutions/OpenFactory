@@ -41,7 +41,7 @@ import { dimForeign, foreignFile } from "./editor/dim";
 import { recolorGizmo } from "./editor/gizmo";
 import { SnapMarker } from "./editor/markers";
 import { findSnap, loadPorts, localPort, worldPort, type Snap } from "./editor/snap";
-import { findRail, followersOn, MOUNT_TYPES, railsOf, type RailDrop } from "./editor/mount";
+import { findRail, followersOn, MOUNT_TYPES, railsOf, type Follower, type RailDrop } from "./editor/mount";
 import { placeNew, type Rect } from "./editor/place";
 import { currentToken, rememberToken } from "./guarded";
 import { PartMeshes } from "./parts";
@@ -1401,7 +1401,19 @@ async function startEditor(): Promise<void> {
     controls.update();
   };
   const inView = (id: string) => viewsOf(id).every((v) => boxInView(boundsOf([v.object]), camera, visible()));
+  // PLAN 5.5 (ruled 2026-11-20, rulings 2 and 10): a belt's laid-out devices ride with it,
+  // found on its rails where it is drawn before it moves; every belt is asked, so a device
+  // beside two belts rides only its own (review of 2026-11-20, second set, 1b)
+  const followersOf = (id: string): Follower[] => {
+    const comps = doc?.components ?? [];
+    const moved = comps.find((c) => c.id === id);
+    if (!moved || !railsOf(moved.snaps as never).length) return [];
+    const belts = comps.filter((c) => railsOf(c.snaps as never).length).map((c) => ({ id: c.id, ports: railsOf(c.snaps as never) }));
+    return followersOn({ id: moved.id, ports: railsOf(moved.snaps as never) },
+      comps.map((c) => ({ ...c, ...(panel.componentData(c.id) ?? {}) })) as never, belts);
+  };
   const panel = new EditorPanel({
+    followersOf,
     fitView,
     inView,
     onScene: (next) => applyScene(next).then(highlight),
@@ -1453,11 +1465,7 @@ async function startEditor(): Promise<void> {
     if (!selectedId || !dragStart) return;
     // PLAN 5.5 (ruled 2026-11-20, ruling 2): a belt's laid-out devices ride with it, found on
     // its rails where it stood before the drag
-    const moved = doc?.components.find((c) => c.id === selectedId);
-    const followers = moved && railsOf(moved.snaps as never).length
-      ? followersOn({ id: moved.id, ports: railsOf(moved.snaps as never) },
-          (doc?.components ?? []).map((c) => ({ ...c, ...(panel.componentData(c.id) ?? {}) })) as never)
-      : [];
+    const followers = followersOf(selectedId);
     dragStart = null;
     marker.hide();
     panel.status.snapping = null;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findRail, followersOn, type RailPort } from "./mount";
+import { findRail, followersOn, movesBelt, type RailPort } from "./mount";
 
 /** The rails core/mounts.py publishes for a belt at `origin`, turned `rot` degrees. */
 function belt(id: string, origin: [number, number, number], rot: number, length = 3, width = 0.5) {
@@ -67,3 +67,39 @@ describe("followersOn (PLAN 5.5, ruled 2026-11-20, ruling 2)", () => {
   });
 });
 
+describe("two belts side by side (review of 2026-11-20, second set, 1b)", () => {
+  // 0.5 m belts 0.15 m apart: A's right rail faces B's left rail
+  const a = belt("CV_A", [0, 0, 0], 0);
+  const b = belt("CV_B", [0, 0, 0.65], 0);
+  const devices = [
+    { id: "DV_A", type: "pusher", position: [1.0, 0.125, 0.3] as [number, number, number], rotation_deg: 180, laid_out: true },
+    { id: "DV_B", type: "pusher", position: [2.0, 0.125, 0.35] as [number, number, number], rotation_deg: 0, laid_out: true },
+  ];
+  it("a device follows only the belt whose rail it stands on", () => {
+    expect(followersOn(a, devices, [a, b])).toEqual([{ id: "DV_A", conveyor: "CV_A", rail: "rail_right", along: 1 }]);
+    expect(followersOn(b, devices, [a, b])).toEqual([{ id: "DV_B", conveyor: "CV_B", rail: "rail_left", along: 2 }]);
+  });
+});
+
+describe("a belt moved by typing in the form (review of 2026-11-20, second set, ruling 10)", () => {
+  it("its position, one axis of it, or its rotation carries its devices; other fields do not", () => {
+    expect(movesBelt(["position"])).toBe(true);
+    expect(movesBelt(["position", 0])).toBe(true);
+    expect(movesBelt(["rotation_deg"])).toBe(true);
+    expect(movesBelt(["speed_mps"])).toBe(false);
+    expect(movesBelt(["io", "run"])).toBe(false);
+    expect(movesBelt(["laid_out"])).toBe(false);
+  });
+});
+
+describe("two belts closer than 0.1 m: position alone cannot tell (review of 2026-11-20, second set, 1b)", () => {
+  // a pusher stands 0.30 m from its own belt's centre line; below a 0.10 m gap it is nearer the
+  // other belt's. What would tell them apart: its heading (it faces its own belt) or a mount kept
+  // in the scene. Not built: the order says stop and report.
+  const a = belt("CV_A", [0, 0, 0], 0);
+  const b = belt("CV_B", [0, 0, 0.55], 0); // 0.05 m apart
+  it.fails("a pusher on B's facing rail 0.05 m from A rides A", () => {
+    const devices = [{ id: "DV_B", type: "pusher", position: [2.0, 0.125, 0.25] as [number, number, number], rotation_deg: 0, laid_out: true }];
+    expect(followersOn(a, devices, [a, b])).toEqual([]);
+  });
+});

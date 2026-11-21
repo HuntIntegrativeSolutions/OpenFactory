@@ -25,7 +25,7 @@ import {
 } from "./forms";
 import { readOnlyMessage } from "./dim";
 import { Drafts, valueEditor, watchUnchanged, type CompoundHost } from "./compound";
-import type { Follower } from "./mount";
+import { movesBelt, type Follower } from "./mount";
 import { EditOps } from "./ops";
 import type { Placement } from "./place";
 
@@ -118,6 +118,9 @@ export interface PanelHost {
   foreignFile(id: string): string | null;
   /** The document's `edit` (which file is edited, the plant, its areas' files), PLAN 5.4e. */
   editInfo(): SceneDocument["edit"];
+  /** The laid-out devices standing on belt `id` where it is drawn now, before it moves (PLAN
+   * 5.5, ruled 2026-11-20, rulings 2 and 10); none for anything but a belt. */
+  followersOf(id: string): Follower[];
 }
 
 const TEXT = cssColor("normalText");
@@ -347,8 +350,14 @@ export class EditorPanel {
       }
       const placed = (await res.json()) as { position: [number, number, number]; rotation_deg: number; swing_deg?: number };
       this.ops.change({ op: "set", path: ["components", f.id, "position"], value: placed.position }, { keepMark: true });
-      this.ops.change({ op: "set", path: ["components", f.id, "rotation_deg"], value: placed.rotation_deg });
-      if (placed.swing_deg !== undefined) this.ops.change({ op: "set", path: ["components", f.id, "swing_deg"], value: placed.swing_deg });
+      // a turn or swing it already has is not written (a key the file leaves out stays out)
+      const had = this.componentData(f.id) ?? {};
+      if (Math.abs(placed.rotation_deg - Number(had.rotation_deg ?? 0)) > 1e-9) {
+        this.ops.change({ op: "set", path: ["components", f.id, "rotation_deg"], value: placed.rotation_deg });
+      }
+      if (placed.swing_deg !== undefined && (had.swing_deg === undefined || Math.abs(placed.swing_deg - Number(had.swing_deg)) > 1e-9)) {
+        this.ops.change({ op: "set", path: ["components", f.id, "swing_deg"], value: placed.swing_deg });
+      }
     }
     await this.preview();
     this.status.carried = { conveyor: followers[0].conveyor, ids: followers.map((f) => f.id) }; // last: tests wait on it
@@ -671,8 +680,11 @@ export class EditorPanel {
         this.acknowledge(row);
         return;
       }
+      // a belt moved by typing its position or rotation carries its laid-out devices exactly
+      // as a drag does (review of 2026-11-20, second set, ruling 10)
+      const followers = root[0] === "components" && root.length === 2 && movesBelt(field.path) ? this.host.followersOf(String(root[1])) : [];
       this.ops.change(opFor(root, field, value));
-      void this.preview();
+      void this.preview().then(() => this.carry(followers));
     };
     if (field.key === "mesh" && field.path.length === 1) return this.meshControl(form, comp, field, current);
     if (field.kind === "group") {

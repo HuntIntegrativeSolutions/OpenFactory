@@ -87,12 +87,23 @@ export interface Follower {
 export function followersOn(
   belt: { id: string; ports: (SnapPort | RailPort)[] },
   devices: { id: string; type: string; position: [number, number, number]; laid_out?: unknown; composite?: unknown }[],
+  belts: { id: string; ports: (SnapPort | RailPort)[] }[] = [belt],
 ): Follower[] {
   const out: Follower[] = [];
+  // every belt is asked: a device beside two belts rides the one whose centre line is nearer,
+  // the drop's own rule (two belts side by side, review of 2026-11-20, second set, 1b)
+  const all = belts.some((b) => b.id === belt.id) ? belts : [...belts, belt];
   for (const d of devices) {
     if (d.id === belt.id || !d.laid_out || d.composite || !MOUNT_TYPES.includes(d.type)) continue;
-    const drop = findRail(d.position, [belt], false);
-    if (drop) out.push({ id: d.id, conveyor: belt.id, rail: drop.rail, along: drop.along });
+    const drop = findRail(d.position, all, false);
+    if (drop && drop.conveyor === belt.id) out.push({ id: d.id, conveyor: belt.id, rail: drop.rail, along: drop.along });
   }
   return out;
+}
+
+/** Whether a form edit at `path` (under a component) moves it as a drag does: its position,
+ * one axis of it, or its rotation. A belt so moved carries its laid-out devices (review of
+ * 2026-11-20, second set, ruling 10). */
+export function movesBelt(path: (string | number)[]): boolean {
+  return path[0] === "position" || (path[0] === "rotation_deg" && path.length === 1);
 }

@@ -46,10 +46,20 @@ A move taken back before Save (dragged or typed back to the position the file ha
 change, and the mark stays.
 
 **A laid-out device on a belt moves with its belt in the editor**, as it does in `layout`: drag
-a belt and each laid-out photo eye, sensor, pusher, stopper or arm standing on its rails is
-placed again on the same rail, at the same distance from the infeed, by the same drop rules,
-and keeps its mark (the belt the person moved loses its own). A device the person placed (no
-mark) stays where it is, as before. **A limit:** a laid-out box emitter or part remover at the
+a belt, or type its position or rotation in the form, and each laid-out photo eye, sensor,
+pusher, stopper or arm standing on its rails is placed again on the same rail, at the same
+distance from the infeed, by the same drop rules, and keeps its mark (the belt the person moved
+loses its own). A device the person placed (no mark) stays where it is, as before. A belt moved
+and moved back before Save (dragged or typed back to the position the file has) carries its
+devices back too, and Save then changes no byte.
+
+**Two belts side by side.** A device beside two belts rides the one whose centre line is
+nearer, in the editor and in `layout` alike (`layout` first takes the higher belt). **A limit:**
+a pusher, or a distance sensor looking across, stands 0.05 m outside its belt's edge, so with
+two belts less than 0.10 m apart it is nearer the other belt's centre line and is taken for
+that belt's. Its position cannot tell them apart; its heading (it faces its own belt) or a
+mount kept in the scene would. Keep parallel belts at least 0.10 m apart, or give such a device
+no mark. **A limit:** a laid-out box emitter or part remover at the
 belt's ends is not carried; it stays where it was until `openfactory layout` places it again at
 the belt's new ends, or a person moves it.
 

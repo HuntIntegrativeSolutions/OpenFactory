@@ -4409,6 +4409,26 @@ trusts it.
       changed lines the id line's comment, the position and the mark). Screenshot looked at:
       the belt dragged to x 2.5 with its eye and pusher on it, the emitter left at the old
       infeed (the named limit).
+      *Ruled 2026-11-20 (the owner, second set, ruling 10):* a belt moved by typing its position
+      or rotation in the form carries its laid-out devices exactly as a drag does.
+      *Done (2026-11-20, second set), each test first:* (1a) ruling 10: a form edit of a belt's
+      `position` (whole or one axis) or `rotation_deg` (`web/src/editor/mount.ts` `movesBelt`)
+      finds its followers before the change and carries them after the preview
+      (`mount.test.ts`; `test_typing_a_belts_x_carries_its_laid_out_devices`; both failed
+      before). (1b) two belts 0.15 m apart, a laid-out pusher on each one's facing rail: a
+      device rides only the belt whose centre line is nearer, `followersOn` asking every belt
+      and `core/mounts._belt_under` breaking a tie on height by the nearer centre line, so
+      `layout` keeps each on its own (`tests/unit/test_layout_two_belts.py`, at 0.15 m failed
+      before, at 0.3 m already passed; `mount.test.ts`;
+      `test_dragging_one_of_two_side_by_side_belts_carries_only_its_own_device`, failed
+      before). **A limit, not built (stop and report):** below a 0.10 m gap a pusher or
+      side-looking sensor is nearer the other belt's centre line, so position alone cannot tell;
+      its heading or a mount kept in the scene would (both tests hold it as an expected
+      failure; `docs/layout.md`). (1c) a set back to the value the file has is no change, for
+      any key (`EditOps.change`), and a carry writes no turn or swing a device already has: a
+      belt dragged or typed away and back leaves nothing pending and Save changes no byte
+      (`ops.test.ts`; `test_a_belt_moved_and_moved_back_leaves_the_file_unchanged`, dragged
+      and typed, both failed before). Scene lint unchanged on every shipped scene.
 - [x] 5.6 Review overlay. A top view of the scene drawn over the layout drawing, and a table of
       takeoff rows against scene components, so the checker sees what was missed.
       *Done when:* removing one item from the sample scene shows it in both.

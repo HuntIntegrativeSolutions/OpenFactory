@@ -183,17 +183,20 @@ def place_on_rail(
 
 
 def _belt_under(point: tuple[float, float, float], belts: list[Any]) -> Any | None:
-    best = None
+    """The belt a device at ``point`` stands on: of the belts whose top it is on or just above
+    (within BESIDE_M of an edge), the highest; of two at one height, the one whose centre line is
+    nearer (two belts side by side, a device beside each one's facing rail: review of
+    2026-11-20, second set, 1b)."""
+    best, key = None, None
     for belt in belts:
         lx, _, lz = to_local(tuple(belt.position), belt.rotation_deg, point)
         rise = point[1] - belt.position[1]
         on = -1e-9 <= lx <= belt.length + 1e-9 and abs(lz) <= belt.width / 2 + BESIDE_M + 1e-9
-        if (
-            on
-            and -0.01 <= rise <= ABOVE_M
-            and (best is None or belt.position[1] > best.position[1])
-        ):
-            best = belt
+        if not on or not -0.01 <= rise <= ABOVE_M:
+            continue
+        mine = (-float(belt.position[1]), abs(lz))
+        if key is None or mine < key:
+            best, key = belt, mine
     return best
 
 
