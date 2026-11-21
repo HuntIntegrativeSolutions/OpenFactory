@@ -4490,6 +4490,13 @@ trusts it.
 #### Phase C: equipment found in a plant (order set by 5.0)
 - [ ] 5.7 Bulk solids. ADR first: material as a mass flow, not as parts. Then hopper and silo
       (level, load cell), screw conveyor, bucket elevator, rotary airlock, a belt carrying bulk.
+      *ADR written (2026-11-20), status proposed:* [ADR-0006](adr/ADR-0006-bulk-solids-mass-flow.md),
+      bulk solids as a mass flow in a separate solids network (no heads; feeders in
+      topological order; plug-flow delay on screws, elevators and belts), meeting neither the
+      liquid network nor the parts world in its first types (`bulk_supply`, `bulk_discharge`,
+      `bin`, `rotary_airlock`, `screw_conveyor`, `bucket_elevator`, `bulk_belt`). Document only:
+      no code, no schema change, no type; 5.7 stays unticked until the owner rules on the
+      ADR's nine questions.
 - [ ] 5.8 Air and heat. ADR first: temperature added to the flow network. Then fan or blower,
       damper, heat exchanger, dryer, burner. A simulated burner is a training picture only: no
       burner management, no flame safety, and the scene says so.
