@@ -4513,10 +4513,28 @@ trusts it.
       *ADR written (2026-11-20), status proposed:* [ADR-0006](adr/ADR-0006-bulk-solids-mass-flow.md),
       bulk solids as a mass flow in a separate solids network (no heads; feeders in
       topological order; plug-flow delay on screws, elevators and belts), meeting neither the
-      liquid network nor the parts world in its first types (`bulk_supply`, `bulk_discharge`,
-      `bin`, `rotary_airlock`, `screw_conveyor`, `bucket_elevator`, `bulk_belt`). Document only:
-      no code, no schema change, no type; 5.7 stays unticked until the owner rules on the
-      ADR's nine questions.
+      liquid network nor the parts world in its first types.
+      *Ruled 2026-11-20 (the owner, second set, rulings 1 to 9):* ADR-0006 **accepted** with the
+      answers written in as decisions 11 to 19: one vessel type `bin` with a shape; bulk into a
+      liquid tank later (5.7c); `bulk_belt` its own type with its belt scale; bagging later
+      (5.7d); a scene-level `materials:` block; faults bridge, plugged chute and motor trip,
+      the slipping belt with the elevator; the shipped scene a silo, airlock and screw filling
+      a weigh hopper to a batch weight and discharging through a gate (`slide_gate`, added to
+      the ADR); kg and kg/s on every port; the order below. The ADR also gained the
+      blocked-feeder rule (decision 3). 5.7 is ticked when 5.7a and 5.7b are both done.
+  - [ ] 5.7a The solids network (`core/solidsnet.py`) and `bin`, `rotary_airlock`,
+        `screw_conveyor`, `slide_gate`, `bulk_supply`, `bulk_discharge`; the `materials:`
+        block; the bridge, plugged-chute and motor-trip faults; the lint for bulk ends and
+        materials; the viewer's fill, load and gate; the checks `never_empty`, `never_full`
+        and `batch_within`; the shipped scene `silo-batch-weigh` with its stand-in PLC,
+        lockfiles and kit. Takeoff, scaffold, layout and the authoring guide do not learn the
+        bulk types in this round.
+  - [ ] 5.7b `bucket_elevator`, `bulk_belt` (with its `rate` belt scale) and the slipping-belt
+        fault, to the same ADR.
+  - [ ] 5.7c Later (ruling 2): bulk into a liquid tank, a powder dosed into a mix tank as an
+        ingredient by mass. Not started before the owner orders it.
+  - [ ] 5.7d Later (ruling 4): bagging and any bulk-to-parts type (a bag filler making cartons).
+        Not started before the owner orders it.
 - [ ] 5.8 Air and heat. ADR first: temperature added to the flow network. Then fan or blower,
       damper, heat exchanger, dryer, burner. A simulated burner is a training picture only: no
       burner management, no flame safety, and the scene says so.

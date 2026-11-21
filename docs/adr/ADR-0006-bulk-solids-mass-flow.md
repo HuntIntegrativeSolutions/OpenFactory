@@ -1,10 +1,12 @@
 # ADR-0006: Bulk solids as a mass flow, not as parts
 
-**Status:** Proposed, 2026-11-20. Not ruled; nothing here is built. PLAN 5.7 ("ADR first") waits
-on the owner's answers to the questions at the end.
-**Deciders:** HIS Controls (owner), Claude Opus 5.5 (proposal)
+**Status:** Accepted, 2026-11-20 (the owner's rulings 1 to 9 on the proposal's nine questions,
+written in below as decisions 11 to 19; the gate type and the blocked-feeder rule added on
+acceptance). Built in two rounds: PLAN 5.7a (bin, airlock, screw, gate, supply and discharge) and
+5.7b (bucket elevator, bulk belt, the slipping-belt fault).
+**Deciders:** HIS Controls (owner), Claude Opus 5.5 (proposal and amendment)
 **Applies to:** PLAN 5.7 (bulk solids): hopper and silo (level, load cell), screw conveyor,
-bucket elevator, rotary airlock, a belt carrying bulk.
+bucket elevator, rotary airlock, a belt carrying bulk, and a slide gate under a bin.
 
 OpenFactory is a training and demo tool. **It is not a safety-rated simulation.** A simulated
 silo, hopper or conveyor of bulk material is a picture for training, demos and testing PLC
@@ -25,46 +27,76 @@ neither fits:
 - **The flow network** (ADR-0005): an incompressible liquid moved by heads, solved each tick.
   Bulk solids are not moved by a head. Out of a hopper the mass flow through an outlet does not
   depend on the height of material above it (Beverloo, Leniger and van de Velde, "The flow of
-  granular solids through orifices", *Chemical Engineering Science* 15, 1961, pp. 260 to 268),
+  granular solids through orifices", *Chemical Engineering Science* 15 (3-4), 1961, pp. 260 to
+  269, doi:10.1016/0009-2509(61)85030-6; pages as the publisher's Crossref record gives them,
+  read 2026-11-20),
   unlike a liquid's, and in a screw, an airlock or on a belt the flow is set by the machine's
   speed and its fill, not by a pressure difference.
 
-## Decision (proposed)
+## Decision
 
 1. **The model: mass, not parts.** Bulk material is a quantity, never an object. Each vessel
    holds a mass of material (kg); each feeder moves a mass flow (kg/s). Mass is the conserved
    quantity, because load cells read mass and PLCs batch by weight; volume and level follow
    from it through the material's **bulk density** (kg/m³).
 2. **Materials.** A scene names its materials once (`materials:`, each a name and a bulk density;
-   the angle of repose only for drawing the heap). A vessel holds one material, or a well-mixed
-   blend by mass fractions, as a tank holds ingredients by volume today (ADR-0005, decision 8).
+   decision 15). A vessel holds one material. Blends (mass fractions, as a tank holds
+   ingredients by volume, ADR-0005 decision 8) wait for a scene that needs one: in 5.7a a
+   supply, and every bin its links lead to, name the same material, and lint refuses a link that
+   would carry one material into a bin of another.
 3. **A separate solids network.** Vessels and their sources and sinks are nodes; feeders are
-   directed links from a vessel's outlet to the next vessel or feeder. There is no head and no
-   iteration: each tick, links are taken in topological order of the network (ties in the
-   scene's order) and each moves
+   directed links from a node's outlet, or from a carrying link's outlet, to the next node or
+   carrying link. An airlock or a gate sits under a node: its `from` is a bin or a supply. There
+   is no head and no iteration. Each tick the links are taken **downstream first** (the reverse
+   of the network's topological order, ties in the scene's order), so a link that empties a bin
+   has done so before the link that fills it asks for room, and material moves at most one link
+   a tick. The network steps right after the liquid network in each tick, with the feeders'
+   commands from the end of the last tick, as the liquid network does (ADR-0005, tick order).
+   Each link moves
 
-   `min(capacity × speed fraction, mass available upstream this tick, room downstream)`
+   `min(capacity × speed fraction × dt, mass available upstream, room downstream)`
 
-   where `capacity` is the link's rated mass flow at full speed and full fill. A link into a
-   full vessel moves nothing (the feeder is blocked); a vessel never holds more than its volume
-   × bulk density. A loop (recirculation) is broken by taking its back link one tick late, so
-   the order is fixed and the result deterministic (PLAN §3.2). Mass balances exactly each
-   tick, as the flow network's volume does.
-4. **Transport delay.** A screw, an elevator and a belt carry material for a time: length over
-   speed. Each keeps a ring of the mass that entered it per tick and delivers each slot when it
-   has travelled (plug flow). Stopping the feeder stops the ring; restarting delivers what was
-   on it. An airlock delivers in the tick it turns. This gives a PLC the dead time real
+   where `capacity` is the link's rated mass flow at full speed and full fill. Available
+   upstream is a bin's mass (none while it is bridged), or a supply's capacity × dt (unlimited
+   when unset). Room downstream is a bin's volume × bulk density less its mass, a discharge's
+   demand × dt less what it took this tick (unlimited when unset), or a carrying link's room at
+   its inlet (see the blocked-feeder rule). A link into a full vessel moves nothing; a vessel
+   never holds more than its volume × bulk density. A loop is broken by taking the link that
+   closes it as the most upstream, so the order is fixed and the result deterministic (PLAN
+   §3.2). Mass balances every tick, to float rounding: the sum of every bin and every carrying
+   link's load changes by what the supplies delivered less what the discharges took.
+
+   **The blocked-feeder rule** (added on acceptance). A carrying link (a screw; in 5.7b an
+   elevator and a bulk belt) is a ring of `N = round(travel_s / dt)` slots from its inlet to its
+   outlet, and **a slot holds at most `capacity × dt`**, what enters in one tick at full speed
+   and full fill; so **the link holds at most `capacity × travel_s`**. Running at speed fraction
+   `s`, it advances by `s` slots a tick (whole slots, the fraction carried to the next tick). To
+   advance, the slot at its outlet must leave in full: it goes to the link's `to`, up to the room
+   there. **If the outlet has no room for all of it, the link is blocked:** what it delivered is
+   gone, the rest of that slot stays, the ring does not advance, and it takes nothing in that
+   tick; its mass stays on it, never dropped and never lost, until the room returns. Its inlet
+   slot takes in up to its free room, whether it is running or not: so **a stopped or blocked
+   link under a running one is never overfilled**: its inlet fills to one slot's worth, and
+   then the link feeding it is blocked in its turn. An airlock or a gate carries nothing; what
+   it moves arrives in the same tick, limited by the same room.
+
+4. **Transport delay.** A screw, an elevator and a belt carry material for a time: `travel_s`
+   at full speed (`travel_s / s` at speed fraction `s`). The ring of decision 3 delivers each
+   slot when it has travelled (plug flow): mass entering in one tick leaves `N` ticks later at
+   full speed. Stopping the feeder stops the ring; restarting delivers what was on it. An
+   airlock and a gate deliver in the tick they move it. This gives a PLC the dead time real
    conveyors have, which a level loop or a batch cut-off must allow for.
 5. **Levels.** A vessel's level is the height of its contents from the volume (mass / bulk
    density) through its shape: a cylinder or box over a cone or wedge (a frustum's volume).
    The surface is drawn and measured flat; the heap's slope and a hopper's rat-hole are not
    geometry (see 9).
-6. **Where it meets the flow network: nowhere, in the first types.** A vessel is a liquid tank or
-   a bulk vessel, never both; no link joins the two networks. Dosing a powder into a liquid
-   tank is a question for the owner (Q2).
-7. **Where it meets the parts world: nowhere, in the first types.** A belt carrying bulk is its
-   own type, not a `belt_conveyor` with parts, so the kinematic model and its parity with the
-   browser physics (PLAN 2.9) are untouched. Bagging (bulk into parts) is a question (Q4).
+6. **Where it meets the flow network: nowhere, in 5.7.** A vessel is a liquid tank or a bulk
+   vessel, never both; no link joins the two networks, and lint refuses a bulk end that names a
+   liquid component or a liquid end that names a bulk one (decision 12).
+7. **Where it meets the parts world: nowhere, in 5.7.** A belt carrying bulk is its own type,
+   not a `belt_conveyor` with parts (decision 13), so the kinematic model and its parity with
+   the browser physics (PLAN 2.9) are untouched. Bagging and any bulk-to-parts type are out of
+   5.7 (decision 14).
 8. **The viewer** draws contents, not grains: a vessel's fill as a solid of its level, a belt's
    or screw's load as a ridge whose height follows the mass in each slot of its ring. No
    particles in the browser, no physics there; the core is authoritative, as for liquids.
@@ -73,13 +105,42 @@ neither fits:
    bridging fault, the heap's shape, pneumatic conveying (pressures, dilute and dense phase),
    temperature (that is 5.8's), dust, explosion and its protection, and structural loads on a
    silo. A load cell reads the contents' mass plus a tare, with no dynamics of the structure.
-10. **Faults** (the PLAN 2.6 fault model): a **bridge** in a vessel (its outlet delivers nothing
-    while it holds mass, until cleared), a **plugged chute** (a link's downstream end blocked:
-    it stops, and its plug switch reads true), a **motor trip** (as `vfd_motor`), a **slipping
-    elevator belt** (running feedback true, zero-speed switch false). Each is training, not a
-    model of the failure.
+10. **Faults** (the PLAN 2.6 fault model, new kinds `bridge`, `plugged` and `trip`): a **bridge**
+    in a bin (its outlet delivers nothing while it holds mass, until cleared), a **plugged
+    chute** (a link's outlet takes nothing: the link is blocked by the rule of decision 3, and
+    its `plugged` switch reads true), a **motor trip** (the airlock's or screw's motor stops at
+    once and its `running` feedback goes false while `run` is still on, until the fault is
+    cleared). The **slipping elevator belt** (running feedback true, zero-speed switch false)
+    comes with the elevator in 5.7b (decision 16). Each is training, not a model of the failure.
 
-### The first types and their ports (proposed)
+### The owner's rulings (2026-11-20), as decisions
+
+11. **One vessel type, `bin`,** with a `shape`: a silo and a hopper are both bins, differing only
+    in size and shape. There are no `hopper` or `silo` types.
+12. **Bulk into a liquid tank is not in 5.7.** It is a later PLAN task (5.7c); until then no
+    link joins the two networks (decision 6).
+13. **A belt carrying bulk is its own type, `bulk_belt`,** with its belt scale (`rate` AI, kg/s).
+    It comes in 5.7b.
+14. **Bagging and any bulk-to-parts type are out of 5.7.** A later PLAN task (5.7d).
+15. **Materials** are a scene-level `materials:` block: each a `name` and a `bulk_density`
+    (kg/m³). A bin and a supply name one. The angle of repose of the proposal is not in the
+    first block; the viewer draws the surface flat (decision 5).
+16. **Faults in 5.7:** bridge, plugged chute and motor trip (5.7a). The slipping belt comes with
+    the elevator (5.7b).
+17. **The shipped scene** is a silo, its airlock and a screw filling a weigh hopper to a batch
+    weight, then discharging it through a gate; its checks are the batch mass within a tolerance
+    and the silo never empty and never full. For it the ADR gains a gate under a bin, the
+    `slide_gate` (see the table).
+18. **Units: kg and kg/s on every port.** A plant's t/h is a scaling on the transmitter or in the
+    PLC, not a unit of the simulation. (`transmitter` reads level, temperature, fraction, flow or
+    pressure of the liquid network today and has no gain of its own: it cannot read a bin or
+    scale kg/s to t/h, and no binding transform scales a value either; the PLC scales, from the
+    engineering value or from the raw counts over the binding's `range`. A bulk `transmitter`
+    measure, and a scaling on it, are not part of 5.7a.)
+19. **Order:** bin, airlock, screw, gate, supply and discharge in 5.7a; the elevator and the bulk
+    belt in 5.7b. PLAN 5.7 stays unticked until both are done.
+
+### The types and their ports
 
 Names follow the existing types' style. `capacity_kg_s` is the rated mass flow at 100 % speed.
 I/O kinds as in the component reference: DO and AO written by the PLC, DI and AI read by it.
@@ -88,15 +149,17 @@ I/O kinds as in the component reference: DO and AO written by the PLC, DI and AI
 |---|---|---|---|---|
 | `bulk_supply` | material arriving from off the drawing (a truck, a line) | `material`, `capacity_kg_s` (unlimited when unset) | `enable` DO | `outlet` |
 | `bulk_discharge` | material leaving the drawing (a mill, a bagger) | `demand_kg_s` (takes all when unset) | | `inlet` |
-| `bin` | a silo or hopper: a cylinder or box over a cone or wedge | `shape`, `diameter` or `length` and `width`, `height` (straight wall), `cone_height`, `outlet_diameter`, `material`, `initial_mass_kg`, `tare_kg`, `hi_level`, `lo_level` | `level` AI (m), `weight` AI (kg, from load cells), `hi_sw` DI, `lo_sw` DI | `inlet`, `outlet` |
-| `rotary_airlock` | a rotary valve under a bin's outlet | `capacity_kg_s`, `from`, `to` | `run` DO, `speed` AO, `running` DI | `inlet`, `outlet` |
-| `screw_conveyor` | a screw feeder or conveyor | `length`, `incline_deg`, `capacity_kg_s`, `travel_s` (or from `length` and a speed), `from`, `to` | `run` DO, `speed` AO, `running` DI, `motion` DI (zero-speed switch) | `inlet`, `outlet` |
+| `bin` | a silo or hopper: a cylinder or box over a cone or pyramid | `shape`, `diameter` or `length` and `width`, `height` (straight wall), `cone_height`, `outlet_diameter`, `material`, `initial_mass_kg`, `tare_kg`, `hi_level`, `lo_level` | `level` AI (m), `weight` AI (kg, from load cells), `hi_sw` DI, `lo_sw` DI | `inlet`, `outlet` |
+| `rotary_airlock` | a rotary valve under a bin's outlet | `capacity_kg_s`, `from`, `to` | `run` DO, `speed` AO, `running` DI, `plugged` DI | `inlet`, `outlet` |
+| `screw_conveyor` | a screw feeder or conveyor | `length`, `incline_deg`, `capacity_kg_s`, `travel_s`, `from`, `to` | `run` DO, `speed` AO, `running` DI, `motion` DI (zero-speed switch), `plugged` DI | `inlet`, `outlet` |
 | `bucket_elevator` | a bucket elevator | `height`, `capacity_kg_s`, `travel_s`, `from`, `to` | `run` DO, `running` DI, `motion` DI, `plugged` DI | `inlet`, `outlet` |
 | `bulk_belt` | a belt conveyor carrying bulk | `length`, `width`, `speed_mps`, `capacity_kg_s`, `from`, `to` | `run` DO, `speed` AO, `running` DI, `rate` AI (kg/s, a belt scale, optional) | `inlet`, `outlet` |
+| `slide_gate` | a gate under a bin's or supply's outlet: open or closed, a rated flow when open | `capacity_kg_s`, `travel_s`, `from`, `to` | `open` DO (held), `opened` DI, `closed` DI, `plugged` DI | `inlet`, `outlet` |
 
-`hopper` and `silo` in PLAN 5.7 are both `bin` here, differing only in size and shape; whether
-they should be two types is Q1. A `transmitter` may read `<BIN>.level` and `<BIN>.weight` and a
-link's `<LINK>.rate`, as it reads a tank's level and a pump's flow today. Each type, when built,
+A `bin`'s level and weight are its own AI ports (decision 18: no `transmitter` reads a bin in
+5.7a). The `bucket_elevator` and `bulk_belt` rows are 5.7b's. Every `plugged` port is optional;
+it reads true while the link is blocked (decision 3), by a full outlet or a `plugged` fault.
+Each type, when built,
 has the usual Done-when (PLAN 5.7 to 5.11): a unit test, a docstring spec, a section in
 [the component reference](../components.md), and a shipped scene that passes its checks at 60 s and 300 s.
 
@@ -129,27 +192,14 @@ has the usual Done-when (PLAN 5.7 to 5.11): a unit test, a docstring spec, a sec
 - The takeoff (5.1) can name the new types, and the authoring guide's type table grows with
   them; `openfactory layout` (5.5) needs a rule for where a bin and its feeders go (a vertical
   stack: bin, airlock under it, screw from there).
-- Checks would gain bulk forms of the existing ones (a bin's level within limits, never full,
-  never empty; a batch's mass within a tolerance), to be designed with 5.7.
+- Checks gain bulk forms of the existing ones (5.7a): `never_empty` and `never_full` (bins), and
+  `batch_within` (a bin's mass each time a link starts taking from it, within a tolerance of a
+  target, with at least one such batch in the run). Each follows the existing no-easy-pass
+  rules.
+- Takeoff, scaffold, layout and the authoring guide do not learn the bulk types in 5.7a.
 
-## Questions for the owner
+## Questions answered
 
-1. **One vessel type or two?** `bin` with a shape (this proposal) for both hopper and silo, or
-   separate `hopper` and `silo` types as PLAN 5.7 names them?
-2. **Bulk into a liquid tank:** may a bulk link end on a liquid `tank`, adding its mass as an
-   ingredient (a powder dosed into a mix tank), in 5.7 or later?
-3. **A belt carrying bulk:** a new type `bulk_belt` (this proposal), or a mode of
-   `belt_conveyor`? And is its belt scale (`rate` AI) part of 5.7?
-4. **Bagging and packing** (bulk into parts, a bag filler making cartons): out of 5.7, or one
-   bridging type in it?
-5. **Materials:** a scene-level `materials:` block with bulk density (this proposal), or the
-   density given on each bin and supply?
-6. **Faults:** which of bridge, plugged chute, motor trip and slipping elevator belt are in 5.7,
-   and which wait?
-7. **The shipped scene** that 5.7's Done-when needs: is "a silo, its airlock and screw filling a
-   weigh hopper to a batch weight, then discharging" the right one, with checks on the batch
-   mass and the silo's level?
-8. **Units on the I/O:** kg and kg/s throughout (this proposal), or t and t/h on the analog
-   ranges where plants usually print them?
-9. **The order of the types:** bin, airlock and screw first (one scene can use all three), then
-   the elevator and the bulk belt?
+The proposal's nine questions were answered by the owner on 2026-11-20 (decisions 11 to 19).
+Two later tasks come from them: bulk into a liquid tank (PLAN 5.7c) and bagging, bulk into parts
+(PLAN 5.7d).
