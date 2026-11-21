@@ -4547,7 +4547,8 @@ trusts it.
         at its level through cone and wall, the screw's load as a ridge of 16 segments, the
         gate's blade, ISA-101 colours; `bulk.test.ts`); screenshots at empty, part full and
         full looked at. The scene `silo-batch-weigh` (guide `docs/guides/silo-batch-weigh.md`,
-        stand-in `examples/pyplc/silo-batch-weigh.py`, no OpenPLC program yet): 60 s, 1 batch
+        stand-in `examples/pyplc/silo-batch-weigh.py`, OpenPLC program
+        `examples/openplc/silo-batch-weigh.st`, not yet run under OpenPLC): 60 s, 1 batch
         of 250.09 kg; 300 s, 6 batches of 250.09 kg; the silo never empty, never full.
         *Tests:* `tests/unit/test_solidsnet.py` (mass balance over 300 s with every link
         starting, stopping and blocking: worst 1.0e-9 kg of 5,611 kg, 1.8e-13; two runs the

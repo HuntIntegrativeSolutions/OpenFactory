@@ -10,6 +10,7 @@ rebuild them. OpenFactory is a training and demo tool, not a safety-rated simula
 | `silo-batch-weigh.yaml` | the scene (copied from `scenes/`) |
 | `silo-batch-weigh.float32.modbus.yaml` | Modbus address lockfile, float32 analogs (ADR-0004) |
 | `silo-batch-weigh.int16_scaled.modbus.yaml` | Modbus address lockfile, int16_scaled (OpenPLC) |
+| `silo-batch-weigh.st` | OpenPLC program (copied from `examples/openplc/`) |
 | `silo-batch-weigh.py` | stand-in PLC script (copied from `examples/pyplc/`) |
 | `silo-batch-weigh.CONTEXT.md` | tags, addresses, components, faults, checks and commands for an assistant (PLAN 2.19) |
 | `silo-batch-weigh-io.csv` | I/O list, float32 Modbus addresses |
@@ -26,3 +27,6 @@ uv run openfactory run kits/silo-batch-weigh/silo-batch-weigh.yaml --script kits
 uv run openfactory replay kits/silo-batch-weigh/silo-batch-weigh.ofrec      # no scene or PLC needed
 uv run openfactory run kits/silo-batch-weigh/silo-batch-weigh.yaml --opcua  # Ignition: docs/ignition.md
 ```
+
+With OpenPLC, load `silo-batch-weigh.st` and configure its Slave Device from
+`silo-batch-weigh-io-int16.csv` (docs/guides/openplc-quickstart.md).

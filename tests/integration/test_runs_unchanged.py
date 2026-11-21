@@ -34,7 +34,7 @@ build_kit = run_reference.build_kit
 def test_every_scene_is_held_by_a_kit_or_a_reference():
     kits, refs = set(build_kit.kit_names()), set(run_reference.reference_names())
     scenes = set(run_reference.shipped())
-    assert len(scenes) == 15  # 12 scenes, 2 examples, 1 plant (PLAN 5.4d)
+    assert len(scenes) == 16  # 13 scenes, 2 examples, 1 plant (PLAN 5.4d; 5.7a's silo)
     assert scenes - kits - refs == set(), "a scene no kit or reference holds"
     assert kits & refs == set(), "a scene held twice: drop its reference, the kit holds it"
     assert (kits | refs) - scenes == set(), "a kit or reference with no scene"

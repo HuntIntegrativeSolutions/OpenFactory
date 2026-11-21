@@ -62,7 +62,9 @@ is a scaling in the PLC.
 
 ## Sequence
 
-The stand-in PLC (`examples/pyplc/silo-batch-weigh.py`). This scene has no OpenPLC program yet.
+The stand-in PLC (`examples/pyplc/silo-batch-weigh.py`), and the OpenPLC program
+`examples/openplc/silo-batch-weigh.st`, a port of it with the same tags (scaling the raw counts
+of the `int16_scaled` lockfile).
 
 1. **Silo refill**, on its own: the fill gate opens when the silo's net weight falls below
    3,500 kg and closes above 4,500 kg.
@@ -84,8 +86,10 @@ uv run openfactory run scenes/silo-batch-weigh.yaml --script examples/pyplc/silo
 uv run openfactory test scenes/silo-batch-weigh.yaml --script examples/pyplc/silo-batch-weigh.py
 ```
 
-Any Modbus TCP PLC can run it from the exported I/O list (the commands are in the
-[guides index](README.md)).
+With OpenPLC, follow [the quickstart](openplc-quickstart.md) for the container, then export
+with `--analog-encoding int16_scaled`, configure with `examples/openplc/silo-batch-weigh.st`,
+and run with `--bind 0.0.0.0 --analog-encoding int16_scaled` (the commands are in the
+[guides index](README.md)). The program has not yet been run under OpenPLC.
 
 ## Expected result
 

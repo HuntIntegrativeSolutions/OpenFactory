@@ -34,6 +34,7 @@ EXPECTED: dict[str, dict[str, dict[str, int]]] = {
     "batch-mix-heat": {},
     "plantpax-tank-level": {},
     "inline-reject": {"REM_01": {"oversize": 2}, "REM_02": {"good": 14}},
+    "silo-batch-weigh": {},  # bulk solids (PLAN 5.7a): no parts; its checks: are the result
 }
 #: The sorter's guide is the OpenPLC quickstart (PLAN 1.14).
 GUIDES = {"sorting-by-height": "openplc-quickstart.md"}
